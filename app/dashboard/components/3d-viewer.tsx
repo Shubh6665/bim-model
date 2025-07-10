@@ -281,8 +281,8 @@ function MockBIMViewer({ fileName }: { fileName: string }) {
 }
 
 export function ThreeDViewer({
-  modelUrl,
-  hasProject,
+  modelUrl: initialModelUrl,
+  hasProject: initialHasProject,
   onResetView,
   selectedFile,
 }: ThreeDViewerProps) {
@@ -291,6 +291,8 @@ export function ThreeDViewer({
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [showMockViewer, setShowMockViewer] = useState(false);
+  const [modelUrl, setModelUrl] = useState<string | undefined>(initialModelUrl);
+  const [hasProject, setHasProject] = useState(initialHasProject);
 
   // Check if selected file is RVT
   React.useEffect(() => {
@@ -320,9 +322,28 @@ export function ThreeDViewer({
   const handleConversionComplete = (result: ConversionResult) => {
     console.log("Conversion completed:", result);
     setShowRVTInterface(false);
-    // Here you would load the converted file
-    // For now, we'll show the mock viewer
-    setShowMockViewer(true);
+
+    if (result.success && result.fileUrl) {
+      // Load the converted file in the 3D viewer
+      if (result.format === "gltf" || result.format === "glb") {
+        // For GLTF/GLB files, load directly in Three.js
+        setModelUrl(result.fileUrl);
+        setHasProject(true);
+        setShowMockViewer(false); // Hide mock viewer when we have a real model
+      } else if (result.format === "ifc") {
+        // For IFC files, we'll need IFC.js integration
+        setModelUrl(result.fileUrl);
+        setHasProject(true);
+        setShowMockViewer(false);
+      } else {
+        // For other formats, show mock viewer for now
+        setShowMockViewer(true);
+      }
+    } else {
+      // Show error or fallback to mock viewer
+      console.error("Conversion failed:", result.error);
+      setShowMockViewer(true);
+    }
   };
 
   const handleCloseConversion = () => {
