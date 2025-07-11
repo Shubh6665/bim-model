@@ -12,7 +12,7 @@ import {
   Download,
   Eye,
   Trash2,
-  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
 
 interface ProjectFile {
@@ -88,6 +88,33 @@ export function ProjectPanel({
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getFileIcon = (file: ProjectFile) => {
+    if (file.isRVT) {
+      return (
+        <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
+          <FileText className="w-4 h-4 text-white" />
+        </div>
+      );
+    }
+    return (
+      <div className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center">
+        <File className="w-4 h-4 text-gray-300" />
+      </div>
+    );
+  };
+
+  const getFileStatus = (file: ProjectFile) => {
+    if (file.isRVT) {
+      return (
+        <div className="flex items-center text-xs text-orange-400">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          <span>Ready for Forge</span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col">
       {/* Header */}
@@ -136,28 +163,12 @@ export function ProjectPanel({
               }`}
             >
               <div className="flex-shrink-0 mr-3">
-                {file.isRVT ? (
-                  <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-white" />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center">
-                    <File className="w-4 h-4 text-gray-300" />
-                  </div>
-                )}
+                {getFileIcon(file)}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center">
                   <p className="text-sm font-medium truncate">{file.name}</p>
-                  {file.isRVT && (
-                    <div className="relative">
-                      <AlertCircle className="w-3 h-3 text-orange-400 ml-1 flex-shrink-0" />
-                      <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        RVT file requires conversion
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center text-xs opacity-75">
                   <span className="bg-gray-600 px-1.5 py-0.5 rounded text-xs mr-2">
@@ -167,6 +178,7 @@ export function ProjectPanel({
                   <span className="mx-1">•</span>
                   <span>{file.modified}</span>
                 </div>
+                {getFileStatus(file)}
               </div>
 
               <div className="flex items-center ml-2">
@@ -215,14 +227,13 @@ export function ProjectPanel({
               {selectedFile.modified}
             </div>
             {selectedFile.isRVT && (
-              <div className="mt-3 p-2 bg-orange-900/30 border border-orange-600/30 rounded">
-                <div className="flex items-center text-orange-300 text-xs">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  <span className="font-medium">RVT File Notice</span>
+              <div className="mt-3 p-2 bg-blue-900/30 border border-blue-600/30 rounded">
+                <div className="flex items-center text-blue-300 text-xs">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  <span className="font-medium">RVT File Ready</span>
                 </div>
-                <p className="text-xs text-orange-200 mt-1">
-                  RVT files require conversion to view in browser. Use Autodesk
-                  tools to export to IFC, OBJ, or GLTF format.
+                <p className="text-xs text-blue-200 mt-1">
+                  This RVT file can be processed and viewed using Autodesk Forge.
                 </p>
               </div>
             )}

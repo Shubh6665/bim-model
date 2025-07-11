@@ -16,8 +16,6 @@ interface ProjectFile {
 }
 
 export default function BIMDashboard() {
-  const [hasProject, setHasProject] = useState(false);
-  const [modelUrl, setModelUrl] = useState<string>();
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
   const { logout } = useAuth();
 
@@ -32,17 +30,6 @@ export default function BIMDashboard() {
   const handleFileSelect = (file: ProjectFile | null) => {
     setSelectedFile(file);
     console.log("Selected file:", file);
-
-    // If it's not an RVT file, try to load it
-    if (file && !file.isRVT) {
-      // For demo purposes, we'll use a default model
-      setModelUrl("/assets/3d/duck.glb");
-      setHasProject(true);
-    }
-  };
-
-  const handleResetView = () => {
-    console.log("Resetting view...");
   };
 
   return (
@@ -54,12 +41,7 @@ export default function BIMDashboard() {
       <div className="flex-1 flex overflow-hidden">
         {/* 3D Viewer - Left Side */}
         <div className="flex-1 p-4">
-          <ThreeDViewer
-            modelUrl={modelUrl}
-            hasProject={hasProject}
-            onResetView={handleResetView}
-            selectedFile={selectedFile}
-          />
+          <ThreeDViewer selectedFile={selectedFile} />
         </div>
 
         {/* Right Panel - Project Files */}

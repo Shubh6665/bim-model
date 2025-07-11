@@ -19,17 +19,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Always call hooks at the top level
   useEffect(() => {
-    // Only set loading to false if not authenticating
-    if (status !== "loading") setIsLoading(false);
+    if (status === "loading") {
+      setIsLoading(true);
+    } else {
+      setIsLoading(false);
+    }
   }, [status]);
 
   const login = async () => {
     setIsLoading(true);
     try {
       await signIn("google", { callbackUrl: "/dashboard" });
+    } catch (error) {
+      console.error("Login error:", error);
     } finally {
-      setIsLoading(false); // Will be ignored if redirect happens
+      setIsLoading(false);
     }
   };
 
@@ -37,14 +43,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      console.error("Logout error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const value = {
-    user: session?.user,
-    isLoading,
+  // Always provide a consistent value object
+  const value: AuthContextType = {
+    user: session?.user || null,
+    isLoading: isLoading || status === "loading",
     isAuthenticated: !!session,
     login,
     logout,
