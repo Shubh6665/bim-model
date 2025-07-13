@@ -112,31 +112,36 @@ export function GoogleEarthMap({
         },
       });
 
-      // Create info window
+      // Create info window with minimal styling
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div class="p-3 max-w-xs">
-            <h3 class="font-semibold text-gray-900 mb-1">${project.name}</h3>
-            <p class="text-sm text-gray-600 mb-2">${project.description || 'BIM Project'}</p>
-            <p class="text-xs text-orange-600 mb-2"><strong>Demo:</strong> All projects process the same SAM0001 RVT model</p>
-            <button 
-              onclick="window.selectProject('${project.id}')" 
-              class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
-            >
-              Process & Load 3D Model
-            </button>
+          <div style="
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: fit-content;
+            max-width: 300px;
+            text-align: center;
+            display: inline-block;
+          ">
+            ${project.name}
           </div>
         `,
+        disableAutoPan: false,
+        pixelOffset: new google.maps.Size(0, -10),
       });
 
+      // Always show info window
+      infoWindow.open(map, marker);
+
       marker.addListener("click", () => {
-        // Close all other info windows
-        newMarkers.forEach((m) => {
-          const iw = (m as any).infoWindow;
-          if (iw) iw.close();
-        });
-        
-        infoWindow.open(map, marker);
+        // Trigger project selection
         onProjectSelect(project);
       });
 
