@@ -115,14 +115,15 @@ export function GoogleEarthMap({
       // Create info window
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div class="p-3">
+          <div class="p-3 max-w-xs">
             <h3 class="font-semibold text-gray-900 mb-1">${project.name}</h3>
             <p class="text-sm text-gray-600 mb-2">${project.description || 'BIM Project'}</p>
+            <p class="text-xs text-orange-600 mb-2"><strong>Demo:</strong> All projects process the same SAM0001 RVT model</p>
             <button 
               onclick="window.selectProject('${project.id}')" 
-              class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+              class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
             >
-              View Project
+              Process & Load 3D Model
             </button>
           </div>
         `,

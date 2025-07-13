@@ -47,6 +47,7 @@ interface EnhancedProjectPanelProps {
   projects: Project[];
   onViewModeChange: (mode: 'map' | 'viewer') => void;
   currentViewMode: 'map' | 'viewer';
+  onProcessingComplete?: (urn: string, file: ProjectFile) => void;
 }
 
 export function EnhancedProjectPanel({
@@ -57,10 +58,11 @@ export function EnhancedProjectPanel({
   projects,
   onViewModeChange,
   currentViewMode,
+  onProcessingComplete,
 }: EnhancedProjectPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
-  const [files] = useState<ProjectFile[]>([
+  const [files, setFiles] = useState<ProjectFile[]>([
     {
       id: "1",
       name: "SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt",
@@ -70,8 +72,8 @@ export function EnhancedProjectPanel({
       isRVT: true,
       lat: 28.6139,
       lng: 77.2090,
-      urn: "urn:adsk.viewing:fs.file:sample",
-      description: "Main building structural model"
+      // No URN initially - this will trigger the processing workflow
+      description: "Main building structural model (requires processing)"
     },
     {
       id: "2",
@@ -93,6 +95,21 @@ export function EnhancedProjectPanel({
     },
   ]);
 
+  const handleProcessingComplete = (urn: string, fileId: string) => {
+    // Update the file with the new URN
+    setFiles(prev => prev.map(file => 
+      file.id === fileId 
+        ? { ...file, urn } 
+        : file
+    ));
+    
+    // Call the parent callback if provided
+    const updatedFile = files.find(f => f.id === fileId);
+    if (onProcessingComplete && updatedFile) {
+      onProcessingComplete(urn, { ...updatedFile, urn });
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = event.target.files;
     if (uploadedFiles) {
@@ -105,7 +122,7 @@ export function EnhancedProjectPanel({
           modified: "Just now",
           isRVT: file.name.toLowerCase().endsWith(".rvt"),
         };
-        // Note: In real implementation, you'd handle file upload to server here
+        setFiles((prev) => [newFile, ...prev]);
       });
     }
   };
@@ -132,8 +149,9 @@ export function EnhancedProjectPanel({
 
   const handleFileClick = (file: ProjectFile) => {
     onFileSelect(file);
+    
+    // If file has location data, create corresponding project
     if (file.lat && file.lng) {
-      // Create project object for files with location
       const project: Project = {
         id: file.id,
         name: file.name.replace('.rvt', ''),
@@ -255,11 +273,9 @@ export function EnhancedProjectPanel({
                     <div className="flex items-center mt-2 text-xs text-gray-500">
                       <MapPin className="w-3 h-3 mr-1" />
                       <span>{project.lat.toFixed(4)}, {project.lng.toFixed(4)}</span>
-                      {project.urn && (
-                        <span className="ml-auto bg-green-500/20 text-green-400 px-2 py-0.5 rounded">
-                          3D Ready
-                        </span>
-                      )}
+                      <span className="ml-auto bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">
+                        Ready to Process
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -297,6 +313,16 @@ export function EnhancedProjectPanel({
                       <span className="text-gray-400 text-xs">{file.size}</span>
                       <span className="text-gray-500 text-xs">{file.modified}</span>
                     </div>
+                    {file.isRVT && !file.urn && (
+                      <div className="flex items-center mt-1 text-xs text-yellow-500">
+                        <span>⚡ Ready for processing</span>
+                      </div>
+                    )}
+                    {file.isRVT && file.urn && (
+                      <div className="flex items-center mt-1 text-xs text-green-500">
+                        <span>✅ Processed & ready</span>
+                      </div>
+                    )}
                     {file.lat && file.lng && (
                       <div className="flex items-center mt-1 text-xs text-gray-500">
                         <MapPin className="w-3 h-3 mr-1" />
@@ -363,17 +389,15 @@ export function EnhancedProjectPanel({
               <div>
                 <span className="text-gray-300">Description:</span> {selectedProject.description}
               </div>
-              {selectedProject.urn && (
-                <div className="mt-3 p-2 bg-green-900/30 border border-green-600/30 rounded">
-                  <div className="flex items-center text-green-300 text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    <span className="font-medium">3D Model Available</span>
-                  </div>
-                  <p className="text-xs text-green-200 mt-1">
-                    This project has a 3D model ready for viewing.
-                  </p>
+              <div className="mt-3 p-2 bg-orange-900/30 border border-orange-600/30 rounded">
+                <div className="flex items-center text-orange-300 text-xs">
+                  <span className="w-3 h-3 mr-1">⚡</span>
+                  <span className="font-medium">Ready for Processing</span>
                 </div>
-              )}
+                <p className="text-xs text-orange-200 mt-1">
+                  Click to process and view this project's 3D model.
+                </p>
+              </div>
             </div>
           )}
 
@@ -396,14 +420,25 @@ export function EnhancedProjectPanel({
                   <span className="text-gray-300">Location:</span> {selectedFile.lat.toFixed(4)}, {selectedFile.lng.toFixed(4)}
                 </div>
               )}
-              {selectedFile.isRVT && (
-                <div className="mt-3 p-2 bg-blue-900/30 border border-blue-600/30 rounded">
-                  <div className="flex items-center text-blue-300 text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    <span className="font-medium">RVT File Ready</span>
+              {selectedFile.isRVT && !selectedFile.urn && (
+                <div className="mt-3 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
+                  <div className="flex items-center text-yellow-300 text-xs">
+                    <span className="w-3 h-3 mr-1">⚡</span>
+                    <span className="font-medium">RVT File - Ready for Processing</span>
                   </div>
-                  <p className="text-xs text-blue-200 mt-1">
-                    This RVT file can be processed and viewed using Autodesk Forge.
+                  <p className="text-xs text-yellow-200 mt-1">
+                    Click to upload and process this RVT file using Autodesk Forge.
+                  </p>
+                </div>
+              )}
+              {selectedFile.isRVT && selectedFile.urn && (
+                <div className="mt-3 p-2 bg-green-900/30 border border-green-600/30 rounded">
+                  <div className="flex items-center text-green-300 text-xs">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    <span className="font-medium">RVT File - Processed & Ready</span>
+                  </div>
+                  <p className="text-xs text-green-200 mt-1">
+                    This RVT file has been processed and is ready for 3D viewing.
                   </p>
                 </div>
               )}

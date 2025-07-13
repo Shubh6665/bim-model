@@ -35,14 +35,14 @@ export default function BIMDashboard() {
   const [viewMode, setViewMode] = useState<'map' | 'viewer'>('map');
   const { logout } = useAuth();
 
-  // Sample project data with geolocation
+  // Sample project data with geolocation - All will trigger RVT processing workflow
   const [projects] = useState<Project[]>([
     {
       id: "1",
       name: "SAM0001-ADD-SA1067001-ZZ-M3-S-S00001",
       lat: 28.6139,
       lng: 77.2090,
-      urn: "urn:adsk.viewing:fs.file:dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6YnVja2V0L2tleQ",
+      // No URN initially - will trigger processing
       description: "Main building structural model"
     },
     {
@@ -50,6 +50,7 @@ export default function BIMDashboard() {
       name: "Building Floor Plan Project",
       lat: 28.7041,
       lng: 77.1025,
+      // No URN initially - will trigger processing
       description: "Commercial building floor plans"
     },
     {
@@ -57,6 +58,7 @@ export default function BIMDashboard() {
       name: "Structural Model Complex",
       lat: 28.5355,
       lng: 77.3910,
+      // No URN initially - will trigger processing
       description: "Multi-story structural framework"
     },
     {
@@ -64,6 +66,7 @@ export default function BIMDashboard() {
       name: "Residential Tower",
       lat: 28.4595,
       lng: 77.0266,
+      // No URN initially - will trigger processing
       description: "High-rise residential project"
     }
   ]);
@@ -93,26 +96,31 @@ export default function BIMDashboard() {
     console.log("Selected file:", file);
   };
 
+  const handleProcessingComplete = (urn: string, file: ProjectFile) => {
+    console.log("Processing completed for file:", file.name, "URN:", urn);
+    // Update the selected file with the new URN
+    setSelectedFile(prev => prev ? { ...prev, urn } : null);
+  };
+
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     
-    // If project has URN, create a file object and switch to viewer
-    if (project.urn) {
-      const file: ProjectFile = {
-        id: project.id,
-        name: project.name + ".rvt",
-        type: "RVT", 
-        size: "8.8 MB",
-        modified: "2 hours ago",
-        isRVT: true,
-        lat: project.lat,
-        lng: project.lng,
-        urn: project.urn,
-        description: project.description
-      };
-      setSelectedFile(file);
-      setViewMode('viewer');
-    }
+    // Always create file object with SAM0001 RVT file for demo consistency
+    // This will trigger the RVT processing interface since no URN is provided
+    const file: ProjectFile = {
+      id: project.id,
+      name: "SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt", // Always use same RVT file for demo
+      type: "RVT", 
+      size: "8.8 MB",
+      modified: "2 hours ago",
+      isRVT: true,
+      lat: project.lat,
+      lng: project.lng,
+      // No URN - this will trigger processing workflow
+      description: project.description
+    };
+    setSelectedFile(file);
+    setViewMode('viewer');
     
     console.log("Selected project:", project);
   };
@@ -174,14 +182,12 @@ export default function BIMDashboard() {
               <h3 className="font-semibold text-lg mb-2">{selectedProject.name}</h3>
               <p className="text-gray-300 text-sm mb-3">{selectedProject.description}</p>
               <div className="flex gap-2">
-                {selectedProject.urn && (
-                  <button
-                    onClick={() => setViewMode('viewer')}
-                    className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors"
-                  >
-                    View 3D Model
-                  </button>
-                )}
+                <button
+                  onClick={() => setViewMode('viewer')}
+                  className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors"
+                >
+                  Process & View 3D Model
+                </button>
                 <button
                   onClick={() => setSelectedProject(null)}
                   className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-sm transition-colors"
@@ -202,6 +208,7 @@ export default function BIMDashboard() {
           projects={projects}
           onViewModeChange={setViewMode}
           currentViewMode={viewMode}
+          onProcessingComplete={handleProcessingComplete}
         />
       </div>
     </div>
