@@ -1,6 +1,6 @@
 "use client";
-import BIMDashboard from "./bim-dashboard";
+import EnhancedBIMDashboard from "./enhanced-bim-dashboard";
 
 export default function Page() {
-  return <BIMDashboard />;
+  return <EnhancedBIMDashboard />;
 }

@@ -14,6 +14,10 @@ interface ThreeDViewerProps {
     size: string;
     modified: string;
     isRVT?: boolean;
+    urn?: string; // Add URN support for pre-processed files
+    lat?: number;
+    lng?: number;
+    description?: string;
   } | null;
 }
 
@@ -22,11 +26,29 @@ export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
   const [forgeData, setForgeData] = useState<{ accessToken: string; urn: string } | null>(null);
   const [isLoadingForge, setIsLoadingForge] = useState(false);
 
-  // Check if selected file is RVT
+  // Check if selected file is RVT or has existing URN
   useEffect(() => {
-    if (selectedFile?.isRVT) {
+    if (selectedFile?.urn) {
+      // File already has URN, load directly
+      setShowRVTInterface(false);
+      setIsLoadingForge(true);
+      
+      forgeAuthService.getAccessToken()
+        .then(accessToken => {
+          setForgeData({ accessToken, urn: selectedFile.urn! });
+        })
+        .catch(error => {
+          console.error("Failed to get access token for viewer:", error);
+        })
+        .finally(() => {
+          setIsLoadingForge(false);
+        });
+    } else if (selectedFile?.isRVT) {
+      // File needs processing
       setShowRVTInterface(true);
+      setForgeData(null);
     } else {
+      // No file selected or unsupported file type
       setShowRVTInterface(false);
       setForgeData(null);
     }
