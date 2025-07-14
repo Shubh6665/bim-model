@@ -33,47 +33,30 @@ export default function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewMode, setViewMode] = useState<'map' | 'viewer'>('map');
+  const [projects, setProjects] = useState<Project[]>([]);
   const { logout } = useAuth();
 
-  // Sample project data with geolocation - All will trigger RVT processing workflow
-  const [projects] = useState<Project[]>([
-    {
-      id: "1",
-      name: "SAM0001-ADD-SA1067001-ZZ-M3-S-S00001",
-      lat: 28.6139,
-      lng: 77.2090,
-      // No URN initially - will trigger processing
-      description: "Main building structural model"
-    },
-    {
-      id: "2", 
-      name: "Building Floor Plan Project",
-      lat: 28.7041,
-      lng: 77.1025,
-      // No URN initially - will trigger processing
-      description: "Commercial building floor plans"
-    },
-    {
-      id: "3",
-      name: "Structural Model Complex",
-      lat: 28.5355,
-      lng: 77.3910,
-      // No URN initially - will trigger processing
-      description: "Multi-story structural framework"
-    },
-    {
-      id: "4",
-      name: "Residential Tower",
-      lat: 28.4595,
-      lng: 77.0266,
-      // No URN initially - will trigger processing
-      description: "High-rise residential project"
+  // Fetch projects from MongoDB on mount
+  useEffect(() => {
+    async function fetchProjects() {
+      const res = await fetch("/api/projects");
+      const data = await res.json();
+      // Map MongoDB _id to id for frontend
+      const mapped = (data.projects || []).map((p: any) => ({
+        id: p._id || p.id,
+        name: p.name,
+        lat: p.location?.lat,
+        lng: p.location?.lng,
+        urn: p.urn,
+        description: p.description || "",
+      }));
+      setProjects(mapped);
     }
-  ]);
+    fetchProjects();
+  }, []);
 
-  // Google Maps API Key - Replace with your actual API key
-  const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 
-    "YOUR_GOOGLE_MAPS_API_KEY"; // You'll need to set this in environment variables
+  // Google Maps API Key
+  const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
 
   const handleSignOut = async () => {
     try {
@@ -88,7 +71,7 @@ export default function BIMDashboard() {
     if (file) {
       setViewMode('viewer');
       // Find corresponding project if it exists
-      const project = projects.find(p => p.name.includes(file.name.replace('.rvt', '')));
+      const project = projects.find(p => p.id === file.id || p.name === file.name.replace('.rvt', ''));
       if (project) {
         setSelectedProject(project);
       }
@@ -98,35 +81,34 @@ export default function BIMDashboard() {
 
   const handleProcessingComplete = (urn: string, file: ProjectFile) => {
     console.log("Processing completed for file:", file.name, "URN:", urn);
-    // Update the selected file with the new URN
     setSelectedFile(prev => prev ? { ...prev, urn } : null);
+    // Update project in state with new URN
+    setProjects(prev => prev.map(p => p.id === file.id ? { ...p, urn } : p));
   };
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
-    
-    // Always create file object with SAM0001 RVT file for demo consistency
-    // This will trigger the RVT processing interface since no URN is provided
+    // If project has URN, create file object with URN for instant viewing
     const file: ProjectFile = {
       id: project.id,
-      name: "SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt", // Always use same RVT file for demo
-      type: "RVT", 
+      name: project.name + ".rvt",
+      type: "RVT",
       size: "8.8 MB",
       modified: "2 hours ago",
       isRVT: true,
       lat: project.lat,
       lng: project.lng,
-      // No URN - this will trigger processing workflow
+      urn: project.urn,
       description: project.description
     };
     setSelectedFile(file);
     setViewMode('viewer');
-    
     console.log("Selected project:", project);
   };
 
-  const toggleViewMode = () => {
-    setViewMode(prev => prev === 'map' ? 'viewer' : 'map');
+  // Handler to add new project after creation
+  const handleProjectCreated = (newProject: Project) => {
+    setProjects(prev => [...prev, newProject]);
   };
 
   return (
@@ -186,7 +168,7 @@ export default function BIMDashboard() {
                   onClick={() => setViewMode('viewer')}
                   className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors"
                 >
-                  Process & View 3D Model
+                  {selectedProject.urn ? "View 3D Model" : "Process & View 3D Model"}
                 </button>
                 <button
                   onClick={() => setSelectedProject(null)}
@@ -209,6 +191,7 @@ export default function BIMDashboard() {
           onViewModeChange={setViewMode}
           currentViewMode={viewMode}
           onProcessingComplete={handleProcessingComplete}
+          onProjectCreated={handleProjectCreated}
         />
       </div>
     </div>

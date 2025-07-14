@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Upload,
   File,
@@ -48,6 +48,7 @@ interface EnhancedProjectPanelProps {
   onViewModeChange: (mode: 'map' | 'viewer') => void;
   currentViewMode: 'map' | 'viewer';
   onProcessingComplete?: (urn: string, file: ProjectFile) => void;
+  onProjectCreated?: (newProject: Project) => void;
 }
 
 export function EnhancedProjectPanel({
@@ -59,6 +60,7 @@ export function EnhancedProjectPanel({
   onViewModeChange,
   currentViewMode,
   onProcessingComplete,
+  onProjectCreated,
 }: EnhancedProjectPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
@@ -94,6 +96,17 @@ export function EnhancedProjectPanel({
       lng: 77.3910,
     },
   ]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectFile, setNewProjectFile] = useState<File | null>(null);
+  const [newProjectLat, setNewProjectLat] = useState<number | null>(null);
+  const [newProjectLng, setNewProjectLng] = useState<number | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processingUrn, setProcessingUrn] = useState<string | null>(null);
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
     // Update the file with the new URN
@@ -128,14 +141,13 @@ export function EnhancedProjectPanel({
   };
 
   const handleProjectClick = (project: Project) => {
-    onProjectSelect(project);
     if (project.urn) {
-      // Create file object for projects with URN
+      // Load instantly if URN exists
       const file: ProjectFile = {
         id: project.id,
         name: project.name + ".rvt",
         type: "RVT",
-        size: "8.8 MB", 
+        size: "8.8 MB",
         modified: "2 hours ago",
         isRVT: true,
         lat: project.lat,
@@ -144,6 +156,108 @@ export function EnhancedProjectPanel({
         description: project.description
       };
       onFileSelect(file);
+      onProjectSelect(project);
+    } else {
+      // Prompt for file upload/location if no URN
+      setNewProjectName(project.name);
+      setNewProjectLat(project.lat);
+      setNewProjectLng(project.lng);
+      setShowCreateModal(true);
+    }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreating(true);
+    setCreateError(null);
+    setIsProcessing(false);
+    setProcessingStep(null);
+    setProcessingError(null);
+    setProcessingUrn(null);
+    try {
+      if (!newProjectName || !newProjectFile || newProjectLat == null || newProjectLng == null) {
+        setCreateError("All fields are required");
+        setIsCreating(false);
+        return;
+      }
+      // 1. Upload file to Forge
+      setIsProcessing(true);
+      setProcessingStep("Uploading file to Forge...");
+      const uploadForm = new FormData();
+      uploadForm.append("file", newProjectFile);
+      const uploadRes = await fetch("/api/forge/upload", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.urn) throw new Error(uploadData.error || "Upload failed");
+      const urn = uploadData.urn;
+      setProcessingStep("Starting translation...");
+      // 2. Start translation
+      const translateRes = await fetch("/api/forge/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urn }),
+      });
+      const translateData = await translateRes.json();
+      if (!translateRes.ok) throw new Error(translateData.error || "Translation failed");
+      // 3. Poll for status
+      setProcessingStep("Waiting for conversion...");
+      let status = "pending";
+      let pollCount = 0;
+      while (status !== "success" && pollCount < 60) { // up to 5 min
+        await new Promise(res => setTimeout(res, 5000));
+        const statusRes = await fetch(`/api/forge/status/${urn}`);
+        const statusData = await statusRes.json();
+        if (statusData.status === "success") {
+          status = "success";
+          break;
+        } else if (statusData.status === "failed") {
+          throw new Error("Forge translation failed");
+        }
+        pollCount++;
+      }
+      if (status !== "success") throw new Error("Forge translation timed out");
+      setProcessingStep("Saving project to database...");
+      setProcessingUrn(urn);
+      // 4. Save project to DB
+      const saveRes = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newProjectName,
+          urn,
+          lat: newProjectLat,
+          lng: newProjectLng,
+          description: "",
+        }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.error || "Failed to save project");
+      if (onProjectCreated) {
+        onProjectCreated({
+          id: saveData.project._id || saveData.project.id,
+          name: saveData.project.name,
+          lat: saveData.project.location.lat,
+          lng: saveData.project.location.lng,
+          urn: saveData.project.urn,
+          description: saveData.project.description || "",
+        });
+      }
+      setShowCreateModal(false);
+      setNewProjectName("");
+      setNewProjectFile(null);
+      setNewProjectLat(null);
+      setNewProjectLng(null);
+      setIsProcessing(false);
+      setProcessingStep(null);
+      setProcessingUrn(null);
+    } catch (err: any) {
+      setProcessingError(err.message);
+      setIsProcessing(false);
+      setIsCreating(false);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -193,16 +307,12 @@ export function EnhancedProjectPanel({
       <div className="p-4 border-b border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Projects</h2>
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              multiple
-              accept=".rvt,.dwg,.ifc,.nwd,.nwc"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Upload className="w-5 h-5 text-gray-400 hover:text-white transition-colors" />
-          </label>
+          <button
+            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+            onClick={() => setShowCreateModal(true)}
+          >
+            + Create Project
+          </button>
         </div>
 
         {/* Tabs */}
@@ -444,6 +554,86 @@ export function EnhancedProjectPanel({
               )}
             </div>
           )}
+        </div>
+      )}
+      {/* Create Project Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <form
+            className="bg-gray-900 p-6 rounded-lg shadow-lg w-96 relative"
+            onSubmit={handleCreateProject}
+          >
+            <h3 className="text-lg font-semibold text-white mb-4">Create New Project</h3>
+            <label className="block text-gray-300 mb-2">Project Name</label>
+            <input
+              type="text"
+              className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              required
+            />
+            <label className="block text-gray-300 mb-2">RVT File</label>
+            <input
+              type="file"
+              accept=".rvt"
+              className="w-full mb-3"
+              onChange={e => setNewProjectFile(e.target.files?.[0] || null)}
+              required
+            />
+            <label className="block text-gray-300 mb-2">Location (lat, lng)</label>
+            <div className="flex gap-2 mb-3">
+              <input
+                type="number"
+                step="any"
+                placeholder="Latitude"
+                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+                value={newProjectLat ?? ""}
+                onChange={e => setNewProjectLat(Number(e.target.value))}
+                required
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Longitude"
+                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+                value={newProjectLng ?? ""}
+                onChange={e => setNewProjectLng(Number(e.target.value))}
+                required
+              />
+            </div>
+            {createError && <div className="text-red-400 mb-2 text-sm">{createError}</div>}
+            {/* Processing UI */}
+            {isProcessing && (
+              <div className="mb-3 p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2">
+                <span className="font-medium">{processingStep || "Processing..."}</span>
+                <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
+                {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
+                {processingError && <span className="text-red-400 text-xs">{processingError}</span>}
+              </div>
+            )}
+            {processingError && !isProcessing && (
+              <div className="mb-3 p-3 bg-red-900 border border-red-700 rounded text-red-300">
+                <span className="font-medium">{processingError}</span>
+              </div>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="submit"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60"
+                disabled={isCreating || isProcessing}
+              >
+                {isCreating || isProcessing ? "Processing..." : "Create Project"}
+              </button>
+              <button
+                type="button"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded"
+                onClick={() => setShowCreateModal(false)}
+                disabled={isCreating || isProcessing}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
