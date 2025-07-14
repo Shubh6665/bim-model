@@ -321,10 +321,10 @@ export function EnhancedProjectPanel({
           onChange={e => setNewProjectName(e.target.value)}
           required
         />
-        <label className="block text-gray-300 mb-2">RVT File</label>
+        <label className="block text-gray-300 mb-2">BIM File</label>
         <div className="mb-3">
           <label
-            htmlFor="rvt-upload"
+            htmlFor="bim-upload"
             className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors
               ${newProjectFile ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}
             `}
@@ -338,13 +338,13 @@ export function EnhancedProjectPanel({
             ) : (
               <span className="flex items-center gap-2 text-blue-300 font-medium">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Click or drag RVT file here
+                Click or drag RVT, IFC, DWG, or NWD file here
               </span>
             )}
             <input
-              id="rvt-upload"
+              id="bim-upload"
               type="file"
-              accept=".rvt"
+              accept=".rvt,.ifc,.dwg,.nwd"
               className="hidden"
               onChange={e => setNewProjectFile(e.target.files?.[0] || null)}
               required

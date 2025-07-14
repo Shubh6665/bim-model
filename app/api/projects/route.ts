@@ -38,8 +38,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse JSON body
-    const { name, urn, lat, lng, description } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (err) {
+      console.error('Failed to parse JSON body:', err);
+      return NextResponse.json({ error: 'Invalid JSON body', details: String(err) }, { status: 400 });
+    }
+    const { name, urn, lat, lng, description } = body;
+    console.log('POST /api/projects body:', body);
     if (!name || !urn || isNaN(lat) || isNaN(lng)) {
+      console.error('Missing required fields:', { name, urn, lat, lng });
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -52,9 +61,15 @@ export async function POST(req: NextRequest) {
       description: description || '',
       createdAt: new Date(),
     };
-    const result = await db.collection('projects').insertOne(project);
-    return NextResponse.json({ project: { ...project, _id: result.insertedId } });
+    try {
+      const result = await db.collection('projects').insertOne(project);
+      return NextResponse.json({ project: { ...project, _id: result.insertedId } });
+    } catch (err) {
+      console.error('Failed to insert project:', err, 'Project:', project);
+      return NextResponse.json({ error: 'Failed to insert project', details: String(err), project }, { status: 500 });
+    }
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('POST /api/projects error:', error);
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
   }
 } 
