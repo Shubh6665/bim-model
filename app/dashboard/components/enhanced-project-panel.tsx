@@ -49,6 +49,9 @@ interface EnhancedProjectPanelProps {
   currentViewMode: 'map' | 'viewer';
   onProcessingComplete?: (urn: string, file: ProjectFile) => void;
   onProjectCreated?: (newProject: Project) => void;
+  showCreateModal?: boolean;
+  onRequestCreateProject?: () => void;
+  hidePanel?: boolean;
 }
 
 export function EnhancedProjectPanel({
@@ -61,6 +64,9 @@ export function EnhancedProjectPanel({
   currentViewMode,
   onProcessingComplete,
   onProjectCreated,
+  showCreateModal,
+  onRequestCreateProject,
+  hidePanel,
 }: EnhancedProjectPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
@@ -96,7 +102,6 @@ export function EnhancedProjectPanel({
       lng: 77.3910,
     },
   ]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectFile, setNewProjectFile] = useState<File | null>(null);
   const [newProjectLat, setNewProjectLat] = useState<number | null>(null);
@@ -162,7 +167,7 @@ export function EnhancedProjectPanel({
       setNewProjectName(project.name);
       setNewProjectLat(project.lat);
       setNewProjectLng(project.lng);
-      setShowCreateModal(true);
+      // setShowCreateModal(true); // This is now handled by the parent's hidePanel prop
     }
   };
 
@@ -244,7 +249,6 @@ export function EnhancedProjectPanel({
           description: saveData.project.description || "",
         });
       }
-      setShowCreateModal(false);
       setNewProjectName("");
       setNewProjectFile(null);
       setNewProjectLat(null);
@@ -301,6 +305,111 @@ export function EnhancedProjectPanel({
     );
   };
 
+  if (hidePanel) return <>{/* Only render modal if hidePanel is true */}{showCreateModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <form
+        className="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md relative"
+        onSubmit={handleCreateProject}
+        style={{ minWidth: 320 }}
+      >
+        <h3 className="text-lg font-semibold text-white mb-4">Create New Project</h3>
+        <label className="block text-gray-300 mb-2">Project Name</label>
+        <input
+          type="text"
+          className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+          value={newProjectName}
+          onChange={e => setNewProjectName(e.target.value)}
+          required
+        />
+        <label className="block text-gray-300 mb-2">RVT File</label>
+        <div className="mb-3">
+          <label
+            htmlFor="rvt-upload"
+            className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors
+              ${newProjectFile ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}
+            `}
+            tabIndex={0}
+          >
+            {newProjectFile ? (
+              <span className="flex items-center gap-2 text-green-400 font-medium">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                {newProjectFile.name}
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-blue-300 font-medium">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Click or drag RVT file here
+              </span>
+            )}
+            <input
+              id="rvt-upload"
+              type="file"
+              accept=".rvt"
+              className="hidden"
+              onChange={e => setNewProjectFile(e.target.files?.[0] || null)}
+              required
+            />
+          </label>
+        </div>
+        <label className="block text-gray-300 mb-2">Location (lat, lng)</label>
+        <div className="flex flex-wrap gap-2 mb-3 w-full">
+          <input
+            type="number"
+            step="any"
+            placeholder="Latitude"
+            className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+            value={newProjectLat ?? ""}
+            onChange={e => setNewProjectLat(Number(e.target.value))}
+            required
+            style={{ minWidth: 0 }}
+          />
+          <input
+            type="number"
+            step="any"
+            placeholder="Longitude"
+            className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
+            value={newProjectLng ?? ""}
+            onChange={e => setNewProjectLng(Number(e.target.value))}
+            required
+            style={{ minWidth: 0 }}
+          />
+        </div>
+        {createError && <div className="text-red-400 mb-2 text-sm">{createError}</div>}
+        {/* Processing UI */}
+        {isProcessing && (
+          <div className="mb-3 p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2">
+            <span className="font-medium">{processingStep || "Processing..."}</span>
+            <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
+            {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
+            {processingError && <span className="text-red-400 text-xs">{processingError}</span>}
+          </div>
+        )}
+        {processingError && !isProcessing && (
+          <div className="mb-3 p-3 bg-red-900 border border-red-700 rounded text-red-300">
+            <span className="font-medium">{processingError}</span>
+          </div>
+        )}
+        <div className="flex gap-2 mt-4">
+          <button
+            type="submit"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60"
+            disabled={isCreating || isProcessing}
+          >
+            {isCreating || isProcessing ? "Processing..." : "Create Project"}
+          </button>
+          <button
+            type="button"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded"
+            onClick={() => onRequestCreateProject && onRequestCreateProject()}
+            disabled={isCreating || isProcessing}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  )}</>;
+
   return (
     <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
       {/* Header */}
@@ -309,7 +418,7 @@ export function EnhancedProjectPanel({
           <h2 className="text-lg font-semibold text-white">Projects</h2>
           <button
             className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            onClick={() => setShowCreateModal(true)}
+            onClick={onRequestCreateProject}
           >
             + Create Project
           </button>
@@ -554,86 +663,6 @@ export function EnhancedProjectPanel({
               )}
             </div>
           )}
-        </div>
-      )}
-      {/* Create Project Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <form
-            className="bg-gray-900 p-6 rounded-lg shadow-lg w-96 relative"
-            onSubmit={handleCreateProject}
-          >
-            <h3 className="text-lg font-semibold text-white mb-4">Create New Project</h3>
-            <label className="block text-gray-300 mb-2">Project Name</label>
-            <input
-              type="text"
-              className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-              value={newProjectName}
-              onChange={e => setNewProjectName(e.target.value)}
-              required
-            />
-            <label className="block text-gray-300 mb-2">RVT File</label>
-            <input
-              type="file"
-              accept=".rvt"
-              className="w-full mb-3"
-              onChange={e => setNewProjectFile(e.target.files?.[0] || null)}
-              required
-            />
-            <label className="block text-gray-300 mb-2">Location (lat, lng)</label>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="number"
-                step="any"
-                placeholder="Latitude"
-                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-                value={newProjectLat ?? ""}
-                onChange={e => setNewProjectLat(Number(e.target.value))}
-                required
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Longitude"
-                className="flex-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-                value={newProjectLng ?? ""}
-                onChange={e => setNewProjectLng(Number(e.target.value))}
-                required
-              />
-            </div>
-            {createError && <div className="text-red-400 mb-2 text-sm">{createError}</div>}
-            {/* Processing UI */}
-            {isProcessing && (
-              <div className="mb-3 p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2">
-                <span className="font-medium">{processingStep || "Processing..."}</span>
-                <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
-                {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
-                {processingError && <span className="text-red-400 text-xs">{processingError}</span>}
-              </div>
-            )}
-            {processingError && !isProcessing && (
-              <div className="mb-3 p-3 bg-red-900 border border-red-700 rounded text-red-300">
-                <span className="font-medium">{processingError}</span>
-              </div>
-            )}
-            <div className="flex gap-2 mt-4">
-              <button
-                type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60"
-                disabled={isCreating || isProcessing}
-              >
-                {isCreating || isProcessing ? "Processing..." : "Create Project"}
-              </button>
-              <button
-                type="button"
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded"
-                onClick={() => setShowCreateModal(false)}
-                disabled={isCreating || isProcessing}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
         </div>
       )}
     </div>

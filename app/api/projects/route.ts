@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 
-// Helper to get user email (replace with real auth/session in production)
-async function getUserEmail(req: NextRequest): Promise<string> {
-  // TODO: Replace with real session extraction
-  return 'demo-user@gmail.com';
+// Helper to get user email from session
+async function getUserEmail(req: NextRequest): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  return session?.user?.email || null;
 }
 
 // GET: List projects for user
@@ -12,6 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     const db = await getDb();
     const email = await getUserEmail(req);
+    if (!email) return NextResponse.json({ projects: [] });
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ projects: [] });
     const projects = await db.collection('projects').find({ userId: user._id }).toArray();
@@ -26,6 +29,7 @@ export async function POST(req: NextRequest) {
   try {
     const db = await getDb();
     const email = await getUserEmail(req);
+    if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     let user = await db.collection('users').findOne({ email });
     if (!user) {
       // Create user if not exists
