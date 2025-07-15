@@ -114,6 +114,11 @@ export default function BIMDashboard() {
 
   // Handler to add new project after creation
   const handleProjectCreated = (newProject: Project) => {
+    // Option 1: Fetch the updated project list from the backend
+    // (Uncomment if you want to always fetch the latest)
+    // fetchProjects();
+
+    // Option 2: Add the new project to the state immediately
     setProjects(prev => [...prev, newProject]);
   };
 
@@ -236,7 +241,10 @@ export default function BIMDashboard() {
           <CreateProjectModal
             show={showCreateModal}
             onClose={handleCloseCreateModal}
-            onProjectCreated={() => setShowCreateModal(false)}
+            onProjectCreated={(project) => {
+              handleProjectCreated(project);
+              setShowCreateModal(false);
+            }}
             apiKey={GOOGLE_MAPS_API_KEY}
           />
         )}
