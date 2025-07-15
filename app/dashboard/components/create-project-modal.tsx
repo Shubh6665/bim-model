@@ -1,10 +1,116 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 interface CreateProjectModalProps {
   show: boolean;
   onClose: () => void;
   onProjectCreated: (project: any) => void;
   apiKey: string;
+}
+
+// GoogleMapPicker component for picking a single lat/lng
+function GoogleMapPicker({ apiKey, lat, lng, onChange }: { apiKey: string, lat: number | null, lng: number | null, onChange: (lat: number, lng: number) => void }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let loader: any;
+    let mapInstance: google.maps.Map;
+    if (!mapRef.current || !apiKey) return;
+    const initMap = async () => {
+      try {
+        const { Loader } = await import("@googlemaps/js-api-loader");
+        loader = new Loader({ apiKey, version: "weekly", libraries: ["places"] });
+        await loader.load();
+        mapInstance = new google.maps.Map(mapRef.current!, {
+          center: lat && lng ? { lat, lng } : { lat: 28.6139, lng: 77.2090 },
+          zoom: lat && lng ? 15 : 4,
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          disableDefaultUI: false,
+        });
+        setMap(mapInstance);
+        // Place marker if lat/lng provided
+        if (lat && lng) {
+          markerRef.current = new google.maps.Marker({
+            position: { lat, lng },
+            map: mapInstance,
+            draggable: true,
+          });
+          markerRef.current.addListener("dragend", (e: google.maps.MapMouseEvent) => {
+            const latLng = e.latLng;
+            if (latLng) {
+              const latVal = latLng.lat();
+              const lngVal = latLng.lng();
+              onChange(latVal, lngVal);
+            }
+          });
+        }
+        // Click to set marker
+        mapInstance.addListener("click", (e: google.maps.MapMouseEvent) => {
+          if (markerRef.current) {
+            markerRef.current.setMap(null);
+          }
+          markerRef.current = new google.maps.Marker({
+            position: e.latLng,
+            map: mapInstance,
+            draggable: true,
+          });
+          onChange(e.latLng?.lat() ?? 0, e.latLng?.lng() ?? 0);
+          markerRef.current.addListener("dragend", (ev: google.maps.MapMouseEvent) => {
+            const latLng = ev.latLng;
+            if (latLng) {
+              const latVal = latLng.lat();
+              const lngVal = latLng.lng();
+              onChange(latVal, lngVal);
+            }
+          });
+        });
+      } catch (err) {
+        setError("Failed to load Google Maps. Check your API key and connection.");
+      }
+    };
+    initMap();
+    // Cleanup
+    return () => {
+      if (markerRef.current) markerRef.current.setMap(null);
+      if (mapInstance) mapInstance = null as any;
+    };
+    // eslint-disable-next-line
+  }, [apiKey]);
+
+  useEffect(() => {
+    // If lat/lng changes externally, update marker
+    if (map && lat && lng) {
+      if (markerRef.current) {
+        markerRef.current.setPosition({ lat, lng });
+      } else {
+        markerRef.current = new google.maps.Marker({
+          position: { lat, lng },
+          map,
+          draggable: true,
+        });
+        markerRef.current.addListener("dragend", (e: google.maps.MapMouseEvent) => {
+          const latLng = e.latLng;
+          if (latLng) {
+            const latVal = latLng.lat();
+            const lngVal = latLng.lng();
+            onChange(latVal, lngVal);
+          }
+        });
+      }
+      map.setCenter({ lat, lng });
+      map.setZoom(15);
+    }
+    // eslint-disable-next-line
+  }, [lat, lng, map]);
+
+  return (
+    <div className="w-full h-56 rounded overflow-hidden border border-gray-700 bg-gray-800 relative">
+      <div ref={mapRef} className="absolute inset-0 w-full h-full" />
+      {error && <div className="absolute inset-0 flex items-center justify-center text-red-400 bg-gray-900/80 z-10">{error}</div>}
+    </div>
+  );
 }
 
 export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: CreateProjectModalProps) {
@@ -156,22 +262,22 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-lg relative overflow-y-auto max-h-[90vh]">
-        <button className="absolute top-4 right-4 text-gray-400 hover:text-white" onClick={onClose}>&times;</button>
-        <h3 className="text-xl font-bold text-white mb-6 text-center">Create New Project</h3>
-        <div className="flex flex-col gap-6">
-          {/* Stepper */}
-          <div className="flex justify-center gap-2 mb-4">
-            {["Project Info", "Location", "Client", "File", "Map"].map((label, i) => (
-              <div key={label} className={`flex items-center gap-1 ${i < step ? 'text-blue-400' : i === step ? 'text-white' : 'text-gray-500'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 ${i === step ? 'border-blue-500 bg-blue-700' : i < step ? 'border-blue-400 bg-blue-900' : 'border-gray-700 bg-gray-800'}`}>{i+1}</div>
-                <span className="text-xs font-medium">{label}</span>
-                {i < 4 && <span className="w-6 h-0.5 bg-gray-700 mx-1" />}
-              </div>
-            ))}
-          </div>
-          {/* Step Content */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-xl mx-4 flex flex-col" style={{ maxHeight: '90vh' }}>
+        <button className="absolute top-4 right-4 text-gray-400 hover:text-white z-20" onClick={onClose}>&times;</button>
+        <h3 className="text-2xl font-bold text-white mb-4 text-center pt-6">Create New Project</h3>
+        {/* Stepper */}
+        <div className="flex justify-center gap-2 mb-4 px-4">
+          {["Project Info", "Location", "Client", "File", "Map"].map((label, i) => (
+            <div key={label} className={`flex items-center gap-1 ${i < step ? 'text-blue-400' : i === step ? 'text-white' : 'text-gray-500'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 ${i === step ? 'border-blue-500 bg-blue-700' : i < step ? 'border-blue-400 bg-blue-900' : 'border-gray-700 bg-gray-800'}`}>{i+1}</div>
+              <span className="text-xs font-medium whitespace-nowrap">{label}</span>
+              {i < 4 && <span className="w-6 h-0.5 bg-gray-700 mx-1" />}
+            </div>
+          ))}
+        </div>
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6" style={{ minHeight: 320 }}>
           {step === 0 && (
             <div>
               <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Info</h4>
@@ -231,31 +337,38 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
             <div>
               <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Location (Coordinates)</h4>
               <p className="text-gray-400 text-xs mb-2">Pick a location on the map or enter coordinates manually.</p>
-              {/* Google Map Picker placeholder */}
-              <div className="w-full h-56 bg-gray-700 rounded flex items-center justify-center text-gray-400 text-sm mb-2">
-                [Google Map picker will go here]
-              </div>
-              <div className="flex flex-wrap gap-2 mb-3 w-full">
+              <GoogleMapPicker
+                apiKey={apiKey}
+                lat={lat}
+                lng={lng}
+                onChange={(newLat, newLng) => {
+                  setLat(newLat);
+                  setLng(newLng);
+                }}
+              />
+              <div className="flex flex-wrap gap-2 mb-3 mt-3 w-full">
                 <input type="number" step="any" placeholder="Latitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lat ?? ""} onChange={e => setLat(Number(e.target.value))} required style={{ minWidth: 0 }} />
                 <input type="number" step="any" placeholder="Longitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lng ?? ""} onChange={e => setLng(Number(e.target.value))} required style={{ minWidth: 0 }} />
               </div>
             </div>
           )}
-          {error && <div className="text-red-400 mb-2 text-sm">{error}</div>}
-         {isProcessing && (
-           <div className="mb-3 p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2">
-             <span className="font-medium">{processingStep || "Processing..."}</span>
-             <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
-             {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
-             {error && <span className="text-red-400 text-xs">{error}</span>}
-           </div>
-         )}
-          {/* Stepper Controls */}
-          <div className="flex gap-2 mt-4">
-            {step > 0 && <button type="button" className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded" onClick={handleBack} disabled={isProcessing}>Back</button>}
-            {step < 4 && <button type="button" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
-            {step === 4 && <button type="button" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded disabled:opacity-60" onClick={handleCreate} disabled={!canNext() || isProcessing}>{isProcessing ? "Processing..." : "Create Project"}</button>}
+        </div>
+        {/* Status/Progress Bar - fixed at bottom */}
+        {(isProcessing || error) && (
+          <div className="absolute left-0 right-0 bottom-0 px-6 pb-4 z-10">
+            <div className="p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2 shadow-xl">
+              <span className="font-medium">{processingStep || (isProcessing ? "Processing..." : "")}</span>
+              <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
+              {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
+              {error && <span className="text-red-400 text-xs">{error}</span>}
+            </div>
           </div>
+        )}
+        {/* Stepper Controls */}
+        <div className="flex gap-2 mt-4 px-6 pb-6">
+          {step > 0 && <button type="button" className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded" onClick={handleBack} disabled={isProcessing}>Back</button>}
+          {step < 4 && <button type="button" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
+          {step === 4 && <button type="button" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded disabled:opacity-60" onClick={handleCreate} disabled={!canNext() || isProcessing}>{isProcessing ? "Processing..." : "Create Project"}</button>}
         </div>
       </div>
     </div>
