@@ -9,6 +9,7 @@ import { useAuth } from "@/app/hooks/use-auth";
 import { useRef } from "react";
 import React from "react";
 import { useSession } from "next-auth/react";
+import { CreateProjectModal } from "./components/create-project-modal";
 
 interface ProjectFile {
   id: string;
@@ -38,8 +39,8 @@ export default function BIMDashboard() {
   const [viewMode, setViewMode] = useState<'map' | 'viewer'>('map');
   const [projects, setProjects] = useState<Project[]>([]);
   const { logout } = useAuth();
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const { data: session } = useSession();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Fetch projects from MongoDB on mount
   useEffect(() => {
@@ -114,7 +115,6 @@ export default function BIMDashboard() {
   // Handler to add new project after creation
   const handleProjectCreated = (newProject: Project) => {
     setProjects(prev => [...prev, newProject]);
-    setShowCreateModal(false);
   };
 
   // Handler to open create project modal from empty state or panel
@@ -226,26 +226,18 @@ export default function BIMDashboard() {
               onViewModeChange={setViewMode}
               currentViewMode={viewMode}
               onProcessingComplete={handleProcessingComplete}
-              onProjectCreated={handleProjectCreated}
+              apiKey={GOOGLE_MAPS_API_KEY}
               onRequestCreateProject={handleRequestCreateProject}
             />
           </>
         )}
         {/* Global Create Project Modal */}
         {showCreateModal && (
-          <EnhancedProjectPanel
-            onFileSelect={handleFileSelect}
-            onProjectSelect={handleProjectSelect}
-            selectedFile={selectedFile}
-            selectedProject={selectedProject}
-            projects={projects}
-            onViewModeChange={setViewMode}
-            currentViewMode={viewMode}
-            onProcessingComplete={handleProcessingComplete}
-            onProjectCreated={handleProjectCreated}
-            showCreateModal={showCreateModal}
-            onRequestCreateProject={handleCloseCreateModal}
-            hidePanel
+          <CreateProjectModal
+            show={showCreateModal}
+            onClose={handleCloseCreateModal}
+            onProjectCreated={() => setShowCreateModal(false)}
+            apiKey={GOOGLE_MAPS_API_KEY}
           />
         )}
       </div>

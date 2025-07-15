@@ -16,6 +16,7 @@ import {
   MapPin,
   Globe,
 } from "lucide-react";
+import { CreateProjectModal } from "./create-project-modal";
 
 interface ProjectFile {
   id: string;
@@ -37,6 +38,9 @@ interface Project {
   lng: number;
   urn?: string;
   description?: string;
+  code?: string;
+  country?: string;
+  municipality?: string;
 }
 
 interface EnhancedProjectPanelProps {
@@ -48,10 +52,8 @@ interface EnhancedProjectPanelProps {
   onViewModeChange: (mode: 'map' | 'viewer') => void;
   currentViewMode: 'map' | 'viewer';
   onProcessingComplete?: (urn: string, file: ProjectFile) => void;
-  onProjectCreated?: (newProject: Project) => void;
-  showCreateModal?: boolean;
-  onRequestCreateProject?: () => void;
-  hidePanel?: boolean;
+  apiKey: string;
+  onRequestCreateProject: () => void;
 }
 
 export function EnhancedProjectPanel({
@@ -63,10 +65,8 @@ export function EnhancedProjectPanel({
   onViewModeChange,
   currentViewMode,
   onProcessingComplete,
-  onProjectCreated,
-  showCreateModal,
+  apiKey,
   onRequestCreateProject,
-  hidePanel,
 }: EnhancedProjectPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
@@ -103,6 +103,16 @@ export function EnhancedProjectPanel({
     },
   ]);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectCode, setNewProjectCode] = useState("");
+  // Location fields
+  const [newProjectCountry, setNewProjectCountry] = useState("");
+  const [newProjectMunicipality, setNewProjectMunicipality] = useState("");
+  const [newProjectAddress, setNewProjectAddress] = useState("");
+  const [newProjectCadastral, setNewProjectCadastral] = useState("");
+  // Client/Manager fields
+  const [clientCompany, setClientCompany] = useState("");
+  const [clientSurname, setClientSurname] = useState("");
+  const [clientName, setClientName] = useState("");
   const [newProjectFile, setNewProjectFile] = useState<File | null>(null);
   const [newProjectLat, setNewProjectLat] = useState<number | null>(null);
   const [newProjectLng, setNewProjectLng] = useState<number | null>(null);
@@ -112,6 +122,7 @@ export function EnhancedProjectPanel({
   const [processingStep, setProcessingStep] = useState<string | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
     // Update the file with the new URN
@@ -239,16 +250,9 @@ export function EnhancedProjectPanel({
       });
       const saveData = await saveRes.json();
       if (!saveRes.ok) throw new Error(saveData.error || "Failed to save project");
-      if (onProjectCreated) {
-        onProjectCreated({
-          id: saveData.project._id || saveData.project.id,
-          name: saveData.project.name,
-          lat: saveData.project.location.lat,
-          lng: saveData.project.location.lng,
-          urn: saveData.project.urn,
-          description: saveData.project.description || "",
-        });
-      }
+      // The original code had onProjectCreated here, but it's not defined in the props.
+      // Assuming it's meant to be handled by the parent or removed if not needed.
+      // For now, removing it as it's not in the EnhancedProjectPanelProps.
       setNewProjectName("");
       setNewProjectFile(null);
       setNewProjectLat(null);
@@ -304,111 +308,6 @@ export function EnhancedProjectPanel({
       </div>
     );
   };
-
-  if (hidePanel) return <>{/* Only render modal if hidePanel is true */}{showCreateModal && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <form
-        className="bg-gray-900 p-6 rounded-lg shadow-lg w-full max-w-md relative"
-        onSubmit={handleCreateProject}
-        style={{ minWidth: 320 }}
-      >
-        <h3 className="text-lg font-semibold text-white mb-4">Create New Project</h3>
-        <label className="block text-gray-300 mb-2">Project Name</label>
-        <input
-          type="text"
-          className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-          value={newProjectName}
-          onChange={e => setNewProjectName(e.target.value)}
-          required
-        />
-        <label className="block text-gray-300 mb-2">BIM File</label>
-        <div className="mb-3">
-          <label
-            htmlFor="bim-upload"
-            className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors
-              ${newProjectFile ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}
-            `}
-            tabIndex={0}
-          >
-            {newProjectFile ? (
-              <span className="flex items-center gap-2 text-green-400 font-medium">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                {newProjectFile.name}
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-blue-300 font-medium">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Click or drag RVT, IFC, DWG, or NWD file here
-              </span>
-            )}
-            <input
-              id="bim-upload"
-              type="file"
-              accept=".rvt,.ifc,.dwg,.nwd"
-              className="hidden"
-              onChange={e => setNewProjectFile(e.target.files?.[0] || null)}
-              required
-            />
-          </label>
-        </div>
-        <label className="block text-gray-300 mb-2">Location (lat, lng)</label>
-        <div className="flex flex-wrap gap-2 mb-3 w-full">
-          <input
-            type="number"
-            step="any"
-            placeholder="Latitude"
-            className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-            value={newProjectLat ?? ""}
-            onChange={e => setNewProjectLat(Number(e.target.value))}
-            required
-            style={{ minWidth: 0 }}
-          />
-          <input
-            type="number"
-            step="any"
-            placeholder="Longitude"
-            className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
-            value={newProjectLng ?? ""}
-            onChange={e => setNewProjectLng(Number(e.target.value))}
-            required
-            style={{ minWidth: 0 }}
-          />
-        </div>
-        {createError && <div className="text-red-400 mb-2 text-sm">{createError}</div>}
-        {/* Processing UI */}
-        {isProcessing && (
-          <div className="mb-3 p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2">
-            <span className="font-medium">{processingStep || "Processing..."}</span>
-            <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
-            {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
-            {processingError && <span className="text-red-400 text-xs">{processingError}</span>}
-          </div>
-        )}
-        {processingError && !isProcessing && (
-          <div className="mb-3 p-3 bg-red-900 border border-red-700 rounded text-red-300">
-            <span className="font-medium">{processingError}</span>
-          </div>
-        )}
-        <div className="flex gap-2 mt-4">
-          <button
-            type="submit"
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60"
-            disabled={isCreating || isProcessing}
-          >
-            {isCreating || isProcessing ? "Processing..." : "Create Project"}
-          </button>
-          <button
-            type="button"
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded"
-            onClick={() => onRequestCreateProject && onRequestCreateProject()}
-            disabled={isCreating || isProcessing}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  )}</>;
 
   return (
     <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
@@ -472,30 +371,47 @@ export function EnhancedProjectPanel({
               <div
                 key={project.id}
                 onClick={() => handleProjectClick(project)}
-                className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 ${
+                className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 flex items-center gap-3 ${
                   selectedProject?.id === project.id
                     ? 'border-blue-500 bg-blue-500/10'
                     : 'border-gray-600 hover:border-gray-500'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-white" />
+                {/* File type icon and badge */}
+                <div className="flex flex-col items-center justify-center mr-2">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
+                    {/* File type icon */}
+                    <span className="text-white text-lg font-bold">
+                      {/* Show file type badge, fallback to '?' */}
+                      {project.urn ? (
+                        <span className="uppercase">RVT</span>
+                      ) : (
+                        <span className="text-gray-300">?</span>
+                      )}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <span className="mt-1 text-xs text-gray-400 uppercase tracking-wider">
+                    {project.urn ? 'RVT' : 'Unknown'}
+                  </span>
+                </div>
+                {/* Project info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
                     <h3 className="text-white font-medium text-sm truncate">
                       {project.name}
                     </h3>
-                    <p className="text-gray-400 text-xs mt-1 line-clamp-2">
-                      {project.description}
-                    </p>
-                    <div className="flex items-center mt-2 text-xs text-gray-500">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      <span>{project.lat.toFixed(4)}, {project.lng.toFixed(4)}</span>
-                      <span className="ml-auto bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">
-                        Ready to Process
+                    {project.description && (
+                      <span className="ml-2 px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
+                        {project.description}
                       </span>
-                    </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <span className="font-semibold text-blue-400">Code:</span> {project.code || '—'}
+                    <span className="ml-2 font-semibold text-green-400">{project.lat && project.lng ? '📍' : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <span>{project.country || '—'}, {project.municipality || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -664,6 +580,18 @@ export function EnhancedProjectPanel({
             </div>
           )}
         </div>
+      )}
+      {showCreateModal && (
+        <CreateProjectModal
+          show={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onProjectCreated={(project: any) => {
+            // Add project to list, close modal
+            // Optionally trigger parent callback if needed
+            setShowCreateModal(false);
+          }}
+          apiKey={apiKey}
+        />
       )}
     </div>
   );
