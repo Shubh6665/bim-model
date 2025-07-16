@@ -318,6 +318,23 @@ export function EnhancedProjectPanel({
 
   return (
     <div className="w-80 bg-gray-800 border-l border-gray-700 flex flex-col">
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #374151;
+          border-radius: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #2563eb;
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: #374151 #1f2937;
+        }
+      `}</style>
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
         <div className="flex items-center justify-between mb-4">
@@ -370,7 +387,7 @@ export function EnhancedProjectPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {activeTab === 'projects' && showProjectDetail && selectedProject ? (
           // Project Detail View
           <div className="p-6 space-y-4">
@@ -417,6 +434,29 @@ export function EnhancedProjectPanel({
               </div>
             </div>
             <div className="mb-2">
+              {/* Mock Sensor Data Section */}
+              <div className="mb-4 p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm shadow flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <span>🌡️</span>
+                  <span className="font-semibold">Temperature:</span>
+                  <span className="text-white">22.5°C</span>
+                </div>
+                <div className="flex items-center gap-2 text-green-300">
+                  <span>💧</span>
+                  <span className="font-semibold">Humidity:</span>
+                  <span className="text-white">45%</span>
+                </div>
+                <div className="flex items-center gap-2 text-yellow-300">
+                  <span>🟢</span>
+                  <span className="font-semibold">CO₂ Level:</span>
+                  <span className="text-white">410 ppm</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400">
+                  <span>⏰</span>
+                  <span className="font-semibold">Last Sensor Update:</span>
+                  <span className="text-white">2025-07-15 14:32</span>
+                </div>
+              </div>
               <span className="font-semibold text-gray-300">Description:</span>
               <div className="mt-1 p-3 bg-gray-800 border border-gray-700 rounded text-gray-200 text-sm min-h-[60px]">
                 {selectedProject.description || <span className="italic text-gray-500">No description provided.</span>}
@@ -563,54 +603,6 @@ export function EnhancedProjectPanel({
         )}
       </div>
 
-      {/* Info Panel */}
-      {(selectedFile || selectedProject) && (
-        <div className="p-4 border-t border-gray-700 bg-gray-850">
-          {selectedFile && activeTab === 'files' && (
-            <div className="space-y-2 text-xs text-gray-400">
-              <div>
-                <span className="text-gray-300">Name:</span> {selectedFile.name}
-              </div>
-              <div>
-                <span className="text-gray-300">Type:</span> {selectedFile.type}
-              </div>
-              <div>
-                <span className="text-gray-300">Size:</span> {selectedFile.size}
-              </div>
-              <div>
-                <span className="text-gray-300">Modified:</span> {selectedFile.modified}
-              </div>
-              {selectedFile.lat && selectedFile.lng && (
-                <div>
-                  <span className="text-gray-300">Location:</span> {selectedFile.lat.toFixed(4)}, {selectedFile.lng.toFixed(4)}
-                </div>
-              )}
-              {selectedFile.isRVT && !selectedFile.urn && (
-                <div className="mt-3 p-2 bg-yellow-900/30 border border-yellow-600/30 rounded">
-                  <div className="flex items-center text-yellow-300 text-xs">
-                    <span className="w-3 h-3 mr-1">⚡</span>
-                    <span className="font-medium">RVT File - Ready for Processing</span>
-                  </div>
-                  <p className="text-xs text-yellow-200 mt-1">
-                    Click to upload and process this RVT file using Autodesk Forge.
-                  </p>
-                </div>
-              )}
-              {selectedFile.isRVT && selectedFile.urn && (
-                <div className="mt-3 p-2 bg-green-900/30 border border-green-600/30 rounded">
-                  <div className="flex items-center text-green-300 text-xs">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    <span className="font-medium">RVT File - Processed & Ready</span>
-                  </div>
-                  <p className="text-xs text-green-200 mt-1">
-                    This RVT file has been processed and is ready for 3D viewing.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
       {showCreateModal && (
         <CreateProjectModal
           show={showCreateModal}

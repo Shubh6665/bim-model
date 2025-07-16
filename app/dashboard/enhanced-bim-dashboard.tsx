@@ -58,6 +58,14 @@ export default function BIMDashboard() {
         urn: p.urn,
         description: p.description || "",
         fileType: p.fileType,
+        code: p.code,
+        country: p.country,
+        municipality: p.municipality,
+        address: p.address,
+        cadastral: p.cadastral,
+        company: p.company,
+        surname: p.surname,
+        clientName: p.clientName,
       }));
       setProjects(mapped);
     }
