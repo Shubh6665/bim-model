@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
       console.error('Failed to parse JSON body:', err);
       return NextResponse.json({ error: 'Invalid JSON body', details: String(err) }, { status: 400 });
     }
-    const { name, urn, lat, lng, description } = body;
+    const {
+      name, code, country, municipality, address, cadastral,
+      company, surname, clientName, lat, lng, urn, fileType, description
+    } = body;
     console.log('POST /api/projects body:', body);
     if (!name || !urn || isNaN(lat) || isNaN(lng)) {
       console.error('Missing required fields:', { name, urn, lat, lng });
@@ -56,7 +59,16 @@ export async function POST(req: NextRequest) {
     const project = {
       userId: user._id,
       name,
+      code: code || '',
+      country: country || '',
+      municipality: municipality || '',
+      address: address || '',
+      cadastral: cadastral || '',
+      company: company || '',
+      surname: surname || '',
+      clientName: clientName || '',
       urn,
+      fileType: fileType || '',
       location: { lat, lng },
       description: description || '',
       createdAt: new Date(),

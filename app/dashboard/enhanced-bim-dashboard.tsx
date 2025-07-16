@@ -31,6 +31,7 @@ interface Project {
   lng: number;
   urn?: string;
   description?: string;
+  fileType?: string;
 }
 
 export default function BIMDashboard() {
@@ -47,6 +48,7 @@ export default function BIMDashboard() {
     async function fetchProjects() {
       const res = await fetch("/api/projects");
       const data = await res.json();
+      console.log('Fetched projects from MongoDB:', data);
       // Map MongoDB _id to id for frontend
       const mapped = (data.projects || []).map((p: any) => ({
         id: p._id || p.id,
@@ -55,6 +57,7 @@ export default function BIMDashboard() {
         lng: p.location?.lng,
         urn: p.urn,
         description: p.description || "",
+        fileType: p.fileType,
       }));
       setProjects(mapped);
     }

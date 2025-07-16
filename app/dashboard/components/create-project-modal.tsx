@@ -176,6 +176,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
     try {
       // 1. Upload file to Forge
       if (!file) throw new Error("No file selected");
+      const fileType = file.name.split('.').pop()?.toUpperCase() || "UNKNOWN";
       const uploadForm = new FormData();
       uploadForm.append("file", file);
       const uploadRes = await fetch("/api/forge/upload", {
@@ -230,6 +231,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
           lat,
           lng,
           urn,
+          fileType,
         }),
       });
       const saveData = await saveRes.json();
@@ -250,6 +252,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         lng: saveData.project.location?.lng,
         urn: saveData.project.urn,
         description: saveData.project.description || "",
+        fileType: saveData.project.fileType || fileType,
       });
     } catch (err: any) {
       setError(err.message);

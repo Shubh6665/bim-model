@@ -41,6 +41,11 @@ interface Project {
   code?: string;
   country?: string;
   municipality?: string;
+  fileType?: string;
+  company?: string;
+  clientName?: string;
+  address?: string;
+  cadastral?: string;
 }
 
 interface EnhancedProjectPanelProps {
@@ -123,6 +128,7 @@ export function EnhancedProjectPanel({
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showProjectDetail, setShowProjectDetail] = useState(false);
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
     // Update the file with the new URN
@@ -173,6 +179,7 @@ export function EnhancedProjectPanel({
       };
       onFileSelect(file);
       onProjectSelect(project);
+      setShowProjectDetail(true);
     } else {
       // Prompt for file upload/location if no URN
       setNewProjectName(project.name);
@@ -326,7 +333,7 @@ export function EnhancedProjectPanel({
         {/* Tabs */}
         <div className="flex bg-gray-700 rounded-lg p-1">
           <button
-            onClick={() => setActiveTab('projects')}
+            onClick={() => { setActiveTab('projects'); setShowProjectDetail(false); }}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
               activeTab === 'projects'
                 ? 'bg-blue-500 text-white'
@@ -337,7 +344,7 @@ export function EnhancedProjectPanel({
             Projects
           </button>
           <button
-            onClick={() => setActiveTab('files')}
+            onClick={() => { setActiveTab('files'); setShowProjectDetail(false); }}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
               activeTab === 'files'
                 ? 'bg-blue-500 text-white'
@@ -364,7 +371,59 @@ export function EnhancedProjectPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'projects' ? (
+        {activeTab === 'projects' && showProjectDetail && selectedProject ? (
+          // Project Detail View
+          <div className="p-6 space-y-4">
+            <button
+              className="mb-4 px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm"
+              onClick={() => setShowProjectDetail(false)}
+            >
+              ← Back to Projects
+            </button>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
+                <span className="text-white text-xl font-bold uppercase">{selectedProject.fileType || '?'}</span>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
+                <span className="inline-block bg-gray-700 text-gray-300 text-xs rounded px-2 py-0.5 mr-2">{selectedProject.fileType || 'Unknown'}</span>
+                <span className="inline-block bg-blue-700 text-white text-xs rounded px-2 py-0.5">{selectedProject.code || 'No Code'}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-2 text-gray-300 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Company:</span>
+                <span className="text-gray-200">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Client:</span>
+                <span className="text-gray-200">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Location:</span>
+                <span className="text-gray-200">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Address:</span>
+                <span className="text-gray-200">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Cadastral:</span>
+                <span className="text-gray-200">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Lat/Lng:</span>
+                <span className="text-gray-200">{selectedProject.lat}, {selectedProject.lng}</span>
+              </div>
+            </div>
+            <div className="mb-2">
+              <span className="font-semibold text-gray-300">Description:</span>
+              <div className="mt-1 p-3 bg-gray-800 border border-gray-700 rounded text-gray-200 text-sm min-h-[60px]">
+                {selectedProject.description || <span className="italic text-gray-500">No description provided.</span>}
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'projects' ? (
           // Projects List
           <div className="p-4 space-y-2">
             {filteredProjects.map((project) => (
@@ -372,7 +431,7 @@ export function EnhancedProjectPanel({
                 key={project.id}
                 onClick={() => handleProjectClick(project)}
                 className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 flex items-center gap-3 ${
-                  selectedProject?.id === project.id
+                  selectedProject?.id === project.id && showProjectDetail
                     ? 'border-blue-500 bg-blue-500/10'
                     : 'border-gray-600 hover:border-gray-500'
                 }`}
@@ -381,17 +440,12 @@ export function EnhancedProjectPanel({
                 <div className="flex flex-col items-center justify-center mr-2">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
                     {/* File type icon */}
-                    <span className="text-white text-lg font-bold">
-                      {/* Show file type badge, fallback to '?' */}
-                      {project.urn ? (
-                        <span className="uppercase">RVT</span>
-                      ) : (
-                        <span className="text-gray-300">?</span>
-                      )}
+                    <span className="text-white text-lg font-bold uppercase">
+                      {project.fileType || '?'}
                     </span>
                   </div>
                   <span className="mt-1 text-xs text-gray-400 uppercase tracking-wider">
-                    {project.urn ? 'RVT' : 'Unknown'}
+                    {project.fileType || 'Unknown'}
                   </span>
                 </div>
                 {/* Project info */}
@@ -412,6 +466,9 @@ export function EnhancedProjectPanel({
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
                     <span>{project.country || '—'}, {project.municipality || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{project.fileType || 'Unknown'}</span>
                   </div>
                 </div>
               </div>
@@ -509,33 +566,6 @@ export function EnhancedProjectPanel({
       {/* Info Panel */}
       {(selectedFile || selectedProject) && (
         <div className="p-4 border-t border-gray-700 bg-gray-850">
-          <h3 className="text-sm font-semibold text-white mb-2">
-            {activeTab === 'projects' ? 'Project Details' : 'File Details'}
-          </h3>
-          
-          {selectedProject && activeTab === 'projects' && (
-            <div className="space-y-2 text-xs text-gray-400">
-              <div>
-                <span className="text-gray-300">Name:</span> {selectedProject.name}
-              </div>
-              <div>
-                <span className="text-gray-300">Location:</span> {selectedProject.lat.toFixed(4)}, {selectedProject.lng.toFixed(4)}
-              </div>
-              <div>
-                <span className="text-gray-300">Description:</span> {selectedProject.description}
-              </div>
-              <div className="mt-3 p-2 bg-orange-900/30 border border-orange-600/30 rounded">
-                <div className="flex items-center text-orange-300 text-xs">
-                  <span className="w-3 h-3 mr-1">⚡</span>
-                  <span className="font-medium">Ready for Processing</span>
-                </div>
-                <p className="text-xs text-orange-200 mt-1">
-                  Click to process and view this project's 3D model.
-                </p>
-              </div>
-            </div>
-          )}
-
           {selectedFile && activeTab === 'files' && (
             <div className="space-y-2 text-xs text-gray-400">
               <div>
