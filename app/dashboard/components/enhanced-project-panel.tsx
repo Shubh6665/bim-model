@@ -434,8 +434,10 @@ export function EnhancedProjectPanel({
               </div>
             </div>
             <div className="mb-2">
+            <span className="font-semibold text-gray-300">Description:</span>
+              
               {/* Mock Sensor Data Section */}
-              <div className="mb-4 p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm shadow flex flex-col gap-2">
+              <div className="mb-4 mt-2 p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm shadow flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-blue-300">
                   <span>🌡️</span>
                   <span className="font-semibold">Temperature:</span>
@@ -457,10 +459,10 @@ export function EnhancedProjectPanel({
                   <span className="text-white">2025-07-15 14:32</span>
                 </div>
               </div>
-              <span className="font-semibold text-gray-300">Description:</span>
+              {/* <span className="font-semibold text-gray-300">Description:</span>
               <div className="mt-1 p-3 bg-gray-800 border border-gray-700 rounded text-gray-200 text-sm min-h-[60px]">
-                {selectedProject.description || <span className="italic text-gray-500">No description provided.</span>}
-              </div>
+                {selectedProject.description || <span className="italic text-gray-500">This is a sample BIM project for demonstration purposes.</span>}
+              </div> */}
             </div>
           </div>
         ) : activeTab === 'projects' ? (
