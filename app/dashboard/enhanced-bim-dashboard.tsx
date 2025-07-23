@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { DashboardHeader } from "./components/dashboard-header";
 import { ThreeDViewer } from "./components/3d-viewer";
 import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
-import { IoTPanel } from "./components/iot-panel"; // Import the new IoTPanel
+import IoTPanel from '../components/iot-panel'; // Import the new IoTPanel
 import { GoogleEarthMap } from "./components/google-earth-map";
 import { useAuth } from "@/app/hooks/use-auth";
 import { useRef } from "react";
 import React from "react";
 import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
+import ForgeViewer from '../components/forge-viewer';
 
 interface ProjectFile {
   id: string;
@@ -43,8 +44,8 @@ export default function BIMDashboard() {
   const { logout } = useAuth();
   const { data: session } = useSession();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  
-  // State to manage which panel is active
+  const [viewer, setViewer] = useState<any>(null);
+  const [iotExt, setIotExt] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<'bim' | 'iot' | 'database' | 'ai'>('bim');
 
   // Fetch projects from MongoDB on mount
@@ -134,6 +135,21 @@ export default function BIMDashboard() {
     setShowCreateModal(false);
   };
 
+  // Handler for IoTPanel to trigger sensor placement
+  const handleInsertSensor = (sensorType: string) => {
+    if (iotExt) {
+      iotExt.enterInsertMode(sensorType);
+    } else {
+      alert('IoT extension not loaded yet.');
+    }
+  };
+
+  // Called when ForgeViewer is ready
+  const handleViewerReady = (viewerInstance: any, iotExtension: any) => {
+    setViewer(viewerInstance);
+    setIotExt(iotExtension);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
@@ -220,7 +236,7 @@ export default function BIMDashboard() {
                 onRequestCreateProject={handleRequestCreateProject}
               />
             ) : activePanel === 'iot' ? (
-              <IoTPanel />
+              <IoTPanel onInsertSensor={handleInsertSensor} />
             ) : (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">

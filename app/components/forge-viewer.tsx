@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import './forge-viewer.css';
+import { IoTSensorExtension } from './forge-iot-extension';
 
 declare global {
   interface Window {
@@ -12,9 +13,10 @@ declare global {
 interface ForgeViewerProps {
   accessToken: string;
   urn: string;
+  onViewerReady?: (viewer: any, iotExtension: any) => void;
 }
 
-const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
+const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn, onViewerReady }) => {
   const viewerContainer = useRef<HTMLDivElement>(null);
   const [viewer, setViewer] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,24 +47,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
       };
 
       Autodesk.Viewing.Initializer(options, () => {
+        // Explicitly register IoTSensorExtension before viewer creation
+        if (Autodesk.Viewing.theExtensionManager && IoTSensorExtension) {
+          Autodesk.Viewing.theExtensionManager.registerExtension('IoTSensorExtension', IoTSensorExtension);
+        }
         const config = {
-          extensions: ['Autodesk.DefaultTools.NavTools'],
+          extensions: ['Autodesk.DefaultTools.NavTools', 'IoTSensorExtension'],
         };
-
         const viewerInstance = new Autodesk.Viewing.GuiViewer3D(
           viewerContainer.current,
           config
         );
-
         const startedCode = viewerInstance.start();
         if (startedCode > 0) {
           setError('Failed to create a Viewer: WebGL not supported.');
           return;
         }
-
-        console.log('Viewer initialized successfully');
         setViewer(viewerInstance);
-
         // Load the document
         const documentId = `urn:${urn}`;
         Autodesk.Viewing.Document.load(
@@ -71,10 +72,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
             const viewables = doc.getRoot().getDefaultGeometry();
             if (viewables) {
               viewerInstance.loadDocumentNode(doc, viewables).then(() => {
-                console.log('Model loaded successfully');
                 setIsLoading(false);
+                // Get IoT extension and call callback
+                const iotExt = viewerInstance.getExtension('IoTSensorExtension');
+                if (iotExt && onViewerReady) {
+                  onViewerReady(viewerInstance, iotExt);
+                }
               }).catch((loadError: any) => {
-                console.error('Model load error:', loadError);
                 setError('Failed to load model. Please try again.');
                 setIsLoading(false);
               });
@@ -84,14 +88,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
             }
           },
           (errorCode: any) => {
-            console.error('Document load error:', errorCode);
-            if (errorCode === 401) {
-              setError('Demo Mode: Authentication required for real models');
-            } else if (errorCode === 404) {
-              setError('Demo Mode: Sample model not accessible');
-            } else {
-              setError(`Demo Mode: ${errorCode} - This is expected in demo mode`);
-            }
+            setError(`Demo Mode: ${errorCode}`);
             setIsLoading(false);
           }
         );
@@ -120,7 +117,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
         viewer.finish();
       }
     };
-  }, [accessToken, urn]);
+  }, [accessToken, urn, onViewerReady]);
 
   // Toolbar Functions
   const fitToView = () => {
@@ -233,4 +230,4 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({ accessToken, urn }) => {
   );
 };
 
-export default ForgeViewer; 
+export default ForgeViewer;
