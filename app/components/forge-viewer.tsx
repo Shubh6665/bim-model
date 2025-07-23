@@ -27,6 +27,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [iotExtension, setIotExtension] = useState<any>(null);
+  const [dataVizExt, setDataVizExt] = useState<any>(null);
 
   // Use sensor context
   const {
@@ -40,6 +41,26 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     exitPlacementMode,
     sensorService,
   } = useSensorContext();
+
+  // Helper function to convert sensor data format
+  const convertSensorData = (sensor: any) => {
+    return {
+      id: sensor.id,
+      name: sensor.name,
+      type: sensor.type,
+      position: sensor.position,
+      modelPosition: sensor.position,
+      status: sensor.status?.toLowerCase() as
+        | "active"
+        | "inactive"
+        | "warning"
+        | "error",
+      value: sensor.value ? parseFloat(sensor.value) : undefined,
+      unit: sensor.unit,
+      room: sensor.room,
+      timestamp: sensor.lastUpdate || new Date().toISOString(),
+    };
+  };
 
   useEffect(() => {
     if (!viewerContainer.current || !accessToken || !urn) return;
@@ -69,20 +90,31 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
       };
 
       Autodesk.Viewing.Initializer(options, () => {
-        // Explicitly register IoTSensorExtension before viewer creation
+        // Register the IoT extension before creating viewer
         if (Autodesk.Viewing.theExtensionManager && IoTSensorExtension) {
-          Autodesk.Viewing.theExtensionManager.registerExtension(
-            "IoTSensorExtension",
-            IoTSensorExtension,
-          );
+          try {
+            Autodesk.Viewing.theExtensionManager.registerExtension(
+              "IoTSensorExtension",
+              IoTSensorExtension,
+            );
+          } catch (e) {
+            console.warn("IoT extension already registered");
+          }
         }
+
         const config = {
-          extensions: ["Autodesk.DefaultTools.NavTools", "IoTSensorExtension"],
+          extensions: [
+            "Autodesk.DefaultTools.NavTools",
+            "Autodesk.DataVisualization", // Load the official DataVisualization extension
+            "IoTSensorExtension", // Our custom wrapper
+          ],
         };
+
         const viewerInstance = new Autodesk.Viewing.GuiViewer3D(
           viewerContainer.current,
           config,
         );
+
         const startedCode = viewerInstance.start();
         if (startedCode > 0) {
           setError("Failed to create a Viewer: WebGL not supported.");
@@ -92,6 +124,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         // Set up sensor service with viewer
         sensorService.setViewer(viewerInstance);
+
         // Load the document
         const documentId = `urn:${urn}`;
         Autodesk.Viewing.Document.load(
@@ -101,8 +134,25 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             if (viewables) {
               viewerInstance
                 .loadDocumentNode(doc, viewables)
-                .then(() => {
+                .then(async () => {
                   setIsLoading(false);
+
+                  // Wait a bit for extensions to fully load
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                  // Get the DataVisualization extension
+                  const dataVizExtension = viewerInstance.getExtension(
+                    "Autodesk.DataVisualization",
+                  );
+                  if (dataVizExtension) {
+                    setDataVizExt(dataVizExtension);
+                    console.log(
+                      "DataVisualization extension loaded successfully",
+                    );
+                  } else {
+                    console.warn("DataVisualization extension not loaded");
+                  }
+
                   // Get IoT extension and set up sensor integration
                   const iotExt =
                     viewerInstance.getExtension("IoTSensorExtension");
@@ -117,9 +167,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                           selectSensor(sensor);
                         }
                       },
-                      onSensorPlaced: (sensor: any) => {
+                      onSensorPlaced: (sensorData: any) => {
                         if (isPlacementMode && placementSensorType) {
-                          placeSensor(sensor.position, sensor.room);
+                          // Convert the sensor data to the expected format
+                          placeSensor(
+                            sensorData.position,
+                            sensorData.room || "Unknown",
+                          );
+                          exitPlacementMode();
                         }
                       },
                       onError: (error: string) => {
@@ -129,12 +184,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
                     // Load existing sensors into the extension
                     sensors.forEach((sensor) => {
-                      iotExt.addSensor(sensor);
+                      try {
+                        const convertedSensor = convertSensorData(sensor);
+                        iotExt.addSensor(convertedSensor);
+                      } catch (err) {
+                        console.warn("Could not add sensor:", sensor.name, err);
+                      }
                     });
 
                     if (onViewerReady) {
                       onViewerReady(viewerInstance, iotExt);
                     }
+                  } else {
+                    console.warn("IoT extension not loaded");
                   }
                 })
                 .catch((loadError: any) => {
@@ -184,21 +246,36 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
   useEffect(() => {
     if (!iotExtension) return;
 
-    // Update all sensors in the extension
-    iotExtension.clearAllSensors();
-    sensors.forEach((sensor) => {
-      iotExtension.addSensor(sensor);
-    });
+    try {
+      // Clear existing sensors first
+      iotExtension.clearAllSensors();
+
+      // Add all current sensors with proper format conversion
+      sensors.forEach((sensor) => {
+        try {
+          const convertedSensor = convertSensorData(sensor);
+          iotExtension.addSensor(convertedSensor);
+        } catch (err) {
+          console.warn("Could not sync sensor:", sensor.name, err);
+        }
+      });
+    } catch (error) {
+      console.error("Error syncing sensors:", error);
+    }
   }, [sensors, iotExtension]);
 
   // Handle selected sensor changes
   useEffect(() => {
     if (!iotExtension) return;
 
-    if (selectedSensor) {
-      iotExtension.selectSensor(selectedSensor.id);
-    } else {
-      iotExtension.selectSensor(null);
+    try {
+      if (selectedSensor) {
+        iotExtension.selectSensor(selectedSensor.id);
+      } else {
+        iotExtension.selectSensor(null);
+      }
+    } catch (error) {
+      console.error("Error selecting sensor:", error);
     }
   }, [selectedSensor, iotExtension]);
 
@@ -206,10 +283,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
   useEffect(() => {
     if (!iotExtension) return;
 
-    if (isPlacementMode && placementSensorType) {
-      iotExtension.enterInsertMode(placementSensorType);
-    } else {
-      iotExtension.exitInsertMode();
+    try {
+      if (isPlacementMode && placementSensorType) {
+        iotExtension.enterInsertMode(placementSensorType);
+      } else {
+        iotExtension.exitInsertMode();
+      }
+    } catch (error) {
+      console.error("Error handling placement mode:", error);
     }
   }, [isPlacementMode, placementSensorType, iotExtension]);
 
@@ -217,19 +298,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
   useEffect(() => {
     if (!iotExtension) return;
 
-    const allSensorTypes = [
-      "Temperature",
-      "CO2",
-      "Light",
-      "Humidity",
-      "Seismic and accelerometric",
-      "Energy consuption",
-    ];
+    try {
+      const allSensorTypes = [
+        "Temperature",
+        "CO2",
+        "Light",
+        "Humidity",
+        "Seismic and accelerometric",
+        "Energy consuption",
+      ];
 
-    allSensorTypes.forEach((sensorType) => {
-      const isVisible = visibleSensorTypes.has(sensorType);
-      iotExtension.setSensorVisibility(sensorType, isVisible);
-    });
+      allSensorTypes.forEach((sensorType) => {
+        const isVisible = visibleSensorTypes.has(sensorType);
+        iotExtension.setSensorVisibility(sensorType, isVisible);
+      });
+    } catch (error) {
+      console.error("Error updating sensor visibility:", error);
+    }
   }, [visibleSensorTypes, iotExtension]);
 
   // Toolbar Functions
@@ -340,6 +425,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         <div className="toolbar-status">
           {isLoading && <span className="loading">Loading model...</span>}
           {!isLoading && <span className="ready">Model ready</span>}
+          {dataVizExt && <span className="dataviz-ready">DataViz ready</span>}
+          {iotExtension && <span className="iot-ready">IoT ready</span>}
         </div>
       </div>
 
