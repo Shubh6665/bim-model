@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { DashboardHeader } from "./components/dashboard-header";
 import { ThreeDViewer } from "./components/3d-viewer";
 import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
+import { IoTPanel } from "./components/iot-panel"; // Import the new IoTPanel
 import { GoogleEarthMap } from "./components/google-earth-map";
 import { useAuth } from "@/app/hooks/use-auth";
 import { useRef } from "react";
@@ -42,6 +43,9 @@ export default function BIMDashboard() {
   const { logout } = useAuth();
   const { data: session } = useSession();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // State to manage which panel is active
+  const [activePanel, setActivePanel] = useState<'bim' | 'iot' | 'database' | 'ai'>('bim');
 
   // Fetch projects from MongoDB on mount
   useEffect(() => {
@@ -49,7 +53,6 @@ export default function BIMDashboard() {
       const res = await fetch("/api/projects");
       const data = await res.json();
       console.log('Fetched projects from MongoDB:', data);
-      // Map MongoDB _id to id for frontend
       const mapped = (data.projects || []).map((p: any) => ({
         id: p._id || p.id,
         name: p.name,
@@ -72,7 +75,6 @@ export default function BIMDashboard() {
     fetchProjects();
   }, []);
 
-  // Google Maps API Key
   const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
 
   const handleSignOut = async () => {
@@ -87,7 +89,6 @@ export default function BIMDashboard() {
     setSelectedFile(file);
     if (file) {
       setViewMode('viewer');
-      // Find corresponding project if it exists
       const project = projects.find(p => p.id === file.id || p.name === file.name.replace('.rvt', ''));
       if (project) {
         setSelectedProject(project);
@@ -99,13 +100,11 @@ export default function BIMDashboard() {
   const handleProcessingComplete = (urn: string, file: ProjectFile) => {
     console.log("Processing completed for file:", file.name, "URN:", urn);
     setSelectedFile(prev => prev ? { ...prev, urn } : null);
-    // Update project in state with new URN
     setProjects(prev => prev.map(p => p.id === file.id ? { ...p, urn } : p));
   };
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
-    // If project has URN, create file object with URN for instant viewing
     const file: ProjectFile = {
       id: project.id,
       name: project.name + ".rvt",
@@ -123,21 +122,14 @@ export default function BIMDashboard() {
     console.log("Selected project:", project);
   };
 
-  // Handler to add new project after creation
   const handleProjectCreated = (newProject: Project) => {
-    // Option 1: Fetch the updated project list from the backend
-    // (Uncomment if you want to always fetch the latest)
-    // fetchProjects();
-
-    // Option 2: Add the new project to the state immediately
     setProjects(prev => [...prev, newProject]);
   };
 
-  // Handler to open create project modal from empty state or panel
   const handleRequestCreateProject = () => {
     setShowCreateModal(true);
   };
-  // Handler to close create project modal
+  
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
   };
@@ -145,7 +137,12 @@ export default function BIMDashboard() {
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
-      <DashboardHeader onSignOut={handleSignOut} user={session?.user} />
+      <DashboardHeader
+        onSignOut={handleSignOut}
+        user={session?.user}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
@@ -171,83 +168,67 @@ export default function BIMDashboard() {
           <>
             {/* Left Side - Map or 3D Viewer */}
             <div className="flex-1 p-4 relative">
-              {/* View Toggle Buttons */}
               <div className="absolute top-6 left-6 z-10 flex bg-black/70 backdrop-blur-sm rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('map')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'map'
-                      ? 'bg-blue-500 text-white shadow-lg'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'map' ? 'bg-blue-500 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-gray-700'}`}
                 >
                   🌍 Earth View
                 </button>
                 <button
                   onClick={() => setViewMode('viewer')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'viewer'
-                      ? 'bg-blue-500 text-white shadow-lg'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'viewer' ? 'bg-blue-500 text-white shadow-lg' : 'text-gray-300 hover:text-white hover:bg-gray-700'}`}
                 >
                   🏗️ 3D Model
                 </button>
               </div>
 
-              {/* Content Area */}
               <div className="w-full h-full">
                 {viewMode === 'map' ? (
-                  <GoogleEarthMap
-                    projects={projects}
-                    selectedProject={selectedProject}
-                    onProjectSelect={handleProjectSelect}
-                    apiKey={GOOGLE_MAPS_API_KEY}
-                  />
+                  <GoogleEarthMap projects={projects} selectedProject={selectedProject} onProjectSelect={handleProjectSelect} apiKey={GOOGLE_MAPS_API_KEY} />
                 ) : (
                   <ThreeDViewer selectedFile={selectedFile} />
                 )}
               </div>
 
-              {/* Project Info Overlay */}
               {selectedProject && viewMode === 'map' && (
                 <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-sm rounded-lg p-4 text-white max-w-sm">
                   <h3 className="font-semibold text-lg mb-2">{selectedProject.name}</h3>
                   <p className="text-gray-300 text-sm mb-3">{selectedProject.description}</p>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setViewMode('viewer')}
-                      className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors"
-                    >
+                    <button onClick={() => setViewMode('viewer')} className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors">
                       {selectedProject.urn ? "View 3D Model" : "Process & View 3D Model"}
                     </button>
-                    <button
-                      onClick={() => setSelectedProject(null)}
-                      className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-sm transition-colors"
-                    >
-                      Close
-                    </button>
+                    <button onClick={() => setSelectedProject(null)} className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-sm transition-colors">Close</button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Right Panel - Project Files */}
-            <EnhancedProjectPanel
-              onFileSelect={handleFileSelect}
-              onProjectSelect={handleProjectSelect}
-              selectedFile={selectedFile}
-              selectedProject={selectedProject}
-              projects={projects}
-              onViewModeChange={setViewMode}
-              currentViewMode={viewMode}
-              onProcessingComplete={handleProcessingComplete}
-              apiKey={GOOGLE_MAPS_API_KEY}
-              onRequestCreateProject={handleRequestCreateProject}
-            />
+            {/* Right Panel - Conditional Rendering */}
+            {activePanel === 'bim' ? (
+              <EnhancedProjectPanel
+                onFileSelect={handleFileSelect}
+                onProjectSelect={handleProjectSelect}
+                selectedFile={selectedFile}
+                selectedProject={selectedProject}
+                projects={projects}
+                onViewModeChange={setViewMode}
+                currentViewMode={viewMode}
+                onProcessingComplete={handleProcessingComplete}
+                apiKey={GOOGLE_MAPS_API_KEY}
+                onRequestCreateProject={handleRequestCreateProject}
+              />
+            ) : activePanel === 'iot' ? (
+              <IoTPanel />
+            ) : (
+              // Placeholder for other panels like Database or AI
+              <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
+                  <p className="text-gray-400">Panel for {activePanel.toUpperCase()}</p>
+              </div>
+            )}
           </>
         )}
-        {/* Global Create Project Modal */}
         {showCreateModal && (
           <CreateProjectModal
             show={showCreateModal}

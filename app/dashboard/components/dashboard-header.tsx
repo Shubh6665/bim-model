@@ -5,16 +5,27 @@ import { User, Settings, LogOut, Bell, Search, Menu, ChevronDown } from "lucide-
 interface DashboardHeaderProps {
   onSignOut: () => void;
   user?: any;
+  activePanel: 'bim' | 'iot' | 'database' | 'ai'; // Added active panel state
+  onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai') => void; // Added panel change handler
 }
 
-export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
+export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange }: DashboardHeaderProps) {
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Helper function for button styles
+  const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai') => {
+    return `px-3 py-2 rounded-md transition-colors ${
+      activePanel === panel
+        ? "text-white bg-gray-700/50" // Style for active button
+        : "text-gray-300 hover:text-white hover:bg-gray-800"
+    }`;
+  };
 
   return (
     <header className="bg-gray-900 border-b border-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Left Section - Logo and Navigation */}
+        {/* Left Section */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -22,16 +33,15 @@ export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
             </div>
             <h1 className="text-xl font-bold text-white">BIM Viewer Pro</h1>
           </div>
-
           <nav className="hidden md:flex items-center gap-1">
-            <button className="px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">BIM</button>
-            <button className="px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">IoT</button>
-            <button className="px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">Database</button>
-            <button className="px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">AI</button>
+            <button className={getButtonClass('bim')} onClick={() => onPanelChange('bim')}>BIM</button>
+            <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
+            <button className={getButtonClass('database')} onClick={() => onPanelChange('database')}>Database</button>
+            <button className={getButtonClass('ai')} onClick={() => onPanelChange('ai')}>AI</button>
           </nav>
         </div>
 
-        {/* Center Section - Search */}
+        {/* Center Section */}
         <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -43,9 +53,8 @@ export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
           </div>
         </div>
 
-        {/* Right Section - Actions and Profile */}
+        {/* Right Section */}
         <div className="flex items-center gap-4">
-          {/* Notifications */}
           <button className="relative p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
             <Bell className="w-5 h-5" />
             {notifications > 0 && (
@@ -54,13 +63,9 @@ export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
               </span>
             )}
           </button>
-
-          {/* Settings */}
           <button className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
             <Settings className="w-5 h-5" />
           </button>
-
-          {/* Profile Dropdown */}
           <div className="relative">
             <button
               className="flex items-center gap-2 p-2 hover:bg-gray-800 rounded-md transition-colors"
@@ -75,7 +80,6 @@ export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
               )}
               <ChevronDown className="w-4 h-4 text-gray-400" />
             </button>
-
             {showProfileMenu && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
                 <div className="p-3 border-b border-gray-700">
@@ -103,16 +107,12 @@ export function DashboardHeader({ onSignOut, user }: DashboardHeaderProps) {
               </div>
             )}
           </div>
-
-          {/* Mobile Menu */}
           <button className="md:hidden p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
             <Menu className="w-5 h-5" />
           </button>
         </div>
       </div>
-
-      {/* Click outside to close profile menu */}
       {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>}
     </header>
   );
-} 
+}
