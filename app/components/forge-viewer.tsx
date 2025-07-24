@@ -250,14 +250,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         };
     }, [viewer, insertMode, dataVizService, isDataVizReady]);
 
-    // Update sensors when they change - with debouncing to prevent excessive calls
+    // Update sensors when they change or when activePanel changes - with debouncing to prevent excessive calls
     useEffect(() => {
         if (!dataVizService || !isDataVizReady || !viewer) {
             console.log("[ForgeViewer] Skipping sensor update - service not ready");
             return;
         }
         
-        console.log("[ForgeViewer] Sensor update triggered, sensors count:", sensors.length);
+        console.log("[ForgeViewer] Sensor update triggered, sensors count:", sensors.length, "activePanel:", activePanel);
         
         // Use longer delay to ensure DataViz service is fully ready for display
         const delay = 800; // Consistent delay for all sensor updates
@@ -271,7 +271,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] Clearing sensor update timeout");
             clearTimeout(timeoutId);
         };
-    }, [sensors.length, dataVizService, isDataVizReady]); // Keep dependency array consistent
+    }, [sensors.length, dataVizService, isDataVizReady, activePanel]); // Include activePanel in dependency array
 
     // Control model browser visibility based on active panel
     useEffect(() => {
@@ -344,11 +344,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
-        console.log("[ForgeViewer] Updating sensors display with", sensors.length, "sensors");
+        console.log("[ForgeViewer] Updating sensors display with", sensors.length, "sensors, activePanel:", activePanel);
         
         try {
             // Clear existing sensors first
             await dataVizService.clearAllSensors();
+            
+            // Only show sprites when IoT panel is active
+            if (activePanel !== 'iot') {
+                console.log("[ForgeViewer] Not in IoT mode - hiding all sprites");
+                await dataVizService.updateDisplay();
+                return;
+            }
             
             // Skip if no sensors to add
             if (sensors.length === 0) {
