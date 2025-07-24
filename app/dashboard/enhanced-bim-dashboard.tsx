@@ -160,6 +160,9 @@ function BIMDashboard() {
     setInsertMode(sensorType); // sensorType is null when not in insert mode
   };
 
+  // Handler to exit insert mode after sensor placement
+  const handleExitInsertMode = () => setInsertMode(null);
+
   // Called when ForgeViewer is ready
   const handleViewerReady = (viewerInstance: any, iotExtension: any) => {
     setViewer(viewerInstance);
@@ -260,6 +263,7 @@ function BIMDashboard() {
                       selectedFile={selectedFile}
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
+                      onExitInsertMode={handleExitInsertMode} // Pass handler
                     />
                   </div>
                 )}
@@ -308,7 +312,7 @@ function BIMDashboard() {
                 onRequestCreateProject={handleRequestCreateProject}
               />
             ) : activePanel === "iot" ? (
-              <IoTPanel onInsertSensor={handleInsertSensor} />
+              <IoTPanel onInsertSensor={handleInsertSensor} insertMode={insertMode} />
             ) : (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">

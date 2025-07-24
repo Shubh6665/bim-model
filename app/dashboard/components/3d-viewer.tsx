@@ -21,12 +21,14 @@ interface ThreeDViewerProps {
   } | null;
   onViewerReady?: (viewer: any, iotExtension: any) => void;
   insertMode?: string | null;
+  onExitInsertMode?: () => void; // NEW PROP
 }
 
 export function ThreeDViewer({
   selectedFile,
   onViewerReady,
   insertMode,
+  onExitInsertMode, // NEW PROP
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -109,6 +111,7 @@ export function ThreeDViewer({
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
           insertMode={insertMode}
+          onExitInsertMode={onExitInsertMode} // Pass down
         />
       )}
 

@@ -13,11 +13,20 @@ const SENSOR_TYPES = [
 
 interface IoTPanelProps {
   onInsertSensor?: (sensorType: string | null) => void;
+  insertMode?: string | null; // NEW PROP
 }
 
-export function IoTPanel({ onInsertSensor }: IoTPanelProps) {
+export function IoTPanel({ onInsertSensor, insertMode }: IoTPanelProps) {
   const [mode, setMode] = useState<"all" | "insert">("all");
   const [selectedType, setSelectedType] = useState<string | null>(null);
+
+  // Reset selectedType and mode when insertMode is exited
+  useEffect(() => {
+    if (insertMode === null) {
+      setSelectedType(null);
+      setMode("all");
+    }
+  }, [insertMode]);
 
   // Notify parent when insert mode/type changes
   useEffect(() => {
