@@ -9,7 +9,6 @@ import {
   type SpriteData,
   type DataVizOptions,
 } from "./forge-dataviz-extension";
-import SensorPalette from "./sensor-palette";
 import { useSensorContext } from "../context/sensor-context";
 
 declare global {
@@ -45,7 +44,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     Set<string>
   >(new Set(Object.keys(SENSOR_CONFIGS)));
   const [isDragOver, setIsDragOver] = useState(false);
-  const [showSensorPalette, setShowSensorPalette] = useState(true);
 
   // Use sensor context
   const {
@@ -747,13 +745,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         {/* DataViz Controls */}
         <div className="toolbar-group">
           <button
-            onClick={() => setShowSensorPalette(!showSensorPalette)}
-            title="Toggle Sensor Palette"
-            className={`toolbar-btn ${showSensorPalette ? "active" : ""}`}
-          >
-            🎛️
-          </button>
-          <button
             onClick={showAllSprites}
             title="Show All Sprites"
             className="toolbar-btn"
@@ -788,18 +779,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
           )}
         </div>
       </div>
-
-      {/* Sensor Palette */}
-      {showSensorPalette && (
-        <SensorPalette
-          onSensorTypeToggle={handleSensorTypeToggle}
-          onEnterInsertMode={handleEnterInsertMode}
-          onExitInsertMode={handleExitInsertMode}
-          visibleSensorTypes={localVisibleSensorTypes}
-          isInsertMode={isInsertMode}
-          currentInsertType={currentInsertType}
-        />
-      )}
 
       {/* Viewer Container with Drag & Drop */}
       <div
