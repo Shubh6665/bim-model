@@ -69,8 +69,20 @@ export function SensorProvider({ children }: SensorProviderProps) {
       setSensors(updatedSensors);
     });
 
-    // Start simulation for demo purposes
-    sensorService.startSimulation();
+    // Load demo sensor data from public/sensors-demo.json
+    fetch('/sensors-demo.json')
+      .then(res => res.json())
+      .then(demoSensors => {
+        if (Array.isArray(demoSensors)) {
+          // Only add sensors if the array is not empty
+          if (demoSensors.length > 0) {
+            demoSensors.forEach(sensor => sensorService.addSensor(sensor));
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('No demo sensor data loaded:', err);
+      });
 
     return unsubscribe;
   }, []);

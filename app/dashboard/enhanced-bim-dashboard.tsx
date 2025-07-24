@@ -12,8 +12,6 @@ import { useRef } from "react";
 import React from "react";
 import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
-import ForgeViewer from "../components/forge-viewer";
-import DataVizIntegration from "../components/dataviz-integration";
 
 interface ProjectFile {
   id: string;
@@ -51,6 +49,8 @@ function BIMDashboard() {
   const [activePanel, setActivePanel] = useState<
     "bim" | "iot" | "database" | "ai"
   >("bim");
+  const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
+  const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
 
   // Use sensor context
   const {
@@ -156,10 +156,8 @@ function BIMDashboard() {
   };
 
   // Handler for IoTPanel to trigger sensor placement
-  const handleInsertSensor = (sensorType: string) => {
-    console.log("handleInsertSensor called with type:", sensorType);
-    // The IoTPanel component already calls enterPlacementMode from context
-    // This handler is just for additional logic if needed
+  const handleInsertSensor = (sensorType: string | null) => {
+    setInsertMode(sensorType); // sensorType is null when not in insert mode
   };
 
   // Called when ForgeViewer is ready
@@ -261,21 +259,8 @@ function BIMDashboard() {
                     <ThreeDViewer
                       selectedFile={selectedFile}
                       onViewerReady={handleViewerReady}
+                      insertMode={insertMode}
                     />
-
-                    {/* DataViz Integration */}
-                    {viewer && selectedFile && (
-                      <DataVizIntegration
-                        viewer={viewer}
-                        sensors={sensors}
-                        selectedSensor={selectedSensor}
-                        onSensorClick={handleSensorClick}
-                        onSensorPlaced={handleSensorPlaced}
-                        isPlacementMode={isPlacementMode}
-                        placementSensorType={placementSensorType}
-                        visibleSensorTypes={visibleSensorTypes}
-                      />
-                    )}
                   </div>
                 )}
               </div>

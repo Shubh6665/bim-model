@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { RVTForgeInterface } from "./rvt-forge-interface";
-import ForgeViewer from "@/app/components/forge-viewer";
+import ForgeViewer from "../../components/forge-viewer";
 import { forgeAuthService } from "@/app/services/forge-service";
 
 interface ThreeDViewerProps {
@@ -20,11 +20,13 @@ interface ThreeDViewerProps {
     description?: string;
   } | null;
   onViewerReady?: (viewer: any, iotExtension: any) => void;
+  insertMode?: string | null;
 }
 
 export function ThreeDViewer({
   selectedFile,
   onViewerReady,
+  insertMode,
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -106,7 +108,7 @@ export function ThreeDViewer({
         <ForgeViewer
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
-          onViewerReady={onViewerReady}
+          insertMode={insertMode}
         />
       )}
 
