@@ -270,6 +270,7 @@ function BIMDashboard() {
                       insertMode={insertMode}
                       onExitInsertMode={handleExitInsertMode}
                       onSensorClick={handleSensorClick}
+                      activePanel={activePanel}
                     />
                   </div>
                 )}

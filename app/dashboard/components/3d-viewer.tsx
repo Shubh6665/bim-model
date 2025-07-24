@@ -23,6 +23,7 @@ interface ThreeDViewerProps {
   insertMode?: string | null;
   onExitInsertMode?: () => void;
   onSensorClick?: (sensorId: string) => void;
+  activePanel?: 'bim' | 'iot' | 'database' | 'ai';
 }
 
 export function ThreeDViewer({
@@ -31,6 +32,7 @@ export function ThreeDViewer({
   insertMode,
   onExitInsertMode,
   onSensorClick,
+  activePanel,
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -115,6 +117,7 @@ export function ThreeDViewer({
           insertMode={insertMode}
           onExitInsertMode={onExitInsertMode}
           onSensorClick={onSensorClick}
+          activePanel={activePanel}
         />
       )}
 

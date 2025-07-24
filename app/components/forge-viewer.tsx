@@ -11,6 +11,7 @@ interface ForgeViewerProps {
     onSensorPlaced?: (sensor: any) => void;
     onExitInsertMode?: () => void;
     onSensorClick?: (sensorId: string) => void;
+    activePanel?: 'bim' | 'iot' | 'database' | 'ai';
 }
 
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
@@ -20,6 +21,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     onSensorPlaced,
     onExitInsertMode,
     onSensorClick,
+    activePanel,
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
@@ -270,6 +272,71 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             clearTimeout(timeoutId);
         };
     }, [sensors.length, dataVizService, isDataVizReady]); // Keep dependency array consistent
+
+    // Control model browser visibility based on active panel
+    useEffect(() => {
+        if (!viewer || !isInitialized) {
+            console.log("[ForgeViewer] Viewer not ready for model browser visibility control");
+            return;
+        }
+
+        console.log(`[ForgeViewer] Controlling model browser visibility for panel: ${activePanel}`);
+
+        try {
+            if (activePanel === 'iot') {
+                // Hide all model elements (simulate turning off all eye icons in model browser)
+                console.log("[ForgeViewer] Hiding all model elements for IoT mode");
+                
+                // Get all leaf node IDs (components that can be individually controlled)
+                viewer.model.getObjectTree((instanceTree: any) => {
+                    if (instanceTree) {
+                        const allDbIds: number[] = [];
+                        
+                        // Get all leaf components (actual model elements)
+                        instanceTree.enumNodeFragments(instanceTree.getRootId(), (fragId: number) => {
+                            // This gets all fragments, but we need dbIds
+                        }, true);
+                        
+                        // Alternative approach: get all node IDs recursively
+                        const collectAllNodeIds = (nodeId: number) => {
+                            allDbIds.push(nodeId);
+                            instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                                collectAllNodeIds(childId);
+                            });
+                        };
+                        
+                        collectAllNodeIds(instanceTree.getRootId());
+                        
+                        // Filter to get only leaf nodes (actual components)
+                        const leafNodeIds = allDbIds.filter(nodeId => {
+                            let hasChildren = false;
+                            instanceTree.enumNodeChildren(nodeId, () => {
+                                hasChildren = true;
+                            });
+                            return !hasChildren;
+                        });
+                        
+                        console.log(`[ForgeViewer] Found ${leafNodeIds.length} leaf components to hide`);
+                        
+                        // Hide all leaf components (this simulates turning off eye icons)
+                        if (leafNodeIds.length > 0) {
+                            viewer.hide(leafNodeIds);
+                            console.log(`[ForgeViewer] Hidden ${leafNodeIds.length} model components`);
+                        }
+                    }
+                });
+            } else {
+                // Show all model elements (simulate turning on all eye icons in model browser)
+                console.log("[ForgeViewer] Showing all model elements");
+                
+                // Show all previously hidden elements
+                viewer.showAll();
+                console.log("[ForgeViewer] Restored visibility for all model elements");
+            }
+        } catch (error) {
+            console.error("[ForgeViewer] Error controlling model browser visibility:", error);
+        }
+    }, [activePanel, viewer, isInitialized]);
 
     const updateSensors = async () => {
         if (!dataVizService) {
