@@ -257,16 +257,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         
         console.log("[ForgeViewer] Sensor update triggered, sensors count:", sensors.length);
         
+        // Use longer delay to ensure DataViz service is fully ready for display
+        const delay = 800; // Consistent delay for all sensor updates
+        
         // Debounce sensor updates to prevent excessive re-initialization
         const timeoutId = setTimeout(() => {
             updateSensors();
-        }, 500); // Increased debounce to 500ms
+        }, delay);
         
         return () => {
             console.log("[ForgeViewer] Clearing sensor update timeout");
             clearTimeout(timeoutId);
         };
-    }, [sensors.length, dataVizService, isDataVizReady]); // Only depend on sensors.length, not the entire sensors array
+    }, [sensors.length, dataVizService, isDataVizReady]); // Keep dependency array consistent
 
     const updateSensors = async () => {
         if (!dataVizService) {
