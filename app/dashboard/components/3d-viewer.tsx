@@ -19,11 +19,18 @@ interface ThreeDViewerProps {
     lng?: number;
     description?: string;
   } | null;
+  onViewerReady?: (viewer: any, iotExtension: any) => void;
 }
 
-export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
+export function ThreeDViewer({
+  selectedFile,
+  onViewerReady,
+}: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
-  const [forgeData, setForgeData] = useState<{ accessToken: string; urn: string } | null>(null);
+  const [forgeData, setForgeData] = useState<{
+    accessToken: string;
+    urn: string;
+  } | null>(null);
   const [isLoadingForge, setIsLoadingForge] = useState(false);
 
   // Check if selected file is RVT or has existing URN
@@ -32,12 +39,13 @@ export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
       // File already has URN, load directly
       setShowRVTInterface(false);
       setIsLoadingForge(true);
-      
-      forgeAuthService.getAccessToken()
-        .then(accessToken => {
+
+      forgeAuthService
+        .getAccessToken()
+        .then((accessToken) => {
           setForgeData({ accessToken, urn: selectedFile.urn! });
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Failed to get access token for viewer:", error);
         })
         .finally(() => {
@@ -98,6 +106,7 @@ export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
         <ForgeViewer
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
+          onViewerReady={onViewerReady}
         />
       )}
 
@@ -107,7 +116,9 @@ export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-600 shadow-xl">
             <div className="flex items-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="text-white font-medium">Loading Forge viewer...</span>
+              <span className="text-white font-medium">
+                Loading Forge viewer...
+              </span>
             </div>
           </div>
         </div>
@@ -132,9 +143,12 @@ export function ThreeDViewer({ selectedFile }: ThreeDViewerProps) {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold mb-2">Select a Project to View</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              Select a Project to View
+            </h3>
             <p className="text-gray-400 mb-4">
-              Choose an RVT file from the project panel to start viewing your BIM model
+              Choose an RVT file from the project panel to start viewing your
+              BIM model
             </p>
             <div className="text-sm text-gray-500">
               <p>• Click on any RVT file to process and view</p>

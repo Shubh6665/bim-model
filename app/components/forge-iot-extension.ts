@@ -43,13 +43,13 @@ const SENSOR_COLORS = {
 
 // Define sensor type to icon mapping
 const SENSOR_ICONS = {
-  Temperature: "🌡️",
-  CO2: "💨",
-  Light: "💡",
-  Humidity: "💧",
-  "Seismic and accelerometric": "📊",
-  "Energy consuption": "⚡",
-  default: "📍",
+  Temperature: "T",
+  CO2: "C",
+  Light: "L",
+  Humidity: "H",
+  "Seismic and accelerometric": "S",
+  "Energy consuption": "E",
+  default: "•",
 };
 
 // Base extension class for when Autodesk.Viewing.Extension is not available
@@ -80,6 +80,8 @@ export class IoTSensorExtension extends ExtensionBase {
   private isInsertMode: boolean = false;
   private options: ExtensionOptions = {};
   private selectedSensorId: string | null = null;
+  private keydownHandler: ((event: KeyboardEvent) => void) | null = null;
+  private clickHandler: ((event: MouseEvent) => void) | null = null;
 
   constructor(viewer: any, options?: ExtensionOptions) {
     super(viewer, options);
@@ -114,8 +116,17 @@ export class IoTSensorExtension extends ExtensionBase {
       return true;
     } catch (error) {
       console.error("Error loading IoT Sensor Extension:", error);
+
+      // Try to provide more specific error information
+      let errorMessage = "Unknown error";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+
       if (this.options.onError) {
-        this.options.onError(`Failed to load extension: ${error}`);
+        this.options.onError(`Failed to load extension: ${errorMessage}`);
       }
       return false;
     }
@@ -184,7 +195,7 @@ export class IoTSensorExtension extends ExtensionBase {
         color,
         this.createSensorIconDataURL(
           sensorType,
-          SENSOR_COLORS[sensorType as keyof typeof SENSOR_COLORS],
+          `#${SENSOR_COLORS[sensorType as keyof typeof SENSOR_COLORS].toString(16).padStart(6, "0")}`,
         ),
       );
 
@@ -198,26 +209,45 @@ export class IoTSensorExtension extends ExtensionBase {
     const defaultStyle = new DataVizCore.ViewableStyle(
       DataVizCore.ViewableType.SPRITE,
       defaultColor,
-      this.createSensorIconDataURL("default", SENSOR_COLORS.default),
+      this.createSensorIconDataURL(
+        "default",
+        `#${SENSOR_COLORS.default.toString(16).padStart(6, "0")}`,
+      ),
     );
     this.sensorStyles.set("default", defaultStyle);
   }
 
-  private createSensorIconDataURL(sensorType: string, color: number): string {
-    // Create a simple colored circle as SVG data URL
-    const colorHex = `#${color.toString(16).padStart(6, "0")}`;
-    const icon =
-      SENSOR_ICONS[sensorType as keyof typeof SENSOR_ICONS] ||
-      SENSOR_ICONS.default;
+  private createSensorIconDataURL(
+    sensorType: string,
+    colorHex: string,
+  ): string {
+    try {
+      const icon =
+        SENSOR_ICONS[sensorType as keyof typeof SENSOR_ICONS] ||
+        SENSOR_ICONS.default;
 
-    const svg = `
-      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="14" fill="${colorHex}" stroke="white" stroke-width="2"/>
-        <text x="16" y="20" text-anchor="middle" font-size="16" fill="white">${icon}</text>
-      </svg>
-    `;
+      // Ensure icon is a simple character to avoid encoding issues
+      const safeIcon = icon.charAt(0) || "•";
+      const svg = `
+        <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="14" fill="${colorHex}" stroke="white" stroke-width="2"/>
+          <text x="16" y="20" text-anchor="middle" font-size="16" fill="white">${safeIcon}</text>
+        </svg>
+      `;
 
-    return `data:image/svg+xml;base64,${btoa(svg)}`;
+      // Use encodeURIComponent instead of btoa to handle Unicode characters
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    } catch (error) {
+      console.warn("Error creating sensor icon:", error);
+      // Return a simple fallback icon
+      const fallbackSvg = `
+        <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="14" fill="${colorHex}" stroke="white" stroke-width="2"/>
+          <circle cx="16" cy="16" r="4" fill="white"/>
+        </svg>
+      `;
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackSvg)}`;
+    }
   }
 
   private initializeViewableData(): void {
@@ -242,6 +272,10 @@ export class IoTSensorExtension extends ExtensionBase {
       (globalThis as any).Autodesk.Viewing.VIEWER_STATE_RESTORED_EVENT,
       this.onViewerStateRestored.bind(this),
     );
+
+    // Set up ESC key handler for exiting insert mode
+    this.keydownHandler = this.onKeyDown.bind(this);
+    document.addEventListener("keydown", this.keydownHandler);
   }
 
   private removeEventListeners(): void {
@@ -255,6 +289,15 @@ export class IoTSensorExtension extends ExtensionBase {
       (globalThis as any).Autodesk.Viewing.VIEWER_STATE_RESTORED_EVENT,
       this.onViewerStateRestored.bind(this),
     );
+
+    // Remove ESC key handler
+    if (this.keydownHandler) {
+      document.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = null;
+    }
+
+    // Remove click handler if active
+    this.removeClickHandler();
   }
 
   private onSelectionChanged(event: any): void {
@@ -274,6 +317,16 @@ export class IoTSensorExtension extends ExtensionBase {
   private onViewerStateRestored(): void {
     // Re-render sensors if needed
     this.refreshSensorDisplay();
+  }
+
+  private onKeyDown(event: KeyboardEvent): void {
+    // Handle ESC key to exit insert mode
+    if (event.key === "Escape" && this.isInsertMode) {
+      console.log("ESC key pressed - exiting insert mode");
+      this.exitInsertMode();
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   private getSensorIdByDbId(dbId: number): string | null {
@@ -429,66 +482,83 @@ export class IoTSensorExtension extends ExtensionBase {
   }
 
   public enterInsertMode(sensorType: string): void {
+    if (this.isInsertMode) {
+      console.log("Already in insert mode, exiting first");
+      this.exitInsertMode();
+    }
+
     this.isInsertMode = true;
     this.currentInsertInfo = { sensorType };
 
-    // Enable click-to-place functionality
-    this.viewer.addEventListener(
-      (globalThis as any).Autodesk.Viewing.VIEWER_CLICK_EVENT,
-      this.onViewerClick.bind(this),
-    );
+    // Enable click-to-place functionality using container click event
+    this.clickHandler = this.onViewerClick.bind(this);
+    this.viewer.container.addEventListener("click", this.clickHandler);
 
     console.log(`Entered insert mode for ${sensorType} sensors`);
   }
 
   public exitInsertMode(): void {
+    if (!this.isInsertMode) {
+      console.log("Not in insert mode, nothing to exit");
+      return;
+    }
+
     this.isInsertMode = false;
     this.currentInsertInfo = null;
 
     // Disable click-to-place functionality
-    this.viewer.removeEventListener(
-      (globalThis as any).Autodesk.Viewing.VIEWER_CLICK_EVENT,
-      this.onViewerClick.bind(this),
-    );
+    this.removeClickHandler();
 
     console.log("Exited insert mode");
   }
 
-  private onViewerClick(event: any): void {
+  private removeClickHandler(): void {
+    if (this.clickHandler && this.viewer && this.viewer.container) {
+      this.viewer.container.removeEventListener("click", this.clickHandler);
+      this.clickHandler = null;
+      console.log("Click handler removed");
+    }
+  }
+
+  private onViewerClick(event: MouseEvent): void {
     if (!this.isInsertMode || !this.currentInsertInfo) return;
 
+    // Prevent default behavior to avoid conflicts
+    event.preventDefault();
+    event.stopPropagation();
+
     try {
+      console.log("Viewer click detected in insert mode", event);
       const point = this.getIntersectionPoint(event);
       if (point) {
+        console.log("Intersection point found:", point);
         this.placeSensorAtPoint(point);
+      } else {
+        console.log("No intersection point found");
       }
     } catch (error) {
       console.error("Error placing sensor:", error);
     }
   }
 
-  private getIntersectionPoint(event: any): any | null {
+  private getIntersectionPoint(event: MouseEvent): any | null {
     if (!event || !this.viewer) return null;
 
     try {
-      const rect = this.viewer.container.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const clientX = event.clientX;
+      const clientY = event.clientY;
 
-      const camera = this.viewer.getCamera();
-      const raycaster = new (globalThis as any).THREE.Raycaster();
-      raycaster.setFromCamera(
-        new (globalThis as any).THREE.Vector2(x, y),
-        camera,
-      );
+      console.log("Click coordinates:", { clientX, clientY });
 
-      const intersections = raycaster.intersectObjects(
-        this.viewer.impl.scene.children,
-        true,
-      );
+      // Use Forge Viewer's built-in method to get world coordinates
+      const result = this.viewer.clientToWorld(clientX, clientY, true);
 
-      if (intersections.length > 0) {
-        return intersections[0].point;
+      if (result && result.point) {
+        console.log("World intersection point:", result.point);
+        return result.point;
+      } else {
+        console.log("No intersection found with clientToWorld");
+        return null;
       }
     } catch (error) {
       console.warn("Could not get intersection point:", error);
@@ -498,7 +568,9 @@ export class IoTSensorExtension extends ExtensionBase {
   }
 
   private placeSensorAtPoint(point: any): void {
-    if (!this.currentInsertInfo || !this.options.onSensorPlaced) return;
+    if (!this.currentInsertInfo) return;
+
+    console.log("Placing sensor at point:", point);
 
     const sensorData: SensorData = {
       id: this.generateSensorId(),
@@ -509,7 +581,18 @@ export class IoTSensorExtension extends ExtensionBase {
       timestamp: new Date().toISOString(),
     };
 
-    this.options.onSensorPlaced(sensorData);
+    console.log("Sensor placed successfully:", sensorData);
+
+    // Call the callback first to let the context handle the sensor creation
+    if (this.options.onSensorPlaced) {
+      this.options.onSensorPlaced(sensorData);
+    } else {
+      // Fallback: add sensor directly if no callback
+      this.addSensor(sensorData);
+    }
+
+    // Exit insert mode after placing sensor
+    this.exitInsertMode();
   }
 
   private generateSensorId(): string {
