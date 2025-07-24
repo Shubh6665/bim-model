@@ -170,8 +170,13 @@ function BIMDashboard() {
   };
 
   // DataViz sensor handlers
-  const handleSensorClick = (sensor: any) => {
-    selectSensor(sensor);
+  const handleSensorClick = (sensorId: string) => {
+    console.log("Sensor clicked:", sensorId);
+    // Find and select the sensor
+    const sensor = sensors.find(s => s.id === sensorId);
+    if (sensor) {
+      selectSensor(sensor);
+    }
   };
 
   const handleSensorPlaced = (sensorData: any) => {
@@ -263,7 +268,8 @@ function BIMDashboard() {
                       selectedFile={selectedFile}
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
-                      onExitInsertMode={handleExitInsertMode} // Pass handler
+                      onExitInsertMode={handleExitInsertMode}
+                      onSensorClick={handleSensorClick}
                     />
                   </div>
                 )}
@@ -312,7 +318,11 @@ function BIMDashboard() {
                 onRequestCreateProject={handleRequestCreateProject}
               />
             ) : activePanel === "iot" ? (
-              <IoTPanel onInsertSensor={handleInsertSensor} insertMode={insertMode} />
+              <IoTPanel 
+                onInsertSensor={handleInsertSensor} 
+                insertMode={insertMode}
+                onSensorClick={handleSensorClick}
+              />
             ) : (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">

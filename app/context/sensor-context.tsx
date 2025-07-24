@@ -6,19 +6,43 @@ import React, {
   useEffect,
   useState,
   ReactNode,
+  useCallback,
 } from "react";
-import {
-  sensorService,
-  Sensor,
-  SensorService,
-} from "../services/sensor-service";
+
+export interface Sensor {
+  id: string;
+  name: string;
+  type: string;
+  status: "Online" | "Offline" | "Warning";
+  value: string;
+  position: { x: number; y: number; z: number };
+  batteryLevel: number;
+  lastUpdate: string;
+  room: string;
+  color?: string;
+  projectId?: string;
+  modelPosition?: { x: number; y: number; z: number };
+}
+
+export const SENSOR_TYPES = [
+  { name: "Temperature", color: "#ef4444", unit: "°C" },
+  { name: "CO2", color: "#22c55e", unit: "ppm" },
+  { name: "Light", color: "#fde047", unit: "lux" },
+  { name: "Humidity", color: "#3b82f6", unit: "%" },
+  { name: "Seismic and accelerometric", color: "#a21caf", unit: "g" },
+  { name: "Energy consumption", color: "#14b8a6", unit: "kWh" },
+];
 
 interface SensorContextType {
+  // State
   sensors: Sensor[];
   selectedSensor: Sensor | null;
   isPlacementMode: boolean;
   placementSensorType: string | null;
   visibleSensorTypes: Set<string>;
+  filteredSensorType: string | null;
+  loading: boolean;
+  error: string | null;
 
   // Actions
   selectSensor: (sensor: Sensor | null) => void;
@@ -27,16 +51,13 @@ interface SensorContextType {
   placeSensor: (
     position: { x: number; y: number; z: number },
     room?: string,
-  ) => Sensor | null;
-  removeSensor: (sensorId: string) => boolean;
-  updateSensor: (sensorId: string, updates: Partial<Sensor>) => boolean;
+  ) => Promise<Sensor | null>;
+  removeSensor: (sensorId: string) => Promise<boolean>;
+  updateSensor: (sensorId: string, updates: Partial<Sensor>) => Promise<boolean>;
   toggleSensorTypeVisibility: (sensorType: string) => void;
-  filterSensorsByType: (sensorType: string | null) => Sensor[];
-  highlightSensor: (sensorId: string) => void;
-  clearSelection: () => void;
-
-  // Service
-  sensorService: SensorService;
+  filterSensorsByType: (sensorType: string | null) => void;
+  getFilteredSensors: () => Sensor[];
+  refreshSensors: () => Promise<void>;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -49,160 +70,208 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [selectedSensor, setSelectedSensor] = useState<Sensor | null>(null);
   const [isPlacementMode, setIsPlacementMode] = useState(false);
-  const [placementSensorType, setPlacementSensorType] = useState<string | null>(
-    null,
-  );
+  const [placementSensorType, setPlacementSensorType] = useState<string | null>(null);
   const [visibleSensorTypes, setVisibleSensorTypes] = useState<Set<string>>(
-    new Set([
-      "Temperature",
-      "CO2",
-      "Light",
-      "Humidity",
-      "Seismic and accelerometric",
-      "Energy consuption",
-    ]),
+    new Set(SENSOR_TYPES.map(type => type.name))
   );
+  const [filteredSensorType, setFilteredSensorType] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to sensor service updates
-  useEffect(() => {
-    const unsubscribe = sensorService.subscribe((updatedSensors) => {
-      setSensors(updatedSensors);
-    });
-
-    // Load demo sensor data from public/sensors-demo.json
-    fetch('/sensors-demo.json')
-      .then(res => res.json())
-      .then(demoSensors => {
-        if (Array.isArray(demoSensors)) {
-          // Only add sensors if the array is not empty
-          if (demoSensors.length > 0) {
-            demoSensors.forEach(sensor => sensorService.addSensor(sensor));
-          }
-        }
-      })
-      .catch(err => {
-        console.warn('No demo sensor data loaded:', err);
-      });
-
-    return unsubscribe;
+  // Load sensors from API
+  const refreshSensors = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/iot/sensors');
+      if (!response.ok) {
+        throw new Error('Failed to fetch sensors');
+      }
+      const fetchedSensors = await response.json();
+      setSensors(fetchedSensors);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Error fetching sensors:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  // Load sensors on mount
+  useEffect(() => {
+    refreshSensors();
+  }, [refreshSensors]);
+
   // Select a sensor
-  const selectSensor = (sensor: Sensor | null) => {
+  const selectSensor = useCallback((sensor: Sensor | null) => {
     setSelectedSensor(sensor);
-    if (sensor) {
-      sensorService.highlightSensor(sensor.id);
-    } else {
-      sensorService.clearSelection();
-    }
-  };
+  }, []);
 
   // Enter sensor placement mode
-  const enterPlacementMode = (sensorType: string) => {
+  const enterPlacementMode = useCallback((sensorType: string) => {
     console.log("Entering placement mode for:", sensorType);
     setIsPlacementMode(true);
     setPlacementSensorType(sensorType);
     setSelectedSensor(null);
-  };
+  }, []);
 
   // Exit sensor placement mode
-  const exitPlacementMode = () => {
+  const exitPlacementMode = useCallback(() => {
     console.log("Exiting placement mode");
     setIsPlacementMode(false);
     setPlacementSensorType(null);
-  };
+  }, []);
 
   // Place a sensor at the specified position
-  const placeSensor = (
+  const placeSensor = useCallback(async (
     position: { x: number; y: number; z: number },
     room?: string,
-  ): Sensor | null => {
+  ): Promise<Sensor | null> => {
     if (!placementSensorType) {
       console.warn("No sensor type selected for placement");
       return null;
     }
 
+    setLoading(true);
+    setError(null);
+    
     try {
-      const newSensor = sensorService.placeSensorAtPosition(
-        placementSensorType,
+      const sensorData = {
+        name: `${placementSensorType} Sensor ${Date.now()}`,
+        type: placementSensorType,
+        status: "Online" as const,
+        value: "0",
         position,
-        room,
-      );
+        batteryLevel: 100,
+        lastUpdate: new Date().toISOString(),
+        room: room || "Unknown Room",
+        color: SENSOR_TYPES.find(t => t.name === placementSensorType)?.color,
+        projectId: "current", // TODO: Get actual project ID
+        modelPosition: position,
+      };
+
+      const response = await fetch('/api/iot/sensors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sensorData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create sensor');
+      }
+
+      const newSensor = await response.json();
+      setSensors(prev => [...prev, newSensor]);
       exitPlacementMode();
       console.log("Sensor placed successfully:", newSensor);
       return newSensor;
-    } catch (error) {
-      console.error("Failed to place sensor:", error);
-      exitPlacementMode(); // Exit placement mode even on error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to place sensor');
+      console.error("Failed to place sensor:", err);
+      exitPlacementMode();
       return null;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [placementSensorType, exitPlacementMode]);
 
   // Remove a sensor
-  const removeSensor = (sensorId: string): boolean => {
-    const success = sensorService.removeSensor(sensorId);
-    if (success && selectedSensor?.id === sensorId) {
-      setSelectedSensor(null);
+  const removeSensor = useCallback(async (sensorId: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/iot/sensors?id=${sensorId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete sensor');
+      }
+
+      setSensors(prev => prev.filter(sensor => sensor.id !== sensorId));
+      if (selectedSensor?.id === sensorId) {
+        setSelectedSensor(null);
+      }
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove sensor');
+      console.error('Failed to remove sensor:', err);
+      return false;
+    } finally {
+      setLoading(false);
     }
-    return success;
-  };
+  }, [selectedSensor]);
 
   // Update a sensor
-  const updateSensor = (
+  const updateSensor = useCallback(async (
     sensorId: string,
     updates: Partial<Sensor>,
-  ): boolean => {
-    const success = sensorService.updateSensor(sensorId, updates);
-    if (success && selectedSensor?.id === sensorId) {
-      const updatedSensor = sensorService.getSensorById(sensorId);
-      if (updatedSensor) {
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/iot/sensors?id=${sensorId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update sensor');
+      }
+
+      const updatedSensor = await response.json();
+      setSensors(prev => prev.map(sensor => 
+        sensor.id === sensorId ? updatedSensor : sensor
+      ));
+      
+      if (selectedSensor?.id === sensorId) {
         setSelectedSensor(updatedSensor);
       }
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update sensor');
+      console.error('Failed to update sensor:', err);
+      return false;
+    } finally {
+      setLoading(false);
     }
-    return success;
-  };
+  }, [selectedSensor]);
 
   // Toggle sensor type visibility
-  const toggleSensorTypeVisibility = (sensorType: string) => {
-    const newVisibleTypes = new Set(visibleSensorTypes);
-    if (newVisibleTypes.has(sensorType)) {
-      newVisibleTypes.delete(sensorType);
-    } else {
-      newVisibleTypes.add(sensorType);
+  const toggleSensorTypeVisibility = useCallback((sensorType: string) => {
+    setVisibleSensorTypes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sensorType)) {
+        newSet.delete(sensorType);
+      } else {
+        newSet.add(sensorType);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Filter sensors by type
+  const filterSensorsByType = useCallback((sensorType: string | null) => {
+    setFilteredSensorType(sensorType);
+  }, []);
+
+  // Get filtered sensors
+  const getFilteredSensors = useCallback((): Sensor[] => {
+    let filtered = sensors.filter(sensor => visibleSensorTypes.has(sensor.type));
+    
+    if (filteredSensorType) {
+      filtered = filtered.filter(sensor => sensor.type === filteredSensorType);
     }
-    setVisibleSensorTypes(newVisibleTypes);
-    sensorService.setSensorTypeVisibility(
-      sensorType,
-      newVisibleTypes.has(sensorType),
-    );
-  };
-
-  // Filter sensors by type and visibility
-  const filterSensorsByType = (sensorType: string | null): Sensor[] => {
-    let filtered = sensors.filter((sensor) =>
-      visibleSensorTypes.has(sensor.type),
-    );
-
-    if (sensorType) {
-      filtered = filtered.filter((sensor) => sensor.type === sensorType);
-    }
-
+    
     return filtered;
-  };
-
-  // Highlight a sensor in the model
-  const highlightSensor = (sensorId: string) => {
-    const sensor = sensorService.getSensorById(sensorId);
-    if (sensor) {
-      selectSensor(sensor);
-    }
-  };
-
-  // Clear sensor selection
-  const clearSelection = () => {
-    setSelectedSensor(null);
-    sensorService.clearSelection();
-  };
+  }, [sensors, visibleSensorTypes, filteredSensorType]);
 
   const contextValue: SensorContextType = {
     sensors,
@@ -210,7 +279,9 @@ export function SensorProvider({ children }: SensorProviderProps) {
     isPlacementMode,
     placementSensorType,
     visibleSensorTypes,
-
+    filteredSensorType,
+    loading,
+    error,
     selectSensor,
     enterPlacementMode,
     exitPlacementMode,
@@ -219,10 +290,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
     updateSensor,
     toggleSensorTypeVisibility,
     filterSensorsByType,
-    highlightSensor,
-    clearSelection,
-
-    sensorService,
+    getFilteredSensors,
+    refreshSensors,
   };
 
   return (
@@ -232,38 +301,10 @@ export function SensorProvider({ children }: SensorProviderProps) {
   );
 }
 
-// Hook to use the sensor context
 export function useSensorContext() {
   const context = useContext(SensorContext);
   if (context === undefined) {
     throw new Error("useSensorContext must be used within a SensorProvider");
   }
   return context;
-}
-
-// Hook to use sensors with optional filtering
-export function useSensors(filterType?: string) {
-  const { sensors, visibleSensorTypes } = useSensorContext();
-
-  return React.useMemo(() => {
-    let filtered = sensors.filter((sensor) =>
-      visibleSensorTypes.has(sensor.type),
-    );
-
-    if (filterType) {
-      filtered = filtered.filter((sensor) => sensor.type === filterType);
-    }
-
-    return filtered;
-  }, [sensors, visibleSensorTypes, filterType]);
-}
-
-// Hook to get sensor by ID
-export function useSensor(sensorId: string | null) {
-  const { sensors } = useSensorContext();
-
-  return React.useMemo(() => {
-    if (!sensorId) return null;
-    return sensors.find((sensor) => sensor.id === sensorId) || null;
-  }, [sensors, sensorId]);
 }
