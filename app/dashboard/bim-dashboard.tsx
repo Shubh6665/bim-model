@@ -18,6 +18,7 @@ interface ProjectFile {
 export default function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
   const { logout } = useAuth();
+  const [activePanel, setActivePanel] = useState<'bim' | 'iot' | 'database' | 'ai'>('bim');
 
   const handleSignOut = async () => {
     try {
@@ -32,10 +33,14 @@ export default function BIMDashboard() {
     console.log("Selected file:", file);
   };
 
+  const handlePanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai') => {
+    setActivePanel(panel);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
-      <DashboardHeader onSignOut={handleSignOut} />
+      <DashboardHeader onSignOut={handleSignOut} activePanel={activePanel} onPanelChange={handlePanelChange} />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

@@ -123,8 +123,24 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick }: IoTPanel
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden flex flex-col px-4">
+        <style jsx>{`
+          .iot-scrollbar::-webkit-scrollbar {
+            width: 6px;
+          }
+          .iot-scrollbar::-webkit-scrollbar-thumb {
+            background: #2563eb; /* Tailwind blue-600 */
+            border-radius: 6px;
+          }
+          .iot-scrollbar::-webkit-scrollbar-track {
+            background: #111827; /* Tailwind gray-900 */
+          }
+          .iot-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #2563eb #111827;
+          }
+        `}</style>
         {mode === "all" ? (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 px-2 overflow-y-auto iot-scrollbar">
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-semibold text-white">
@@ -237,8 +253,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick }: IoTPanel
       </div>
 
       {/* Footer with BIM Logo */}
-      <div className="p-4 border-t border-gray-800 flex justify-center">
-        <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg px-6 py-3 flex items-center gap-3 shadow-lg">
+      <div className="px-4 py-2 border-t border-gray-800 flex justify-center">
+        <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg px-6 py-1 flex items-center gap-3 shadow-lg">
           <span className="text-white font-bold text-lg tracking-wider">BIM Pro</span>
         </div>
       </div>
