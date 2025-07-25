@@ -139,6 +139,8 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<string | null>(null);
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   // Step validation
   const canNext = () => {
@@ -163,6 +165,17 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
     setStep((s) => s - 1);
   };
 
+  // Processing steps for progress tracking
+  const processingSteps = [
+    "Preparing file for upload...",
+    "Uploading file to Autodesk Forge...",
+    "Starting BIM file translation...",
+    "Converting file to 3D format...",
+    "Finalizing conversion...",
+    "Saving project to database...",
+    "Project created successfully!"
+  ];
+
   // Handle project creation (full async flow)
   const handleCreate = async () => {
     if (!canNext()) {
@@ -171,23 +184,50 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
     }
     setIsProcessing(true);
     setError(null);
-    setProcessingStep("Uploading file to Forge...");
+    setProgress(0);
+    setCurrentStepIndex(0);
+    setProcessingStep(processingSteps[0]);
     setProcessingUrn(null);
+    
     try {
-      // 1. Upload file to Forge
+      // 1. Prepare upload
+      setProgress(5);
+      await new Promise(res => setTimeout(res, 500)); // Small delay for UX
+      
+      // 2. Upload file to Forge
       if (!file) throw new Error("No file selected");
       const fileType = file.name.split('.').pop()?.toUpperCase() || "UNKNOWN";
+      setCurrentStepIndex(1);
+      setProcessingStep(processingSteps[1]);
+      setProgress(15);
+      
       const uploadForm = new FormData();
       uploadForm.append("file", file);
       const uploadRes = await fetch("/api/forge/upload", {
         method: "POST",
         body: uploadForm,
       });
-      const uploadData = await uploadRes.json();
+      // --- Improved error handling for non-JSON responses (e.g., file too large) ---
+      let uploadData: any = {};
+      const contentType = uploadRes.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        uploadData = await uploadRes.json();
+      } else {
+        const text = await uploadRes.text();
+        if (uploadRes.status === 413 || text.toLowerCase().includes("too large")) {
+          throw new Error("File too large. Please upload a smaller file (max 4MB). If you need to upload larger files, contact support.");
+        }
+        throw new Error(text || "Upload failed (unexpected server response). Please try again or contact support.");
+      }
       if (!uploadRes.ok || !uploadData.urn) throw new Error(uploadData.error || "Upload failed");
+      
       const urn = uploadData.urn;
-      setProcessingStep("Starting translation...");
-      // 2. Start translation
+      setProcessingUrn(urn);
+      setProgress(30);
+      
+      // 3. Start translation
+      setCurrentStepIndex(2);
+      setProcessingStep(processingSteps[2]);
       const translateRes = await fetch("/api/forge/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,26 +235,47 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
       });
       const translateData = await translateRes.json();
       if (!translateRes.ok) throw new Error(translateData.error || "Translation failed");
-      // 3. Poll for status
-      setProcessingStep("Waiting for conversion...");
+      setProgress(40);
+      
+      // 4. Poll for status with progress updates
+      setCurrentStepIndex(3);
+      setProcessingStep(processingSteps[3]);
       let status = "pending";
       let pollCount = 0;
-      while (status !== "success" && pollCount < 60) { // up to 5 min
+      const maxPolls = 60; // up to 5 min
+      
+      while (status !== "success" && pollCount < maxPolls) {
         await new Promise(res => setTimeout(res, 5000));
         const statusRes = await fetch(`/api/forge/status/${urn}`);
         const statusData = await statusRes.json();
+        
+        // Update progress based on polling
+        const conversionProgress = 40 + (pollCount / maxPolls) * 40; // 40% to 80%
+        setProgress(Math.min(conversionProgress, 75));
+        
         if (statusData.status === "success") {
           status = "success";
+          setCurrentStepIndex(4);
+          setProcessingStep(processingSteps[4]);
+          setProgress(80);
           break;
         } else if (statusData.status === "failed") {
           throw new Error("Forge translation failed");
         }
+        
+        // Update step message with time estimate
+        const timeElapsed = (pollCount + 1) * 5;
+        setProcessingStep(`${processingSteps[3]} (${timeElapsed}s elapsed)`);
         pollCount++;
       }
+      
       if (status !== "success") throw new Error("Forge translation timed out");
-      setProcessingStep("Saving project to database...");
-      setProcessingUrn(urn);
-      // 4. Save project to DB
+      
+      // 5. Save project to DB
+      setCurrentStepIndex(5);
+      setProcessingStep(processingSteps[5]);
+      setProgress(85);
+      
       const saveRes = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,7 +297,16 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
       });
       const saveData = await saveRes.json();
       if (!saveRes.ok) throw new Error(saveData.error || "Failed to save project");
-      // 5. Call onProjectCreated
+      
+      // 6. Complete
+      setCurrentStepIndex(6);
+      setProcessingStep(processingSteps[6]);
+      setProgress(100);
+      
+      // Wait a moment to show completion
+      await new Promise(res => setTimeout(res, 1000));
+      
+      // 7. Call onProjectCreated
       onProjectCreated({
         id: saveData.project._id || saveData.project.id,
         name: saveData.project.name,
@@ -254,11 +324,14 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         description: saveData.project.description || "",
         fileType: saveData.project.fileType || fileType,
       });
+      
     } catch (err: any) {
       setError(err.message);
+      setProgress(0);
     } finally {
       setIsProcessing(false);
       setProcessingStep(null);
+      setCurrentStepIndex(0);
     }
   };
 
@@ -356,14 +429,73 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
             </div>
           )}
         </div>
-        {/* Status/Progress Bar - fixed at bottom */}
+        {/* Enhanced Progress Bar - fixed at bottom */}
         {(isProcessing || error) && (
           <div className="absolute left-0 right-0 bottom-0 px-6 pb-4 z-10">
-            <div className="p-3 bg-gray-800 border border-blue-700 rounded text-blue-300 flex flex-col gap-2 shadow-xl">
-              <span className="font-medium">{processingStep || (isProcessing ? "Processing..." : "")}</span>
-              <span className="text-xs text-blue-200">This may take a few minutes for large files.</span>
-              {processingUrn && <span className="text-green-400 text-xs">URN: {processingUrn}</span>}
-              {error && <span className="text-red-400 text-xs">{error}</span>}
+            <div className="p-4 bg-gray-800 border border-blue-700 rounded-lg text-blue-300 flex flex-col gap-3 shadow-xl">
+              {/* Progress Header */}
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-lg">{processingStep || (isProcessing ? "Processing..." : "")}</span>
+                <span className="text-sm font-medium">{progress}%</span>
+              </div>
+              
+              {/* Progress Bar */}
+              {isProcessing && (
+                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-green-500 rounded-full transition-all duration-500 ease-out relative"
+                    style={{ width: `${progress}%` }}
+                  >
+                    {/* Animated shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Step Indicators */}
+              {isProcessing && (
+                <div className="flex justify-between text-xs">
+                  {processingSteps.slice(0, -1).map((step, index) => (
+                    <div 
+                      key={index}
+                      className={`flex flex-col items-center gap-1 ${
+                        index < currentStepIndex ? 'text-green-400' : 
+                        index === currentStepIndex ? 'text-blue-300' : 'text-gray-500'
+                      }`}
+                    >
+                      <div className={`w-3 h-3 rounded-full ${
+                        index < currentStepIndex ? 'bg-green-400' : 
+                        index === currentStepIndex ? 'bg-blue-400 animate-pulse' : 'bg-gray-600'
+                      }`}></div>
+                      <span className="text-xs text-center whitespace-nowrap">{
+                        index === 0 ? 'Prep' :
+                        index === 1 ? 'Upload' :
+                        index === 2 ? 'Start' :
+                        index === 3 ? 'Convert' :
+                        index === 4 ? 'Finalize' :
+                        'Save'
+                      }</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Additional Info */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-blue-200">
+                  {isProcessing ? "This may take a few minutes for large BIM files." : ""}
+                </span>
+                {processingUrn && (
+                  <span className="text-green-400 text-xs font-mono">
+                    File ID: {processingUrn.substring(0, 20)}...
+                  </span>
+                )}
+                {error && (
+                  <span className="text-red-400 text-sm font-medium bg-red-900/20 p-2 rounded">
+                    ❌ {error}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -51,6 +51,7 @@ function BIMDashboard() {
   >("bim");
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
+  const [wireframeMode, setWireframeMode] = useState<boolean>(true); // Default to wireframe for IoT panel
 
   // Use sensor context
   const {
@@ -62,6 +63,13 @@ function BIMDashboard() {
     selectSensor,
     placeSensor,
   } = useSensorContext();
+
+  // Auto-switch to wireframe when IoT panel is active
+  useEffect(() => {
+    if (activePanel === "iot") {
+      setWireframeMode(true); // Default to wireframe for better sensor visibility
+    }
+  }, [activePanel]);
 
   // Fetch projects from MongoDB on mount
   useEffect(() => {
@@ -184,6 +192,11 @@ function BIMDashboard() {
     placeSensor(sensorData.position, sensorData.room);
   };
 
+  // Handler for wireframe mode toggle
+  const handleWireframeModeChange = (wireframe: boolean) => {
+    setWireframeMode(wireframe);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
@@ -271,6 +284,8 @@ function BIMDashboard() {
                       onExitInsertMode={handleExitInsertMode}
                       onSensorClick={handleSensorClick}
                       activePanel={activePanel}
+                      wireframeMode={wireframeMode}
+                      onWireframeModeChange={handleWireframeModeChange}
                     />
                   </div>
                 )}
@@ -323,6 +338,8 @@ function BIMDashboard() {
                 onInsertSensor={handleInsertSensor} 
                 insertMode={insertMode}
                 onSensorClick={handleSensorClick}
+                wireframeMode={wireframeMode}
+                onWireframeModeChange={handleWireframeModeChange}
               />
             ) : (
               // Placeholder for other panels like Database or AI

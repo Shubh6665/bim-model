@@ -16,9 +16,11 @@ interface IoTPanelProps {
   onInsertSensor?: (sensorType: string | null) => void;
   insertMode?: string | null;
   onSensorClick?: (sensorId: string) => void;
+  wireframeMode?: boolean;
+  onWireframeModeChange?: (wireframe: boolean) => void;
 }
 
-export function IoTPanel({ onInsertSensor, insertMode, onSensorClick }: IoTPanelProps) {
+export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeMode, onWireframeModeChange }: IoTPanelProps) {
   const [mode, setMode] = useState<"all" | "insert">("all");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   
@@ -98,6 +100,41 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick }: IoTPanel
             Insert new sensor
           </button>
         </div>
+        
+        {/* Wireframe Toggle */}
+        <div className="w-full mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-300 font-medium">View Mode</span>
+            <span className="text-xs text-gray-400">
+              {wireframeMode ? "Wireframe" : "Solid"}
+            </span>
+          </div>
+          <div className="flex gap-2 w-full">
+            <button
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                wireframeMode 
+                  ? "bg-blue-600 text-white shadow-md" 
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+              onClick={() => onWireframeModeChange?.(true)}
+              title="Wireframe mode - Shows model structure for better sensor visibility"
+            >
+              🔲 Wireframe
+            </button>
+            <button
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                !wireframeMode 
+                  ? "bg-blue-600 text-white shadow-md" 
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+              onClick={() => onWireframeModeChange?.(false)}
+              title="Solid mode - Shows complete model appearance"
+            >
+              🏗️ Solid
+            </button>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-3 gap-2 w-full mb-2">
           {SENSOR_TYPES.map((type) => {
             const isSelected = mode === "insert" ? selectedType === type.name : filteredSensorType === type.name;

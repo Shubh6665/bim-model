@@ -12,6 +12,8 @@ interface ForgeViewerProps {
     onExitInsertMode?: () => void;
     onSensorClick?: (sensorId: string) => void;
     activePanel?: 'bim' | 'iot' | 'database' | 'ai';
+    wireframeMode?: boolean;
+    onWireframeModeChange?: (wireframe: boolean) => void;
 }
 
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
@@ -22,6 +24,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     onExitInsertMode,
     onSensorClick,
     activePanel,
+    wireframeMode,
+    onWireframeModeChange,
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
@@ -272,6 +276,67 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             clearTimeout(timeoutId);
         };
     }, [sensors.length, dataVizService, isDataVizReady, activePanel]); // Include activePanel in dependency array
+
+    // Handle wireframe mode changes
+    useEffect(() => {
+        if (!viewer || !isInitialized) {
+            console.log("[ForgeViewer] Viewer not ready for wireframe mode control");
+            return;
+        }
+
+        console.log(`[ForgeViewer] Setting wireframe mode: ${wireframeMode}`);
+
+        try {
+            if (wireframeMode) {
+                // Enable wireframe mode - show edges and hide solid surfaces (same as IoT mode)
+                viewer.setDisplayEdges(true);
+                
+                // Hide all model solid surfaces to create true wireframe effect
+                viewer.model.getObjectTree((instanceTree: any) => {
+                    if (instanceTree) {
+                        const allDbIds: number[] = [];
+                        
+                        // Get all node IDs recursively
+                        const collectAllNodeIds = (nodeId: number) => {
+                            allDbIds.push(nodeId);
+                            instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                                collectAllNodeIds(childId);
+                            });
+                        };
+                        
+                        collectAllNodeIds(instanceTree.getRootId());
+                        
+                        // Filter to get only leaf nodes (actual components)
+                        const leafNodeIds = allDbIds.filter(nodeId => {
+                            let hasChildren = false;
+                            instanceTree.enumNodeChildren(nodeId, () => {
+                                hasChildren = true;
+                            });
+                            return !hasChildren;
+                        });
+                        
+                        console.log(`[ForgeViewer] Wireframe mode: hiding ${leafNodeIds.length} solid components`);
+                        
+                        // Hide all leaf components to show only wireframe
+                        if (leafNodeIds.length > 0) {
+                            viewer.hide(leafNodeIds);
+                        }
+                    }
+                });
+                
+                console.log("[ForgeViewer] Wireframe mode enabled - showing edges only");
+            } else {
+                // Solid mode - show solid surfaces but keep edges visible
+                // Keep edges visible: viewer.setDisplayEdges(true) - don't turn off edges
+                viewer.setDisplayEdges(true);
+                // Ensure all model elements are visible when switching to solid mode
+                viewer.showAll();
+                console.log("[ForgeViewer] Solid mode enabled - showing all model elements with edges");
+            }
+        } catch (error) {
+            console.error("[ForgeViewer] Error setting wireframe mode:", error);
+        }
+    }, [wireframeMode, viewer, isInitialized]);
 
     // Control model browser visibility based on active panel
     useEffect(() => {
