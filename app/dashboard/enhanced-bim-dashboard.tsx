@@ -252,7 +252,7 @@ function BIMDashboard() {
           <>
             {/* Left Side - Map or 3D Viewer */}
             <div className="flex-1 p-4 relative">
-              <div className="absolute top-6 left-6 z-10 flex bg-black/70 backdrop-blur-sm rounded-lg p-1">
+              {/* <div className="absolute top-6 left-6 z-10 flex bg-black/70 backdrop-blur-sm rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("map")}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === "map" ? "bg-blue-500 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-gray-700"}`}
@@ -265,7 +265,7 @@ function BIMDashboard() {
                 >
                   🏗️ 3D Model
                 </button>
-              </div>
+              </div> */}
 
               <div className="w-full h-full">
                 {viewMode === "map" ? (

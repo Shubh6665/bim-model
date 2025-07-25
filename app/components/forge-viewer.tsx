@@ -500,7 +500,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             )}
             
             {/* Debug info - remove in production */}
-            {process.env.NODE_ENV === 'development' && (
+            {/* {process.env.NODE_ENV === 'development' && (
                 <div style={{
                     position: "absolute",
                     top: 10,
@@ -530,7 +530,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         Clear All
                     </button>
                 </div>
-            )}
+            )} */}
         </div>
     );
 };
