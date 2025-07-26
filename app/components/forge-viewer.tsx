@@ -35,22 +35,45 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [isDataVizReady, setIsDataVizReady] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const initializationRef = useRef(false);
+    const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     
     // Use sensor context
     const { sensors, selectSensor, placeSensor } = useSensorContext();
+
+    // Effect to force re-initialization when switching to IoT tab
+    useEffect(() => {
+        if (activePanel === 'iot' && urn && loadedUrn !== urn) {
+            console.log("[ForgeViewer] IoT tab active and URN changed, forcing re-initialization");
+            // Reset initialization state to force re-initialization
+            setIsInitialized(false);
+            setIsDataVizReady(false);
+            setDataVizService(null);
+            setViewer(null);
+            initializationRef.current = false;
+            setLoadedUrn(urn);
+        }
+    }, [activePanel, urn, loadedUrn]);
+
+    // Update loadedUrn when model is successfully loaded
+    useEffect(() => {
+        if (isInitialized && urn && loadedUrn !== urn) {
+            setLoadedUrn(urn);
+            console.log("[ForgeViewer] Model successfully loaded, loadedUrn updated:", urn);
+        }
+    }, [isInitialized, urn, loadedUrn]);
 
     // Initialize viewer and DataViz service
     useEffect(() => {
         if (!viewerContainer.current || !accessToken || !urn) return;
         
-        // Prevent multiple initializations
-        if (initializationRef.current) {
-            console.log("[ForgeViewer] Already initialized, skipping");
+        // Prevent multiple initializations for the same URN
+        if (initializationRef.current && loadedUrn === urn) {
+            console.log("[ForgeViewer] Already initialized with current URN, skipping");
             return;
         }
         
         initializationRef.current = true;
-        console.log("[ForgeViewer] Starting initialization");
+        console.log("[ForgeViewer] Starting initialization for URN:", urn);
 
         let viewerInstance: any = null;
         let dataVizSvc: DataVizService | null = null;
@@ -164,11 +187,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
 
         return () => {
-            if (viewerInstance) {
-                viewerInstance.finish();
+            if (viewer) {
+                viewer.finish();
+                console.log("[ForgeViewer] Viewer finished.");
             }
         };
-    }, [accessToken, urn, onSensorClick]);
+    }, [accessToken, urn, onSensorClick, loadedUrn]);
 
     // Handle click events for sensor placement
     const handleClick = async (event: MouseEvent) => {
@@ -261,10 +285,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
+        // Only update sensors if we're in IoT mode and the model is fully loaded
+        if (activePanel !== 'iot' || !isInitialized) {
+            console.log("[ForgeViewer] Skipping sensor update - not in IoT mode or model not initialized");
+            return;
+        }
+        
         console.log("[ForgeViewer] Sensor update triggered, sensors count:", sensors.length, "activePanel:", activePanel);
         
         // Use longer delay to ensure DataViz service is fully ready for display
-        const delay = 800; // Consistent delay for all sensor updates
+        const delay = 1000; // Increased delay to ensure model is fully loaded
         
         // Debounce sensor updates to prevent excessive re-initialization
         const timeoutId = setTimeout(() => {
@@ -275,7 +305,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] Clearing sensor update timeout");
             clearTimeout(timeoutId);
         };
-    }, [sensors.length, dataVizService, isDataVizReady, activePanel]); // Include activePanel in dependency array
+    }, [sensors.length, dataVizService, isDataVizReady, activePanel, isInitialized]); // Include isInitialized in dependency array
 
     // Handle wireframe mode changes
     useEffect(() => {
@@ -409,22 +439,29 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
+        // Additional check to ensure viewer renderer is ready
+        if (!viewer || !viewer.model || !isInitialized) {
+            console.warn("[ForgeViewer] Viewer not ready for sensor update, retrying in 500ms");
+            setTimeout(() => updateSensors(), 500);
+            return;
+        }
+        
+        // Double-check that we're in IoT mode and model is initialized
+        if (activePanel !== 'iot' || !isInitialized) {
+            console.log("[ForgeViewer] Skipping sensor update - not in IoT mode or model not initialized");
+            return;
+        }
+        
         console.log("[ForgeViewer] Updating sensors display with", sensors.length, "sensors, activePanel:", activePanel);
         
         try {
             // Clear existing sensors first
             await dataVizService.clearAllSensors();
             
-            // Only show sprites when IoT panel is active
-            if (activePanel !== 'iot') {
-                console.log("[ForgeViewer] Not in IoT mode - hiding all sprites");
-                await dataVizService.updateDisplay();
-                return;
-            }
-            
             // Skip if no sensors to add
             if (sensors.length === 0) {
                 console.log("[ForgeViewer] No sensors to display");
+                await dataVizService.updateDisplay();
                 return;
             }
             
@@ -445,13 +482,27 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 await dataVizService.addSensor(sensorSprite);
             }
             
-            // Single updateDisplay call after all sensors are added
-            const success = await dataVizService.updateDisplay();
-            if (success) {
-                console.log(`[ForgeViewer] Successfully updated display with ${sensors.length} sensors`);
-            } else {
-                console.warn(`[ForgeViewer] Failed to update display`);
-            }
+            // Wait longer before updating display to ensure all sensors are added and model is stable
+            setTimeout(async () => {
+                if (!viewer || !viewer.model || !isInitialized) {
+                    console.warn("[ForgeViewer] Viewer not ready for final display update");
+                    return;
+                }
+                
+                // Double-check again that we're still in IoT mode
+                if (activePanel !== 'iot') {
+                    console.log("[ForgeViewer] No longer in IoT mode, skipping display update");
+                    return;
+                }
+                
+                // Single updateDisplay call after all sensors are added
+                const success = await dataVizService.updateDisplay();
+                if (success) {
+                    console.log(`[ForgeViewer] Successfully updated display with ${sensors.length} sensors`);
+                } else {
+                    console.warn(`[ForgeViewer] Failed to update display`);
+                }
+            }, 500); // Increased delay
             
         } catch (error) {
             console.error("[ForgeViewer] Error updating sensors:", error);
