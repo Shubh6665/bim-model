@@ -1,5 +1,10 @@
 "use client";
 
+// Type declaration for THREE.js global
+declare global {
+  var THREE: any;
+}
+
 export interface Sensor {
   id: string;
   name: string;
@@ -249,7 +254,7 @@ export class SensorService {
         // Use Forge Viewer's safe navigation methods
         if (this.viewer.navigation.setTarget) {
           this.viewer.navigation.setTarget(
-            new globalThis.THREE.Vector3(
+            new (globalThis as any).THREE.Vector3(
               sensor.modelPosition.x,
               sensor.modelPosition.y,
               sensor.modelPosition.z,
@@ -301,23 +306,23 @@ export class SensorService {
 
     try {
       // Check if Three.js is available
-      if (!globalThis.THREE) {
+      if (!(globalThis as any).THREE) {
         console.warn("Three.js not available for sensor rendering");
         return;
       }
 
       // Create a simple sphere geometry for the sensor
-      const geometry = new globalThis.THREE.SphereGeometry(2, 16, 16);
+      const geometry = new (globalThis as any).THREE.SphereGeometry(2, 16, 16);
       const colorHex = sensor.color
         ? parseInt(sensor.color.replace("#", ""), 16)
         : 0x6b7280;
-      const material = new globalThis.THREE.MeshBasicMaterial({
+      const material = new (globalThis as any).THREE.MeshBasicMaterial({
         color: colorHex,
         transparent: true,
         opacity: sensor.id === this.selectedSensorId ? 1.0 : 0.8,
       });
 
-      const sensorMesh = new globalThis.THREE.Mesh(geometry, material);
+      const sensorMesh = new (globalThis as any).THREE.Mesh(geometry, material);
       sensorMesh.position.set(
         sensor.modelPosition.x,
         sensor.modelPosition.y,
