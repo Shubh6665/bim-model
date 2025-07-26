@@ -128,19 +128,30 @@ export class DataVizService {
         return false;
       }
 
-      // Create THREE.js Vector3 position
+      // Create THREE.js Vector3 position with proper depth offset
       const position = new THREE.Vector3(sensor.position.x, sensor.position.y, sensor.position.z);
       
       // Create proper SpriteViewable with world-space positioning
       const sprite = new DataVizCore.SpriteViewable(position, style, sensor.dbId);
       
-      // Configure sprite for world-space (not screen-space)
+      // CRITICAL: Configure sprite for proper 3D depth rendering
       if (sprite.setScreenSpace) {
         sprite.setScreenSpace(false); // Ensure world-space positioning
       }
       if (sprite.setOccluded) {
-        sprite.setOccluded(true); // Enable occlusion
+        sprite.setOccluded(true); // Enable occlusion - sprite hidden behind geometry
       }
+      
+      // Additional depth configuration for proper 3D positioning
+      if (sprite.setDepthTest) {
+        sprite.setDepthTest(true); // Enable depth testing
+      }
+      if (sprite.setDepthWrite) {
+        sprite.setDepthWrite(true); // Enable depth writing
+      }
+      
+      // Set sprite to render at the exact 3D position with proper Z-buffer testing
+      sprite.worldPosition = position;
 
       // Add to ViewableData
       this.viewableData.addViewable(sprite);
@@ -215,23 +226,37 @@ export class DataVizService {
       // Add viewables to the extension
       this.dataVizExt.addViewables(this.viewableData);
       
-      // Configure extension for world-space rendering
+      // Configure extension for world-space rendering with proper depth
       if (this.dataVizExt.setScreenSpace) {
         this.dataVizExt.setScreenSpace(false); // Force world-space
       }
       
-      // Enable occlusion at extension level
+      // CRITICAL: Enable proper 3D depth testing and occlusion
       if (this.dataVizExt.setOccluded) {
-        this.dataVizExt.setOccluded(true);
+        this.dataVizExt.setOccluded(true); // Sprites hidden behind geometry
+      }
+      if (this.dataVizExt.setDepthTest) {
+        this.dataVizExt.setDepthTest(true); // Enable Z-buffer depth testing
+      }
+      if (this.dataVizExt.setDepthWrite) {
+        this.dataVizExt.setDepthWrite(true); // Enable depth buffer writing
+      }
+      
+      // Force depth buffer configuration at renderer level
+      if (this.viewer.impl && this.viewer.impl.renderer) {
+        const renderer = this.viewer.impl.renderer;
+        if (renderer.getContext) {
+          const gl = renderer.getContext();
+          if (gl) {
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            console.log('[DataViz] Enabled WebGL depth testing for sprites');
+          }
+        }
       }
       
       // Show viewables with occlusion enabled
       this.dataVizExt.showHideViewables(true, true);
-      
-      // Additional configuration to ensure world-space behavior
-      if (this.dataVizExt.setDepthTest) {
-        this.dataVizExt.setDepthTest(true); // Enable depth testing
-      }
       
       console.log(`[DataViz] Successfully displayed ${this.sprites.size} world-space sensors with occlusion`);
       return true;
