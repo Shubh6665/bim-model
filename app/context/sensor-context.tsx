@@ -43,11 +43,13 @@ interface SensorContextType {
   filteredSensorType: string | null;
   loading: boolean;
   error: string | null;
+  currentProjectId: string | null;
 
   // Actions
   selectSensor: (sensor: Sensor | null) => void;
   enterPlacementMode: (sensorType: string) => void;
   exitPlacementMode: () => void;
+  setCurrentProject: (projectId: string | null) => void;
   placeSensor: (
     position: { x: number; y: number; z: number },
     room?: string,
@@ -77,25 +79,33 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const [filteredSensorType, setFilteredSensorType] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
-  // Load sensors from API
+  // Load sensors from API (project-specific)
   const refreshSensors = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/iot/sensors');
+      // Only fetch sensors if we have a current project
+      if (!currentProjectId) {
+        setSensors([]);
+        return;
+      }
+      
+      const response = await fetch(`/api/iot/sensors?projectId=${currentProjectId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch sensors');
       }
       const fetchedSensors = await response.json();
       setSensors(fetchedSensors);
+      console.log(`[SensorContext] Loaded ${fetchedSensors.length} sensors for project ${currentProjectId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       console.error('Error fetching sensors:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentProjectId]);
 
   // Load sensors on mount
   useEffect(() => {
@@ -122,6 +132,14 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setPlacementSensorType(null);
   }, []);
 
+  // Set current project (triggers sensor reload)
+  const setCurrentProject = useCallback((projectId: string | null) => {
+    console.log(`[SensorContext] Switching to project: ${projectId}`);
+    setCurrentProjectId(projectId);
+    setSelectedSensor(null); // Clear selection when switching projects
+    exitPlacementMode(); // Exit placement mode when switching projects
+  }, []);
+
   // Place a sensor at the specified position
   const placeSensor = useCallback(async (
     position: { x: number; y: number; z: number },
@@ -146,7 +164,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
         lastUpdate: new Date().toISOString(),
         room: room || "Unknown Room",
         color: SENSOR_TYPES.find(t => t.name === placementSensorType)?.color,
-        projectId: "current", // TODO: Get actual project ID
+        projectId: currentProjectId || "unknown",
         modelPosition: position,
       };
 
@@ -282,9 +300,11 @@ export function SensorProvider({ children }: SensorProviderProps) {
     filteredSensorType,
     loading,
     error,
+    currentProjectId,
     selectSensor,
     enterPlacementMode,
     exitPlacementMode,
+    setCurrentProject,
     placeSensor,
     removeSensor,
     updateSensor,

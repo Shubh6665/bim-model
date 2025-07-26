@@ -62,6 +62,7 @@ function BIMDashboard() {
     visibleSensorTypes,
     selectSensor,
     placeSensor,
+    setCurrentProject,
   } = useSensorContext();
 
   // Auto-switch to wireframe when IoT panel is active
@@ -119,6 +120,7 @@ function BIMDashboard() {
       );
       if (project) {
         setSelectedProject(project);
+        setCurrentProject(project.id); // Set project in sensor context
       }
     }
     console.log("Selected file:", file);
@@ -134,6 +136,7 @@ function BIMDashboard() {
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
+    setCurrentProject(project.id); // Set project in sensor context
     const file: ProjectFile = {
       id: project.id,
       name: project.name + ".rvt",
