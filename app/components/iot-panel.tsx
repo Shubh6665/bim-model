@@ -66,6 +66,22 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
     }
   };
 
+  // Function to actually trigger wireframe mode (like clicking the button)
+  const triggerWireframeMode = () => {
+    console.log('[IoTPanel] Triggering ACTUAL wireframe mode function');
+    onWireframeModeChange?.(true);
+    // Force a small delay to ensure the wireframe rendering processes
+    setTimeout(() => {
+      console.log('[IoTPanel] Wireframe mode should now be active in viewer');
+    }, 150);
+  };
+
+  // Function to actually trigger solid mode (like clicking the button)
+  const triggerSolidMode = () => {
+    console.log('[IoTPanel] Triggering ACTUAL solid mode function');
+    onWireframeModeChange?.(false);
+  };
+
   // Handle mode change
   const handleModeChange = (newMode: "all" | "insert") => {
     setMode(newMode);
@@ -75,6 +91,13 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
       if (onInsertSensor) {
         onInsertSensor(null);
       }
+      // Switch back to wireframe mode when returning to "All sensors"
+      console.log('[IoTPanel] Switching back to wireframe mode (All sensors)');
+      triggerWireframeMode();
+    } else if (newMode === "insert") {
+      // Switch to solid mode when entering insert mode
+      console.log('[IoTPanel] Switching to solid mode (Insert mode)');
+      triggerSolidMode();
     }
   };
 
@@ -112,12 +135,15 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
           <div className="flex gap-2 w-full">
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                wireframeMode 
-                  ? "bg-blue-600 text-white shadow-md" 
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                mode === "insert" 
+                  ? "bg-gray-600 text-gray-400 cursor-not-allowed" // Disabled during insertion
+                  : wireframeMode 
+                    ? "bg-blue-600 text-white shadow-md" 
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
-              onClick={() => onWireframeModeChange?.(true)}
-              title="Wireframe mode - Shows model structure for better sensor visibility"
+              onClick={() => mode !== "insert" && onWireframeModeChange?.(true)}
+              disabled={mode === "insert"}
+              title={mode === "insert" ? "Wireframe mode disabled during sensor insertion" : "Wireframe mode - Shows model structure for better sensor visibility"}
             >
               🔲 Wireframe
             </button>

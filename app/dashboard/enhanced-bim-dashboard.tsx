@@ -194,7 +194,10 @@ function BIMDashboard() {
 
   // Handler for wireframe mode toggle
   const handleWireframeModeChange = (wireframe: boolean) => {
+    console.log(`[Dashboard] Wireframe mode change requested: ${wireframe}`);
+    console.log(`[Dashboard] Current wireframe state: ${wireframeMode}`);
     setWireframeMode(wireframe);
+    console.log(`[Dashboard] Wireframe mode updated to: ${wireframe}`);
   };
 
   return (
