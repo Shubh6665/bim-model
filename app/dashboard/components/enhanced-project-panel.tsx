@@ -130,7 +130,7 @@ export function EnhancedProjectPanel({
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showProjectDetail, setShowProjectDetail] = useState(false);
+  const [showProjectDetail, setShowProjectDetail] = useState(true);
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
     // Update the file with the new URN
@@ -183,11 +183,9 @@ export function EnhancedProjectPanel({
       onProjectSelect(project);
       setShowProjectDetail(true);
     } else {
-      // Prompt for file upload/location if no URN
       setNewProjectName(project.name);
       setNewProjectLat(project.lat);
       setNewProjectLng(project.lng);
-      // setShowCreateModal(true); // This is now handled by the parent's hidePanel prop
     }
   };
 
@@ -350,30 +348,30 @@ export function EnhancedProjectPanel({
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => { setActiveTab('projects'); setShowProjectDetail(false); }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'projects'
-                ? 'bg-blue-500 text-white'
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4 inline mr-1" />
-            Projects
-          </button>
-          <button
-            onClick={() => { setActiveTab('files'); setShowProjectDetail(false); }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'files'
-                ? 'bg-blue-500 text-white'
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <File className="w-4 h-4 inline mr-1" />
-            Files
-          </button>
-        </div>
+      <div className="flex bg-gray-700 rounded-lg p-1">
+        <button
+          onClick={() => { setActiveTab('projects'); setShowProjectDetail(true); }}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'projects'
+              ? 'bg-blue-500 text-white'
+              : 'text-gray-300 hover:text-white'
+          }`}
+        >
+          <Globe className="w-4 h-4 inline mr-1" />
+          Projects
+        </button>
+        <button
+          onClick={() => { setActiveTab('files'); setShowProjectDetail(false); }}
+          className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'files'
+              ? 'bg-blue-500 text-white'
+              : 'text-gray-300 hover:text-white'
+          }`}
+        >
+          <File className="w-4 h-4 inline mr-1" />
+          Files
+        </button>
+      </div>
 
         {/* Search */}
         <div className="relative mt-3">
