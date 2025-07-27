@@ -5,6 +5,7 @@ import { DashboardHeader } from "./components/dashboard-header";
 import { ThreeDViewer } from "./components/3d-viewer";
 import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
 import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
+import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
 import { GoogleEarthMap } from "./components/google-earth-map";
 import { useAuth } from "@/app/hooks/use-auth";
@@ -52,6 +53,7 @@ function BIMDashboard() {
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
   const [wireframeMode, setWireframeMode] = useState<boolean>(true); // Default to wireframe for IoT panel
+  const [rightSidebarView, setRightSidebarView] = useState<'details' | 'hierarchy'>('details');
 
   // Use sensor context
   const {
@@ -327,7 +329,9 @@ function BIMDashboard() {
 
             {/* Right Panel - Conditional Rendering */}
             {activePanel === "bim" ? (
-              <EnhancedProjectPanel
+              rightSidebarView === 'details' ? (
+                <EnhancedProjectPanel
+                  onShowHierarchy={() => setRightSidebarView('hierarchy')}
                 onFileSelect={handleFileSelect}
                 onProjectSelect={handleProjectSelect}
                 selectedFile={selectedFile}
@@ -338,7 +342,26 @@ function BIMDashboard() {
                 onProcessingComplete={handleProcessingComplete}
                 apiKey={GOOGLE_MAPS_API_KEY}
                 onRequestCreateProject={handleRequestCreateProject}
-              />
+                />
+              ) : (
+                <ModelHierarchyPanel 
+                  viewer={viewer} 
+                  onClose={() => {
+                    setRightSidebarView('details');
+                    // Ensure the same project and file remain selected and model is fit to project root
+                    if (viewer && viewer.model && viewer.fitToView) {
+                      const tree = viewer.model.getData().instanceTree;
+                      if (tree && tree.getRootId) {
+                        const rootId = tree.getRootId();
+                        viewer.fitToView([rootId], viewer.model);
+                      }
+                    }
+                    // Optionally, you can re-select the project/file here if needed
+                    // setSelectedProject(selectedProject); // already selected
+                    // setSelectedFile(selectedFile); // already selected
+                  }}
+                />
+              )
             ) : activePanel === "iot" ? (
               <IoTPanel 
                 onInsertSensor={handleInsertSensor} 

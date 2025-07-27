@@ -124,6 +124,7 @@ export function ThreeDViewer({
           activePanel={activePanel}
           wireframeMode={wireframeMode}
           onWireframeModeChange={onWireframeModeChange}
+          onViewerReady={onViewerReady}
         />
       )}
 

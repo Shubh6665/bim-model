@@ -59,6 +59,7 @@ interface EnhancedProjectPanelProps {
   onProcessingComplete?: (urn: string, file: ProjectFile) => void;
   apiKey: string;
   onRequestCreateProject: () => void;
+  onShowHierarchy: () => void;
 }
 
 export function EnhancedProjectPanel({
@@ -72,6 +73,7 @@ export function EnhancedProjectPanel({
   onProcessingComplete,
   apiKey,
   onRequestCreateProject,
+  onShowHierarchy,
 }: EnhancedProjectPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
@@ -434,7 +436,7 @@ export function EnhancedProjectPanel({
               </div>
             </div>
             <div className="mb-2">
-            <span className="font-semibold text-gray-300">Description:</span>
+              <span className="font-semibold text-gray-300">Description:</span>
               
               {/* Mock Sensor Data Section */}
               <div className="mb-4 mt-2 p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm shadow flex flex-col gap-2">
@@ -459,10 +461,16 @@ export function EnhancedProjectPanel({
                   <span className="text-white">2025-07-15 14:32</span>
                 </div>
               </div>
-              {/* <span className="font-semibold text-gray-300">Description:</span>
-              <div className="mt-1 p-3 bg-gray-800 border border-gray-700 rounded text-gray-200 text-sm min-h-[60px]">
-                {selectedProject.description || <span className="italic text-gray-500">This is a sample BIM project for demonstration purposes.</span>}
-              </div> */}
+            </div>
+
+            {/* Actions */}
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={onShowHierarchy}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md transition-colors flex items-center justify-center"
+              >
+                View Hierarchy
+              </button>
             </div>
           </div>
         ) : activeTab === 'projects' ? (
@@ -575,6 +583,17 @@ export function EnhancedProjectPanel({
                       title="View in 3D"
                     >
                       <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFileClick(file);
+                        onShowHierarchy();
+                      }}
+                      className="p-1 text-gray-400 hover:text-white"
+                      title="View Hierarchy"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-network"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-2a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/><path d="M12 12V8"/></svg>
                     </button>
                     {file.lat && file.lng && (
                       <button

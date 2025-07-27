@@ -14,6 +14,7 @@ interface ForgeViewerProps {
     activePanel?: 'bim' | 'iot' | 'database' | 'ai';
     wireframeMode?: boolean;
     onWireframeModeChange?: (wireframe: boolean) => void;
+    onViewerReady?: (viewer: any, iotExtension: any) => void;
 }
 
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
@@ -26,6 +27,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     activePanel,
     wireframeMode,
     onWireframeModeChange,
+    onViewerReady,
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
@@ -65,13 +67,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Initialize viewer and DataViz service
     useEffect(() => {
         if (!viewerContainer.current || !accessToken || !urn) return;
-        
         // Prevent multiple initializations for the same URN
         if (initializationRef.current && loadedUrn === urn) {
             console.log("[ForgeViewer] Already initialized with current URN, skipping");
             return;
         }
-        
         initializationRef.current = true;
         console.log("[ForgeViewer] Starting initialization for URN:", urn);
 
@@ -95,15 +95,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             Autodesk.Viewing.Initializer(options, () => {
                 viewerInstance = new Autodesk.Viewing.GuiViewer3D(viewerContainer.current);
                 const startedCode = viewerInstance.start();
-                
                 if (startedCode > 0) {
                     setError("Failed to create a Viewer: WebGL not supported.");
                     return;
                 }
-
                 setViewer(viewerInstance);
                 const documentId = `urn:${urn}`;
-                
                 Autodesk.Viewing.Document.load(
                     documentId,
                     (doc: any) => {
@@ -111,30 +108,24 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         if (viewables) {
                             viewerInstance.loadDocumentNode(doc, viewables).then(() => {
                                 setIsLoading(false);
-                                
                                 // Wait for GEOMETRY_LOADED_EVENT before initializing DataViz
                                 viewerInstance.addEventListener(
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
                                     async () => {
                                         console.log("[ForgeViewer] Geometry loaded, initializing DataViz service");
-                                        
                                         // Retry mechanism for DataViz initialization
                                         const initializeDataVizWithRetry = async (maxRetries = 3, delay = 500) => {
                                             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                                                 console.log(`[ForgeViewer] DataViz initialization attempt ${attempt}/${maxRetries}`);
-                                                
                                                 // Wait before each attempt
                                                 await new Promise((resolve) => setTimeout(resolve, delay * attempt));
-                                                
                                                 // Initialize DataViz service
                                                 dataVizSvc = new DataVizService(viewerInstance);
                                                 const initialized = await dataVizSvc.initialize();
-                                                
                                                 if (initialized) {
                                                     setDataVizService(dataVizSvc);
                                                     setIsDataVizReady(true);
                                                     setIsInitialized(true);
-                                                    
                                                     // Setup sensor click handler
                                                     dataVizSvc.setupSensorClickHandler((dbId: number) => {
                                                         const sensorId = dataVizSvc?.getSensorByDbId(dbId);
@@ -142,7 +133,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                             onSensorClick(sensorId);
                                                         }
                                                     });
-                                                    
+                                                    // Call onViewerReady with viewer instance and null for iotExtension
+                                                    if (typeof onViewerReady === 'function') {
+                                                        onViewerReady(viewerInstance, null);
+                                                    }
                                                     console.log("[ForgeViewer] DataViz service ready after", attempt, "attempts");
                                                     return true;
                                                 } else {
@@ -155,10 +149,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             }
                                             return false;
                                         };
-                                        
                                         await initializeDataVizWithRetry();
                                     },
-                                    { once: true } // Only fire once
+                                    { once: true }
                                 );
                             });
                         }
@@ -169,7 +162,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 );
             });
         };
-
         // Load Forge Viewer SDK if not already loaded
         if (!(window as any).Autodesk) {
             const script = document.createElement("script");
@@ -177,7 +169,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             script.onload = initializeViewer;
             script.onerror = () => setError("Failed to load Forge Viewer SDK");
             document.head.appendChild(script);
-
             const link = document.createElement("link");
             link.rel = "stylesheet";
             link.href = "https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css";
@@ -185,14 +176,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         } else {
             initializeViewer();
         }
-
         return () => {
             if (viewer) {
                 viewer.finish();
                 console.log("[ForgeViewer] Viewer finished.");
             }
         };
-    }, [accessToken, urn, onSensorClick, loadedUrn]);
+    }, [accessToken, urn, onSensorClick, loadedUrn, onViewerReady]);
 
     // Handle click events for sensor placement
     const handleClick = async (event: MouseEvent) => {
@@ -322,7 +312,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 viewer.setDisplayEdges(true);
                 
                 // Hide all model solid surfaces to create true wireframe effect
-                viewer.model.getObjectTree((instanceTree: any) => {
+                if (viewer.model) {
+                    viewer.model.getObjectTree((instanceTree: any) => {
                     if (instanceTree) {
                         const allDbIds: number[] = [];
                         
@@ -353,7 +344,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         }
                     }
                 });
-                
+                } // Added closing brace here
                 console.log("[ForgeViewer] Wireframe mode enabled - showing edges only");
             } else {
                 // Solid mode - show solid surfaces but keep edges visible
@@ -425,7 +416,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log("[ForgeViewer] Showing all model elements");
                 
                 // Show all previously hidden elements
-                viewer.showAll();
+                if (viewer.impl) {
+                    viewer.showAll();
+                }
                 console.log("[ForgeViewer] Restored visibility for all model elements");
             }
         } catch (error) {
