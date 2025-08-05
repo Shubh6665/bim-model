@@ -108,16 +108,16 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex flex-col items-center">
-        <h2 className="text-2xl font-bold text-white mb-4 tracking-wide">IoT</h2>
-        <div className="flex gap-4 w-full mb-4">
+        <h2 className="text-xl font-bold text-white mb-3">IoT</h2>
+        <div className="flex gap-3 w-full mb-4">
           <button
-            className={`flex-1 py-2 rounded-lg font-semibold shadow transition ${mode === "all" ? "bg-blue-600 text-white" : "bg-gray-700 text-blue-300 hover:bg-gray-600"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-md font-medium shadow transition ${mode === "all" ? "bg-blue-600 text-white" : "bg-gray-700 text-blue-300 hover:bg-gray-600"}`}
             onClick={() => handleModeChange("all")}
           >
             All sensors
           </button>
           <button
-            className={`flex-1 py-2 rounded-lg font-semibold shadow transition ${mode === "insert" ? "bg-blue-600 text-white" : "bg-gray-700 text-blue-300 hover:bg-gray-600"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-md font-medium shadow transition ${mode === "insert" ? "bg-blue-600 text-white" : "bg-gray-700 text-blue-300 hover:bg-gray-600"}`}
             onClick={() => handleModeChange("insert")}
           >
             Insert new sensor
