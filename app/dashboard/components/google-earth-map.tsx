@@ -221,14 +221,7 @@ export function GoogleEarthMap({
       
       <div ref={mapRef} className="w-full h-full" />
       
-      {/* Map Legend */}
-      <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg p-3 text-white">
-        <h4 className="text-sm font-semibold mb-2">Project Locations</h4>
-        <div className="flex items-center gap-2 text-xs">
-          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-          <span>BIM Projects ({projects.length})</span>
-        </div>
-      </div>
+
     </div>
   );
 }
