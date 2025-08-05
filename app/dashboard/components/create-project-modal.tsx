@@ -13,6 +13,10 @@ function GoogleMapPicker({ apiKey, lat, lng, onChange }: { apiKey: string, lat: 
   const markerRef = useRef<google.maps.Marker | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Default to New Delhi, India if no location is provided
+  const defaultLat = 28.6139;
+  const defaultLng = 77.2090;
 
   useEffect(() => {
     let loader: any;
@@ -23,9 +27,13 @@ function GoogleMapPicker({ apiKey, lat, lng, onChange }: { apiKey: string, lat: 
         const { Loader } = await import("@googlemaps/js-api-loader");
         loader = new Loader({ apiKey, version: "weekly", libraries: ["places"] });
         await loader.load();
+        // Use provided coordinates or default to New Delhi
+        const centerLat = lat ?? defaultLat;
+        const centerLng = lng ?? defaultLng;
+        
         mapInstance = new google.maps.Map(mapRef.current!, {
-          center: lat && lng ? { lat, lng } : { lat: 28.6139, lng: 77.2090 },
-          zoom: lat && lng ? 15 : 4,
+          center: { lat: centerLat, lng: centerLng },
+          zoom: (lat && lng) ? 15 : 4,
           mapTypeId: google.maps.MapTypeId.ROADMAP,
           disableDefaultUI: false,
         });
@@ -130,9 +138,9 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [name, setName] = useState("");
   // File
   const [file, setFile] = useState<File | null>(null);
-  // Location Picker
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
+  // Default location (New Delhi, India)
+  const [lat, setLat] = useState<number | null>(28.6139);
+  const [lng, setLng] = useState<number | null>(77.2090);
   // Error
   const [error, setError] = useState<string | null>(null);
   // Processing state
@@ -142,14 +150,16 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [progress, setProgress] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Step validation
+  // Step validation - Project Name, Project Code, and File are required
   const canNext = () => {
     if (step === 0) return !!projectName && !!projectCode;
-    if (step === 1) return !!country && !!municipality && !!address && !!cadastral;
-    if (step === 2) return !!company && !!surname && !!name;
-    if (step === 3) return !!file;
-    if (step === 4) return lat !== null && lng !== null;
-    return true;
+    if (step === 3) return !!file; // File upload is required
+    return true; // Other steps are optional
+  };
+  
+  // Handle skip for current step
+  const handleSkip = () => {
+    setStep((s) => s + 1);
   };
 
   const handleNext = () => {
@@ -356,40 +366,58 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         <div className="flex-1 overflow-y-auto px-6 pb-6" style={{ minHeight: 320 }}>
           {step === 0 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Info</h4>
-              <label className="block text-gray-300 mb-1">Project Name</label>
+              <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Info <span className="text-xs text-gray-400">(Fields marked with <span className="text-red-500">*</span> are required)</span></h4>
+              <label className="block text-gray-300 mb-1">Project Name <span className="text-red-500">*</span></label>
               <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={projectName} onChange={e => setProjectName(e.target.value)} required placeholder="e.g. Main Building" />
-              <label className="block text-gray-300 mb-1">Project Code</label>
+              <label className="block text-gray-300 mb-1">Project Code <span className="text-red-500">*</span></label>
               <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={projectCode} onChange={e => setProjectCode(e.target.value)} required placeholder="e.g. PRJ-2024-001" />
             </div>
           )}
           {step === 1 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">Location</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-lg font-semibold text-blue-400">Location</h4>
+                <button 
+                  type="button" 
+                  onClick={handleSkip}
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  Skip for now
+                </button>
+              </div>
               <label className="block text-gray-300 mb-1">Country</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={country} onChange={e => setCountry(e.target.value)} required placeholder="e.g. Germany" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Germany" />
               <label className="block text-gray-300 mb-1">Municipality</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={municipality} onChange={e => setMunicipality(e.target.value)} required placeholder="e.g. Berlin" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={municipality} onChange={e => setMunicipality(e.target.value)} placeholder="e.g. Berlin" />
               <label className="block text-gray-300 mb-1">Address</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={address} onChange={e => setAddress(e.target.value)} required placeholder="e.g. Alexanderplatz 1, 10178 Berlin" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Alexanderplatz 1, 10178 Berlin" />
               <label className="block text-gray-300 mb-1">Cadastral Data</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={cadastral} onChange={e => setCadastral(e.target.value)} required placeholder="e.g. Parcel 1234, Section A" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={cadastral} onChange={e => setCadastral(e.target.value)} placeholder="e.g. Parcel 1234, Section A" />
             </div>
           )}
           {step === 2 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">Client / Manager Data</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-lg font-semibold text-blue-400">Client / Manager Data</h4>
+                <button 
+                  type="button" 
+                  onClick={handleSkip}
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  Skip for now
+                </button>
+              </div>
               <label className="block text-gray-300 mb-1">Company Name</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={company} onChange={e => setCompany(e.target.value)} required placeholder="e.g. ACME Construction" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={company} onChange={e => setCompany(e.target.value)} placeholder="e.g. ACME Construction" />
               <label className="block text-gray-300 mb-1">Surname</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={surname} onChange={e => setSurname(e.target.value)} required placeholder="e.g. Smith" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={surname} onChange={e => setSurname(e.target.value)} placeholder="e.g. Smith" />
               <label className="block text-gray-300 mb-1">Name</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. John" />
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John" />
             </div>
           )}
           {step === 3 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">BIM File Upload</h4>
+              <h4 className="text-lg font-semibold text-blue-400 mb-2">BIM File Upload <span className="text-red-500">*</span></h4>
               <label className="block text-gray-300 mb-2">BIM File</label>
               <div className="mb-3">
                 <label htmlFor="bim-upload" className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${file ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}`} tabIndex={0}>
@@ -423,8 +451,8 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                 }}
               />
               <div className="flex flex-wrap gap-2 mb-3 mt-3 w-full">
-                <input type="number" step="any" placeholder="Latitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lat ?? ""} onChange={e => setLat(Number(e.target.value))} required style={{ minWidth: 0 }} />
-                <input type="number" step="any" placeholder="Longitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lng ?? ""} onChange={e => setLng(Number(e.target.value))} required style={{ minWidth: 0 }} />
+                <input type="number" step="any" placeholder="Latitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lat ?? ""} onChange={e => setLat(Number(e.target.value))} style={{ minWidth: 0 }} />
+                <input type="number" step="any" placeholder="Longitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lng ?? ""} onChange={e => setLng(Number(e.target.value))} style={{ minWidth: 0 }} />
               </div>
             </div>
           )}
@@ -502,8 +530,9 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         {/* Stepper Controls */}
         <div className="flex gap-2 mt-4 px-6 pb-6">
           {step > 0 && <button type="button" className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded" onClick={handleBack} disabled={isProcessing}>Back</button>}
-          {step < 4 && <button type="button" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
-          {step === 4 && <button type="button" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded disabled:opacity-60" onClick={handleCreate} disabled={!canNext() || isProcessing}>{isProcessing ? "Processing..." : "Create Project"}</button>}
+          {step < 3 && <button type="button" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
+          {step === 3 && <button type="button" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded disabled:opacity-60" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
+          {step === 4 && <button type="button" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded disabled:opacity-60" onClick={handleCreate} disabled={isProcessing}>Create Project</button>}
         </div>
       </div>
     </div>
