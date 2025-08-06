@@ -6,6 +6,7 @@ import { ThreeDViewer } from "./components/3d-viewer";
 import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
 import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
+import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
 import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
 import { GoogleEarthMap } from "./components/google-earth-map";
@@ -51,12 +52,14 @@ function BIMDashboard() {
   const [viewer, setViewer] = useState<any>(null);
   const [iotExt, setIotExt] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<
-    "bim" | "iot" | "database" | "ai"
-  >("bim");
+    "bim" | "iot" | "database" | "ai" | null
+  >(null); // Initially no panel is active
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
   const [wireframeMode, setWireframeMode] = useState<boolean>(true); // Default to wireframe for IoT panel
   const [rightSidebarView, setRightSidebarView] = useState<'details' | 'hierarchy'>('details');
+  const [showProjectPanel, setShowProjectPanel] = useState(true); // Show project panel initially
+  const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
 
   // Use sensor context
   const {
@@ -238,6 +241,27 @@ function BIMDashboard() {
     setShowProjectInfo(true);
   };
 
+  // Handler for BIM panel commands
+  const handleBackToProjects = () => {
+    setActivePanel(null);
+    setShowProjectPanel(true);
+  };
+
+  const handleToggleSensors = (visible: boolean) => {
+    setSensorsVisible(visible);
+    // TODO: Implement actual sensor visibility toggle in viewer
+  };
+
+  const handleSaveCurrentView = (viewName: string) => {
+    // TODO: Implement view saving functionality
+    console.log(`Saving view: ${viewName}`);
+  };
+
+  const handleFilterObjects = (filters: any) => {
+    // TODO: Implement object filtering in viewer
+    console.log('Applying filters:', filters);
+  };
+
   // Handler for closing project information modal
   const handleReturnToMapView = () => {
     setSelectedProject(null);
@@ -394,40 +418,14 @@ function BIMDashboard() {
 
             {/* Right Panel - Conditional Rendering */}
             {activePanel === "bim" ? (
-              rightSidebarView === 'details' ? (
-                <EnhancedProjectPanel
-                  onShowHierarchy={() => setRightSidebarView('hierarchy')}
-                onFileSelect={handleFileSelect}
-                onProjectSelect={handleProjectSelect}
-                selectedFile={selectedFile}
-                selectedProject={selectedProject}
-                projects={projects}
-                onViewModeChange={setViewMode}
-                currentViewMode={viewMode}
-                onProcessingComplete={handleProcessingComplete}
-                apiKey={GOOGLE_MAPS_API_KEY}
-                onRequestCreateProject={handleRequestCreateProject}
-                onReturnToMapView={handleReturnToMapView}
-                />
-              ) : (
-                <ModelHierarchyPanel 
-                  viewer={viewer} 
-                  onClose={() => {
-                    setRightSidebarView('details');
-                    // Ensure the same project and file remain selected and model is fit to project root
-                    if (viewer && viewer.model && viewer.fitToView) {
-                      const tree = viewer.model.getData().instanceTree;
-                      if (tree && tree.getRootId) {
-                        const rootId = tree.getRootId();
-                        viewer.fitToView([rootId], viewer.model);
-                      }
-                    }
-                    // Optionally, you can re-select the project/file here if needed
-                    // setSelectedProject(selectedProject); // already selected
-                    // setSelectedFile(selectedFile); // already selected
-                  }}
-                />
-              )
+              <BIMPanel
+                onBackToProjects={handleBackToProjects}
+                onSaveCurrentView={handleSaveCurrentView}
+                onFilterObjects={handleFilterObjects}
+                onToggleSensors={handleToggleSensors}
+                sensorsVisible={sensorsVisible}
+                viewer={viewer}
+              />
             ) : activePanel === "iot" ? (
               <IoTPanel 
                 onInsertSensor={handleInsertSensor} 
@@ -436,13 +434,51 @@ function BIMDashboard() {
                 wireframeMode={wireframeMode}
                 onWireframeModeChange={handleWireframeModeChange}
               />
-            ) : (
+            ) : activePanel === "database" || activePanel === "ai" ? (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
                 <p className="text-gray-400">
                   Panel for {activePanel.toUpperCase()}
                 </p>
               </div>
+            ) : (
+              // Show project panel when no active panel
+              showProjectPanel && (
+                rightSidebarView === 'details' ? (
+                  <EnhancedProjectPanel
+                    onShowHierarchy={() => setRightSidebarView('hierarchy')}
+                    onFileSelect={handleFileSelect}
+                    onProjectSelect={handleProjectSelect}
+                    selectedFile={selectedFile}
+                    selectedProject={selectedProject}
+                    projects={projects}
+                    onViewModeChange={setViewMode}
+                    currentViewMode={viewMode}
+                    onProcessingComplete={handleProcessingComplete}
+                    apiKey={GOOGLE_MAPS_API_KEY}
+                    onRequestCreateProject={handleRequestCreateProject}
+                    onReturnToMapView={handleReturnToMapView}
+                  />
+                ) : (
+                  <ModelHierarchyPanel 
+                    viewer={viewer} 
+                    onClose={() => {
+                      setRightSidebarView('details');
+                      // Ensure the same project and file remain selected and model is fit to project root
+                      if (viewer && viewer.model && viewer.fitToView) {
+                        const tree = viewer.model.getData().instanceTree;
+                        if (tree && tree.getRootId) {
+                          const rootId = tree.getRootId();
+                          viewer.fitToView([rootId], viewer.model);
+                        }
+                      }
+                      // Optionally, you can re-select the project/file here if needed
+                      // setSelectedProject(selectedProject); // already selected
+                      // setSelectedFile(selectedFile); // already selected
+                    }}
+                  />
+                )
+              )
             )}
           </>
         )}

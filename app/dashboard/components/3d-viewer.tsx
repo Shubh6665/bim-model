@@ -23,7 +23,7 @@ interface ThreeDViewerProps {
   insertMode?: string | null;
   onExitInsertMode?: () => void;
   onSensorClick?: (sensorId: string) => void;
-  activePanel?: 'bim' | 'iot' | 'database' | 'ai';
+  activePanel?: 'bim' | 'iot' | 'database' | 'ai' | null;
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
 }

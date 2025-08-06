@@ -5,7 +5,7 @@ import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info } from "lucid
 interface DashboardHeaderProps {
   onSignOut: () => void;
   user?: any;
-  activePanel: 'bim' | 'iot' | 'database' | 'ai'; // Added active panel state
+  activePanel: 'bim' | 'iot' | 'database' | 'ai' | null; // Added active panel state
   onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai') => void; // Added panel change handler
   onCreateProject: () => void; // Added create project handler
   selectedProject?: any; // Added selected project prop
