@@ -337,14 +337,8 @@ export function EnhancedProjectPanel({
       `}</style>
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-lg font-semibold text-white">Projects</h2>
-          <button
-            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            onClick={onRequestCreateProject}
-          >
-            + Create Project
-          </button>
         </div>
 
         {/* Tabs */}

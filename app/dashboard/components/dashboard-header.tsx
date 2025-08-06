@@ -7,9 +7,10 @@ interface DashboardHeaderProps {
   user?: any;
   activePanel: 'bim' | 'iot' | 'database' | 'ai'; // Added active panel state
   onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai') => void; // Added panel change handler
+  onCreateProject: () => void; // Added create project handler
 }
 
-export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange }: DashboardHeaderProps) {
+export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject }: DashboardHeaderProps) {
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -90,6 +91,13 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange }:
                     <span>Settings</span>
                   </button>
                   <div className="border-t border-gray-700 my-1"></div>
+                  <button 
+                    onClick={onCreateProject}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
+                  >
+                    <span className="w-4 h-4 flex items-center justify-center">+</span>
+                    <span>Create Project</span>
+                  </button>
                   <button
                     className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition-colors"
                     onClick={onSignOut}

@@ -213,6 +213,7 @@ function BIMDashboard() {
         user={session?.user}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
+        onCreateProject={handleRequestCreateProject}
       />
 
       {/* Main Content */}
