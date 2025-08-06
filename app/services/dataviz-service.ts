@@ -18,6 +18,7 @@ export class DataVizService {
   private sensorStyles: Record<string, any> = {};
   private sprites: Map<string, any> = new Map();
   private isInitialized = false;
+  private highlightedSensorId: string | null = null;
 
   constructor(viewer: any) {
     this.viewer = viewer;
@@ -308,12 +309,210 @@ export class DataVizService {
 
   highlightSensor(sensorId: string): void {
     if (!this.isInitialized || !this.dataVizExt) {
+      console.warn("[DataViz] Cannot highlight sensor - service not initialized");
       return;
     }
 
+    try {
+      // Clear any existing highlights first
+      this.clearHighlight();
+      
+      const sprite = this.sprites.get(sensorId);
+      if (sprite) {
+        console.log(`[DataViz] Highlighting sensor ${sensorId} with dbId ${sprite.dbId}`);
+        
+        // Store the currently highlighted sensor
+        this.highlightedSensorId = sensorId;
+        
+        // Smooth transition for highlighting
+        this.animateHighlight(sprite);
+        
+        // Smooth camera focus on the sensor
+        this.smoothFocusOnSensor(sensorId);
+      } else {
+        console.warn(`[DataViz] Sensor sprite not found for ID: ${sensorId}`);
+      }
+    } catch (error) {
+      console.error(`[DataViz] Failed to highlight sensor ${sensorId}:`, error);
+    }
+  }
+  
+  clearHighlight(): void {
+    if (!this.isInitialized || !this.dataVizExt) {
+      return;
+    }
+
+    try {
+      // Clear DataViz extension highlights
+      if (this.dataVizExt.clearHighlight) {
+        this.dataVizExt.clearHighlight();
+      }
+      
+      // Reset previously highlighted sensor appearance with smooth transition
+      if (this.highlightedSensorId) {
+        const sprite = this.sprites.get(this.highlightedSensorId);
+        if (sprite) {
+          this.animateUnhighlight(sprite);
+        }
+        this.highlightedSensorId = null;
+      }
+    } catch (error) {
+      console.error("[DataViz] Failed to clear highlight:", error);
+    }
+  }
+
+  private animateHighlight(sprite: any): void {
+    try {
+      // Use DataViz extension highlighting with smooth transition
+      if (this.dataVizExt.highlightViewables) {
+        this.dataVizExt.highlightViewables([sprite.dbId]);
+      }
+
+      // Smooth scale animation from 1.0 to 1.5
+      this.smoothScale(sprite, 1.0, 1.5, 300); // 300ms duration
+      
+      // Add subtle pulsing animation after scaling
+      setTimeout(() => {
+        if (sprite.setAnimation && this.highlightedSensorId) {
+          sprite.setAnimation('pulse');
+        }
+      }, 300);
+      
+    } catch (error) {
+      console.error("[DataViz] Failed to animate highlight:", error);
+    }
+  }
+
+  private animateUnhighlight(sprite: any): void {
+    try {
+      // Remove pulsing animation first
+      if (sprite.setAnimation) {
+        sprite.setAnimation(null);
+      }
+      
+      // Smooth scale animation from current scale back to 1.0
+      this.smoothScale(sprite, 1.5, 1.0, 200); // 200ms duration
+      
+    } catch (error) {
+      console.error("[DataViz] Failed to animate unhighlight:", error);
+    }
+  }
+
+  private smoothScale(sprite: any, fromScale: number, toScale: number, duration: number): void {
+    if (!sprite.setScale) return;
+    
+    const startTime = Date.now();
+    const scaleDiff = toScale - fromScale;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easeOutCubic for smooth transition
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const currentScale = fromScale + (scaleDiff * easeProgress);
+      
+      sprite.setScale(currentScale);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }
+
+  private smoothFocusOnSensor(sensorId: string): void {
     const sprite = this.sprites.get(sensorId);
-    if (sprite) {
-      this.dataVizExt.highlightViewables([sprite.dbId]);
+    if (!sprite || !this.viewer || !sprite.position) {
+      return;
+    }
+
+    try {
+      const targetPosition = new (globalThis as any).THREE.Vector3(
+        sprite.position.x,
+        sprite.position.y,
+        sprite.position.z
+      );
+
+      // Get current camera position
+      const camera = this.viewer.getCamera();
+      const currentTarget = this.viewer.getTarget();
+      
+      // Smooth camera transition
+      this.smoothCameraTransition(currentTarget, targetPosition, 800); // 800ms duration
+      
+    } catch (error) {
+      console.warn("[DataViz] Could not smoothly focus on sensor:", error);
+      // Fallback to instant focus
+      this.focusOnSensor(sensorId);
+    }
+  }
+
+  private smoothCameraTransition(fromTarget: any, toTarget: any, duration: number): void {
+    if (!this.viewer || !this.viewer.navigation) return;
+    
+    const startTime = Date.now();
+    const targetDiff = {
+      x: toTarget.x - fromTarget.x,
+      y: toTarget.y - fromTarget.y,
+      z: toTarget.z - fromTarget.z
+    };
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easeInOutQuad for smooth camera movement
+      const easeProgress = progress < 0.5 
+        ? 2 * progress * progress 
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      
+      const currentTarget = new (globalThis as any).THREE.Vector3(
+        fromTarget.x + (targetDiff.x * easeProgress),
+        fromTarget.y + (targetDiff.y * easeProgress),
+        fromTarget.z + (targetDiff.z * easeProgress)
+      );
+      
+      if (this.viewer.navigation.setTarget) {
+        this.viewer.navigation.setTarget(currentTarget);
+      }
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }
+  
+  private focusOnSensor(sensorId: string): void {
+    const sprite = this.sprites.get(sensorId);
+    if (!sprite || !this.viewer) {
+      return;
+    }
+
+    try {
+      const position = sprite.worldPosition;
+      if (position && this.viewer.navigation) {
+        // Create a smooth camera transition to the sensor
+        const THREE = (window as any).THREE;
+        if (THREE) {
+          const targetPosition = new THREE.Vector3(position.x, position.y, position.z);
+          
+          // Set camera target with smooth transition
+          if (this.viewer.navigation.setTarget) {
+            this.viewer.navigation.setTarget(targetPosition);
+          }
+          
+          // Optionally adjust camera distance for better view
+          if (this.viewer.navigation.setDistance) {
+            this.viewer.navigation.setDistance(50); // Adjust as needed
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[DataViz] Could not focus on sensor ${sensorId}:`, error);
     }
   }
 

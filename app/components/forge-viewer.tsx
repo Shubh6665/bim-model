@@ -40,7 +40,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     
     // Use sensor context
-    const { sensors, selectSensor, placeSensor, showSensorForm } = useSensorContext();
+    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm } = useSensorContext();
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -413,6 +413,21 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.error("[ForgeViewer] Error controlling model browser visibility:", error);
         }
     }, [activePanel, viewer, isInitialized]);
+
+    // Effect to handle sensor highlighting when selectedSensor changes
+    useEffect(() => {
+        if (!dataVizService || !isDataVizReady || activePanel !== 'iot') {
+            return;
+        }
+
+        if (selectedSensor) {
+            console.log(`[ForgeViewer] Highlighting selected sensor: ${selectedSensor.name} (${selectedSensor.id})`);
+            dataVizService.highlightSensor(selectedSensor.id);
+        } else {
+            console.log(`[ForgeViewer] Clearing sensor highlight`);
+            dataVizService.clearHighlight();
+        }
+    }, [selectedSensor, dataVizService, isDataVizReady, activePanel]);
 
     const updateSensors = async () => {
         if (!dataVizService) {
