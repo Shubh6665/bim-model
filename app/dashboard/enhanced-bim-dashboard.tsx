@@ -250,7 +250,15 @@ function BIMDashboard() {
     setSelectedProject(updatedProject);
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
     setShowProjectInfo(false);
-    // Note: In a real application, you would also save to backend here
+  };
+
+  // Handler for project updated from API
+  const handleProjectUpdated = (updatedProject: Project) => {
+    console.log("[Dashboard] Project updated from API:", updatedProject);
+    // Update the selected project and projects list
+    setSelectedProject(updatedProject);
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+    // Trigger any additional updates needed (e.g., refresh sensor context if needed)
   };
 
   return (
@@ -449,7 +457,8 @@ function BIMDashboard() {
           isOpen={showProjectInfo}
           onClose={handleCloseProjectInfo}
           onSave={handleSaveProjectInfo}
-          isEditable={false} // Set to false since user mentioned they can't edit project info
+          onProjectUpdated={handleProjectUpdated}
+          isEditable={true} // Enable editing for allowed fields
         />
         
         {/* Sensor Insertion Form Modal */}

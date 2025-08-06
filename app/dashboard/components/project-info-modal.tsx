@@ -26,11 +26,14 @@ interface ProjectInfoModalProps {
   onClose: () => void;
   onSave?: (updatedProject: Project) => void;
   isEditable?: boolean;
+  onProjectUpdated?: (updatedProject: Project) => void;
 }
 
-export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable = false }: ProjectInfoModalProps) {
+export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable = true, onProjectUpdated }: ProjectInfoModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProject, setEditedProject] = useState<Project | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (project) {
@@ -45,10 +48,57 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
     setEditedProject({ ...project });
   };
 
-  const handleSave = () => {
-    if (editedProject && onSave) {
-      onSave(editedProject);
+  const handleSave = async () => {
+    if (!editedProject) return;
+    
+    setIsSaving(true);
+    setSaveError(null);
+    
+    try {
+      // Call API to update project
+      const response = await fetch(`/api/projects/${editedProject.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editedProject.name,
+          description: editedProject.description,
+          code: editedProject.code,
+          country: editedProject.country,
+          municipality: editedProject.municipality,
+          address: editedProject.address,
+          cadastral: editedProject.cadastral,
+          company: editedProject.company,
+          clientName: editedProject.clientName,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update project');
+      }
+      
+      const result = await response.json();
+      
+      // Update local state
+      if (onSave) {
+        onSave(editedProject);
+      }
+      
+      // Notify parent component
+      if (onProjectUpdated) {
+        onProjectUpdated(editedProject);
+      }
+      
       setIsEditing(false);
+      console.log('Project updated successfully:', result.message);
+      
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      setSaveError(error.message || 'Failed to update project');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -69,7 +119,7 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
   const currentProject = isEditing ? editedProject : project;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
@@ -78,10 +128,10 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
             <h2 className="text-xl font-semibold text-white">Project Information</h2>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditable && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-yellow-900/30 border border-yellow-600/30 rounded-md">
-                <AlertCircle className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm text-yellow-300">Read Only</span>
+            {saveError && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-red-900/30 border border-red-600/30 rounded-md">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <span className="text-sm text-red-300">{saveError}</span>
               </div>
             )}
             {isEditable && !isEditing && (
@@ -97,10 +147,11 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                 >
                   <Save className="w-4 h-4" />
-                  <span>Save</span>
+                  <span>{isSaving ? 'Saving...' : 'Save'}</span>
                 </button>
                 <button
                   onClick={handleCancel}
@@ -236,32 +287,18 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Latitude</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="any"
-                    value={currentProject?.lat || ''}
-                    onChange={(e) => handleInputChange('lat', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="text-white bg-gray-700 px-3 py-2 rounded-md">{currentProject?.lat || 'N/A'}</p>
-                )}
+                <div className="relative">
+                  <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md">{currentProject?.lat || 'N/A'}</p>
+                  <span className="absolute right-2 top-2 text-xs text-gray-500">Read-only</span>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Longitude</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="any"
-                    value={currentProject?.lng || ''}
-                    onChange={(e) => handleInputChange('lng', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                ) : (
-                  <p className="text-white bg-gray-700 px-3 py-2 rounded-md">{currentProject?.lng || 'N/A'}</p>
-                )}
+                <div className="relative">
+                  <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md">{currentProject?.lng || 'N/A'}</p>
+                  <span className="absolute right-2 top-2 text-xs text-gray-500">Read-only</span>
+                </div>
               </div>
             </div>
           </div>
@@ -304,12 +341,18 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">File Type</label>
-                <p className="text-white bg-gray-700 px-3 py-2 rounded-md">{currentProject?.fileType || 'N/A'}</p>
+                <div className="relative">
+                  <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md">{currentProject?.fileType || 'N/A'}</p>
+                  <span className="absolute right-2 top-2 text-xs text-gray-500">Read-only</span>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Project ID</label>
-                <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md font-mono text-sm">{currentProject?.id || 'N/A'}</p>
+                <div className="relative">
+                  <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md font-mono text-sm">{currentProject?.id || 'N/A'}</p>
+                  <span className="absolute right-2 top-2 text-xs text-gray-500">Read-only</span>
+                </div>
               </div>
             </div>
           </div>
@@ -324,7 +367,10 @@ export function ProjectInfoModal({ project, isOpen, onClose, onSave, isEditable 
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Model URN</label>
-                <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md font-mono text-sm break-all">{currentProject.urn}</p>
+                <div className="relative">
+                  <p className="text-gray-400 bg-gray-700 px-3 py-2 rounded-md font-mono text-sm break-all">{currentProject.urn}</p>
+                  <span className="absolute right-2 top-2 text-xs text-gray-500">Read-only</span>
+                </div>
               </div>
             </div>
           )}
