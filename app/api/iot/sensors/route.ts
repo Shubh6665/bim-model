@@ -15,6 +15,11 @@ interface SensorData {
   color?: string;
   projectId?: string;
   modelPosition?: { x: number; y: number; z: number };
+  // Additional fields for detailed sensor information
+  code?: string;
+  mark?: string;
+  model?: string;
+  link?: string;
 }
 
 export async function GET(request: Request) {
@@ -50,6 +55,11 @@ export async function GET(request: Request) {
       color: sensor.color,
       projectId: sensor.projectId,
       modelPosition: sensor.modelPosition || sensor.position,
+      // Additional fields
+      code: sensor.code,
+      mark: sensor.mark,
+      model: sensor.model,
+      link: sensor.link,
     }));
 
     return NextResponse.json(transformedSensors, { status: 200 });
@@ -92,6 +102,11 @@ export async function POST(request: Request) {
       color: sensorData.color,
       projectId: sensorData.projectId,
       modelPosition: sensorData.modelPosition || sensorData.position,
+      // Additional fields
+      code: sensorData.code,
+      mark: sensorData.mark,
+      model: sensorData.model,
+      link: sensorData.link,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -40,7 +40,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     
     // Use sensor context
-    const { sensors, selectSensor, placeSensor } = useSensorContext();
+    const { sensors, selectSensor, placeSensor, showSensorForm } = useSensorContext();
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -217,25 +217,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         });
 
         try {
-            // Use sensor context to place sensor
-            const newSensor = await placeSensor(
-                { x: position.x, y: position.y, z: position.z },
-                "Unknown Room"
-            );
-            
-            if (newSensor) {
-                console.log("[ForgeViewer] Sensor placed successfully:", newSensor.name);
-                if (onSensorPlaced) {
-                    onSensorPlaced(newSensor);
-                }
-                
-                // Exit insert mode after placing
-                if (onExitInsertMode) {
-                    onExitInsertMode();
-                }
-            } else {
-                console.warn("[ForgeViewer] Failed to place sensor - no sensor returned");
-            }
+            // Show sensor insertion form instead of directly placing sensor
+            showSensorForm({ x: position.x, y: position.y, z: position.z });
+            console.log("[ForgeViewer] Showing sensor insertion form at position:", {
+                x: position.x,
+                y: position.y,
+                z: position.z
+            });
         } catch (error) {
             console.error("[ForgeViewer] Failed to place sensor:", error);
         }

@@ -22,6 +22,11 @@ export interface Sensor {
   color?: string;
   projectId?: string;
   modelPosition?: { x: number; y: number; z: number };
+  // Additional fields for detailed sensor information
+  code?: string;
+  mark?: string;
+  model?: string;
+  link?: string;
 }
 
 export const SENSOR_TYPES = [
@@ -44,6 +49,9 @@ interface SensorContextType {
   loading: boolean;
   error: string | null;
   currentProjectId: string | null;
+  // Form state
+  showInsertionForm: boolean;
+  pendingPosition: { x: number; y: number; z: number } | null;
 
   // Actions
   selectSensor: (sensor: Sensor | null) => void;
@@ -54,6 +62,18 @@ interface SensorContextType {
     position: { x: number; y: number; z: number },
     room?: string,
   ) => Promise<Sensor | null>;
+  // New form-based sensor placement
+  showSensorForm: (position: { x: number; y: number; z: number }) => void;
+  hideSensorForm: () => void;
+  placeSensorWithDetails: (formData: {
+    name: string;
+    code: string;
+    mark: string;
+    model: string;
+    room: string;
+    link: string;
+    type: string;
+  }) => Promise<Sensor | null>;
   removeSensor: (sensorId: string) => Promise<boolean>;
   updateSensor: (sensorId: string, updates: Partial<Sensor>) => Promise<boolean>;
   toggleSensorTypeVisibility: (sensorType: string) => void;
@@ -80,6 +100,9 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  // Form state
+  const [showInsertionForm, setShowInsertionForm] = useState(false);
+  const [pendingPosition, setPendingPosition] = useState<{ x: number; y: number; z: number } | null>(null);
 
   // Load sensors from API (project-specific)
   const refreshSensors = useCallback(async () => {
@@ -291,6 +314,81 @@ export function SensorProvider({ children }: SensorProviderProps) {
     return filtered;
   }, [sensors, visibleSensorTypes, filteredSensorType]);
 
+  // Form-related functions
+  const showSensorForm = useCallback((position: { x: number; y: number; z: number }) => {
+    setPendingPosition(position);
+    setShowInsertionForm(true);
+  }, []);
+
+  const hideSensorForm = useCallback(() => {
+    setShowInsertionForm(false);
+    setPendingPosition(null);
+  }, []);
+
+  const placeSensorWithDetails = useCallback(async (formData: {
+    name: string;
+    code: string;
+    mark: string;
+    model: string;
+    room: string;
+    link: string;
+    type: string;
+  }): Promise<Sensor | null> => {
+    if (!pendingPosition) {
+      console.error('No pending position for sensor placement');
+      return null;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const sensorData = {
+        name: formData.name,
+        type: formData.type,
+        status: "Online" as const,
+        value: "0",
+        position: pendingPosition,
+        batteryLevel: 100,
+        lastUpdate: new Date().toISOString(),
+        room: formData.room,
+        color: SENSOR_TYPES.find(t => t.name === formData.type)?.color,
+        projectId: currentProjectId || "unknown",
+        modelPosition: pendingPosition,
+        // Additional form fields
+        code: formData.code,
+        mark: formData.mark,
+        model: formData.model,
+        link: formData.link || undefined,
+      };
+
+      const response = await fetch('/api/iot/sensors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sensorData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create sensor');
+      }
+
+      const newSensor = await response.json();
+      setSensors(prev => [...prev, newSensor]);
+      hideSensorForm();
+      exitPlacementMode();
+      console.log("Sensor placed successfully:", newSensor);
+      return newSensor;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to place sensor');
+      console.error("Failed to place sensor:", err);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [pendingPosition, currentProjectId, hideSensorForm, exitPlacementMode]);
+
   const contextValue: SensorContextType = {
     sensors,
     selectedSensor,
@@ -301,11 +399,19 @@ export function SensorProvider({ children }: SensorProviderProps) {
     loading,
     error,
     currentProjectId,
+    // Form state
+    showInsertionForm,
+    pendingPosition,
+    // Actions
     selectSensor,
     enterPlacementMode,
     exitPlacementMode,
     setCurrentProject,
     placeSensor,
+    // Form actions
+    showSensorForm,
+    hideSensorForm,
+    placeSensorWithDetails,
     removeSensor,
     updateSensor,
     toggleSensorTypeVisibility,

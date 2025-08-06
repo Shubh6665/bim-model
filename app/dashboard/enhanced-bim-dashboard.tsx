@@ -7,6 +7,7 @@ import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
 import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
+import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
 import { GoogleEarthMap } from "./components/google-earth-map";
 import { useAuth } from "@/app/hooks/use-auth";
 import { useRef } from "react";
@@ -65,6 +66,12 @@ function BIMDashboard() {
     selectSensor,
     placeSensor,
     setCurrentProject,
+    // Form-related state and functions
+    showInsertionForm,
+    pendingPosition,
+    hideSensorForm,
+    placeSensorWithDetails,
+    loading: sensorLoading,
   } = useSensorContext();
 
   // Auto-switch to wireframe when IoT panel is active
@@ -203,6 +210,24 @@ function BIMDashboard() {
     console.log(`[Dashboard] Current wireframe state: ${wireframeMode}`);
     setWireframeMode(wireframe);
     console.log(`[Dashboard] Wireframe mode updated to: ${wireframe}`);
+  };
+
+  // Handler for sensor form submission
+  const handleSensorFormSubmit = async (formData: SensorFormData) => {
+    console.log("[Dashboard] Sensor form submitted:", formData);
+    const newSensor = await placeSensorWithDetails(formData);
+    if (newSensor) {
+      console.log("[Dashboard] Sensor placed successfully:", newSensor.name);
+      // Exit insert mode after successful placement
+      setInsertMode(null);
+    }
+  };
+
+  // Handler for sensor form cancellation
+  const handleSensorFormCancel = () => {
+    console.log("[Dashboard] Sensor form cancelled");
+    hideSensorForm();
+    setInsertMode(null);
   };
 
   return (
@@ -392,6 +417,16 @@ function BIMDashboard() {
             apiKey={GOOGLE_MAPS_API_KEY}
           />
         )}
+        
+        {/* Sensor Insertion Form Modal */}
+        <SensorInsertionForm
+          isOpen={showInsertionForm}
+          sensorType={placementSensorType || ""}
+          position={pendingPosition}
+          onSubmit={handleSensorFormSubmit}
+          onCancel={handleSensorFormCancel}
+          loading={sensorLoading}
+        />
       </div>
     </div>
   );
