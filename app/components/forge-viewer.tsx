@@ -309,6 +309,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         try {
             if (wireframeMode) {
+                // Check if we're in 2D floor plan mode - if so, don't force wireframe
+                // More robust detection using multiple methods
+                const is2DFloorMode = 
+                    document.querySelector('[data-testid="2d-views"]')?.classList.contains('bg-blue-500') ||
+                    document.querySelector('.bim-panel-content')?.querySelector('[data-testid="2d-views"]') ||
+                    localStorage.getItem('bim-active-command') === '2d-views' ||
+                    (window as any).is2DFloorPlanActive === true;
+                
+                if (is2DFloorMode) {
+                    console.log('[ForgeViewer] Skipping wireframe mode - 2D floor plan view active');
+                    // Ensure we're in solid mode for floor plans
+                    if (viewer.setDisplayMode) {
+                        viewer.setDisplayMode(0); // Solid mode
+                    }
+                    return;
+                }
+                
                 // Enable wireframe mode - show edges and hide solid surfaces (same as IoT mode)
                 viewer.setDisplayEdges(true);
                 
@@ -341,7 +358,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         
                         // Hide all leaf components to show only wireframe
                         if (leafNodeIds.length > 0) {
-                            viewer.hide(leafNodeIds);
+                            viewer.hide(leafNodeIds, viewer.model);
                         }
                     }
                 });
