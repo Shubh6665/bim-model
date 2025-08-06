@@ -40,7 +40,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     
     // Use sensor context
-    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm } = useSensorContext();
+    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType } = useSensorContext();
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -283,7 +283,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] Clearing sensor update timeout");
             clearTimeout(timeoutId);
         };
-    }, [sensors.length, dataVizService, isDataVizReady, activePanel, isInitialized]); // Include isInitialized in dependency array
+    }, [sensors.length, dataVizService, isDataVizReady, activePanel, isInitialized, filteredSensorType]); // Include filteredSensorType to trigger updates when filter changes
 
     // Handle wireframe mode changes
     useEffect(() => {
@@ -448,21 +448,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
-        console.log("[ForgeViewer] Updating sensors display with", sensors.length, "sensors, activePanel:", activePanel);
+        // Get filtered sensors based on current filter selection
+        const filteredSensors = getFilteredSensors();
+        console.log("[ForgeViewer] Updating sensors display with", filteredSensors.length, "filtered sensors (total:", sensors.length, "), activePanel:", activePanel, "filter:", filteredSensorType);
         
         try {
             // Clear existing sensors first
             await dataVizService.clearAllSensors();
             
             // Skip if no sensors to add
-            if (sensors.length === 0) {
-                console.log("[ForgeViewer] No sensors to display");
+            if (filteredSensors.length === 0) {
+                console.log("[ForgeViewer] No filtered sensors to display");
                 await dataVizService.updateDisplay();
                 return;
             }
             
-            // Add all sensors from context (without calling updateDisplay for each)
-            for (const sensor of sensors) {
+            // Add filtered sensors from context (without calling updateDisplay for each)
+            for (const sensor of filteredSensors) {
                 // Generate a more reliable dbId
                 const dbId = sensor.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 
@@ -494,7 +496,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 // Single updateDisplay call after all sensors are added
                 const success = await dataVizService.updateDisplay();
                 if (success) {
-                    console.log(`[ForgeViewer] Successfully updated display with ${sensors.length} sensors`);
+                    console.log(`[ForgeViewer] Successfully updated display with ${filteredSensors.length} filtered sensors`);
                 } else {
                     console.warn(`[ForgeViewer] Failed to update display`);
                 }
