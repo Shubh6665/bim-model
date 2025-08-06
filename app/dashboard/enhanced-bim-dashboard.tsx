@@ -14,6 +14,7 @@ import { useRef } from "react";
 import React from "react";
 import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
+import { ProjectInfoModal } from "./components/project-info-modal";
 
 interface ProjectFile {
   id: string;
@@ -46,6 +47,7 @@ function BIMDashboard() {
   const { logout } = useAuth();
   const { data: session } = useSession();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showProjectInfo, setShowProjectInfo] = useState(false);
   const [viewer, setViewer] = useState<any>(null);
   const [iotExt, setIotExt] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<
@@ -230,6 +232,27 @@ function BIMDashboard() {
     setInsertMode(null);
   };
 
+  // Handler for showing project information
+  const handleShowProjectInfo = () => {
+    console.log("[Dashboard] Show project info requested");
+    setShowProjectInfo(true);
+  };
+
+  // Handler for closing project information modal
+  const handleCloseProjectInfo = () => {
+    setShowProjectInfo(false);
+  };
+
+  // Handler for saving project information (if editing is enabled)
+  const handleSaveProjectInfo = (updatedProject: Project) => {
+    console.log("[Dashboard] Project info save requested:", updatedProject);
+    // Update the selected project and projects list
+    setSelectedProject(updatedProject);
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+    setShowProjectInfo(false);
+    // Note: In a real application, you would also save to backend here
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
@@ -239,6 +262,8 @@ function BIMDashboard() {
         activePanel={activePanel}
         onPanelChange={setActivePanel}
         onCreateProject={handleRequestCreateProject}
+        selectedProject={selectedProject}
+        onShowProjectInfo={handleShowProjectInfo}
       />
 
       {/* Main Content */}
@@ -417,6 +442,15 @@ function BIMDashboard() {
             apiKey={GOOGLE_MAPS_API_KEY}
           />
         )}
+        
+        {/* Project Information Modal */}
+        <ProjectInfoModal
+          project={selectedProject}
+          isOpen={showProjectInfo}
+          onClose={handleCloseProjectInfo}
+          onSave={handleSaveProjectInfo}
+          isEditable={false} // Set to false since user mentioned they can't edit project info
+        />
         
         {/* Sensor Insertion Form Modal */}
         <SensorInsertionForm

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { User, Settings, LogOut, Bell, Search, Menu, ChevronDown } from "lucide-react";
+import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info } from "lucide-react";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -8,9 +8,11 @@ interface DashboardHeaderProps {
   activePanel: 'bim' | 'iot' | 'database' | 'ai'; // Added active panel state
   onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai') => void; // Added panel change handler
   onCreateProject: () => void; // Added create project handler
+  selectedProject?: any; // Added selected project prop
+  onShowProjectInfo?: () => void; // Added project info handler
 }
 
-export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject }: DashboardHeaderProps) {
+export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo }: DashboardHeaderProps) {
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -62,8 +64,12 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
               <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
             )}
           </button>
-          <button className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors">
-            <Settings className="w-4 h-4" />
+          <button 
+            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
+            onClick={onShowProjectInfo}
+            title={selectedProject ? `Project Info: ${selectedProject.name}` : "Project Information"}
+          >
+            <Home className="w-4 h-4" />
           </button>
           <div className="relative">
             <button
@@ -86,9 +92,12 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
+                  <button 
+                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                    onClick={onShowProjectInfo}
+                  >
+                    <Info className="w-4 h-4" />
+                    <span>Project Info</span>
                   </button>
                   <div className="border-t border-gray-700 my-1"></div>
                   <button 
