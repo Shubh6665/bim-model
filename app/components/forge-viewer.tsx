@@ -117,6 +117,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                         const initializeDataVizWithRetry = async (maxRetries = 3, delay = 500) => {
                                             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                                                 console.log(`[ForgeViewer] DataViz initialization attempt ${attempt}/${maxRetries}`);
+                                                
+                                                // Validate viewer before attempting initialization
+                                                if (!viewerInstance || !viewerInstance.loadExtension) {
+                                                    console.error(`[ForgeViewer] Viewer not ready for DataViz initialization (attempt ${attempt})`);
+                                                    if (attempt === maxRetries) {
+                                                        console.error("[ForgeViewer] Failed to initialize DataViz service - viewer not ready");
+                                                        return false;
+                                                    }
+                                                    // Wait before next attempt
+                                                    await new Promise((resolve) => setTimeout(resolve, delay * attempt));
+                                                    continue;
+                                                }
+                                                
                                                 // Wait before each attempt
                                                 await new Promise((resolve) => setTimeout(resolve, delay * attempt));
                                                 // Initialize DataViz service
@@ -351,6 +364,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     useEffect(() => {
         if (!viewer || !isInitialized) {
             console.log("[ForgeViewer] Viewer not ready for model browser visibility control");
+            return;
+        }
+
+        // Check if model is loaded
+        if (!viewer.model) {
+            console.log("[ForgeViewer] Model not loaded yet, skipping visibility control");
             return;
         }
 

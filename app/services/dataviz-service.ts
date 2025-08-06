@@ -27,12 +27,31 @@ export class DataVizService {
   async initialize(): Promise<boolean> {
     try {
       if (!this.viewer) {
-        throw new Error('Viewer not available');
+        console.error('[DataViz] Viewer is null during initialization');
+        return false;
+      }
+
+      // Check if viewer has necessary methods and is properly initialized
+      if (typeof this.viewer.loadExtension !== 'function') {
+        console.error('[DataViz] Viewer does not have loadExtension method');
+        return false;
+      }
+
+      // Check if viewer has a valid model and is fully loaded
+      if (!this.viewer.model || !this.viewer.impl) {
+        console.error('[DataViz] Viewer model or impl not ready for DataViz initialization');
+        return false;
+      }
+
+      // Additional check for viewer readiness
+      if (!this.viewer.impl.canvas || !this.viewer.impl.glrenderer) {
+        console.error('[DataViz] Viewer canvas or renderer not ready');
+        return false;
       }
 
       console.log("[DataViz] Starting DataViz extension initialization");
 
-      // Load DataVisualization extension
+      // Load DataVisualization extension with additional error handling
       this.dataVizExt = await this.viewer.loadExtension("Autodesk.DataVisualization");
       console.log("[DataViz] Extension loaded successfully");
 
@@ -327,8 +346,8 @@ export class DataVizService {
         // Smooth transition for highlighting
         this.animateHighlight(sprite);
         
-        // Smooth camera focus on the sensor
-        this.smoothFocusOnSensor(sensorId);
+        // Disable camera movement to prevent excessive model shifting
+        // this.smoothFocusOnSensor(sensorId);
       } else {
         console.warn(`[DataViz] Sensor sprite not found for ID: ${sensorId}`);
       }
@@ -348,6 +367,18 @@ export class DataVizService {
         this.dataVizExt.clearHighlight();
       }
       
+      // Force immediate viewer refresh to show unhighlight
+      if (this.viewer && this.viewer.impl) {
+        this.viewer.impl.invalidate(true, true, true);
+        this.viewer.impl.sceneUpdated(true);
+        console.log('[DataViz] Forced viewer refresh for unhighlight');
+      }
+      
+      // Also try DataViz specific refresh
+      if (this.dataVizExt && this.dataVizExt.invalidate) {
+        this.dataVizExt.invalidate();
+      }
+      
       // Reset previously highlighted sensor appearance with smooth transition
       if (this.highlightedSensorId) {
         const sprite = this.sprites.get(this.highlightedSensorId);
@@ -363,20 +394,23 @@ export class DataVizService {
 
   private animateHighlight(sprite: any): void {
     try {
-      // Use DataViz extension highlighting with smooth transition
-      if (this.dataVizExt.highlightViewables) {
+      // Only use DataViz extension highlighting - NO scaling or movement
+      if (this.dataVizExt && this.dataVizExt.highlightViewables) {
         this.dataVizExt.highlightViewables([sprite.dbId]);
+        console.log(`[DataViz] Highlighted sensor with dbId: ${sprite.dbId}`);
       }
-
-      // Smooth scale animation from 1.0 to 1.5
-      this.smoothScale(sprite, 1.0, 1.5, 300); // 300ms duration
       
-      // Add subtle pulsing animation after scaling
-      setTimeout(() => {
-        if (sprite.setAnimation && this.highlightedSensorId) {
-          sprite.setAnimation('pulse');
-        }
-      }, 300);
+      // Force immediate viewer refresh to show highlight
+      if (this.viewer && this.viewer.impl) {
+        this.viewer.impl.invalidate(true, true, true);
+        this.viewer.impl.sceneUpdated(true);
+        console.log('[DataViz] Forced viewer refresh for highlight');
+      }
+      
+      // Also try DataViz specific refresh
+      if (this.dataVizExt && this.dataVizExt.invalidate) {
+        this.dataVizExt.invalidate();
+      }
       
     } catch (error) {
       console.error("[DataViz] Failed to animate highlight:", error);
@@ -526,25 +560,106 @@ export class DataVizService {
 
   setupSensorClickHandler(onSensorClick: (dbId: number) => void): void {
     if (!this.viewer) {
+      console.warn('[DataViz] Viewer not available for click handler setup');
       return;
     }
 
-    this.viewer.addEventListener(
-      (window as any).Autodesk.Viewing.SELECTION_CHANGED_EVENT,
-      (event: any) => {
-        const selection = event.dbIdArray;
-        if (selection && selection.length > 0) {
-          const dbId = selection[0];
-          // Check if this dbId corresponds to a sensor sprite
-          for (const [sensorId, sprite] of this.sprites) {
-            if (sprite.dbId === dbId) {
-              onSensorClick(dbId);
-              break;
+    console.log('[DataViz] Setting up sensor click handlers');
+
+    try {
+      // Use proper Forge viewer click event
+      this.viewer.addEventListener(
+        (window as any).Autodesk.Viewing.VIEWER_CLICK_EVENT,
+        (event: any) => {
+          console.log('[DataViz] VIEWER_CLICK_EVENT triggered:', event);
+          
+          // Try multiple hit testing approaches
+          if (event.clientX !== undefined && event.clientY !== undefined) {
+            const result = this.viewer.impl.hitTest(event.clientX, event.clientY, false);
+            if (result && result.dbId) {
+              console.log('[DataViz] Hit test result:', result);
+              // Check if this dbId corresponds to a sensor sprite
+              for (const [sensorId, sprite] of this.sprites) {
+                if (sprite.dbId === result.dbId) {
+                  console.log(`[DataViz] Sensor clicked via hit test: ${sensorId}`);
+                  onSensorClick(result.dbId);
+                  return;
+                }
+              }
             }
           }
         }
+      );
+
+      // Also try canvas click events as backup
+      if (this.viewer.impl && this.viewer.impl.canvas) {
+        this.viewer.impl.canvas.addEventListener('click', (event: MouseEvent) => {
+          console.log('[DataViz] Canvas click event:', event);
+          
+          const rect = this.viewer.impl.canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          
+          const result = this.viewer.impl.hitTest(x, y, false);
+          if (result && result.dbId) {
+            console.log('[DataViz] Canvas hit test result:', result);
+            // Check if this dbId corresponds to a sensor sprite
+            for (const [sensorId, sprite] of this.sprites) {
+              if (sprite.dbId === result.dbId) {
+                console.log(`[DataViz] Sensor clicked via canvas: ${sensorId}`);
+                onSensorClick(result.dbId);
+                return;
+              }
+            }
+          }
+        });
       }
-    );
+
+      // Primary selection event handler
+      this.viewer.addEventListener(
+        (window as any).Autodesk.Viewing.SELECTION_CHANGED_EVENT,
+        (event: any) => {
+          console.log('[DataViz] Selection changed:', event);
+          const selection = event.dbIdArray;
+          if (selection && selection.length > 0) {
+            const dbId = selection[0];
+            // Check if this dbId corresponds to a sensor sprite
+            for (const [sensorId, sprite] of this.sprites) {
+              if (sprite.dbId === dbId) {
+                console.log(`[DataViz] Sensor selected via selection: ${sensorId}`);
+                onSensorClick(dbId);
+                return;
+              }
+            }
+          }
+        }
+      );
+
+      // Additional fallback using aggregate selection
+      this.viewer.addEventListener(
+        (window as any).Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
+        (event: any) => {
+          console.log('[DataViz] Aggregate selection changed:', event);
+          if (event.selections && event.selections.length > 0) {
+            const selection = event.selections[0];
+            if (selection.dbIdArray && selection.dbIdArray.length > 0) {
+              const dbId = selection.dbIdArray[0];
+              for (const [sensorId, sprite] of this.sprites) {
+                if (sprite.dbId === dbId) {
+                  console.log(`[DataViz] Sensor selected via aggregate: ${sensorId}`);
+                  onSensorClick(dbId);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      );
+
+      console.log('[DataViz] Click handlers setup complete');
+    } catch (error) {
+      console.error('[DataViz] Error setting up sensor click handler:', error);
+    }
   }
 
   getSensorByDbId(dbId: number): string | null {
