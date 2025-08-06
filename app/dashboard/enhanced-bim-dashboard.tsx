@@ -239,6 +239,12 @@ function BIMDashboard() {
   };
 
   // Handler for closing project information modal
+  const handleReturnToMapView = () => {
+    setSelectedProject(null);
+    setSelectedFile(null);
+    setViewMode("map");
+  };
+
   const handleCloseProjectInfo = () => {
     setShowProjectInfo(false);
   };
@@ -401,6 +407,7 @@ function BIMDashboard() {
                 onProcessingComplete={handleProcessingComplete}
                 apiKey={GOOGLE_MAPS_API_KEY}
                 onRequestCreateProject={handleRequestCreateProject}
+                onReturnToMapView={handleReturnToMapView}
                 />
               ) : (
                 <ModelHierarchyPanel 

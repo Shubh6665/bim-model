@@ -5,7 +5,6 @@ import {
   Upload,
   File,
   Folder,
-  Search,
   Filter,
   MoreVertical,
   FileText,
@@ -15,6 +14,7 @@ import {
   CheckCircle,
   MapPin,
   Globe,
+  ArrowLeft,
 } from "lucide-react";
 import { CreateProjectModal } from "./create-project-modal";
 
@@ -59,6 +59,7 @@ interface EnhancedProjectPanelProps {
   onProcessingComplete?: (urn: string, file: ProjectFile) => void;
   apiKey: string;
   onRequestCreateProject: () => void;
+  onReturnToMapView: () => void;
   onShowHierarchy: () => void;
 }
 
@@ -74,8 +75,9 @@ export function EnhancedProjectPanel({
   apiKey,
   onRequestCreateProject,
   onShowHierarchy,
+  onReturnToMapView,
 }: EnhancedProjectPanelProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+
   const [activeTab, setActiveTab] = useState<'projects' | 'models'>('projects');
   const [files, setFiles] = useState<ProjectFile[]>([
     {
@@ -128,6 +130,16 @@ export function EnhancedProjectPanel({
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
+
+  // Effect to switch tab to 'models' when a project is selected
+  React.useEffect(() => {
+    if (selectedProject) {
+      setActiveTab('models');
+    } else {
+      setActiveTab('projects');
+    }
+  }, [selectedProject]);
+
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
     setFiles(prev => prev.map(file => 
@@ -234,15 +246,8 @@ export function EnhancedProjectPanel({
     }
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredFiles = files.filter(file =>
-    file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects;
+  const filteredFiles = files;
 
   return (
     <div className="h-full bg-gray-800 text-white flex flex-col w-80 min-w-80 max-w-80">
@@ -277,17 +282,7 @@ export function EnhancedProjectPanel({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="mt-4 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder={`Search ${activeTab}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-          />
-        </div>
+
       </div>
 
       {/* Content */}
@@ -296,6 +291,16 @@ export function EnhancedProjectPanel({
           // Projects Section - Show only project details when a project is selected
           selectedProject ? (
             <div className="p-6 space-y-4">
+              {/* Back to Google Earth Button */}
+              <div className="mb-4">
+                <button
+                  onClick={onReturnToMapView}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Google Earth
+                </button>
+              </div>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
                   <span className="text-white text-xl font-bold uppercase">{selectedProject.fileType || '?'}</span>
