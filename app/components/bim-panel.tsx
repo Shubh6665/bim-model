@@ -76,18 +76,21 @@ export function BIMPanel({
     const saved = localStorage.getItem('bim-saved-views');
     if (saved) {
       try {
-        setSavedViews(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        console.log('Loaded saved views:', parsed);
+        setSavedViews(parsed);
       } catch (error) {
         console.error('Error loading saved views:', error);
       }
+    } else {
+      console.log('No saved views found in localStorage');
     }
   }, []);
 
   // Save views to localStorage whenever savedViews changes
   useEffect(() => {
-    if (savedViews.length > 0) {
-      localStorage.setItem('bim-saved-views', JSON.stringify(savedViews));
-    }
+    console.log('Saving views to localStorage:', savedViews);
+    localStorage.setItem('bim-saved-views', JSON.stringify(savedViews));
   }, [savedViews]);
 
   // Manage 2D floor plan flag based on active command
@@ -100,6 +103,55 @@ export function BIMPanel({
       // Clear flag when leaving 2D views mode
       (window as any).is2DFloorPlanActive = false;
       localStorage.removeItem('bim-active-command');
+      
+      // When switching away from 2D view, restore full 3D model
+      if (viewer && viewer.model) {
+        // Small delay to ensure the command change is processed
+        setTimeout(() => {
+          try {
+            console.log('Restoring 3D model from 2D view...');
+            
+            // Clear any object isolation from 2D floor view
+            viewer.clearSelection();
+            viewer.showAll();
+            
+            // Reset any visibility filters
+            const model = viewer.model;
+            const tree = model.getInstanceTree();
+            if (tree) {
+              // Make sure all objects are visible
+              tree.enumNodeChildren(tree.getRootId(), (dbid: number) => {
+                viewer.show(dbid);
+                return true;
+              }, true);
+            }
+            
+            // Switch to perspective view for better 3D experience
+            viewer.setViewType(0); // 0 = PERSPECTIVE
+            
+            // Reset camera to show the entire model
+            viewer.fitToView();
+            
+            // Reset any display modes that might have been set
+            viewer.setDisplayMode(0); // 0 = SOLID mode
+            
+            // Force a complete redraw with all buffers
+            viewer.impl.invalidate(true, true, true);
+            viewer.impl.sceneUpdated(true);
+            
+            console.log('Successfully restored 3D view after leaving 2D mode');
+          } catch (error) {
+            console.error('Error restoring 3D view:', error);
+            // Fallback: just show all and fit to view
+            try {
+              viewer.showAll();
+              viewer.fitToView();
+            } catch (fallbackError) {
+              console.error('Fallback restoration also failed:', fallbackError);
+            }
+          }
+        }, 150); // Slightly longer delay for better reliability
+      }
     }
 
     // Cleanup on unmount
@@ -107,36 +159,50 @@ export function BIMPanel({
       (window as any).is2DFloorPlanActive = false;
       localStorage.removeItem('bim-active-command');
     };
-  }, [activeCommand]);
+  }, [activeCommand, viewer]);
 
   const handleSaveView = () => {
-    if (!viewName.trim() || !viewer) return;
+    if (!viewName.trim() || !viewer) {
+      setSaveMessage('Please enter a view name');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
     
     try {
       // Get current camera state from Forge Viewer
       const camera = viewer.getCamera();
+      
+      // Convert THREE.js vectors to simple objects for serialization
       const viewState = {
-        position: camera.position,
-        target: camera.target,
-        up: camera.up,
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        target: { x: camera.target.x, y: camera.target.y, z: camera.target.z },
+        up: { x: camera.up.x, y: camera.up.y, z: camera.up.z },
         fov: camera.fov,
-        orthoScale: camera.orthoScale,
-        isPerspective: camera.isPerspective
+        orthoScale: camera.orthoScale || 1,
+        isPerspective: camera.isPerspective !== false // Default to true if undefined
       };
+      
+      console.log('Saving view state:', viewState);
       
       const newView: SavedView = {
-        id: Date.now().toString(),
-        name: viewName,
-        type: "3d",
-        timestamp: new Date().toLocaleString(),
-        viewState: viewState // Store the actual view state
+        id: `view-${Date.now()}`,
+        name: viewName.trim(),
+        type: '3d',
+        timestamp: new Date().toISOString(),
+        viewState: viewState
       };
       
-      setSavedViews(prev => [newView, ...prev]);
+      // Update state with the new view
+      setSavedViews(prev => {
+        const updated = [newView, ...prev];
+        console.log('Updated saved views:', updated);
+        return updated;
+      });
+      
       onSaveCurrentView?.(viewName);
       
       // Show success message
-      setSaveMessage(`View "${viewName}" saved successfully!`);
+      setSaveMessage(`✅ View "${viewName}" saved successfully!`);
       setViewName('');
       
       // Clear message after 3 seconds
@@ -144,35 +210,183 @@ export function BIMPanel({
       
     } catch (error) {
       console.error('Error saving view:', error);
-      setSaveMessage('Error saving view. Please try again.');
+      setSaveMessage('❌ Error saving view. Please check console for details.');
       setTimeout(() => setSaveMessage(''), 3000);
     }
   };
 
-  const handleApplyFilters = () => {
-    const filters: FilterOptions = {
-      name: filterName || undefined,
-      category: filterCategory || undefined,
-      type: filterType || undefined
-    };
-    
-    onFilterObjects?.(filters);
-    console.log('Applied filters:', filters);
+  const handleApplyFilters = async () => {
+    if (!viewer) {
+      console.error('Viewer not available for filtering');
+      return;
+    }
+
+    try {
+      // First clear any existing filters and show all objects
+      viewer.showAll();
+      
+      // If all filters are empty, just show everything
+      if (!filterName && !filterCategory && !filterType) {
+        console.log('No filters applied, showing all objects');
+        return;
+      }
+
+      // Get all model elements
+      const model = viewer.model;
+      if (!model) {
+        console.error('No model available for filtering');
+        return;
+      }
+
+      const tree = model.getInstanceTree();
+      const dbids: number[] = [];
+      
+      // Collect all leaf node dbids (actual geometry objects)
+      if (tree && tree.enumNodeChildren) {
+        tree.enumNodeChildren(tree.getRootId(), (dbid: number) => {
+          // Only include leaf nodes (actual objects, not groups)
+          if (tree.getChildCount(dbid) === 0) {
+            dbids.push(dbid);
+          }
+          return true;
+        }, true); // true for recursive enumeration
+      }
+
+      if (dbids.length === 0) {
+        console.warn('No model elements found for filtering');
+        return;
+      }
+
+      console.log(`Filtering through ${dbids.length} objects...`);
+
+      // Get properties for all elements
+      return new Promise<void>((resolve) => {
+        model.getBulkProperties(dbids, ['Name', 'Category', 'Type', 'Family', 'Level'], (results: Array<{dbId: number, properties: Array<{displayName?: string, displayValue?: any}>}>) => {
+          try {
+            const visibleDbids: number[] = [];
+            const hiddenDbids: number[] = [];
+            
+            results.forEach((result) => {
+              const dbid = result.dbId;
+              const props = result.properties || [];
+              
+              // Create a searchable text from all properties
+              const searchableText = props.map(p => 
+                `${p.displayName || ''} ${p.displayValue || ''}`
+              ).join(' ').toLowerCase();
+              
+              // Check if element matches all active filters
+              let matches = true;
+              
+              // Name filter - search in all property values
+              if (filterName && matches) {
+                const nameFilter = filterName.toLowerCase();
+                matches = searchableText.includes(nameFilter) || 
+                         props.some(p => 
+                           (p.displayName?.toLowerCase().includes(nameFilter)) ||
+                           (p.displayValue?.toString().toLowerCase().includes(nameFilter))
+                         );
+              }
+              
+              // Category filter - look for category-related properties
+              if (filterCategory && matches) {
+                const categoryFilter = filterCategory.toLowerCase();
+                matches = props.some(p => {
+                  const propName = p.displayName?.toLowerCase() || '';
+                  const propValue = p.displayValue?.toString().toLowerCase() || '';
+                  
+                  // Check if it's a category-related property
+                  if (propName.includes('category') || propName.includes('family') || propName.includes('type')) {
+                    return propValue.includes(categoryFilter);
+                  }
+                  
+                  // Also check for direct matches in common BIM categories
+                  const categoryMappings = {
+                    'walls': ['wall', 'mur', 'parete'],
+                    'doors': ['door', 'porte', 'porta'],
+                    'windows': ['window', 'fenêtre', 'finestra'],
+                    'floors': ['floor', 'slab', 'sol', 'pavimento'],
+                    'ceilings': ['ceiling', 'plafond', 'soffitto'],
+                    'columns': ['column', 'colonne', 'colonna'],
+                    'beams': ['beam', 'poutre', 'trave']
+                  };
+                  
+                  const mappedTerms = categoryMappings[categoryFilter as keyof typeof categoryMappings] || [categoryFilter];
+                  return mappedTerms.some(term => propValue.includes(term));
+                });
+              }
+              
+              // Type filter - look for type-related properties
+              if (filterType && matches) {
+                const typeFilter = filterType.toLowerCase();
+                matches = props.some(p => {
+                  const propName = p.displayName?.toLowerCase() || '';
+                  const propValue = p.displayValue?.toString().toLowerCase() || '';
+                  
+                  if (propName.includes('type') || propName.includes('family')) {
+                    return propValue.includes(typeFilter);
+                  }
+                  return false;
+                });
+              }
+              
+              if (matches) {
+                visibleDbids.push(dbid);
+              } else {
+                hiddenDbids.push(dbid);
+              }
+            });
+            
+            // Apply visibility - hide non-matching objects
+            if (hiddenDbids.length > 0) {
+              viewer.hide(hiddenDbids);
+            }
+            
+            // Fit to view the visible objects
+            if (visibleDbids.length > 0) {
+              viewer.fitToView(visibleDbids);
+            }
+            
+            console.log(`Filter applied. Showing ${visibleDbids.length} of ${dbids.length} elements`);
+            
+          } catch (error) {
+            console.error('Error processing filter results:', error);
+          } finally {
+            resolve();
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    }
   };
 
-  const handleClearFilters = () => {
+  const handleClearFilters = async () => {
     setFilterName('');
     setFilterCategory('');
     setFilterType('');
     
-    // Clear filters by calling with empty object
-    onFilterObjects?.({});
-    
     try {
-      // Also clear any viewer isolation
       if (viewer) {
-        viewer.showAll();
-        console.log('Cleared all filters and showed all objects');
+        // First show all elements
+        await viewer.showAll();
+        
+        // Always switch to 3D view when clearing filters
+        viewer.setViewType(0); // 0 = PERSPECTIVE
+        
+        // Reset camera to default position
+        viewer.fitToView();
+        
+        // Force a complete redraw
+        viewer.impl.invalidate(true, true, true);
+        
+        // If we were in 2D view mode, exit it
+        if (activeCommand === '2d-views') {
+          setActiveCommand(null);
+        }
+        
+        console.log('Cleared all filters and restored 3D view');
       }
     } catch (error) {
       console.error('Error clearing filters:', error);
@@ -180,23 +394,68 @@ export function BIMPanel({
   };
 
   const handleRestoreView = (view: SavedView) => {
-    if (!viewer || !view.viewState) return;
+    if (!viewer || !view.viewState) {
+      console.error('Viewer not ready or invalid view state');
+      return;
+    }
     
     try {
+      console.log('Restoring view:', view);
       const { viewState } = view;
-      const camera = viewer.getCamera();
       
-      // Restore camera position and settings
-      camera.position.copy(viewState.position);
-      camera.target.copy(viewState.target);
-      camera.up.copy(viewState.up);
-      camera.fov = viewState.fov;
-      camera.orthoScale = viewState.orthoScale;
-      camera.isPerspective = viewState.isPerspective;
+      // Make sure we're in 3D view when restoring a view
+      if (activeCommand === '2d-views') {
+        setActiveCommand(null); // Exit 2D view mode
+      }
       
-      // Apply the camera changes using correct Forge Viewer API
-      viewer.navigation.setCamera(camera);
-      viewer.impl.invalidate(true);
+      // Small delay to ensure view mode change takes effect
+      setTimeout(() => {
+        try {
+          const camera = viewer.getCamera();
+          
+          // Restore camera position and settings
+          if (viewState.position) {
+            camera.position.set(
+              viewState.position.x || 0,
+              viewState.position.y || 0,
+              viewState.position.z || 0
+            );
+          }
+          
+          if (viewState.target) {
+            camera.target.set(
+              viewState.target.x || 0,
+              viewState.target.y || 0,
+              viewState.target.z || 0
+            );
+          }
+          
+          if (viewState.up) {
+            camera.up.set(
+              viewState.up.x || 0,
+              viewState.up.y || 0,
+              viewState.up.z || 1 // Default to Z-up
+            );
+          }
+          
+          // Restore camera settings
+          if (viewState.fov !== undefined) camera.fov = viewState.fov;
+          if (viewState.orthoScale !== undefined) camera.orthoScale = viewState.orthoScale;
+          if (viewState.isPerspective !== undefined) camera.isPerspective = viewState.isPerspective;
+          
+          // Apply the camera changes
+          viewer.navigation.setCamera(camera);
+          viewer.setViewType(camera.isPerspective ? 0 : 1); // 0 = PERSPECTIVE, 1 = ORTHOGRAPHIC
+          
+          // Force a complete redraw
+          viewer.impl.invalidate(true, true, true);
+          
+          console.log('View restored successfully');
+          
+        } catch (error) {
+          console.error('Error during view restoration:', error);
+        }
+      }, 100);
       
       console.log(`Restored view: ${view.name}`);
     } catch (error) {
@@ -236,31 +495,37 @@ export function BIMPanel({
               Saved 3D Views
             </h3>
             
-            <div className="space-y-2">
-              {savedViews.filter(view => view.type === "3d").map((view) => (
-                <button
-                  key={view.id}
-                  className="w-full flex items-center justify-between p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700"
-                  onClick={() => handleRestoreView(view)}
-                >
-                  <div className="flex items-center gap-3">
-                    <Box className="w-5 h-5 text-green-400" />
-                    <div className="text-left">
-                      <div className="font-medium text-white">{view.name}</div>
-                      <div className="text-sm text-gray-400">{view.timestamp}</div>
+            {savedViews.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <Box className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                <p className="text-gray-300">No saved views</p>
+                <p className="text-sm text-gray-500">Use "Save View" to capture your current camera position</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedViews.map((view) => (
+                  <div key={view.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-white">{view.name}</h4>
+                      <span className="text-xs text-gray-400">
+                        {new Date(view.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        {new Date(view.timestamp).toLocaleTimeString()}
+                      </span>
+                      <button
+                        onClick={() => handleRestoreView(view)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors"
+                      >
+                        Restore View
+                      </button>
                     </div>
                   </div>
-                </button>
-              ))}
-              
-              {savedViews.filter(view => view.type === "3d").length === 0 && (
-                <div className="text-center py-8 text-gray-400">
-                  <Box className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                  <p className="text-gray-300">No saved 3D views yet</p>
-                  <p className="text-sm text-gray-500">Use "Save View" to create your first saved view</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 

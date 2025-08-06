@@ -102,12 +102,18 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
   };
 
   const handleFloorSelect = async (floorId: string | null) => {
-    if (!floorDataView) return;
+    if (!floorDataView || !viewer) {
+      console.warn('❌ Floor data view or viewer not available');
+      return;
+    }
     
     setIsLoading(true);
-    console.log(`🏢 Selecting floor: ${floorId}`);
+    console.log(`🏢 Selecting floor: ${floorId || 'All Floors'}`);
     
     try {
+      // Clear any previous selections
+      viewer.clearSelection();
+      
       // Select floor in data view
       floorDataView.selectFloor(floorId);
       
@@ -117,18 +123,26 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
       // Update filtered sensors
       updateFilteredSensors(floorDataView, selectedFloor);
       
-      // Switch to 2D orthographic view for floor plans
-      if (selectedFloor && viewer) {
-        await switch2DFloorView(selectedFloor);
-      } else if (viewer) {
-        // Return to 3D view when no floor selected
+      // If no floor ID is provided (All Floors), switch to 3D view
+      if (!floorId) {
         await switch3DView();
+      } else if (selectedFloor) {
+        // Switch to 2D view for the selected floor
+        await switch2DFloorView(selectedFloor);
       }
       
+      // Notify parent component about the floor change
       onFloorChanged?.(selectedFloor);
+      
+      // Force a redraw to ensure all changes are applied
+      viewer.impl.invalidate(true);
       
     } catch (error) {
       console.error('❌ Error selecting floor:', error);
+      // Fallback to 3D view on error
+      if (viewer) {
+        await switch3DView();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -138,88 +152,144 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
     if (!viewer) return;
     
     console.log(`📐 Switching to 2D view for ${floor.name}`);
-    // Set up 2D orthographic view for the selected floor
-    const camera = viewer.getCamera();
-    const bbox = viewer.model.getBoundingBox();
     
-    // Calculate floor center and appropriate camera position
-    const floorCenter = {
-      x: (bbox.min.x + bbox.max.x) / 2,
-      y: (bbox.min.y + bbox.max.y) / 2,
-      z: floor ? (floor.zMin + floor.zMax) / 2 : (bbox.min.z + bbox.max.z) / 2
-    };
-    
-    // Calculate optimal camera positioning for angled top view
-    const buildingWidth = bbox.max.x - bbox.min.x;
-    const buildingDepth = bbox.max.y - bbox.min.y;
-    const maxDimension = Math.max(buildingWidth, buildingDepth);
-    const cameraDistance = maxDimension * 0.8;
-    
-    // Set camera for extreme left-side adjacent view with zoom
-    // Position camera further left and slightly closer
-    camera.position.set(
-      floorCenter.x - cameraDistance * 2.0,  // Move even further to the left
-      floorCenter.y - cameraDistance * 1.3,                         // Keep directly adjacent
-      floorCenter.z + cameraDistance * 1.5   // Slightly lower for better angle
-    );
-    
-    // Move camera slightly closer to the building
-    camera.position.normalize().multiplyScalar(maxDimension * 0.7);
-    
-    camera.target.set(
-      floorCenter.x,
-      floorCenter.y,
-      floorCenter.z
-    );
-    
-    // Set up vector for angled view
-    camera.up.set(0, 0, 1); // Z-up for better angled perspective
-    
-    // Switch to perspective view for better angled visualization
-    viewer.setViewType(Autodesk.Viewing.CAMERA_TYPE.PERSPECTIVE);
-    
-    // Apply camera changes using correct API
-    viewer.navigation.setCamera(camera);
-    
-    // Set appropriate field of view and fit to view
-    setTimeout(() => {
-      // Set field of view for better perspective
-      camera.fov = 45; // Standard field of view for good perspective
-      viewer.navigation.setCamera(camera);
+    try {
+      // Get current camera to maintain some settings
+      const currentCamera = viewer.getCamera();
+      const bbox = viewer.model.getBoundingBox();
       
-      // Fit to view with less padding for a more zoomed-in view
-      viewer.fitToView(null, 1.0); // No padding for maximum zoom
-    }, 200);
-    
-    // Apply camera changes immediately
-    viewer.navigation.setCamera(camera);
-    viewer.impl.invalidate(true);
-    
-    // Hide model elements that are not on this floor (optional)
-    await hideNonFloorElements(floor);
-    
-    console.log(`✅ Switched to 2D view for ${floor.name}`);
+      // Calculate floor center
+      const floorCenter = {
+        x: (bbox.min.x + bbox.max.x) / 2,
+        y: (bbox.min.y + bbox.max.y) / 2,
+        z: (floor.zMin + floor.zMax) / 2
+      };
+      
+      // Calculate optimal camera positioning
+      const buildingWidth = bbox.max.x - bbox.min.x;
+      const buildingDepth = bbox.max.y - bbox.min.y;
+      const maxDimension = Math.max(buildingWidth, buildingDepth);
+      const cameraDistance = maxDimension * 0.8;
+      
+      // Create a new camera position for this floor
+      const newCamera = viewer.getCamera();
+      
+      // Position camera for a good view of the floor
+      newCamera.position.set(
+        floorCenter.x - cameraDistance * 2.0,  // Left side view
+        floorCenter.y - cameraDistance * 1.3,  // Slight angle
+        floorCenter.z + cameraDistance * 0.8   // Slightly elevated
+      );
+      
+      // Set the target to the center of the floor
+      newCamera.target.set(
+        floorCenter.x,
+        floorCenter.y,
+        floorCenter.z
+      );
+      
+      // Maintain Z-up for consistency
+      newCamera.up.set(0, 0, 1);
+      
+      // Apply the new camera settings
+      viewer.navigation.setCamera(newCamera);
+      
+      // Switch to perspective view
+      viewer.setViewType(0); // 0 = PERSPECTIVE, 1 = ORTHOGRAPHIC
+      
+      // Show only the current floor
+      await hideNonFloorElements(floor);
+      
+      // Fit to view with a small delay
+      setTimeout(() => {
+        try {
+          viewer.fitToView(null, 1.0);
+        } catch (error) {
+          console.error('Error fitting to view:', error);
+        }
+      }, 100);
+      
+      console.log(`✅ Switched to 2D view for ${floor.name}`);
+      
+    } catch (error) {
+      console.error('❌ Error in switch2DFloorView:', error);
+      // Fallback to 3D view on error
+      await switch3DView();
+    }
   };
 
   const switch3DView = async () => {
     if (!viewer) return;
     
-    console.log('🎯 Switching to 3D view');
+    console.log('🎯 Switching to 3D view - Showing all model elements');
     
     try {
-      // Show all model elements
+      // First reset any isolation
+      await viewer.isolate([]);
+      
+      // Show all objects
       viewer.showAll();
       
-      // Switch back to perspective view
-      viewer.setViewType(Autodesk.Viewing.CAMERA_TYPE.PERSPECTIVE);
+      // Get the model and ensure it's loaded
+      const model = viewer.model;
+      if (model) {
+        try {
+          // Try to get all model fragments
+          const frags = viewer.impl.getRenderProxy(model, model.getRootId());
+          if (frags) {
+            // Force update the scene
+            viewer.impl.sceneUpdated(true);
+          }
+        } catch (e) {
+          console.warn('Could not update scene directly:', e);
+        }
+      }
       
-      // Fit to view to show entire model
-      viewer.fitToView();
+      // Switch to perspective view
+      viewer.setViewType(0); // 0 = PERSPECTIVE
       
-      console.log('✅ Switched to 3D view');
+      // Force a complete redraw
+      viewer.impl.invalidate(true, true, true);
+      
+      // Try to show all elements again after a short delay
+      setTimeout(() => {
+        try {
+          viewer.showAll();
+          viewer.isolate([]);
+          
+          // Try to fit the view
+          viewer.fitToView();
+          
+          // Force another redraw
+          viewer.impl.invalidate(true, true, true);
+          
+          console.log('✅ Successfully showed all model elements in 3D view');
+          
+        } catch (error) {
+          console.warn('Error in delayed show all:', error);
+        }
+      }, 300);
       
     } catch (error) {
-      console.error('❌ Error switching to 3D view:', error);
+      console.error('❌ Error in switch3DView:', error);
+      
+      // Final fallback - try basic reset
+      try {
+        console.log('🔄 Trying final fallback');
+        viewer.showAll();
+        viewer.isolate([]);
+        viewer.setViewType(0);
+        
+        // Try to reset the view completely
+        const ext = viewer.getExtension('Autodesk.Viewing.SceneBuilder');
+        if (ext) {
+          ext.showAll();
+        }
+        
+        viewer.fitToView();
+      } catch (finalError) {
+        console.error('❌ Final fallback failed:', finalError);
+      }
     }
   };
 
