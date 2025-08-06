@@ -23,6 +23,9 @@ interface IoTPanelProps {
 export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeMode, onWireframeModeChange }: IoTPanelProps) {
   const [mode, setMode] = useState<"all" | "insert">("all");
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [showMoreInfo, setShowMoreInfo] = useState<string | null>(null);
+  const [showInfoDetail, setShowInfoDetail] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
   
   // Use sensor context
   const {
@@ -275,15 +278,152 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                       </div>
                       {selectedSensor?.id === sensor.id && (
                         <div className="mt-2 pt-2 border-t border-gray-600">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeSensor(sensor.id);
-                            }}
-                            className="text-xs text-red-400 hover:text-red-300"
-                          >
-                            Remove Sensor
-                          </button>
+                          <div className="flex justify-between items-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMoreInfo(showMoreInfo === sensor.id ? null : sensor.id);
+                              }}
+                              className="text-xs text-blue-400 hover:text-blue-300"
+                            >
+                              More Info
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowRemoveConfirm(sensor.id);
+                              }}
+                              className="text-xs text-red-400 hover:text-red-300"
+                            >
+                              Remove Sensor
+                            </button>
+                          </div>
+                          
+                          {/* More Info Menu */}
+                          {showMoreInfo === sensor.id && (
+                            <div className="mt-3 p-3 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-600 shadow-lg">
+                              <div className="space-y-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowInfoDetail(sensor.id);
+                                    setShowMoreInfo(null);
+                                  }}
+                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-lg transition-all duration-200 shadow-sm"
+                                >
+                                  <span className="text-blue-400">ℹ️</span>
+                                  <span className="font-medium">Info</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // TODO: Implement Graphs functionality
+                                    console.log('Graphs clicked for sensor:', sensor.id);
+                                  }}
+                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-lg transition-all duration-200 shadow-sm"
+                                >
+                                  <span className="text-green-400">📊</span>
+                                  <span className="font-medium">Graphs</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // TODO: Implement Statistics functionality
+                                    console.log('Statistics clicked for sensor:', sensor.id);
+                                  }}
+                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-lg transition-all duration-200 shadow-sm"
+                                >
+                                  <span className="text-purple-400">📈</span>
+                                  <span className="font-medium">Statistics</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Detailed Info Panel */}
+                          {showInfoDetail === sensor.id && (
+                            <div className="mt-3 p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-600 shadow-lg">
+                              <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">i</span>
+                                  </div>
+                                  <h4 className="text-sm font-semibold text-white">Sensor Information</h4>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowInfoDetail(null);
+                                  }}
+                                  className="w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <div className="space-y-3 text-sm">
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Name:</span>
+                                  <span className="text-white">{sensor.name}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Code:</span>
+                                  <span className="text-white">{sensor.code || <span className="italic text-gray-500">Not specified</span>}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Mark:</span>
+                                  <span className="text-white">{sensor.mark || <span className="italic text-gray-500">Not specified</span>}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Model:</span>
+                                  <span className="text-white">{sensor.model || <span className="italic text-gray-500">Not specified</span>}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Room:</span>
+                                  <span className="text-white">{sensor.room}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
+                                  <span className="font-semibold text-gray-300">Link:</span>
+                                  <span className="text-blue-400 hover:text-blue-300 cursor-pointer underline decoration-dotted">
+                                    {sensor.link || <span className="italic text-gray-500 no-underline">Not specified</span>}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Remove Confirmation Dialog */}
+                          {showRemoveConfirm === sensor.id && (
+                            <div className="mt-3 p-4 bg-gradient-to-br from-red-900/40 to-red-800/40 border border-red-500/50 rounded-lg shadow-lg backdrop-blur-sm">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">!</span>
+                                </div>
+                                <div className="text-sm font-semibold text-white">Are you sure?</div>
+                              </div>
+                              <p className="text-xs text-gray-300 mb-4">This action cannot be undone. The sensor will be permanently removed.</p>
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowRemoveConfirm(null);
+                                  }}
+                                  className="px-3 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-gray-300 hover:from-gray-500 hover:to-gray-600 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeSensor(sensor.id);
+                                    setShowRemoveConfirm(null);
+                                  }}
+                                  className="px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
