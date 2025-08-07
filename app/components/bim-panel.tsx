@@ -17,6 +17,8 @@ import {
   X,
   CheckCircle,
   AlertCircle,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { Floor2DView } from "./floor-2d-view";
 import { FloorData } from "./floor-data-view";
@@ -70,6 +72,169 @@ export function BIMPanel({
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [modelHierarchy, setModelHierarchy] = useState<any[]>([]);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [isHierarchyLoaded, setIsHierarchyLoaded] = useState(false);
+
+  // Debug: Log viewer object when it changes
+  useEffect(() => {
+    if (viewer) {
+      console.log('[BIMPanel] Viewer object received:', {
+        hasSetDisplayMode: typeof viewer.setDisplayMode === 'function',
+        hasSetGhosting: typeof viewer.setGhosting === 'function',
+        hasSetDisplayEdges: typeof viewer.setDisplayEdges === 'function',
+        hasSetViewType: typeof viewer.setViewType === 'function',
+        hasModel: !!viewer.model,
+        hasImpl: !!viewer.impl,
+        viewerType: viewer.constructor?.name || 'Unknown',
+        hasGetSelection: typeof viewer.getSelection === 'function',
+        hasShowAll: typeof viewer.showAll === 'function'
+      });
+      
+      // Also log available methods for debugging
+      if (viewer.impl) {
+        console.log('[BIMPanel] Viewer.impl methods:', Object.getOwnPropertyNames(viewer.impl).filter(name => typeof viewer.impl[name] === 'function').slice(0, 15));
+      }
+    } else {
+      console.log('[BIMPanel] No viewer object received');
+    }
+  }, [viewer]);
+
+  // Load model hierarchy when viewer is ready
+  useEffect(() => {
+    if (viewer && viewer.model && !isHierarchyLoaded) {
+      loadModelHierarchy();
+    }
+  }, [viewer?.model, isHierarchyLoaded]); // Only depend on model, not entire viewer object
+
+  const loadModelHierarchy = async () => {
+    if (!viewer || !viewer.model) {
+      console.warn('Viewer or model not available');
+      return;
+    }
+    
+    console.log('🏗️ Loading complete model hierarchy from instance tree...');
+    
+    try {
+      const model = viewer.model;
+      const tree = model.getInstanceTree();
+      
+      if (!tree) {
+        console.warn('No instance tree available');
+        return;
+      }
+      
+      // Wait for tree to be fully loaded
+      await new Promise((resolve) => {
+        if (tree.nodeAccess) {
+          resolve(true);
+        } else {
+          const checkTree = () => {
+            if (tree.nodeAccess) {
+              resolve(true);
+            } else {
+              setTimeout(checkTree, 100);
+            }
+          };
+          checkTree();
+        }
+      });
+      
+      console.log('🌳 Instance tree ready, building complete hierarchy...');
+      
+      // Build complete hierarchy from instance tree - collect ALL meaningful nodes
+      const hierarchy: any[] = [];
+      const rootId = tree.getRootId();
+      const processedNodes = new Set<number>();
+      
+      // Function to recursively collect all nodes with meaningful names
+      const collectMeaningfulNodes = (nodeId: number, depth: number = 0) => {
+        if (processedNodes.has(nodeId)) return;
+        processedNodes.add(nodeId);
+        
+        const nodeName = tree.getNodeName(nodeId);
+        
+        // Skip root and nodes without names, but explore deeper
+        if (nodeId !== rootId && nodeName && nodeName.trim()) {
+          // Count all children recursively
+          let totalChildCount = 0;
+          const countChildren = (id: number) => {
+            tree.enumNodeChildren(id, (childId: number) => {
+              totalChildCount++;
+              countChildren(childId);
+              return true;
+            });
+          };
+          countChildren(nodeId);
+          
+          // Check if this looks like a category (has children or meaningful name)
+          const categoryPatterns = /\b(wall|door|window|floor|roof|column|beam|slab|foundation|ceiling|stairs|ramp|furniture|equipment|electrical|mechanical|plumbing|structural|architectural)\w*/i;
+          const isLikelyCategory = totalChildCount > 0 || categoryPatterns.test(nodeName);
+          
+          if (isLikelyCategory || depth <= 3) { // Include nodes up to depth 3 to catch categories
+            hierarchy.push({
+              id: `node-${nodeId}`,
+              name: nodeName.trim(),
+              dbId: nodeId,
+              isCategory: true,
+              selected: false,
+              childCount: totalChildCount,
+              depth: depth
+            });
+            
+            console.log(`  📁 Found: ${nodeName} (${totalChildCount} children) at depth ${depth}`);
+          }
+        }
+        
+        // Continue exploring children regardless
+        tree.enumNodeChildren(nodeId, (childId: number) => {
+          collectMeaningfulNodes(childId, depth + 1);
+          return true;
+        });
+      };
+      
+      // Start collection from root
+      collectMeaningfulNodes(rootId, 0);
+      
+      // Sort by name for better organization
+      hierarchy.sort((a, b) => {
+        // Put categories with more children first
+        if (a.childCount !== b.childCount) {
+          return b.childCount - a.childCount;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      
+      console.log(`✅ Complete model hierarchy loaded: ${hierarchy.length} categories`);
+      hierarchy.forEach(cat => {
+        console.log(`  📁 ${cat.name} (${cat.childCount} elements) [ID: ${cat.dbId}]`);
+      });
+      
+      setModelHierarchy(hierarchy);
+      setIsHierarchyLoaded(true);
+      
+    } catch (error) {
+      console.error('❌ Error loading model hierarchy:', error);
+      
+      // Fallback: create a simple placeholder hierarchy
+      console.log('🔄 Creating fallback hierarchy...');
+      const fallbackHierarchy = [
+        {
+          id: 'fallback-all',
+          name: 'All Model Elements',
+          dbId: -1,
+          isCategory: true,
+          selected: false,
+          childCount: 0
+        }
+      ];
+      
+      setModelHierarchy(fallbackHierarchy);
+      setIsHierarchyLoaded(true);
+    }
+  };
+
 
   // Load saved views from localStorage on component mount
   useEffect(() => {
@@ -111,43 +276,61 @@ export function BIMPanel({
           try {
             console.log('Restoring 3D model from 2D view...');
             
-            // Clear any object isolation from 2D floor view
-            viewer.clearSelection();
-            viewer.showAll();
-            
-            // Reset any visibility filters
-            const model = viewer.model;
-            const tree = model.getInstanceTree();
-            if (tree) {
-              // Make sure all objects are visible
-              tree.enumNodeChildren(tree.getRootId(), (dbid: number) => {
-                viewer.show(dbid);
-                return true;
-              }, true);
+            // Check if viewer has proper visibility manager before proceeding
+            if (viewer.impl && viewer.impl.visibilityManager) {
+              // Show all hidden elements first
+              viewer.showAll();
+              
+              // Reset view to 3D perspective
+              if (viewer.setViewType && typeof viewer.setViewType === 'function') {
+                viewer.setViewType(0); // 0 = PERSPECTIVE
+              }
+              
+              // Force 3D mode by setting camera position
+              const camera = viewer.getCamera();
+              if (viewer.model && viewer.model.getBoundingBox) {
+                const bounds = viewer.model.getBoundingBox();
+                const center = bounds.getCenter();
+                
+                // Set camera to 3D perspective position
+                const distance = bounds.getBoundingSphere().radius * 2;
+              }
+              
+              // Reset camera to show the entire model
+              viewer.fitToView();
+              
+              // Reset any display modes that might have been set
+              if (viewer.setDisplayMode && typeof viewer.setDisplayMode === 'function') {
+                viewer.setDisplayMode(0); // 0 = SOLID mode
+              }
+              
+              // Force a complete redraw with all buffers
+              if (viewer.impl) {
+                if (viewer.impl.invalidate && typeof viewer.impl.invalidate === 'function') {
+                  viewer.impl.invalidate(true, true, true);
+                }
+                if (viewer.impl.sceneUpdated && typeof viewer.impl.sceneUpdated === 'function') {
+                  viewer.impl.sceneUpdated(true);
+                }
+              }
+              
+              console.log('Successfully restored 3D view after leaving 2D mode');
+            } else {
+              console.warn('Viewer visibility manager not ready, using basic restoration');
+              // Basic restoration without showAll
+              if (viewer.fitToView && typeof viewer.fitToView === 'function') {
+                viewer.fitToView();
+              }
             }
-            
-            // Switch to perspective view for better 3D experience
-            viewer.setViewType(0); // 0 = PERSPECTIVE
-            
-            // Reset camera to show the entire model
-            viewer.fitToView();
-            
-            // Reset any display modes that might have been set
-            viewer.setDisplayMode(0); // 0 = SOLID mode
-            
-            // Force a complete redraw with all buffers
-            viewer.impl.invalidate(true, true, true);
-            viewer.impl.sceneUpdated(true);
-            
-            console.log('Successfully restored 3D view after leaving 2D mode');
           } catch (error) {
             console.error('Error restoring 3D view:', error);
-            // Fallback: just show all and fit to view
+            // Fallback: just try fitToView if available
             try {
-              viewer.showAll();
-              viewer.fitToView();
+              if (viewer.fitToView && typeof viewer.fitToView === 'function') {
+                viewer.fitToView();
+              }
             } catch (fallbackError) {
-              console.error('Fallback restoration also failed:', fallbackError);
+              console.warn('Fallback restoration also failed:', fallbackError);
             }
           }
         }, 150); // Slightly longer delay for better reliability
@@ -216,180 +399,128 @@ export function BIMPanel({
   };
 
   const handleApplyFilters = async () => {
-    if (!viewer) {
-      console.error('Viewer not available for filtering');
-      return;
-    }
-
-    try {
-      // First clear any existing filters and show all objects
-      viewer.showAll();
-      
-      // If all filters are empty, just show everything
-      if (!filterName && !filterCategory && !filterType) {
-        console.log('No filters applied, showing all objects');
-        return;
-      }
-
-      // Get all model elements
-      const model = viewer.model;
-      if (!model) {
-        console.error('No model available for filtering');
-        return;
-      }
-
-      const tree = model.getInstanceTree();
-      const dbids: number[] = [];
-      
-      // Collect all leaf node dbids (actual geometry objects)
-      if (tree && tree.enumNodeChildren) {
-        tree.enumNodeChildren(tree.getRootId(), (dbid: number) => {
-          // Only include leaf nodes (actual objects, not groups)
-          if (tree.getChildCount(dbid) === 0) {
-            dbids.push(dbid);
-          }
-          return true;
-        }, true); // true for recursive enumeration
-      }
-
-      if (dbids.length === 0) {
-        console.warn('No model elements found for filtering');
-        return;
-      }
-
-      console.log(`Filtering through ${dbids.length} objects...`);
-
-      // Get properties for all elements
-      return new Promise<void>((resolve) => {
-        model.getBulkProperties(dbids, ['Name', 'Category', 'Type', 'Family', 'Level'], (results: Array<{dbId: number, properties: Array<{displayName?: string, displayValue?: any}>}>) => {
-          try {
-            const visibleDbids: number[] = [];
-            const hiddenDbids: number[] = [];
-            
-            results.forEach((result) => {
-              const dbid = result.dbId;
-              const props = result.properties || [];
-              
-              // Create a searchable text from all properties
-              const searchableText = props.map(p => 
-                `${p.displayName || ''} ${p.displayValue || ''}`
-              ).join(' ').toLowerCase();
-              
-              // Check if element matches all active filters
-              let matches = true;
-              
-              // Name filter - search in all property values
-              if (filterName && matches) {
-                const nameFilter = filterName.toLowerCase();
-                matches = searchableText.includes(nameFilter) || 
-                         props.some(p => 
-                           (p.displayName?.toLowerCase().includes(nameFilter)) ||
-                           (p.displayValue?.toString().toLowerCase().includes(nameFilter))
-                         );
-              }
-              
-              // Category filter - look for category-related properties
-              if (filterCategory && matches) {
-                const categoryFilter = filterCategory.toLowerCase();
-                matches = props.some(p => {
-                  const propName = p.displayName?.toLowerCase() || '';
-                  const propValue = p.displayValue?.toString().toLowerCase() || '';
-                  
-                  // Check if it's a category-related property
-                  if (propName.includes('category') || propName.includes('family') || propName.includes('type')) {
-                    return propValue.includes(categoryFilter);
-                  }
-                  
-                  // Also check for direct matches in common BIM categories
-                  const categoryMappings = {
-                    'walls': ['wall', 'mur', 'parete'],
-                    'doors': ['door', 'porte', 'porta'],
-                    'windows': ['window', 'fenêtre', 'finestra'],
-                    'floors': ['floor', 'slab', 'sol', 'pavimento'],
-                    'ceilings': ['ceiling', 'plafond', 'soffitto'],
-                    'columns': ['column', 'colonne', 'colonna'],
-                    'beams': ['beam', 'poutre', 'trave']
-                  };
-                  
-                  const mappedTerms = categoryMappings[categoryFilter as keyof typeof categoryMappings] || [categoryFilter];
-                  return mappedTerms.some(term => propValue.includes(term));
-                });
-              }
-              
-              // Type filter - look for type-related properties
-              if (filterType && matches) {
-                const typeFilter = filterType.toLowerCase();
-                matches = props.some(p => {
-                  const propName = p.displayName?.toLowerCase() || '';
-                  const propValue = p.displayValue?.toString().toLowerCase() || '';
-                  
-                  if (propName.includes('type') || propName.includes('family')) {
-                    return propValue.includes(typeFilter);
-                  }
-                  return false;
-                });
-              }
-              
-              if (matches) {
-                visibleDbids.push(dbid);
-              } else {
-                hiddenDbids.push(dbid);
-              }
-            });
-            
-            // Apply visibility - hide non-matching objects
-            if (hiddenDbids.length > 0) {
-              viewer.hide(hiddenDbids);
-            }
-            
-            // Fit to view the visible objects
-            if (visibleDbids.length > 0) {
-              viewer.fitToView(visibleDbids);
-            }
-            
-            console.log(`Filter applied. Showing ${visibleDbids.length} of ${dbids.length} elements`);
-            
-          } catch (error) {
-            console.error('Error processing filter results:', error);
-          } finally {
-            resolve();
-          }
-        });
-      });
-      
-    } catch (error) {
-      console.error('Error applying filters:', error);
-    }
+    // This is now simplified - just use the hierarchy filter
+    console.log('Using hierarchy filter instead of legacy filters');
   };
 
-  const handleClearFilters = async () => {
+      const handleClearFilters = () => {
     setFilterName('');
     setFilterCategory('');
     setFilterType('');
     
+    if (viewer) {
+      viewer.showAll();
+      viewer.clearSelection();
+      console.log('Cleared all filters and showing all model elements');
+    }
+  };
+
+  // Tree node functions
+  const toggleNodeSelection = (node: any) => {
+    const newSelected = new Set(selectedNodes);
+    const nodeKey = node.id;
+    
+    if (newSelected.has(nodeKey)) {
+      newSelected.delete(nodeKey);
+    } else {
+      newSelected.add(nodeKey);
+    }
+    
+    setSelectedNodes(newSelected);
+    
+    // Apply filter based on selection
+    applyHierarchyFilter(newSelected);
+  };
+  
+  const applyHierarchyFilter = (selectedNodeIds: Set<string>) => {
+    if (!viewer || !viewer.model) {
+      console.warn('Viewer or model not available for filtering');
+      return;
+    }
+
+    console.log('🔍 Applying hierarchy filter...');
+    
     try {
-      if (viewer) {
-        // First show all elements
-        await viewer.showAll();
-        
-        // Always switch to 3D view when clearing filters
-        viewer.setViewType(0); // 0 = PERSPECTIVE
-        
-        // Reset camera to default position
-        viewer.fitToView();
-        
-        // Force a complete redraw
-        viewer.impl.invalidate(true, true, true);
-        
-        // If we were in 2D view mode, exit it
-        if (activeCommand === '2d-views') {
-          setActiveCommand(null);
-        }
-        
-        console.log('Cleared all filters and restored 3D view');
+      if (selectedNodeIds.size === 0) {
+        // No selection - show all objects
+        viewer.showAll();
+        viewer.clearSelection();
+        console.log('✅ Showing all objects');
+        return;
       }
+      
+      const model = viewer.model;
+      const tree = model.getInstanceTree();
+      
+      if (!tree) {
+        console.warn('No instance tree available for filtering');
+        return;
+      }
+      
+      // Get selected categories from model hierarchy
+      const selectedCategories = Array.from(selectedNodeIds).map(id => {
+        const category = modelHierarchy.find(cat => cat.id === id);
+        return category;
+      }).filter(Boolean);
+      
+      if (selectedCategories.length === 0) {
+        console.warn('⚠️ No valid categories selected');
+        return;
+      }
+      
+      console.log('📂 Selected categories:', selectedCategories.map(c => c.name));
+      
+      // Collect all dbIds that should be visible
+      const visibleDbIds: number[] = [];
+      
+      selectedCategories.forEach(category => {
+        if (category.dbId && category.dbId !== -1) {
+          // Add the category node itself
+          visibleDbIds.push(category.dbId);
+          
+          // Add all children recursively
+          const collectChildren = (nodeId: number) => {
+            tree.enumNodeChildren(nodeId, (childId: number) => {
+              visibleDbIds.push(childId);
+              collectChildren(childId); // Recursively collect grandchildren
+              return true;
+            });
+          };
+          
+          collectChildren(category.dbId);
+        }
+      });
+      
+      // Remove duplicates
+      const uniqueVisibleDbIds = [...new Set(visibleDbIds)];
+      
+      console.log(`📊 Found ${uniqueVisibleDbIds.length} objects to show`);
+      
+      if (uniqueVisibleDbIds.length > 0) {
+        // Hide all objects first
+        viewer.hideAll();
+        
+        // Show only selected objects
+        viewer.show(uniqueVisibleDbIds);
+        
+        // Focus on visible objects
+        viewer.fitToView(uniqueVisibleDbIds);
+        
+        // Highlight the visible objects
+        viewer.select(uniqueVisibleDbIds);
+        
+        console.log(`✅ Applied filter: showing ${uniqueVisibleDbIds.length} objects`);
+      } else {
+        console.warn('⚠️ No objects found for selected categories');
+        viewer.showAll();
+      }
+      
     } catch (error) {
-      console.error('Error clearing filters:', error);
+      console.error('❌ Filter error:', error);
+      // Restore all objects on error
+      if (viewer && viewer.showAll) {
+        viewer.showAll();
+      }
     }
   };
 
@@ -461,6 +592,60 @@ export function BIMPanel({
     } catch (error) {
       console.error('Error restoring view:', error);
     }
+  };
+
+  // Render tree node component
+  const renderTreeNode = (node: any, depth: number = 0) => {
+    const nodeKey = node.id;
+    const isSelected = selectedNodes.has(nodeKey);
+    
+    return (
+      <div key={nodeKey} className="select-none">
+        <div 
+          className={`flex items-center py-2 px-2 rounded cursor-pointer hover:bg-gray-700 ${
+            isSelected ? 'bg-blue-600 text-white' : 'text-gray-300'
+          }`}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleNodeSelection(node)}
+            className="mr-3 accent-blue-500"
+          />
+          
+          <div className="flex items-center gap-2 flex-1">
+            {node.isCategory ? (
+              <Building className="w-4 h-4 text-yellow-500" />
+            ) : (
+              <Box className="w-4 h-4 text-gray-400" />
+            )}
+            
+            <span className="text-sm font-medium flex-1" title={node.name}>
+              {node.name}
+            </span>
+            
+            {node.childCount !== undefined && node.childCount > 0 && (
+              <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                {node.childCount}
+              </span>
+            )}
+            
+            {node.depth !== undefined && (
+              <span className="text-xs text-gray-500">
+                L{node.depth}
+              </span>
+            )}
+            
+            {node.dbId && node.dbId !== -1 && (
+              <span className="text-xs text-gray-500">
+                {node.dbId}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderCommandContent = () => {
@@ -584,70 +769,149 @@ export function BIMPanel({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
               <Filter className="h-5 w-5" />
-              Filter Objects
+              Model Browser & Filter
             </h3>
             
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Filter by Name
-                </label>
-                <input
-                  type="text"
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
-                  placeholder="Enter object name..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
-                />
+            {/* Quick Actions */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => {
+                  setSelectedNodes(new Set());
+                  applyHierarchyFilter(new Set());
+                }}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-3 rounded transition-colors"
+              >
+                Show All
+              </button>
+              <button
+                onClick={() => {
+                  if (!isHierarchyLoaded) return; // Prevent multiple rapid clicks
+                  setIsHierarchyLoaded(false);
+                  setModelHierarchy([]);
+                  setTimeout(() => loadModelHierarchy(), 100);
+                }}
+                disabled={!isHierarchyLoaded}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm py-2 px-3 rounded transition-colors"
+              >
+                🔄 Reload
+              </button>
+            </div>
+            
+            {/* Model Hierarchy Tree */}
+            <div className="bg-gray-800 border border-gray-700 rounded-lg">
+              <div className="p-3 border-b border-gray-700">
+                <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Model Hierarchy
+                  {isHierarchyLoaded && (
+                    <span className="text-xs text-gray-400">
+                      ({modelHierarchy.length} categories)
+                    </span>
+                  )}
+                </h4>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Filter by Category
-                </label>
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white"
-                >
-                  <option value="" className="bg-gray-800 text-white">All Categories</option>
-                  <option value="walls" className="bg-gray-800 text-white">Walls</option>
-                  <option value="doors" className="bg-gray-800 text-white">Doors</option>
-                  <option value="windows" className="bg-gray-800 text-white">Windows</option>
-                  <option value="floors" className="bg-gray-800 text-white">Floors</option>
-                  <option value="roofs" className="bg-gray-800 text-white">Roofs</option>
-                  <option value="structural" className="bg-gray-800 text-white">Structural</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Filter by Type
-                </label>
-                <input
-                  type="text"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  placeholder="Enter object type..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={handleApplyFilters}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  Apply Filters
-                </button>
-                <button
-                  onClick={handleClearFilters}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  Clear All
-                </button>
+              <div className="max-h-96 overflow-y-auto p-2">
+                {!isHierarchyLoaded ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Building className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                    <p className="text-sm">Loading model hierarchy...</p>
+                  </div>
+                ) : modelHierarchy.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Building className="w-8 h-8 mx-auto mb-2" />
+                    <p className="text-sm">No model elements found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {modelHierarchy.map(node => renderTreeNode(node, 0))}
+                  </div>
+                )}
               </div>
             </div>
+            
+            {/* Status Info */}
+            {selectedNodes.size > 0 && (
+              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm">
+                    {selectedNodes.size} element{selectedNodes.size !== 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                <p className="text-xs text-blue-400 mt-1">
+                  Selected elements are visible in wireframe mode, others are hidden
+                </p>
+              </div>
+            )}
+            
+            {/* Legacy Filter Section (Optional) */}
+            <details className="bg-gray-800 border border-gray-700 rounded-lg">
+              <summary className="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white">
+                Legacy Text Filters (Advanced)
+              </summary>
+              <div className="p-3 border-t border-gray-700 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Filter by Name
+                  </label>
+                  <input
+                    type="text"
+                    value={filterName}
+                    onChange={(e) => setFilterName(e.target.value)}
+                    placeholder="Enter object name..."
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400 text-sm"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Filter by Category
+                  </label>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white text-sm"
+                  >
+                    <option value="" className="bg-gray-800 text-white">All Categories</option>
+                    <option value="walls" className="bg-gray-800 text-white">Walls</option>
+                    <option value="doors" className="bg-gray-800 text-white">Doors</option>
+                    <option value="windows" className="bg-gray-800 text-white">Windows</option>
+                    <option value="floors" className="bg-gray-800 text-white">Floors</option>
+                    <option value="roofs" className="bg-gray-800 text-white">Roofs</option>
+                    <option value="structural" className="bg-gray-800 text-white">Structural</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Filter by Type
+                  </label>
+                  <input
+                    type="text"
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    placeholder="Enter object type..."
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400 text-sm"
+                  />
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApplyFilters}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                  >
+                    Apply Legacy Filters
+                  </button>
+                  <button
+                    onClick={handleClearFilters}
+                    className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            </details>
           </div>
         );
 
