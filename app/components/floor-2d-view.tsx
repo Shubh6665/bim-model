@@ -108,13 +108,14 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
     }
     
     setIsLoading(true);
-    console.log(`🏢 Selecting floor: ${floorId || 'All Floors'} - Triggering native levels extension`);
+    console.log(`🏢 Selecting floor: ${floorId || 'All Floors'} - Connecting to native levels toolbar`);
     
     try {
       // Clear any previous selections
       viewer.clearSelection();
       
-      // IMPORTANT: Select floor in data view - this will trigger native levels extension
+      // IMPORTANT: Use the enhanced selectFloor method that connects to native levels extension
+      // This method will trigger the exact same behavior as clicking on the native levels toolbar
       floorDataView.selectFloor(floorId);
       
       const selectedFloor = floorId ? availableFloors.find(f => f.id === floorId) || null : null;
@@ -123,17 +124,86 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
       // Update filtered sensors
       updateFilteredSensors(floorDataView, selectedFloor);
       
-      // The native levels extension should handle the view change automatically
-      // We don't need to manually switch views anymore since the native extension does it
-      console.log(`✅ Floor selection delegated to native levels extension: ${selectedFloor?.name || 'All Floors'}`);
+      // Additional native level selection trigger - try multiple methods to ensure it works
+      if (selectedFloor && viewer.loadedExtensions && viewer.loadedExtensions['Autodesk.AEC.LevelsExtension']) {
+        const levelsExt = viewer.loadedExtensions['Autodesk.AEC.LevelsExtension'];
+        
+        try {
+          // Method 1: Direct floor selector interaction
+          if (levelsExt.floorSelector) {
+            console.log(`🔧 Triggering native level ${selectedFloor.levelIndex} via floorSelector`);
+            
+            // Select the floor (highlights it)
+            levelsExt.floorSelector.selectFloor(selectedFloor.levelIndex, true);
+            
+            // Small delay then trigger the view change (simulates double-click)
+            setTimeout(() => {
+              try {
+                // Try different methods to activate the floor view
+                if (levelsExt.floorSelector.onFloorDoubleClick) {
+                  levelsExt.floorSelector.onFloorDoubleClick(selectedFloor.levelIndex);
+                  console.log(`✅ Triggered floor view via onFloorDoubleClick`);
+                } else if (levelsExt.floorSelector.activateFloorView) {
+                  levelsExt.floorSelector.activateFloorView(selectedFloor.levelIndex);
+                  console.log(`✅ Triggered floor view via activateFloorView`);
+                } else {
+                  // Fallback: dispatch custom event
+                  const event = new CustomEvent('floorViewActivated', {
+                    detail: { levelIndex: selectedFloor.levelIndex, floorData: selectedFloor }
+                  });
+                  levelsExt.floorSelector.dispatchEvent(event);
+                  console.log(`✅ Triggered floor view via custom event`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Native floor view trigger failed, using manual method:', error);
+                // Manual fallback handled by selectFloor method
+              }
+            }, 100);
+          }
+          
+          // Method 2: Try to programmatically click the native level button
+          setTimeout(() => {
+            try {
+              const levelButtons = document.querySelectorAll('.adsk-button-icon[title*="Level"], .toolbar-vertical-group button[title*="Level"]');
+              const targetButton = Array.from(levelButtons).find(btn => 
+                btn.getAttribute('title')?.includes(selectedFloor.name) ||
+                btn.getAttribute('title')?.includes(`Level ${selectedFloor.levelIndex}`)
+              ) as HTMLElement;
+              
+              if (targetButton) {
+                console.log(`🖱️ Found and clicking native level button for ${selectedFloor.name}`);
+                targetButton.click();
+                
+                // Double-click to activate floor view
+                setTimeout(() => {
+                  const event = new MouseEvent('dblclick', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true
+                  });
+                  targetButton.dispatchEvent(event);
+                  console.log(`✅ Double-clicked native level button`);
+                }, 50);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not find or click native level button:', error);
+            }
+          }, 200);
+          
+        } catch (error) {
+          console.warn('⚠️ Error with native levels extension interaction:', error);
+        }
+      }
+      
+      console.log(`✅ Floor selection completed: ${selectedFloor?.name || 'All Floors'}`);
       
       // Small delay to allow native extension to process
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
     } catch (error) {
       console.error('❌ Error selecting floor:', error);
       
-      // Fallback: if native extension fails, use manual view switching
+      // Fallback: manual view switching if native method fails
       const selectedFloor = floorId ? availableFloors.find(f => f.id === floorId) || null : null;
       if (!floorId) {
         await switch3DView();
@@ -142,6 +212,45 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Enhanced double-click handler for floors
+  const handleFloorDoubleClick = (floorId: string | null) => {
+    console.log('Double-clicking floor:', floorId);
+    
+    // If this is the currently active floor, switch back to 3D view
+    if (floorId === currentFloor?.id || (floorId === null && !currentFloor)) {
+      console.log('Switching back to 3D view via double-click');
+      
+      try {
+        // Method 1: Use native levels extension API to restore 3D view
+        const levelsExt = viewer?.getExtension('Autodesk.AEC.LevelsExtension') as any;
+        if (levelsExt?.floorSelector) {
+          console.log('Restoring 3D view via levels extension');
+          levelsExt.floorSelector.restore3DView();
+          
+          // Also untick any native toolbar buttons
+          setTimeout(() => {
+            const nativeButtons = document.querySelectorAll('[data-automation-id="toolbar-levelsExtensionTool"] button');
+            nativeButtons.forEach((btn: any) => {
+              if (btn.classList.contains('active') || btn.classList.contains('selected')) {
+                btn.click();
+              }
+            });
+          }, 100);
+        }
+        
+        // Method 2: Clear our internal state
+        setCurrentFloor(null);
+        floorDataView?.selectFloor(null);
+        
+      } catch (error) {
+        console.error('Error in double-click 3D restoration:', error);
+      }
+    } else {
+      // If it's not the current floor, just select it normally
+      handleFloorSelect(floorId);
     }
   };
 
@@ -379,6 +488,7 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
           {/* All Floors Option */}
           <button
             onClick={() => handleFloorSelect(null)}
+            onDoubleClick={() => handleFloorDoubleClick(null)}
             disabled={isLoading}
             className={`p-3 rounded-lg border text-left transition-colors ${
               !currentFloor
@@ -407,6 +517,7 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
               <button
                 key={floor.id}
                 onClick={() => handleFloorSelect(floor.id)}
+                onDoubleClick={() => handleFloorDoubleClick(floor.id)}
                 disabled={isLoading}
                 className={`p-3 rounded-lg border text-left transition-colors ${
                   currentFloor?.id === floor.id

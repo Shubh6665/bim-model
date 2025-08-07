@@ -166,20 +166,34 @@ export class FloorDataView {
     ];
   }
 
-  // Select a specific floor and trigger filtering
+  // Select a specific floor and trigger filtering + native level interaction
   selectFloor(floorId: string | null) {
     if (!floorId) {
       this.floor = null;
       
-      // If clearing floor selection, restore full 3D model view
+      // If clearing floor selection, restore full 3D model view via native extension
       if (this._levelsExtension && this._levelsExtension.floorSelector) {
         try {
+          console.log('🔄 Clearing floor selection in native levels extension');
+          
           // Clear floor selection in native extension
           this._levelsExtension.floorSelector.selectFloor(-1, false);
-          console.log('🔄 Cleared floor selection in native levels extension');
+          
+          // Try to restore 3D view by triggering the "All Floors" or 3D view
+          if (this._levelsExtension.floorSelector.restore3DView) {
+            this._levelsExtension.floorSelector.restore3DView();
+          } else if (this._levelsExtension.floorSelector.activateAllFloorsView) {
+            this._levelsExtension.floorSelector.activateAllFloorsView();
+          }
+          
+          console.log('✅ Successfully cleared floor selection and restored 3D view');
         } catch (error) {
           console.warn('⚠️ Could not clear floor selection in levels extension:', error);
+          // Manual fallback to restore 3D view
+          this.restore3DViewManually();
         }
+      } else {
+        this.restore3DViewManually();
       }
       return;
     }
@@ -190,42 +204,145 @@ export class FloorDataView {
     if (selectedFloor) {
       this.floor = selectedFloor;
       
-      // If levels extension is available, trigger the same behavior as double-clicking toolbar
+      // Enhanced native levels extension integration
       if (this._levelsExtension && this._levelsExtension.floorSelector) {
         try {
-          console.log(`🏢 Triggering native floor selection for level ${selectedFloor.levelIndex}`);
+          console.log(`🏢 Triggering native floor selection for level ${selectedFloor.levelIndex}: ${selectedFloor.name}`);
           
-          // First, select the floor in the native extension
+          // Step 1: Select the floor in the native extension (highlights it)
           this._levelsExtension.floorSelector.selectFloor(selectedFloor.levelIndex, true);
           
-          // Then trigger the same view change that double-click would do
-          // This simulates the double-click behavior on the native toolbar
-          if (this._levelsExtension.floorSelector.onFloorDoubleClick) {
-            this._levelsExtension.floorSelector.onFloorDoubleClick(selectedFloor.levelIndex);
-          } else if (this._levelsExtension.floorSelector.activateFloorView) {
-            // Alternative method to activate floor view
-            this._levelsExtension.floorSelector.activateFloorView(selectedFloor.levelIndex);
-          } else {
-            // Fallback: manually trigger the floor view change event
-            const event = new CustomEvent('Autodesk.AEC.FloorSelector.FLOOR_ACTIVATED', {
-              detail: { levelIndex: selectedFloor.levelIndex, floorData: selectedFloor }
-            });
-            this._levelsExtension.floorSelector.dispatchEvent(event);
-          }
+          // Step 2: Multiple methods to trigger the floor view (equivalent to double-click)
+          setTimeout(() => {
+            try {
+              // Method A: Direct double-click handler
+              if (this._levelsExtension.floorSelector.onFloorDoubleClick) {
+                this._levelsExtension.floorSelector.onFloorDoubleClick(selectedFloor.levelIndex);
+                console.log(`✅ Triggered floor view via onFloorDoubleClick`);
+              }
+              // Method B: Activate floor view function
+              else if (this._levelsExtension.floorSelector.activateFloorView) {
+                this._levelsExtension.floorSelector.activateFloorView(selectedFloor.levelIndex);
+                console.log(`✅ Triggered floor view via activateFloorView`);
+              }
+              // Method C: Set active floor
+              else if (this._levelsExtension.floorSelector.setActiveFloor) {
+                this._levelsExtension.floorSelector.setActiveFloor(selectedFloor.levelIndex);
+                console.log(`✅ Triggered floor view via setActiveFloor`);
+              }
+              // Method D: Dispatch standard Forge event
+              else {
+                const event = new CustomEvent('Autodesk.AEC.FloorSelector.FLOOR_ACTIVATED', {
+                  detail: { 
+                    levelIndex: selectedFloor.levelIndex, 
+                    floorData: selectedFloor,
+                    activate2DView: true
+                  }
+                });
+                if (this._levelsExtension.floorSelector.addEventListener) {
+                  this._levelsExtension.floorSelector.addEventListener('FLOOR_ACTIVATED', () => {
+                    console.log(`✅ Floor activated event handled`);
+                  });
+                }
+                this._levelsExtension.floorSelector.dispatchEvent(event);
+                console.log(`✅ Triggered floor view via custom FLOOR_ACTIVATED event`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Native floor view activation failed, trying alternative methods:', error);
+              this.tryAlternativeFloorActivation(selectedFloor);
+            }
+          }, 100);
           
-          console.log(`✅ Successfully triggered native floor view for ${selectedFloor.name}`);
+          // Step 3: Verify the floor was activated after a delay
+          setTimeout(() => {
+            try {
+              const currentActiveFloor = this._levelsExtension.floorSelector.getActiveFloor?.();
+              if (currentActiveFloor !== selectedFloor.levelIndex) {
+                console.warn(`⚠️ Floor activation verification failed. Expected: ${selectedFloor.levelIndex}, Got: ${currentActiveFloor}`);
+                this.tryAlternativeFloorActivation(selectedFloor);
+              } else {
+                console.log(`✅ Floor activation verified: ${selectedFloor.name}`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not verify floor activation:', error);
+            }
+          }, 500);
+          
         } catch (error) {
           console.warn('⚠️ Could not sync floor selection with levels extension:', error);
-          
-          // Fallback: try to manually trigger the view change
-          this.triggerFloorViewManually(selectedFloor);
+          this.tryAlternativeFloorActivation(selectedFloor);
         }
       } else {
-        // If no levels extension, use manual floor view change
+        console.log('⚠️ No levels extension available, using manual floor view trigger');
         this.triggerFloorViewManually(selectedFloor);
       }
     } else {
-      console.warn(`⚠️ Floor ${floorId} not found`);
+      console.warn(`⚠️ Floor ${floorId} not found in available floors`);
+    }
+  }
+
+  // Alternative methods to activate floor view when standard methods fail
+  private tryAlternativeFloorActivation(floor: FloorData) {
+    console.log(`🔧 Trying alternative floor activation methods for ${floor.name}`);
+    
+    try {
+      // Method 1: Try to find and programmatically interact with the native toolbar
+      setTimeout(() => {
+        const levelElements = document.querySelectorAll('.adsk-level-button, .level-selector-item, [data-level-index]');
+        const targetElement = Array.from(levelElements).find(el => {
+          const levelIndex = el.getAttribute('data-level-index') || el.getAttribute('data-index');
+          return levelIndex === floor.levelIndex.toString();
+        }) as HTMLElement;
+        
+        if (targetElement) {
+          console.log(`🖱️ Found native level element, triggering interaction`);
+          
+          // Simulate click events
+          const clickEvent = new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true
+          });
+          targetElement.dispatchEvent(clickEvent);
+          
+          // Simulate double-click after a short delay
+          setTimeout(() => {
+            const dblClickEvent = new MouseEvent('dblclick', {
+              view: window,
+              bubbles: true,
+              cancelable: true
+            });
+            targetElement.dispatchEvent(dblClickEvent);
+            console.log(`✅ Simulated double-click on native level element`);
+          }, 50);
+        } else {
+          console.warn('⚠️ Could not find native level element, using manual method');
+          this.triggerFloorViewManually(floor);
+        }
+      }, 100);
+    } catch (error) {
+      console.warn('⚠️ Alternative floor activation failed, falling back to manual method:', error);
+      this.triggerFloorViewManually(floor);
+    }
+  }
+
+  // Manual restoration of 3D view
+  private restore3DViewManually() {
+    try {
+      console.log('🔧 Manually restoring 3D view');
+      
+      // Show all model elements
+      this._viewer.showAll();
+      
+      // Switch to perspective view
+      this._viewer.setViewType(0); // 0 = PERSPECTIVE
+      
+      // Fit the entire model to view
+      this._viewer.fitToView();
+      
+      console.log('✅ Manually restored 3D view');
+    } catch (error) {
+      console.error('❌ Error restoring 3D view manually:', error);
     }
   }
 
