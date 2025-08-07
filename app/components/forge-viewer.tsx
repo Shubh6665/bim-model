@@ -315,18 +315,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         try {
             if (wireframeMode) {
-                // Check if we're in 2D floor plan mode - if so, don't force wireframe
-                const is2DFloorMode = 
-                    document.querySelector('[data-testid="2d-views"]')?.classList.contains('bg-blue-500') ||
-                    document.querySelector('.bim-panel-content')?.querySelector('[data-testid="2d-views"]') ||
-                    localStorage.getItem('bim-active-command') === '2d-views' ||
-                    (window as any).is2DFloorPlanActive === true;
-                
-                if (is2DFloorMode) {
-                    console.log('[ForgeViewer] Skipping wireframe mode - 2D floor plan view active');
-                    return;
-                }
-                
                 // Enable wireframe mode for IoT - hide solid surfaces and show only structural edges
                 console.log('[ForgeViewer] Enabling wireframe mode for IoT panel - hiding solid components');
                 
@@ -422,11 +410,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [wireframeMode, viewer, isInitialized, activePanel]);
 
-    // Control model browser visibility based on active panel - REMOVED CONFLICTING LOGIC
-    // Note: The wireframe mode handling above takes care of model visibility for IoT panel
+    // Simple panel-based rendering control - don't interfere with BIM 2D functionality
     useEffect(() => {
         if (!viewer || !isInitialized) {
-            console.log("[ForgeViewer] Viewer not ready for panel-specific controls");
+            console.log("[ForgeViewer] Viewer not ready for panel controls");
             return;
         }
 
@@ -440,27 +427,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         try {
             if (activePanel === 'iot') {
-                // IoT panel is active - model visibility is handled by wireframe mode
-                console.log("[ForgeViewer] IoT mode active - preparing for wireframe/solid mode controls");
-                
-                // Ensure all elements are shown first so wireframe mode can work properly
-                viewer.showAll();
-                
-                // Force a small delay to ensure the initial wireframe mode is applied
-                setTimeout(() => {
-                    // The wireframe mode effect will handle the actual visibility
-                    console.log("[ForgeViewer] Model prepared for IoT panel - wireframe mode should be applied");
-                }, 200);
-                
-                console.log("[ForgeViewer] Model prepared for IoT panel wireframe/solid modes");
+                // IoT panel - wireframe mode handles all visibility
+                console.log("[ForgeViewer] IoT panel active - wireframe mode will control visibility");
+                // Don't interfere - let wireframe mode handle everything
             } else {
-                // Other panels - ensure full model visibility and normal rendering
-                console.log("[ForgeViewer] Non-IoT panel active - showing full model");
+                // Other panels (BIM, Database, AI) - ensure normal rendering but don't interfere with BIM's own 2D functionality
+                console.log("[ForgeViewer] Non-IoT panel active - ensuring normal rendering mode");
                 
-                // Show all model elements and use normal solid rendering
-                viewer.showAll();
-                
-                // Use normal solid rendering for other panels
+                // Only set rendering modes, don't force show/hide (let BIM handle its own 2D views)
                 if (viewer.setDisplayMode) {
                     viewer.setDisplayMode(0); // Solid mode
                 }
@@ -473,14 +447,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 // Ensure edges are visible
                 viewer.setDisplayEdges(true);
                 
-                console.log("[ForgeViewer] Full model visibility restored for non-IoT panel");
+                console.log("[ForgeViewer] Normal rendering mode set for non-IoT panel");
             }
         } catch (error) {
-            console.error("[ForgeViewer] Error in panel-specific model control:", error);
+            console.error("[ForgeViewer] Error in panel rendering control:", error);
         }
     }, [activePanel, viewer, isInitialized]);
 
-    // Effect to handle sensor highlighting when selectedSensor changes
+        // Effect to handle sensor highlighting when selectedSensor changes
     useEffect(() => {
         if (!dataVizService || !isDataVizReady || activePanel !== 'iot') {
             return;
