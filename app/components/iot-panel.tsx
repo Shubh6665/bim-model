@@ -76,13 +76,19 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
     // Force a small delay to ensure the wireframe rendering processes
     setTimeout(() => {
       console.log('[IoTPanel] Wireframe mode should now be active in viewer');
-    }, 150);
+      // Double trigger to ensure it's applied
+      onWireframeModeChange?.(true);
+    }, 250);
   };
 
-  // Function to actually trigger solid mode (like clicking the button)
+  // Function to actually trigger solid mode (like clicking the button)  
   const triggerSolidMode = () => {
     console.log('[IoTPanel] Triggering ACTUAL solid mode function');
     onWireframeModeChange?.(false);
+    // Small delay for consistency
+    setTimeout(() => {
+      onWireframeModeChange?.(false);
+    }, 100);
   };
 
   // Handle mode change
@@ -94,13 +100,17 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
       if (onInsertSensor) {
         onInsertSensor(null);
       }
-      // Switch back to wireframe mode when returning to "All sensors"
-      console.log('[IoTPanel] Switching back to wireframe mode (All sensors)');
-      triggerWireframeMode();
+      // Switch to wireframe mode when entering "All sensors" mode for better sensor visibility
+      console.log('[IoTPanel] Switching to wireframe mode (All sensors mode)');
+      setTimeout(() => {
+        triggerWireframeMode();
+      }, 100); // Small delay to ensure mode change is processed
     } else if (newMode === "insert") {
-      // Switch to solid mode when entering insert mode
+      // Switch to solid mode when entering insert mode for better precision
       console.log('[IoTPanel] Switching to solid mode (Insert mode)');
-      triggerSolidMode();
+      setTimeout(() => {
+        triggerSolidMode();
+      }, 100); // Small delay to ensure mode change is processed
     }
   };
 
@@ -144,7 +154,12 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                     ? "bg-blue-600 text-white shadow-md" 
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
-              onClick={() => mode !== "insert" && onWireframeModeChange?.(true)}
+              onClick={() => {
+                if (mode !== "insert") {
+                  console.log('[IoTPanel] Wireframe button clicked');
+                  triggerWireframeMode();
+                }
+              }}
               disabled={mode === "insert"}
               title={mode === "insert" ? "Wireframe mode disabled during sensor insertion" : "Wireframe mode - Shows model structure for better sensor visibility"}
             >
@@ -156,7 +171,10 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                   ? "bg-blue-600 text-white shadow-md" 
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
-              onClick={() => onWireframeModeChange?.(false)}
+              onClick={() => {
+                console.log('[IoTPanel] Solid button clicked');
+                triggerSolidMode();
+              }}
               title="Solid mode - Shows complete model appearance"
             >
               🏗️ Solid

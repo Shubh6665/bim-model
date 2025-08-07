@@ -305,12 +305,17 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
 
+        // Skip wireframe mode changes if not in IoT panel
+        if (activePanel !== 'iot') {
+            console.log("[ForgeViewer] Skipping wireframe mode - not in IoT panel");
+            return;
+        }
+
         console.log(`[ForgeViewer] Setting wireframe mode: ${wireframeMode}`);
 
         try {
             if (wireframeMode) {
                 // Check if we're in 2D floor plan mode - if so, don't force wireframe
-                // More robust detection using multiple methods
                 const is2DFloorMode = 
                     document.querySelector('[data-testid="2d-views"]')?.classList.contains('bg-blue-500') ||
                     document.querySelector('.bim-panel-content')?.querySelector('[data-testid="2d-views"]') ||
@@ -319,134 +324,159 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 
                 if (is2DFloorMode) {
                     console.log('[ForgeViewer] Skipping wireframe mode - 2D floor plan view active');
-                    // Ensure we're in solid mode for floor plans
-                    if (viewer.setDisplayMode) {
-                        viewer.setDisplayMode(0); // Solid mode
-                    }
                     return;
                 }
                 
-                // Enable wireframe mode - show edges and hide solid surfaces (same as IoT mode)
+                // Enable wireframe mode for IoT - hide solid surfaces and show only structural edges
+                console.log('[ForgeViewer] Enabling wireframe mode for IoT panel - hiding solid components');
+                
+                // First ensure all elements are visible
+                viewer.showAll();
+                
+                // Enable edge display for wireframe effect
                 viewer.setDisplayEdges(true);
                 
-                // Hide all model solid surfaces to create true wireframe effect
-                if (viewer.model) {
+                // Get the object tree and hide all solid components to show only wireframe structure
+                if (viewer.model && viewer.model.getObjectTree) {
                     viewer.model.getObjectTree((instanceTree: any) => {
-                    if (instanceTree) {
-                        const allDbIds: number[] = [];
-                        
-                        // Get all node IDs recursively
-                        const collectAllNodeIds = (nodeId: number) => {
-                            allDbIds.push(nodeId);
-                            instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                                collectAllNodeIds(childId);
+                        if (instanceTree) {
+                            const allDbIds: number[] = [];
+                            
+                            // Collect all node IDs recursively
+                            const collectAllNodeIds = (nodeId: number) => {
+                                allDbIds.push(nodeId);
+                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                                    collectAllNodeIds(childId);
+                                });
+                            };
+                            
+                            // Start from root and collect all nodes
+                            collectAllNodeIds(instanceTree.getRootId());
+                            
+                            // Filter to get only leaf nodes (actual geometry components)
+                            const leafNodeIds = allDbIds.filter(nodeId => {
+                                let hasChildren = false;
+                                instanceTree.enumNodeChildren(nodeId, () => {
+                                    hasChildren = true;
+                                });
+                                return !hasChildren && nodeId !== instanceTree.getRootId();
                             });
-                        };
-                        
-                        collectAllNodeIds(instanceTree.getRootId());
-                        
-                        // Filter to get only leaf nodes (actual components)
-                        const leafNodeIds = allDbIds.filter(nodeId => {
-                            let hasChildren = false;
-                            instanceTree.enumNodeChildren(nodeId, () => {
-                                hasChildren = true;
-                            });
-                            return !hasChildren;
-                        });
-                        
-                        console.log(`[ForgeViewer] Wireframe mode: hiding ${leafNodeIds.length} solid components`);
-                        
-                        // Hide all leaf components to show only wireframe
-                        if (leafNodeIds.length > 0) {
-                            viewer.hide(leafNodeIds, viewer.model);
+                            
+                            console.log(`[ForgeViewer] Wireframe mode: hiding ${leafNodeIds.length} solid components to show structural wireframe`);
+                            
+                            // Hide all leaf components (solid surfaces) to show only wireframe structure
+                            if (leafNodeIds.length > 0) {
+                                viewer.hide(leafNodeIds);
+                                
+                                // Force wireframe rendering mode after hiding components
+                                setTimeout(() => {
+                                    if (viewer.setDisplayMode) {
+                                        viewer.setDisplayMode(1); // Wireframe/ghost mode
+                                    }
+                                    
+                                    // Enable ghosting for wireframe effect
+                                    if (viewer.setGhosting) {
+                                        viewer.setGhosting(true);
+                                    }
+                                    
+                                    console.log(`[ForgeViewer] Wireframe mode activated - ${leafNodeIds.length} components hidden, showing structural edges only`);
+                                }, 100);
+                            }
                         }
+                    });
+                } else {
+                    // Fallback: Use built-in wireframe mode
+                    if (viewer.setDisplayMode) {
+                        viewer.setDisplayMode(1); // Wireframe mode
                     }
-                });
-                } // Added closing brace here
-                console.log("[ForgeViewer] Wireframe mode enabled - showing edges only");
+                    if (viewer.setGhosting) {
+                        viewer.setGhosting(true);
+                    }
+                }
+                
+                console.log("[ForgeViewer] Wireframe mode enabled - showing structural wireframe only");
             } else {
-                // Solid mode - show solid surfaces but keep edges visible
-                // Keep edges visible: viewer.setDisplayEdges(true) - don't turn off edges
-                viewer.setDisplayEdges(true);
-                // Ensure all model elements are visible when switching to solid mode
+                // Solid mode - show full model with normal rendering
+                console.log('[ForgeViewer] Enabling solid mode for IoT panel');
+                
+                // Show all elements (restore hidden components)
                 viewer.showAll();
-                console.log("[ForgeViewer] Solid mode enabled - showing all model elements with edges");
+                
+                // Keep edges visible for better visibility in IoT mode
+                viewer.setDisplayEdges(true);
+                
+                // Use solid rendering mode
+                if (viewer.setDisplayMode) {
+                    viewer.setDisplayMode(0); // Solid mode
+                }
+                
+                // Disable ghosting
+                if (viewer.setGhosting) {
+                    viewer.setGhosting(false);
+                }
+                
+                console.log("[ForgeViewer] Solid mode enabled - showing full model with edges");
             }
         } catch (error) {
             console.error("[ForgeViewer] Error setting wireframe mode:", error);
         }
-    }, [wireframeMode, viewer, isInitialized]);
+    }, [wireframeMode, viewer, isInitialized, activePanel]);
 
-    // Control model browser visibility based on active panel
+    // Control model browser visibility based on active panel - REMOVED CONFLICTING LOGIC
+    // Note: The wireframe mode handling above takes care of model visibility for IoT panel
     useEffect(() => {
         if (!viewer || !isInitialized) {
-            console.log("[ForgeViewer] Viewer not ready for model browser visibility control");
+            console.log("[ForgeViewer] Viewer not ready for panel-specific controls");
             return;
         }
 
         // Check if model is loaded
         if (!viewer.model) {
-            console.log("[ForgeViewer] Model not loaded yet, skipping visibility control");
+            console.log("[ForgeViewer] Model not loaded yet, skipping panel controls");
             return;
         }
 
-        console.log(`[ForgeViewer] Controlling model browser visibility for panel: ${activePanel}`);
+        console.log(`[ForgeViewer] Active panel: ${activePanel}`);
 
         try {
             if (activePanel === 'iot') {
-                // Hide all model elements (simulate turning off all eye icons in model browser)
-                console.log("[ForgeViewer] Hiding all model elements for IoT mode");
+                // IoT panel is active - model visibility is handled by wireframe mode
+                console.log("[ForgeViewer] IoT mode active - preparing for wireframe/solid mode controls");
                 
-                // Get all leaf node IDs (components that can be individually controlled)
-                viewer.model.getObjectTree((instanceTree: any) => {
-                    if (instanceTree) {
-                        const allDbIds: number[] = [];
-                        
-                        // Get all leaf components (actual model elements)
-                        instanceTree.enumNodeFragments(instanceTree.getRootId(), (fragId: number) => {
-                            // This gets all fragments, but we need dbIds
-                        }, true);
-                        
-                        // Alternative approach: get all node IDs recursively
-                        const collectAllNodeIds = (nodeId: number) => {
-                            allDbIds.push(nodeId);
-                            instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                                collectAllNodeIds(childId);
-                            });
-                        };
-                        
-                        collectAllNodeIds(instanceTree.getRootId());
-                        
-                        // Filter to get only leaf nodes (actual components)
-                        const leafNodeIds = allDbIds.filter(nodeId => {
-                            let hasChildren = false;
-                            instanceTree.enumNodeChildren(nodeId, () => {
-                                hasChildren = true;
-                            });
-                            return !hasChildren;
-                        });
-                        
-                        console.log(`[ForgeViewer] Found ${leafNodeIds.length} leaf components to hide`);
-                        
-                        // Hide all leaf components (this simulates turning off eye icons)
-                        if (leafNodeIds.length > 0) {
-                            viewer.hide(leafNodeIds);
-                            console.log(`[ForgeViewer] Hidden ${leafNodeIds.length} model components`);
-                        }
-                    }
-                });
+                // Ensure all elements are shown first so wireframe mode can work properly
+                viewer.showAll();
+                
+                // Force a small delay to ensure the initial wireframe mode is applied
+                setTimeout(() => {
+                    // The wireframe mode effect will handle the actual visibility
+                    console.log("[ForgeViewer] Model prepared for IoT panel - wireframe mode should be applied");
+                }, 200);
+                
+                console.log("[ForgeViewer] Model prepared for IoT panel wireframe/solid modes");
             } else {
-                // Show all model elements (simulate turning on all eye icons in model browser)
-                console.log("[ForgeViewer] Showing all model elements");
+                // Other panels - ensure full model visibility and normal rendering
+                console.log("[ForgeViewer] Non-IoT panel active - showing full model");
                 
-                // Show all previously hidden elements
-                if (viewer.impl) {
-                    viewer.showAll();
+                // Show all model elements and use normal solid rendering
+                viewer.showAll();
+                
+                // Use normal solid rendering for other panels
+                if (viewer.setDisplayMode) {
+                    viewer.setDisplayMode(0); // Solid mode
                 }
-                console.log("[ForgeViewer] Restored visibility for all model elements");
+                
+                // Disable ghosting for normal view
+                if (viewer.setGhosting) {
+                    viewer.setGhosting(false);
+                }
+                
+                // Ensure edges are visible
+                viewer.setDisplayEdges(true);
+                
+                console.log("[ForgeViewer] Full model visibility restored for non-IoT panel");
             }
         } catch (error) {
-            console.error("[ForgeViewer] Error controlling model browser visibility:", error);
+            console.error("[ForgeViewer] Error in panel-specific model control:", error);
         }
     }, [activePanel, viewer, isInitialized]);
 

@@ -82,7 +82,24 @@ function BIMDashboard() {
   // Auto-switch to wireframe when IoT panel is active
   useEffect(() => {
     if (activePanel === "iot") {
+      console.log('[Dashboard] IoT panel activated - setting wireframe mode to true');
       setWireframeMode(true); // Default to wireframe for better sensor visibility
+      
+      // Ensure the viewer receives the wireframe mode change with multiple triggers
+      setTimeout(() => {
+        console.log('[Dashboard] Triggering wireframe mode for IoT panel (first trigger)');
+        setWireframeMode(true); // Force trigger wireframe mode again
+      }, 300); // Delay to ensure panel and viewer are ready
+      
+      // Additional trigger to ensure wireframe mode is applied
+      setTimeout(() => {
+        console.log('[Dashboard] Triggering wireframe mode for IoT panel (second trigger)');
+        setWireframeMode(false); // Toggle to force re-application
+        setTimeout(() => {
+          setWireframeMode(true); // Set back to wireframe
+          console.log('[Dashboard] Wireframe mode should now be properly applied');
+        }, 100);
+      }, 600); // Second trigger after more delay
     }
   }, [activePanel]);
 

@@ -108,13 +108,13 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
     }
     
     setIsLoading(true);
-    console.log(`🏢 Selecting floor: ${floorId || 'All Floors'}`);
+    console.log(`🏢 Selecting floor: ${floorId || 'All Floors'} - Triggering native levels extension`);
     
     try {
       // Clear any previous selections
       viewer.clearSelection();
       
-      // Select floor in data view
+      // IMPORTANT: Select floor in data view - this will trigger native levels extension
       floorDataView.selectFloor(floorId);
       
       const selectedFloor = floorId ? availableFloors.find(f => f.id === floorId) || null : null;
@@ -123,25 +123,22 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
       // Update filtered sensors
       updateFilteredSensors(floorDataView, selectedFloor);
       
-      // If no floor ID is provided (All Floors), switch to 3D view
-      if (!floorId) {
-        await switch3DView();
-      } else if (selectedFloor) {
-        // Switch to 2D view for the selected floor
-        await switch2DFloorView(selectedFloor);
-      }
+      // The native levels extension should handle the view change automatically
+      // We don't need to manually switch views anymore since the native extension does it
+      console.log(`✅ Floor selection delegated to native levels extension: ${selectedFloor?.name || 'All Floors'}`);
       
-      // Notify parent component about the floor change
-      onFloorChanged?.(selectedFloor);
-      
-      // Force a redraw to ensure all changes are applied
-      viewer.impl.invalidate(true);
+      // Small delay to allow native extension to process
+      await new Promise(resolve => setTimeout(resolve, 100));
       
     } catch (error) {
       console.error('❌ Error selecting floor:', error);
-      // Fallback to 3D view on error
-      if (viewer) {
+      
+      // Fallback: if native extension fails, use manual view switching
+      const selectedFloor = floorId ? availableFloors.find(f => f.id === floorId) || null : null;
+      if (!floorId) {
         await switch3DView();
+      } else if (selectedFloor) {
+        await switch2DFloorView(selectedFloor);
       }
     } finally {
       setIsLoading(false);
