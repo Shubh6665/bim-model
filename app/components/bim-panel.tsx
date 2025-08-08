@@ -76,6 +76,24 @@ export function BIMPanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [isHierarchyLoaded, setIsHierarchyLoaded] = useState(false);
+  // Cached property index for robust filtering across models
+  const [propertyIndexReady, setPropertyIndexReady] = useState(false);
+  const dbIdsCacheRef = useRef<number[]>([]);
+  const propsCacheRef = useRef<Record<number, Record<string, string>>>({});
+  const buildingFieldsRef = useRef<string[]>([
+    'Category',
+    'Element Category',
+    'Type Name',
+    'Family',
+    'Family and Type',
+    'IfcClass',
+    'IFC Class',
+    'Name',
+    'System Type',
+    'Object Type',
+    'ObjectType',
+    'Type'
+  ]);
 
   // Debug: Log viewer object when it changes
   useEffect(() => {
@@ -107,6 +125,17 @@ export function BIMPanel({
       loadModelHierarchy();
     }
   }, [viewer?.model, isHierarchyLoaded]); // Only depend on model, not entire viewer object
+
+  // Proactively build property index when user opens Filter panel
+  useEffect(() => {
+    const preindex = async () => {
+      if (activeCommand === 'filter-objects' && viewer?.model) {
+        await ensurePropertyIndex();
+      }
+    };
+    preindex();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCommand, viewer?.model]);
 
   const loadModelHierarchy = async () => {
     if (!viewer || !viewer.model) {
@@ -398,12 +427,228 @@ export function BIMPanel({
     }
   };
 
-  const handleApplyFilters = async () => {
-    // This is now simplified - just use the hierarchy filter
-    console.log('Using hierarchy filter instead of legacy filters');
+  // Build a property index for all nodes (leaf nodes) with bulk properties
+  const ensurePropertyIndex = async () => {
+    if (!viewer || !viewer.model) return false;
+    if (propertyIndexReady && dbIdsCacheRef.current.length > 0) {
+      console.log('[Filter] Using cached property index');
+      return true;
+    }
+
+    try {
+      const model = viewer.model;
+      const tree = model.getInstanceTree();
+      if (!tree) return false;
+
+      // Collect ALL node ids to maximize match coverage
+      const allDbIds: number[] = [];
+      const visited = new Set<number>();
+      const rootId = tree.getRootId();
+      const walk = (id: number) => {
+        if (visited.has(id)) return;
+        visited.add(id);
+        allDbIds.push(id);
+        tree.enumNodeChildren(id, (childId: number) => {
+          walk(childId);
+          return true;
+        });
+      };
+      walk(rootId);
+
+      // Fetch bulk properties in batches
+      // Fetch ALL properties so vendor-specific names are covered
+      const batchSize = 2000;
+      const propsCache: Record<number, Record<string, string>> = {};
+      for (let i = 0; i < allDbIds.length; i += batchSize) {
+        const batch = allDbIds.slice(i, i + batchSize);
+        const results = await new Promise<any[]>((resolve, reject) => {
+          // Passing null for attributes requests all properties
+          model.getBulkProperties(batch, null, (data: any[]) => resolve(data), reject);
+        });
+        results.forEach((item) => {
+          const map: Record<string, string> = {};
+          (item.properties || []).forEach((p: any) => {
+            if (typeof p.displayName === 'string' && p.displayName) {
+              map[p.displayName] = String(p.displayValue ?? '');
+            }
+          });
+          // Always include name field as well
+          if (typeof item.name === 'string') map['__nodeName'] = item.name;
+          propsCache[item.dbId] = map;
+        });
+      }
+
+      dbIdsCacheRef.current = allDbIds;
+      propsCacheRef.current = propsCache;
+      setPropertyIndexReady(true);
+      console.log(`[Filter] Indexed ${allDbIds.length} nodes with ALL properties.`);
+      return true;
+    } catch (e) {
+      console.error('[Filter] Failed to build property index:', e);
+      setPropertyIndexReady(false);
+      return false;
+    }
   };
 
-      const handleClearFilters = () => {
+  const norm = (s?: string) => (s || '').toLowerCase().trim();
+
+  // Category keywords across languages/vendors
+  const categoryKeywords: Record<string, string[]> = {
+    walls: ['wall', 'walls', 'parete', 'muro', 'muri', 'ifcwall'],
+    doors: ['door', 'porta', 'porte', 'ifcdoor'],
+    windows: ['window', 'finestra', 'finestre', 'ifcwindow'],
+    floors: ['floor', 'pavimento', 'slab', 'ifcfloorslab', 'ifcslab', 'piano'],
+    roofs: ['roof', 'tetto', 'copertura', 'ifcroof'],
+    structural: ['struct', 'trave', 'pilastro', 'beam', 'column', 'ifccolumn', 'ifcbeam', 'brace']
+  };
+
+  const matchCategory = (props: Record<string, string>, cat: string) => {
+    const keys = categoryKeywords[cat] || [cat];
+    const v = [
+      props['Category'],
+      props['Element Category'],
+      props['IfcClass'],
+      props['IFC Class'],
+      props['Type Name'],
+      props['Family and Type'],
+      props['Family'],
+      props['System Type'],
+      props['Object Type'],
+      props['ObjectType'],
+      props['__nodeName']
+    ].map(norm).join(' | ');
+    return keys.some(k => v.includes(norm(k)));
+  };
+
+  const matchText = (props: Record<string, string>, keyCandidates: string[], q: string) => {
+    const qn = norm(q);
+    if (!qn) return true;
+    for (const key of keyCandidates) {
+      const val = props[key];
+      if (val && norm(val).includes(qn)) return true;
+    }
+    return false;
+  };
+
+  // Fallback: use Forge viewer.search to find dbIds by keywords
+  const searchDbIdsForKeywords = async (keywords: string[], attributeNames?: string[]) => {
+    if (!viewer) return [] as number[];
+    const found = new Set<number>();
+    for (const kw of keywords) {
+      const res: number[] = await new Promise((resolve) => {
+        viewer.search(
+          kw,
+          (dbIds: number[]) => resolve(dbIds || []),
+          () => resolve([]),
+          attributeNames
+        );
+      });
+      res.forEach(id => found.add(id));
+    }
+    return Array.from(found);
+  };
+
+  const handleApplyFilters = async () => {
+    if (!viewer || !viewer.model) {
+      console.warn('Viewer not ready for filtering');
+      return;
+    }
+    const ok = await ensurePropertyIndex();
+    if (!ok) {
+      console.warn('Property index not available; aborting filter');
+      return;
+    }
+
+    const nameQ = filterName;
+    const catQ = filterCategory; // expects one of the predefined values
+    const typeQ = filterType;
+
+    // If nothing entered, show all
+    if (!nameQ && !catQ && !typeQ) {
+      // Clear isolate state and show all
+      try {
+        if (viewer.isolate) viewer.isolate([]);
+      } catch {}
+      if (viewer.showAll) viewer.showAll();
+      if (viewer.clearSelection) viewer.clearSelection();
+      return;
+    }
+
+    const fieldsForName = ['Name', '__nodeName', 'Family and Type', 'Type Name'];
+    const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Type'];
+
+    const matched: number[] = [];
+    const propsCache = propsCacheRef.current;
+    for (const dbId of dbIdsCacheRef.current) {
+      const props = propsCache[dbId] || {};
+      const catOk = catQ ? matchCategory(props, catQ) : true;
+      if (!catOk) continue;
+      const nameOk = nameQ ? matchText(props, fieldsForName, nameQ) : true;
+      if (!nameOk) continue;
+      const typeOk = typeQ ? matchText(props, fieldsForType, typeQ) : true;
+      if (!typeOk) continue;
+      matched.push(dbId);
+    }
+
+    if (matched.length === 0) {
+      console.warn('[Filter] Property-index match returned 0. Trying search fallback...');
+      let searchKeywords: string[] = [];
+      if (catQ) searchKeywords = categoryKeywords[catQ] || [catQ];
+      // Include text queries as well
+      if (nameQ) searchKeywords.push(nameQ);
+      if (typeQ) searchKeywords.push(typeQ);
+      // Search across common attributes and globally
+      let found: number[] = [];
+      if (searchKeywords.length > 0) {
+        found = await searchDbIdsForKeywords(searchKeywords, [
+          'Category', 'Element Category', 'Type Name', 'Family and Type', 'Family', 'Name', 'Object Type', 'ObjectType'
+        ]);
+        if (found.length === 0) {
+          found = await searchDbIdsForKeywords(searchKeywords); // global search
+        }
+      }
+      if (found.length === 0) {
+        console.warn('[Filter] Fallback search also found 0. Restoring view.');
+        viewer.showAll?.();
+        viewer.clearSelection?.();
+        return;
+      }
+      matched.push(...found);
+    }
+
+    // De-duplicate and sanitize
+    const uniqueMatched = Array.from(new Set(matched.filter((n) => Number.isFinite(n))));
+    if (uniqueMatched.length === 0) {
+      viewer.showAll?.();
+      viewer.clearSelection?.();
+      return;
+    }
+
+    // Apply by isolating matched nodes for performance, with robust fallback
+    let isolated = false;
+    try {
+      if (viewer.setGhosting) viewer.setGhosting(false);
+      viewer.isolate(uniqueMatched);
+      isolated = true;
+    } catch (e) {
+      console.warn('[Filter] isolate threw, will fallback:', e);
+    }
+    if (!isolated) {
+      try {
+        viewer.hideAll?.();
+        uniqueMatched.forEach((id) => viewer.show?.(id));
+      } catch (e2) {
+        console.error('[Filter] hide/show fallback failed:', e2);
+      }
+    }
+    try {
+      viewer.fitToView?.(uniqueMatched);
+      viewer.select?.(uniqueMatched);
+    } catch {}
+    console.log(`[Filter] Applied. Showing ${uniqueMatched.length} elements. Fallback used: ${!isolated}`);
+  };
+
+  const handleClearFilters = () => {
     setFilterName('');
     setFilterCategory('');
     setFilterType('');
@@ -769,149 +1014,76 @@ export function BIMPanel({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
               <Filter className="h-5 w-5" />
-              Model Browser & Filter
+              Filter Objects
             </h3>
-            
-            {/* Quick Actions */}
-            <div className="flex gap-2 mb-4">
+
+            {/* Category chips */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: '', label: 'All' },
+                { key: 'walls', label: 'Walls' },
+                { key: 'doors', label: 'Doors' },
+                { key: 'windows', label: 'Windows' },
+                { key: 'floors', label: 'Floors' },
+                { key: 'roofs', label: 'Roofs' },
+                { key: 'structural', label: 'Structural' }
+              ].map(chip => (
+                <button
+                  key={chip.key || 'all'}
+                  onClick={() => setFilterCategory(chip.key)}
+                  className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                    filterCategory === chip.key
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Text filters */}
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Name contains</label>
+                <input
+                  type="text"
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  placeholder="e.g. Generic, Curtain, Slab..."
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Type contains</label>
+                <input
+                  type="text"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  placeholder="e.g. Basic Wall, Single-Flush, Window Family..."
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleApplyFilters}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Apply Filters
+              </button>
               <button
                 onClick={() => {
-                  setSelectedNodes(new Set());
-                  applyHierarchyFilter(new Set());
+                  handleClearFilters();
+                  if (viewer) viewer.showAll();
                 }}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm py-2 px-3 rounded transition-colors"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Show All
               </button>
-              <button
-                onClick={() => {
-                  if (!isHierarchyLoaded) return; // Prevent multiple rapid clicks
-                  setIsHierarchyLoaded(false);
-                  setModelHierarchy([]);
-                  setTimeout(() => loadModelHierarchy(), 100);
-                }}
-                disabled={!isHierarchyLoaded}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm py-2 px-3 rounded transition-colors"
-              >
-                🔄 Reload
-              </button>
             </div>
-            
-            {/* Model Hierarchy Tree */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg">
-              <div className="p-3 border-b border-gray-700">
-                <h4 className="text-sm font-medium text-white flex items-center gap-2">
-                  <Building className="w-4 h-4" />
-                  Model Hierarchy
-                  {isHierarchyLoaded && (
-                    <span className="text-xs text-gray-400">
-                      ({modelHierarchy.length} categories)
-                    </span>
-                  )}
-                </h4>
-              </div>
-              
-              <div className="max-h-96 overflow-y-auto p-2">
-                {!isHierarchyLoaded ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <Building className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                    <p className="text-sm">Loading model hierarchy...</p>
-                  </div>
-                ) : modelHierarchy.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400">
-                    <Building className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-sm">No model elements found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {modelHierarchy.map(node => renderTreeNode(node, 0))}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Status Info */}
-            {selectedNodes.size > 0 && (
-              <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-blue-300">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm">
-                    {selectedNodes.size} element{selectedNodes.size !== 1 ? 's' : ''} selected
-                  </span>
-                </div>
-                <p className="text-xs text-blue-400 mt-1">
-                  Selected elements are visible in wireframe mode, others are hidden
-                </p>
-              </div>
-            )}
-            
-            {/* Legacy Filter Section (Optional) */}
-            <details className="bg-gray-800 border border-gray-700 rounded-lg">
-              <summary className="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white">
-                Legacy Text Filters (Advanced)
-              </summary>
-              <div className="p-3 border-t border-gray-700 space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Filter by Name
-                  </label>
-                  <input
-                    type="text"
-                    value={filterName}
-                    onChange={(e) => setFilterName(e.target.value)}
-                    placeholder="Enter object name..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400 text-sm"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Filter by Category
-                  </label>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white text-sm"
-                  >
-                    <option value="" className="bg-gray-800 text-white">All Categories</option>
-                    <option value="walls" className="bg-gray-800 text-white">Walls</option>
-                    <option value="doors" className="bg-gray-800 text-white">Doors</option>
-                    <option value="windows" className="bg-gray-800 text-white">Windows</option>
-                    <option value="floors" className="bg-gray-800 text-white">Floors</option>
-                    <option value="roofs" className="bg-gray-800 text-white">Roofs</option>
-                    <option value="structural" className="bg-gray-800 text-white">Structural</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Filter by Type
-                  </label>
-                  <input
-                    type="text"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    placeholder="Enter object type..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400 text-sm"
-                  />
-                </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleApplyFilters}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
-                  >
-                    Apply Legacy Filters
-                  </button>
-                  <button
-                    onClick={handleClearFilters}
-                    className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-            </details>
           </div>
         );
 
