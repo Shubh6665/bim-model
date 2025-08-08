@@ -72,6 +72,9 @@ export function BIMPanel({
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [groupedByType, setGroupedByType] = useState<Record<string, { label: string; dbId: number }[]>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [modelHierarchy, setModelHierarchy] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
@@ -136,6 +139,91 @@ export function BIMPanel({
     preindex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCommand, viewer?.model]);
+
+  // Recompute available types when category changes or index ready
+  useEffect(() => {
+    const computeTypes = async () => {
+      if (!viewer?.model) return;
+      const ok = await ensurePropertyIndex();
+      if (!ok) return;
+      const propsCache = propsCacheRef.current;
+      const types = new Set<string>();
+      const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Family', 'Type'];
+      const cat = filterCategory as keyof typeof categoryKeywords | '';
+      for (const dbId of dbIdsCacheRef.current) {
+        const props = propsCache[dbId] || {};
+        // If a category is selected, only include matching
+        const include = cat ? matchCategory(props, cat) : true;
+        if (!include) continue;
+        for (const key of fieldsForType) {
+          const v = props[key];
+          if (v && String(v).trim()) types.add(String(v).trim());
+        }
+      }
+      const list = Array.from(types).sort((a, b) => a.localeCompare(b));
+      setAvailableTypes(list);
+    };
+    computeTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterCategory, propertyIndexReady]);
+
+  // Build hierarchical list per selected category (Type -> instances)
+  useEffect(() => {
+    const buildHierarchy = async () => {
+      if (!viewer?.model) return;
+      const ok = await ensurePropertyIndex();
+      if (!ok) return;
+      const cat = filterCategory as keyof typeof categoryKeywords | '';
+      if (!cat) { setGroupedByType({}); return; }
+      const propsCache = propsCacheRef.current;
+      const typeFields = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Family', 'Type'];
+      const groups: Record<string, { label: string; dbId: number }[]> = {};
+      for (const dbId of dbIdsCacheRef.current) {
+        const props = propsCache[dbId] || {};
+        if (!matchCategory(props, cat)) continue;
+        // derive type
+        let t = '';
+        for (const k of typeFields) { const v = props[k]; if (v) { t = String(v); break; } }
+        if (!t) t = 'Unspecified';
+        // derive label (prefer Name, fallback to node name), append [dbId]
+        const name = props['Name'] || props['__nodeName'] || 'Unnamed';
+        const label = `${name} [${dbId}]`;
+        if (!groups[t]) groups[t] = [];
+        groups[t].push({ label, dbId });
+      }
+      // Sort groups and limit items per group to keep UI light
+      const sorted: Record<string, { label: string; dbId: number }[]> = {};
+      Object.keys(groups).sort((a,b)=>a.localeCompare(b)).forEach((k) => {
+        sorted[k] = groups[k]
+          .sort((a,b)=>a.label.localeCompare(b.label))
+          .slice(0, 80); // keep light
+      });
+      setGroupedByType(sorted);
+      setExpandedGroups(new Set());
+    };
+    buildHierarchy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterCategory, propertyIndexReady]);
+
+  // Helper: isolate with fallback
+  const applyIsolation = (ids: number[]) => {
+    if (!viewer) return;
+    const unique = Array.from(new Set(ids.filter((n)=>Number.isFinite(n))));
+    if (unique.length === 0) return;
+    let ok = false;
+    try {
+      viewer.setGhosting?.(false);
+      viewer.isolate?.(unique);
+      ok = true;
+    } catch {}
+    if (!ok) {
+      try {
+        viewer.hideAll?.();
+        unique.forEach((id)=>viewer.show?.(id));
+      } catch {}
+    }
+    try { viewer.fitToView?.(unique); viewer.select?.(unique); } catch {}
+  };
 
   const loadModelHierarchy = async () => {
     if (!viewer || !viewer.model) {
@@ -1020,50 +1108,71 @@ export function BIMPanel({
             {/* Category chips */}
             <div className="flex flex-wrap gap-2">
               {[
-                { key: '', label: 'All' },
+                { key: 'all', label: 'All' },
                 { key: 'walls', label: 'Walls' },
                 { key: 'doors', label: 'Doors' },
                 { key: 'windows', label: 'Windows' },
                 { key: 'floors', label: 'Floors' },
                 { key: 'roofs', label: 'Roofs' },
-                { key: 'structural', label: 'Structural' }
-              ].map(chip => (
+                { key: 'structural', label: 'Structural' },
+              ].map((c) => (
                 <button
-                  key={chip.key || 'all'}
-                  onClick={() => setFilterCategory(chip.key)}
-                  className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                    filterCategory === chip.key
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'
+                  key={c.key}
+                  onClick={() => setFilterCategory(c.key === 'all' ? '' : c.key)}
+                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                    (filterCategory || 'all') === c.key
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                   }`}
                 >
-                  {chip.label}
+                  {c.label}
                 </button>
               ))}
             </div>
 
-            {/* Text filters */}
+            {/* Dynamic dropdown + name */}
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Name contains</label>
-                <input
-                  type="text"
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
-                  placeholder="e.g. Generic, Curtain, Slab..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
-                />
+                <label className="block text-xs text-gray-400 mb-1">{filterCategory ? 'Type' : 'Category / Type'}</label>
+                <select
+                  value={filterCategory ? filterType : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!filterCategory) {
+                      setFilterCategory(val as any);
+                      setFilterType('');
+                    } else {
+                      setFilterType(val);
+                    }
+                  }}
+                  className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-2 text-sm"
+                >
+                  {!filterCategory ? (
+                    <>
+                      <option value="" disabled>Select category…</option>
+                      <option value="walls">Walls</option>
+                      <option value="doors">Doors</option>
+                      <option value="windows">Windows</option>
+                      <option value="floors">Floors</option>
+                      <option value="roofs">Roofs</option>
+                      <option value="structural">Structural</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="">All {filterCategory} types</option>
+                      {availableTypes.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </>
+                  )}
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Type contains</label>
-                <input
-                  type="text"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  placeholder="e.g. Basic Wall, Single-Flush, Window Family..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
-                />
-              </div>
+              <input
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                placeholder="e.g. Generic, Curtain, Slab..."
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-2 text-sm"
+              />
             </div>
 
             {/* Actions */}
@@ -1084,6 +1193,53 @@ export function BIMPanel({
                 Show All
               </button>
             </div>
+
+            {/* Hierarchical list (Type -> Items) */}
+            {filterCategory && Object.keys(groupedByType).length > 0 && (
+              <div className="mt-2 space-y-1">
+                {Object.entries(groupedByType).map(([typeName, items]) => {
+                  const isOpen = expandedGroups.has(typeName);
+                  return (
+                    <div key={typeName} className="border border-gray-800 rounded-md overflow-hidden">
+                      <div
+                        className="flex items-center justify-between px-3 py-2 bg-gray-800 cursor-pointer hover:bg-gray-700"
+                        onClick={() => {
+                          const next = new Set(expandedGroups);
+                          if (next.has(typeName)) next.delete(typeName); else next.add(typeName);
+                          setExpandedGroups(next);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 text-sm text-gray-200">
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          <span className="font-medium">{typeName}</span>
+                          <span className="text-gray-400">({items.length})</span>
+                        </div>
+                        <button
+                          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white"
+                          onClick={(e) => { e.stopPropagation(); applyIsolation(items.map(i => i.dbId)); }}
+                        >
+                          Isolate
+                        </button>
+                      </div>
+                      {isOpen && (
+                        <div className="max-h-56 overflow-auto divide-y divide-gray-800">
+                          {items.map((it) => (
+                            <button
+                              key={it.dbId}
+                              className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-800"
+                              title={it.label}
+                              onClick={() => applyIsolation([it.dbId])}
+                            >
+                              {it.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
 

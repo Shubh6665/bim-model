@@ -28,6 +28,11 @@ export default function BIMDashboard() {
     }
   };
 
+  const handleCreateProject = () => {
+    // TODO: hook up to actual create project flow/modal
+    console.log('Create Project clicked');
+  };
+
   const handleFileSelect = (file: ProjectFile | null) => {
     setSelectedFile(file);
     console.log("Selected file:", file);
@@ -40,7 +45,12 @@ export default function BIMDashboard() {
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
-      <DashboardHeader onSignOut={handleSignOut} activePanel={activePanel} onPanelChange={handlePanelChange} />
+      <DashboardHeader 
+        onSignOut={handleSignOut} 
+        activePanel={activePanel} 
+        onPanelChange={handlePanelChange}
+        onCreateProject={handleCreateProject}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

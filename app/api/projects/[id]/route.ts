@@ -1,20 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
 
 // Helper to get user email from session
-async function getUserEmail(req: NextRequest): Promise<string | null> {
+async function getUserEmail(): Promise<string | null> {
   const session = await getServerSession(authOptions);
   return session?.user?.email || null;
 }
 
 // GET: Get specific project by ID
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: any) {
   try {
     const db = await getDb();
-    const email = await getUserEmail(req);
+    const email = await getUserEmail();
+    const { params } = context;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
@@ -35,10 +36,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT: Update specific project by ID (only allow certain fields)
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, context: any) {
   try {
     const db = await getDb();
-    const email = await getUserEmail(req);
+    const email = await getUserEmail();
+    const { params } = context;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
@@ -47,7 +49,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // Parse JSON body
     let body;
     try {
-      body = await req.json();
+      body = await request.json();
     } catch (err) {
       console.error('Failed to parse JSON body:', err);
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -111,10 +113,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE: Delete specific project by ID
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, context: any) {
   try {
     const db = await getDb();
-    const email = await getUserEmail(req);
+    const email = await getUserEmail();
+    const { params } = context;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
