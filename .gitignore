@@ -18,6 +18,11 @@
 /out/
 
 # production
+
+# env files (do not commit secrets)
+.env
+.env.local
+.env.*.local
 /build
 
 # misc
