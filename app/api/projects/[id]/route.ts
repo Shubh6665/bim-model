@@ -11,18 +11,18 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // GET: Get specific project by ID
-export async function GET(request: Request, context: any) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { params } = context;
+    const { id } = await params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
     const project = await db.collection('projects').findOne({ 
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
       userId: user._id 
     });
     
@@ -36,11 +36,11 @@ export async function GET(request: Request, context: any) {
 }
 
 // PUT: Update specific project by ID (only allow certain fields)
-export async function PUT(request: Request, context: any) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { params } = context;
+    const { id } = await params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
@@ -85,7 +85,7 @@ export async function PUT(request: Request, context: any) {
     // Update the project
     const result = await db.collection('projects').updateOne(
       { 
-        _id: new ObjectId(params.id),
+        _id: new ObjectId(id),
         userId: user._id 
       },
       { $set: updateData }
@@ -97,7 +97,7 @@ export async function PUT(request: Request, context: any) {
     
     // Fetch and return updated project
     const updatedProject = await db.collection('projects').findOne({ 
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
       userId: user._id 
     });
     
@@ -113,18 +113,18 @@ export async function PUT(request: Request, context: any) {
 }
 
 // DELETE: Delete specific project by ID
-export async function DELETE(request: Request, context: any) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { params } = context;
+    const { id } = await params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
     const result = await db.collection('projects').deleteOne({ 
-      _id: new ObjectId(params.id),
+      _id: new ObjectId(id),
       userId: user._id 
     });
     
