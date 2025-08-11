@@ -594,26 +594,26 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             style={{ width: 22, height: 22, borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', cursor: 'pointer' }}>✕</button>
                     </div>
                     {viewerOverlay.type === 'info' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
-                                <span style={{ color: '#d1d5db' }}>Name</span>
-                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.name}</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                            <div style={{ gridColumn: '1 / -1', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>Name</span>
+                                <span style={{ color: '#fff', fontWeight: 600, fontSize: 13, whiteSpace: 'normal', wordBreak: 'break-word' }}>{viewerOverlay.sensor.name}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
-                                <span style={{ color: '#d1d5db' }}>Type</span>
-                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.type}</span>
+                            <div style={{ padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>Type</span>
+                                <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{viewerOverlay.sensor.type}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
-                                <span style={{ color: '#d1d5db' }}>Value</span>
-                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.value}</span>
+                            <div style={{ padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>Value</span>
+                                <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{viewerOverlay.sensor.value}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
-                                <span style={{ color: '#d1d5db' }}>Room</span>
-                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.room}</span>
+                            <div style={{ padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>Room</span>
+                                <span style={{ color: '#fff', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{viewerOverlay.sensor.room}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
-                                <span style={{ color: '#d1d5db' }}>Battery</span>
-                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.batteryLevel}%</span>
+                            <div style={{ padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <span style={{ color: '#9ca3af', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 }}>Battery</span>
+                                <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{viewerOverlay.sensor.batteryLevel}%</span>
                             </div>
                         </div>
                     )}
