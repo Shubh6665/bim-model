@@ -49,6 +49,8 @@ interface SensorContextType {
   loading: boolean;
   error: string | null;
   currentProjectId: string | null;
+  // Viewer overlay state
+  viewerOverlay: { type: 'info' | 'graphs' | 'statistics'; sensor: Sensor } | null;
   // Form state
   showInsertionForm: boolean;
   pendingPosition: { x: number; y: number; z: number } | null;
@@ -80,6 +82,9 @@ interface SensorContextType {
   filterSensorsByType: (sensorType: string | null) => void;
   getFilteredSensors: () => Sensor[];
   refreshSensors: () => Promise<void>;
+  // Viewer overlay actions
+  showViewerOverlay: (sensor: Sensor, type: 'info' | 'graphs' | 'statistics') => void;
+  hideViewerOverlay: () => void;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -100,6 +105,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  // Viewer overlay
+  const [viewerOverlay, setViewerOverlay] = useState<{ type: 'info' | 'graphs' | 'statistics'; sensor: Sensor } | null>(null);
   // Form state
   const [showInsertionForm, setShowInsertionForm] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ x: number; y: number; z: number } | null>(null);
@@ -325,6 +332,15 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setPendingPosition(null);
   }, []);
 
+  // Viewer overlay actions
+  const showViewerOverlay = useCallback((sensor: Sensor, type: 'info' | 'graphs' | 'statistics') => {
+    setViewerOverlay({ sensor, type });
+  }, []);
+
+  const hideViewerOverlay = useCallback(() => {
+    setViewerOverlay(null);
+  }, []);
+
   const placeSensorWithDetails = useCallback(async (formData: {
     name: string;
     code: string;
@@ -399,6 +415,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
     loading,
     error,
     currentProjectId,
+    // Viewer overlay state
+    viewerOverlay,
     // Form state
     showInsertionForm,
     pendingPosition,
@@ -418,6 +436,9 @@ export function SensorProvider({ children }: SensorProviderProps) {
     filterSensorsByType,
     getFilteredSensors,
     refreshSensors,
+    // Overlay actions
+    showViewerOverlay,
+    hideViewerOverlay,
   };
 
   return (

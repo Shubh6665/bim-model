@@ -40,7 +40,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     
     // Use sensor context
-    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType } = useSensorContext();
+    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -570,6 +570,60 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 ref={viewerContainer}
                 style={{ width: "100%", height: "100vh", background: "#222" }}
             />
+            {viewerOverlay && (
+                <div style={{
+                    position: "absolute",
+                    bottom: 140,
+                    right: 50,
+                    minWidth: 260,
+                    maxWidth: 360,
+                    background: "rgba(17,24,39,0.95)",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    color: "#e5e7eb",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                    zIndex: 1000,
+                    padding: 12,
+                    backdropFilter: "blur(6px)",
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>
+                            {viewerOverlay.type === 'info' ? 'Sensor Information' : viewerOverlay.type === 'graphs' ? 'Sensor Graphs' : 'Sensor Statistics'}
+                        </div>
+                        <button onClick={hideViewerOverlay} title="Close"
+                            style={{ width: 22, height: 22, borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', cursor: 'pointer' }}>✕</button>
+                    </div>
+                    {viewerOverlay.type === 'info' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
+                                <span style={{ color: '#d1d5db' }}>Name</span>
+                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
+                                <span style={{ color: '#d1d5db' }}>Type</span>
+                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.type}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
+                                <span style={{ color: '#d1d5db' }}>Value</span>
+                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.value}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
+                                <span style={{ color: '#d1d5db' }}>Room</span>
+                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.room}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 6 }}>
+                                <span style={{ color: '#d1d5db' }}>Battery</span>
+                                <span style={{ color: '#fff' }}>{viewerOverlay.sensor.batteryLevel}%</span>
+                            </div>
+                        </div>
+                    )}
+                    {viewerOverlay.type !== 'info' && (
+                        <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                            Coming soon.
+                        </div>
+                    )}
+                </div>
+            )}
             {isLoading && (
                 <div style={{ 
                     position: "absolute", 

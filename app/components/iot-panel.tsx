@@ -43,7 +43,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
     toggleSensorTypeVisibility,
     filterSensorsByType,
     getFilteredSensors,
-    removeSensor
+    removeSensor,
+    showViewerOverlay
   } = useSensorContext();
 
   // Reset selectedType and mode when insertMode is exited
@@ -324,7 +325,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setShowInfoDetail(sensor.id);
+                                    showViewerOverlay(sensor, 'info');
                                     setShowMoreInfo(null);
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-md transition-all duration-200"
@@ -334,8 +335,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // TODO: Implement Graphs functionality
-                                    console.log('Graphs clicked for sensor:', sensor.id);
+                                    showViewerOverlay(sensor, 'graphs');
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-md transition-all duration-200"
                                 >
@@ -344,8 +344,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // TODO: Implement Statistics functionality
-                                    console.log('Statistics clicked for sensor:', sensor.id);
+                                    showViewerOverlay(sensor, 'statistics');
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
                                 >
