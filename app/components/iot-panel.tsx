@@ -319,17 +319,16 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           
                           {/* More Info Menu */}
                           {showMoreInfo === sensor.id && (
-                            <div className="mt-3 p-3 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-600 shadow-lg">
-                              <div className="space-y-2">
+                            <div className="mt-2 p-2 bg-gradient-to-br from-gray-800 to-gray-900 rounded-md border border-gray-600 shadow">
+                              <div className="space-y-1">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowInfoDetail(sensor.id);
                                     setShowMoreInfo(null);
                                   }}
-                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-lg transition-all duration-200 shadow-sm"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-md transition-all duration-200"
                                 >
-                                  <span className="text-blue-400">ℹ️</span>
                                   <span className="font-medium">Info</span>
                                 </button>
                                 <button
@@ -338,9 +337,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     // TODO: Implement Graphs functionality
                                     console.log('Graphs clicked for sensor:', sensor.id);
                                   }}
-                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-lg transition-all duration-200 shadow-sm"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-md transition-all duration-200"
                                 >
-                                  <span className="text-green-400">📊</span>
                                   <span className="font-medium">Graphs</span>
                                 </button>
                                 <button
@@ -349,9 +347,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     // TODO: Implement Statistics functionality
                                     console.log('Statistics clicked for sensor:', sensor.id);
                                   }}
-                                  className="flex items-center gap-2 w-full text-left text-sm text-gray-300 hover:text-white py-2 px-3 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-lg transition-all duration-200 shadow-sm"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
                                 >
-                                  <span className="text-purple-400">📈</span>
                                   <span className="font-medium">Statistics</span>
                                 </button>
                               </div>
