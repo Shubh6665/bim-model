@@ -15,6 +15,8 @@ interface ForgeViewerProps {
     wireframeMode?: boolean;
     onWireframeModeChange?: (wireframe: boolean) => void;
     onViewerReady?: (viewer: any, iotExtension: any) => void;
+    // When in BIM panel, controls whether sensors should be shown in the 3D model
+    sensorsVisible?: boolean;
 }
 
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
@@ -28,6 +30,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     wireframeMode,
     onWireframeModeChange,
     onViewerReady,
+    sensorsVisible,
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
@@ -276,9 +279,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
-        // Only update sensors if we're in IoT mode and the model is fully loaded
-        if (activePanel !== 'iot' || !isInitialized) {
-            console.log("[ForgeViewer] Skipping sensor update - not in IoT mode or model not initialized");
+        // Determine whether sensors should be shown based on panel and visibility flag
+        const shouldShowSensors = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+        if (!shouldShowSensors || !isInitialized) {
+            console.log("[ForgeViewer] Skipping sensor update - sensors not enabled for current panel or model not initialized");
             return;
         }
         
@@ -296,7 +300,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] Clearing sensor update timeout");
             clearTimeout(timeoutId);
         };
-    }, [sensors.length, dataVizService, isDataVizReady, activePanel, isInitialized, filteredSensorType]); // Include filteredSensorType to trigger updates when filter changes
+    }, [sensors.length, dataVizService, isDataVizReady, activePanel, isInitialized, filteredSensorType, sensorsVisible]); // Include filteredSensorType and sensorsVisible to trigger updates
 
     // Handle wireframe mode changes
     useEffect(() => {
@@ -482,9 +486,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         
-        // Double-check that we're in IoT mode and model is initialized
-        if (activePanel !== 'iot' || !isInitialized) {
-            console.log("[ForgeViewer] Skipping sensor update - not in IoT mode or model not initialized");
+        // Double-check current mode allows sensors
+        const shouldShowSensors = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+        if (!shouldShowSensors || !isInitialized) {
+            console.log("[ForgeViewer] Skipping sensor update - sensors not enabled for current panel or model not initialized");
             return;
         }
         
@@ -520,16 +525,17 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 await dataVizService.addSensor(sensorSprite);
             }
             
-            // Wait longer before updating display to ensure all sensors are added and model is stable
+            // Wait before updating display to ensure all sensors are added and model is stable
             setTimeout(async () => {
                 if (!viewer || !viewer.model || !isInitialized) {
                     console.warn("[ForgeViewer] Viewer not ready for final display update");
                     return;
                 }
                 
-                // Double-check again that we're still in IoT mode
-                if (activePanel !== 'iot') {
-                    console.log("[ForgeViewer] No longer in IoT mode, skipping display update");
+                // Double-check again that sensors should still be shown
+                const stillShouldShowSensors = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+                if (!stillShouldShowSensors) {
+                    console.log("[ForgeViewer] Sensors no longer enabled, skipping display update");
                     return;
                 }
                 
@@ -547,6 +553,22 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
+    // When in BIM panel, react to sensorsVisible toggles by clearing sensors when hidden
+    useEffect(() => {
+        if (!dataVizService || !isDataVizReady || !viewer || !isInitialized) return;
+        if (activePanel !== 'bim') return;
+        (async () => {
+            if (!sensorsVisible) {
+                await dataVizService.clearAllSensors();
+                await dataVizService.updateDisplay();
+                console.log('[ForgeViewer] Cleared sensors due to BIM visibility toggle off');
+            } else {
+                // Trigger an update when toggled on
+                updateSensors();
+            }
+        })();
+    }, [sensorsVisible, activePanel, dataVizService, isDataVizReady, viewer, isInitialized]);
+
     // Method to clear all sensors (for debugging)
     const clearAllSensors = async () => {
         if (dataVizService) {
@@ -554,6 +576,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] All sensors cleared");
         }
     };
+
+    // Clear sensors when switching to a panel where sensors should not be shown
+    useEffect(() => {
+        if (!dataVizService || !isDataVizReady || !viewer || !isInitialized) return;
+        const shouldShow = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+        if (!shouldShow) {
+            (async () => {
+                await dataVizService.clearAllSensors();
+                await dataVizService.updateDisplay();
+                console.log('[ForgeViewer] Cleared sensors due to panel change');
+            })();
+        }
+    }, [activePanel, sensorsVisible, dataVizService, isDataVizReady, viewer, isInitialized]);
 
     if (error) {
         return (

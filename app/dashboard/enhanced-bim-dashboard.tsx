@@ -409,6 +409,7 @@ function BIMDashboard() {
                       activePanel={activePanel}
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
+                      sensorsVisible={sensorsVisible}
                     />
                   </div>
                 )}

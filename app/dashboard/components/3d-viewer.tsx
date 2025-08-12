@@ -26,6 +26,7 @@ interface ThreeDViewerProps {
   activePanel?: 'bim' | 'iot' | 'database' | 'ai' | null;
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
+  sensorsVisible?: boolean;
 }
 
 export function ThreeDViewer({
@@ -37,6 +38,7 @@ export function ThreeDViewer({
   activePanel,
   wireframeMode,
   onWireframeModeChange,
+  sensorsVisible,
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -125,6 +127,7 @@ export function ThreeDViewer({
           wireframeMode={wireframeMode}
           onWireframeModeChange={onWireframeModeChange}
           onViewerReady={onViewerReady}
+          sensorsVisible={sensorsVisible}
         />
       )}
 
