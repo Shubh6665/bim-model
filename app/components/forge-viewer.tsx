@@ -414,6 +414,62 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [wireframeMode, viewer, isInitialized, activePanel]);
 
+    // Apply the same wireframe effect when in BIM panel and sensorsVisible is ON
+    useEffect(() => {
+        if (!viewer || !isInitialized) return;
+        if (activePanel !== 'bim') return;
+
+        try {
+            if (sensorsVisible) {
+                console.log('[ForgeViewer] BIM sensors visible - enabling wireframe (same as IoT)');
+                // Enable wireframe mode similar to IoT
+                viewer.showAll();
+                viewer.setDisplayEdges(true);
+                if (viewer.model && viewer.model.getObjectTree) {
+                    viewer.model.getObjectTree((instanceTree: any) => {
+                        if (instanceTree) {
+                            const allDbIds: number[] = [];
+                            const collectAllNodeIds = (nodeId: number) => {
+                                allDbIds.push(nodeId);
+                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                                    collectAllNodeIds(childId);
+                                });
+                            };
+                            collectAllNodeIds(instanceTree.getRootId());
+                            const leafNodeIds = allDbIds.filter(nodeId => {
+                                let hasChildren = false;
+                                instanceTree.enumNodeChildren(nodeId, () => { hasChildren = true; });
+                                return !hasChildren && nodeId !== instanceTree.getRootId();
+                            });
+                            if (leafNodeIds.length > 0) {
+                                viewer.hide(leafNodeIds);
+                                setTimeout(() => {
+                                    if (viewer.setDisplayMode) viewer.setDisplayMode(1);
+                                    if (viewer.setGhosting) viewer.setGhosting(true);
+                                }, 100);
+                            } else {
+                                if (viewer.setDisplayMode) viewer.setDisplayMode(1);
+                                if (viewer.setGhosting) viewer.setGhosting(true);
+                            }
+                        }
+                    });
+                } else {
+                    if (viewer.setDisplayMode) viewer.setDisplayMode(1);
+                    if (viewer.setGhosting) viewer.setGhosting(true);
+                }
+            } else {
+                console.log('[ForgeViewer] BIM sensors hidden - restoring solid mode');
+                // Restore solid mode
+                viewer.showAll();
+                viewer.setDisplayEdges(true);
+                if (viewer.setDisplayMode) viewer.setDisplayMode(0);
+                if (viewer.setGhosting) viewer.setGhosting(false);
+            }
+        } catch (error) {
+            console.error('[ForgeViewer] Error applying BIM wireframe on sensor toggle:', error);
+        }
+    }, [sensorsVisible, activePanel, viewer, isInitialized]);
+
     // Simple panel-based rendering control - don't interfere with BIM 2D functionality
     useEffect(() => {
         if (!viewer || !isInitialized) {
