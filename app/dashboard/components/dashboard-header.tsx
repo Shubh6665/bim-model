@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info } from "lucide-react";
+import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, Settings } from "lucide-react";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -92,6 +92,11 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </button>
+                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                    <Folder className="w-4 h-4" />
+                    <span>My Projects</span>
+                  </button>
+                  
                   <button 
                     className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
                     onClick={onShowProjectInfo}
