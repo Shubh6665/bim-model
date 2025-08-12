@@ -1272,7 +1272,7 @@ export function BIMPanel({
           className="flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors w-full justify-center"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Projects
+          Back to Projects Info
         </button>
       </div>
 

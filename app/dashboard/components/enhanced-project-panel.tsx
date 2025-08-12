@@ -131,14 +131,8 @@ export function EnhancedProjectPanel({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
 
-  // Effect to switch tab to 'models' when a project is selected
-  React.useEffect(() => {
-    if (selectedProject) {
-      setActiveTab('models');
-    } else {
-      setActiveTab('projects');
-    }
-  }, [selectedProject]);
+  // Keep tabs state independent; when a project is selected we hide tabs
+  // and show the project information view.
 
 
   const handleProcessingComplete = (urn: string, fileId: string) => {
@@ -246,8 +240,9 @@ export function EnhancedProjectPanel({
     }
   };
 
-  const filteredProjects = projects;
+  const filteredProjects: Project[] = projects;
   const filteredFiles = files;
+  const selectedProjectId: string | null = selectedProject ? selectedProject.id : null;
 
   return (
     <div className="h-full bg-gray-800 text-white flex flex-col w-80 min-w-80 max-w-80">
@@ -256,40 +251,41 @@ export function EnhancedProjectPanel({
           <h2 className="text-lg font-semibold text-white">Projects</h2>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-gray-700 rounded-lg p-1">
-          <button
-            onClick={() => { setActiveTab('projects'); setShowProjectDetail(true); }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'projects'
-                ? 'bg-blue-500 text-white'
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4 inline mr-1" />
-            Projects
-          </button>
-          <button
-            onClick={() => { setActiveTab('models'); setShowProjectDetail(false); }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'models'
-                ? 'bg-blue-500 text-white'
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            <File className="w-4 h-4 inline mr-1" />
-            Models
-          </button>
-        </div>
+        {/* Tabs - hidden when a project is selected */}
+        {!selectedProject && (
+          <div className="flex bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => { setActiveTab('projects'); setShowProjectDetail(true); }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'projects'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              <Globe className="w-4 h-4 inline mr-1" />
+              Projects
+            </button>
+            <button
+              onClick={() => { setActiveTab('models'); setShowProjectDetail(false); }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'models'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              <File className="w-4 h-4 inline mr-1" />
+              Models
+            </button>
+          </div>
+        )}
 
 
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {activeTab === 'projects' ? (
-          // Projects Section - Show only project details when a project is selected
-          selectedProject ? (
+        {selectedProject ? (
+          // Project selected: show only project information view
             <div className="p-6 space-y-4">
               {/* Back to Google Earth Button */}
               <div className="mb-4">
@@ -373,17 +369,18 @@ export function EnhancedProjectPanel({
                 </button>
               </div>
             </div>
-          ) : (
+        ) : (
+          // No project selected: show tabs content
+          activeTab === 'projects' ? (
             <div className="p-8 text-center text-gray-400">
               <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>Select a model to view project details</p>
               <p className="text-sm mt-1">Go to Models tab to select a project model</p>
             </div>
-          )
-        ) : (
-          // Models Section - Show project cards that open 3D models
-          <div className="p-4 space-y-2">
-            {filteredProjects.map((project) => (
+          ) : (
+            // Models Section - Show project cards that open 3D models
+            <div className="p-4 space-y-2">
+            {filteredProjects.map((project: Project) => (
               <div
                 key={project.id}
                 onClick={() => {
@@ -392,8 +389,8 @@ export function EnhancedProjectPanel({
                   onViewModeChange('viewer');
                   setShowProjectDetail(true);
                 }}
-                className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 flex items-center gap-3 ${
-                  selectedProject?.id === project.id
+                  className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 flex items-center gap-3 ${
+                    selectedProjectId === project.id
                     ? 'border-blue-500 bg-blue-500/10'
                     : 'border-gray-600 hover:border-gray-500'
                 }`}
@@ -479,7 +476,8 @@ export function EnhancedProjectPanel({
                 <p className="text-sm mt-1">Create some projects to see models here</p>
               </div>
             )}
-          </div>
+            </div>
+          )
         )}
       </div>
 
