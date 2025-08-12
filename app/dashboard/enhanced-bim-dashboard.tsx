@@ -60,6 +60,7 @@ function BIMDashboard() {
   const [rightSidebarView, setRightSidebarView] = useState<'details' | 'hierarchy'>('details');
   const [showProjectPanel, setShowProjectPanel] = useState(true); // Show project panel initially
   const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
+  const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
 
   // Use sensor context
   const {
@@ -146,6 +147,7 @@ function BIMDashboard() {
     setSelectedFile(file);
     if (file) {
       setViewMode("viewer");
+      setShowOnlySelectedOnMap(false);
       const project = projects.find(
         (p) => p.id === file.id || p.name === file.name.replace(".rvt", ""),
       );
@@ -168,6 +170,7 @@ function BIMDashboard() {
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setCurrentProject(project.id); // Set project in sensor context
+    setShowOnlySelectedOnMap(false);
     const file: ProjectFile = {
       id: project.id,
       name: project.name + ".rvt",
@@ -290,9 +293,9 @@ function BIMDashboard() {
 
   // Handler for closing project information modal
   const handleReturnToMapView = () => {
-    setSelectedProject(null);
-    setSelectedFile(null);
+    // Return to map showing only the current project
     setViewMode("map");
+    setShowOnlySelectedOnMap(true);
   };
 
   const handleCloseProjectInfo = () => {
@@ -393,7 +396,7 @@ function BIMDashboard() {
               <div className="w-full h-full">
                 {viewMode === "map" ? (
                   <GoogleEarthMap
-                    projects={projects}
+                    projects={showOnlySelectedOnMap && selectedProject ? [selectedProject] : projects}
                     selectedProject={selectedProject}
                     onProjectSelect={handleProjectSelect}
                     apiKey={GOOGLE_MAPS_API_KEY}
@@ -415,32 +418,7 @@ function BIMDashboard() {
                 )}
               </div>
 
-              {selectedProject && viewMode === "map" && (
-                <div className="absolute bottom-6 left-6 bg-black/80 backdrop-blur-sm rounded-lg p-4 text-white max-w-sm">
-                  <h3 className="font-semibold text-lg mb-2">
-                    {selectedProject.name}
-                  </h3>
-                  <p className="text-gray-300 text-sm mb-3">
-                    {selectedProject.description}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setViewMode("viewer")}
-                      className="bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-sm transition-colors"
-                    >
-                      {selectedProject.urn
-                        ? "View 3D Model"
-                        : "Process & View 3D Model"}
-                    </button>
-                    <button
-                      onClick={() => setSelectedProject(null)}
-                      className="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-sm transition-colors"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              )}
+
             </div>
 
             {/* Right Panel - Conditional Rendering */}

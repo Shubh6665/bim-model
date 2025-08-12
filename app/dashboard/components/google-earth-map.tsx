@@ -166,6 +166,7 @@ export function GoogleEarthMap({
   }, [map, projects, onProjectSelect]);
 
   // Handle external project selection (from sidebar)
+  // Open the marker's info window and center without re-triggering onProjectSelect
   useEffect(() => {
     if (!map || !selectedProject || !markers.length) return;
 
@@ -176,9 +177,12 @@ export function GoogleEarthMap({
     if (selectedMarker) {
       map.setCenter({ lat: selectedProject.lat, lng: selectedProject.lng });
       map.setZoom(16);
-      
-      // Trigger marker click to show info window
-      google.maps.event.trigger(selectedMarker, "click");
+
+      const markerAny = selectedMarker as any;
+      const infoWindow = markerAny.infoWindow as google.maps.InfoWindow | undefined;
+      if (infoWindow) {
+        infoWindow.open(map, selectedMarker);
+      }
     }
   }, [selectedProject, map, markers, projects]);
 
