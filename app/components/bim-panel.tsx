@@ -1099,79 +1099,59 @@ export function BIMPanel({
 
       case "filter-objects":
         return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
               <Filter className="h-5 w-5" />
               Filter Objects
             </h3>
 
-            {/* Category chips */}
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'walls', label: 'Walls' },
-                { key: 'doors', label: 'Doors' },
-                { key: 'windows', label: 'Windows' },
-                { key: 'floors', label: 'Floors' },
-                { key: 'roofs', label: 'Roofs' },
-                { key: 'structural', label: 'Structural' },
-              ].map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => setFilterCategory(c.key === 'all' ? '' : c.key)}
-                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                    (filterCategory || 'all') === c.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
+            {/* Category dropdown */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Category / Type</label>
+              <select
+                value={filterCategory || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFilterCategory(val || '');
+                  setFilterType('');
+                }}
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
+              >
+                <option value="">Select category…</option>
+                <option value="walls">Walls</option>
+                <option value="doors">Doors</option>
+                <option value="windows">Windows</option>
+                <option value="floors">Floors</option>
+                <option value="roofs">Roofs</option>
+                <option value="structural">Structural</option>
+              </select>
             </div>
 
-            {/* Dynamic dropdown + name */}
-            <div className="grid grid-cols-1 gap-3">
+            {/* Type dropdown (only shown when category is selected) */}
+            {filterCategory && (
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{filterCategory ? 'Type' : 'Category / Type'}</label>
+                <label className="block text-xs text-gray-400 mb-1">Type</label>
                 <select
-                  value={filterCategory ? filterType : ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!filterCategory) {
-                      setFilterCategory(val as any);
-                      setFilterType('');
-                    } else {
-                      setFilterType(val);
-                    }
-                  }}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-2 text-sm"
+                  value={filterType || ''}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
                 >
-                  {!filterCategory ? (
-                    <>
-                      <option value="" disabled>Select category…</option>
-                      <option value="walls">Walls</option>
-                      <option value="doors">Doors</option>
-                      <option value="windows">Windows</option>
-                      <option value="floors">Floors</option>
-                      <option value="roofs">Roofs</option>
-                      <option value="structural">Structural</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="">All {filterCategory} types</option>
-                      {availableTypes.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </>
-                  )}
+                  <option value="">All {filterCategory} types</option>
+                  {availableTypes.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
+            )}
+
+            {/* Search input */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Search</label>
               <input
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
-                placeholder="e.g. Generic, Curtain, Slab..."
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-2 text-sm"
+                placeholder="Search by name..."
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm"
               />
             </div>
 
