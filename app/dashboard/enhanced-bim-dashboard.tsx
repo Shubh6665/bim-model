@@ -61,6 +61,8 @@ function BIMDashboard() {
   const [showProjectPanel, setShowProjectPanel] = useState(true); // Show project panel initially
   const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
   const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
+  // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
+  const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
 
   // Use sensor context
   const {
@@ -214,13 +216,24 @@ function BIMDashboard() {
     setIotExt(iotExtension);
   };
 
-  // DataViz sensor handlers
-  const handleSensorClick = (sensorId: string) => {
-    console.log("Sensor clicked:", sensorId);
-    // Find and select the sensor
+  // Viewer-originated sensor click: select and set filter for IoT panel
+  const handleViewerSensorClick = (sensorId: string) => {
+    console.log("[Viewer] Sensor clicked:", sensorId);
+    // Set filter immediately to ensure IoTPanel reacts even if sensors array hasn't refreshed yet
+    setViewerSelectedSensorId(sensorId);
     const sensor = sensors.find(s => s.id === sensorId);
     if (sensor) {
       selectSensor(sensor);
+    }
+  };
+
+  // Panel-originated sensor click: select only (no filtering)
+  const handlePanelSensorClick = (sensorId: string) => {
+    console.log("[Panel] Sensor clicked:", sensorId);
+    const sensor = sensors.find(s => s.id === sensorId);
+    if (sensor) {
+      selectSensor(sensor);
+      // Do NOT set viewerSelectedSensorId here, to avoid triggering filtering from panel clicks
     }
   };
 
@@ -420,7 +433,8 @@ function BIMDashboard() {
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
                       onExitInsertMode={handleExitInsertMode}
-                      onSensorClick={handleSensorClick}
+                        onSensorClick={handleViewerSensorClick}
+                        onEmptyClick={() => setViewerSelectedSensorId(null)}
                       activePanel={activePanel}
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
@@ -447,9 +461,10 @@ function BIMDashboard() {
               <IoTPanel 
                 onInsertSensor={handleInsertSensor} 
                 insertMode={insertMode}
-                onSensorClick={handleSensorClick}
+                onSensorClick={handlePanelSensorClick}
                 wireframeMode={wireframeMode}
                 onWireframeModeChange={handleWireframeModeChange}
+                selectedSensorIdFromViewer={viewerSelectedSensorId}
               />
             ) : activePanel === "database" || activePanel === "ai" ? (
               // Placeholder for other panels like Database or AI

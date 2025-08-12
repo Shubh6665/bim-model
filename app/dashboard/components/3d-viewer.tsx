@@ -23,6 +23,7 @@ interface ThreeDViewerProps {
   insertMode?: string | null;
   onExitInsertMode?: () => void;
   onSensorClick?: (sensorId: string) => void;
+  onEmptyClick?: () => void;
   activePanel?: 'bim' | 'iot' | 'database' | 'ai' | null;
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
@@ -35,6 +36,7 @@ export function ThreeDViewer({
   insertMode,
   onExitInsertMode,
   onSensorClick,
+  onEmptyClick,
   activePanel,
   wireframeMode,
   onWireframeModeChange,
@@ -123,6 +125,7 @@ export function ThreeDViewer({
           insertMode={insertMode}
           onExitInsertMode={onExitInsertMode}
           onSensorClick={onSensorClick}
+          onEmptyClick={onEmptyClick}
           activePanel={activePanel}
           wireframeMode={wireframeMode}
           onWireframeModeChange={onWireframeModeChange}

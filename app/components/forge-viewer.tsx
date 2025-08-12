@@ -11,6 +11,7 @@ interface ForgeViewerProps {
     onSensorPlaced?: (sensor: any) => void;
     onExitInsertMode?: () => void;
     onSensorClick?: (sensorId: string) => void;
+    onEmptyClick?: () => void;
     activePanel?: 'bim' | 'iot' | 'database' | 'ai' | null;
     wireframeMode?: boolean;
     onWireframeModeChange?: (wireframe: boolean) => void;
@@ -26,6 +27,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     onSensorPlaced,
     onExitInsertMode,
     onSensorClick,
+    onEmptyClick,
     activePanel,
     wireframeMode,
     onWireframeModeChange,
@@ -271,6 +273,57 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             }
         };
     }, [viewer, insertMode, dataVizService, isDataVizReady]);
+
+    // Additional: detect clicks near sensor sprites to trigger selection (non-invasive)
+    useEffect(() => {
+        if (!viewer || insertMode || activePanel !== 'iot') return;
+
+        const container = viewerContainer.current;
+        if (!container) return;
+
+        const handleSensorPick = (event: MouseEvent) => {
+            if (!viewer) return;
+            // Compute click relative to canvas
+            const rect = container.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            // Project each displayed sensor to screen and find nearest
+            const THREE = (window as any).THREE;
+            if (!THREE || !viewer.worldToClient) return;
+
+            const displayedSensors = getFilteredSensors();
+            let nearestSensorId: string | null = null;
+            let nearestDistSq = Infinity;
+
+            for (const sensor of displayedSensors) {
+                const pos = sensor.modelPosition || sensor.position;
+                if (!pos) continue;
+                const world = new THREE.Vector3(pos.x, pos.y, pos.z);
+                const screen = viewer.worldToClient(world);
+                const dx = screen.x - clickX;
+                const dy = screen.y - clickY;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestSensorId = sensor.id;
+                }
+            }
+
+            // If within threshold, treat as sensor click
+            const thresholdPx = 20; // radius in pixels
+            if (nearestSensorId && nearestDistSq <= thresholdPx * thresholdPx) {
+                if (onSensorClick) onSensorClick(nearestSensorId);
+            } else {
+                if (onEmptyClick) onEmptyClick();
+            }
+        };
+
+        container.addEventListener('click', handleSensorPick);
+        return () => {
+            container.removeEventListener('click', handleSensorPick);
+        };
+    }, [viewer, insertMode, activePanel, getFilteredSensors, onSensorClick, onEmptyClick]);
 
     // Update sensors when they change or when activePanel changes - with debouncing to prevent excessive calls
     useEffect(() => {

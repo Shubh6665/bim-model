@@ -18,9 +18,11 @@ interface IoTPanelProps {
   onSensorClick?: (sensorId: string) => void;
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
+  // When a sensor is selected in the 3D viewer, only that sensor should be shown
+  selectedSensorIdFromViewer?: string | null;
 }
 
-export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeMode, onWireframeModeChange }: IoTPanelProps) {
+export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeMode, onWireframeModeChange, selectedSensorIdFromViewer }: IoTPanelProps) {
   const [mode, setMode] = useState<"all" | "insert">("all");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showMoreInfo, setShowMoreInfo] = useState<string | null>(null);
@@ -116,7 +118,11 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
   };
 
   // Get filtered sensors for display
-  const displaySensors = getFilteredSensors();
+  let displaySensors = getFilteredSensors();
+  if (selectedSensorIdFromViewer) {
+    const clicked = sensors.find(s => s.id === selectedSensorIdFromViewer);
+    displaySensors = clicked ? [clicked] : [];
+  }
 
   return (
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
