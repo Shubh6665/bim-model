@@ -708,6 +708,37 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         );
     }
 
+    // Close overlay when clicking anywhere outside the viewer container
+    useEffect(() => {
+        if (!viewerOverlay) return;
+        const handleGlobalPointerDown = (event: PointerEvent) => {
+            const container = viewerContainer.current;
+            if (!container) return;
+            const target = event.target as Node | null;
+            if (target && !container.contains(target)) {
+                hideViewerOverlay();
+            }
+        };
+        document.addEventListener('pointerdown', handleGlobalPointerDown, true);
+        return () => {
+            document.removeEventListener('pointerdown', handleGlobalPointerDown, true);
+        };
+    }, [viewerOverlay, hideViewerOverlay]);
+
+    // Close overlay when switching away from IoT panel
+    useEffect(() => {
+        if (activePanel !== 'iot' && viewerOverlay) {
+            hideViewerOverlay();
+        }
+    }, [activePanel, viewerOverlay, hideViewerOverlay]);
+
+    // Ensure overlay is cleared on unmount
+    useEffect(() => {
+        return () => {
+            hideViewerOverlay();
+        };
+    }, [hideViewerOverlay]);
+
     return (
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
             <div
