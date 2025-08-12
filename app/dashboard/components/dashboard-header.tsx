@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, Settings } from "lucide-react";
+import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder } from "lucide-react";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -10,9 +10,10 @@ interface DashboardHeaderProps {
   onCreateProject: () => void; // Added create project handler
   selectedProject?: any; // Added selected project prop
   onShowProjectInfo?: () => void; // Added project info handler
+  onShowMyProjects?: () => void; // Show projects dashboard
 }
 
-export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo }: DashboardHeaderProps) {
+export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo, onShowMyProjects }: DashboardHeaderProps) {
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -92,7 +93,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors" onClick={() => { onShowMyProjects && onShowMyProjects(); setShowProfileMenu(false); }}>
                     <Folder className="w-4 h-4" />
                     <span>My Projects</span>
                   </button>

@@ -320,6 +320,17 @@ function BIMDashboard() {
     // Trigger any additional updates needed (e.g., refresh sensor context if needed)
   };
 
+  // Handler: show the default projects dashboard (map + right panel with tabs)
+  const handleShowMyProjects = () => {
+    setActivePanel(null);
+    setSelectedProject(null);
+    setSelectedFile(null);
+    setViewMode("map");
+    setRightSidebarView('details');
+    setShowProjectPanel(true);
+    setShowOnlySelectedOnMap(false);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
@@ -331,6 +342,7 @@ function BIMDashboard() {
         onCreateProject={handleRequestCreateProject}
         selectedProject={selectedProject}
         onShowProjectInfo={handleShowProjectInfo}
+        onShowMyProjects={handleShowMyProjects}
       />
 
       {/* Main Content */}
