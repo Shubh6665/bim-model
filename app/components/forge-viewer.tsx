@@ -49,6 +49,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
+    // Draggable overlay state
+    const overlayRef = useRef<HTMLDivElement | null>(null);
+    const [overlayPos, setOverlayPos] = useState<{ x: number; y: number } | null>(null);
+    const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
+    const isDraggingRef = useRef(false);
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -788,11 +793,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         if (!viewerOverlay) return;
         const handleGlobalPointerDown = (event: PointerEvent) => {
             const container = viewerContainer.current;
+            const overlayEl = overlayRef.current;
             if (!container) return;
             const target = event.target as Node | null;
-            if (target && !container.contains(target)) {
-                hideViewerOverlay();
+            // If clicking inside viewer container OR inside overlay, do not hide
+            if (target && (container.contains(target) || (overlayEl && overlayEl.contains(target)))) {
+                return;
             }
+            // Otherwise, clicked outside both → hide overlay
+            hideViewerOverlay();
         };
         document.addEventListener('pointerdown', handleGlobalPointerDown, true);
         return () => {
@@ -814,6 +823,54 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         };
     }, [hideViewerOverlay]);
 
+    // Reset overlay position when overlay closes or changes
+    useEffect(() => {
+        if (!viewerOverlay) {
+            setOverlayPos(null);
+            isDraggingRef.current = false;
+            dragOffsetRef.current = null;
+        }
+    }, [viewerOverlay]);
+
+    const onOverlayHeaderPointerDown = (e: React.PointerEvent) => {
+        if (!viewerContainer.current || !overlayRef.current) return;
+        // Switch to positioned mode using current rect
+        const containerRect = viewerContainer.current.getBoundingClientRect();
+        const overlayRect = overlayRef.current.getBoundingClientRect();
+        const startX = overlayRect.left - containerRect.left;
+        const startY = overlayRect.top - containerRect.top;
+        setOverlayPos({ x: startX, y: startY });
+        dragOffsetRef.current = { dx: e.clientX - startX, dy: e.clientY - startY };
+        isDraggingRef.current = true;
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onOverlayHeaderPointerMove = (e: React.PointerEvent) => {
+        if (!isDraggingRef.current || !viewerContainer.current || !overlayRef.current || !dragOffsetRef.current) return;
+        const containerRect = viewerContainer.current.getBoundingClientRect();
+        const overlayRect = overlayRef.current.getBoundingClientRect();
+        let newX = e.clientX - dragOffsetRef.current.dx;
+        let newY = e.clientY - dragOffsetRef.current.dy;
+        // Clamp within container bounds
+        const maxX = containerRect.width - overlayRect.width;
+        const maxY = containerRect.height - overlayRect.height;
+        newX = Math.max(0, Math.min(newX, maxX));
+        newY = Math.max(0, Math.min(newY, maxY));
+        setOverlayPos({ x: newX, y: newY });
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const onOverlayHeaderPointerUp = (e: React.PointerEvent) => {
+        isDraggingRef.current = false;
+        dragOffsetRef.current = null;
+        (e.target as Element).releasePointerCapture?.(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
     return (
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
             <div
@@ -821,22 +878,34 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 style={{ width: "100%", height: "100vh", background: "#222" }}
             />
             {viewerOverlay && (
-                <div style={{
-                    position: "absolute",
-                    bottom: 140,
-                    right: 50,
-                    minWidth: 260,
-                    maxWidth: 360,
-                    background: "rgba(17,24,39,0.95)",
-                    border: "1px solid #374151",
-                    borderRadius: 8,
-                    color: "#e5e7eb",
-                    boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
-                    zIndex: 1000,
-                    padding: 12,
-                    backdropFilter: "blur(6px)",
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div
+                    ref={overlayRef}
+                    style={{
+                        position: "absolute",
+                        ...(overlayPos
+                            ? { left: overlayPos.x, top: overlayPos.y }
+                            : { bottom: 140, right: 50 }),
+                        minWidth: 260,
+                        maxWidth: 360,
+                        background: "rgba(17,24,39,0.95)",
+                        border: "1px solid #374151",
+                        borderRadius: 8,
+                        color: "#e5e7eb",
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                        zIndex: 1000,
+                        padding: 12,
+                        backdropFilter: "blur(6px)",
+                        touchAction: 'none',
+                        userSelect: 'none',
+                        cursor: overlayPos ? 'default' : 'default',
+                    }}
+                >
+                    <div
+                        onPointerDown={onOverlayHeaderPointerDown}
+                        onPointerMove={onOverlayHeaderPointerMove}
+                        onPointerUp={onOverlayHeaderPointerUp}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab' }}
+                    >
                         <div style={{ fontWeight: 700, fontSize: 14 }}>
                             {viewerOverlay.type === 'info' ? 'Sensor Information' : viewerOverlay.type === 'graphs' ? 'Sensor Graphs' : 'Sensor Statistics'}
                         </div>
