@@ -52,8 +52,8 @@ function BIMDashboard() {
   const [viewer, setViewer] = useState<any>(null);
   const [iotExt, setIotExt] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<
-    "bim" | "iot" | "database" | "ai" | null
-  >(null); // Initially no panel is active
+    "bim" | "iot" | "database" | "ai" | "fm" | null
+  >(null); // Added 'fm'
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
   const [wireframeMode, setWireframeMode] = useState<boolean>(true); // Default to wireframe for IoT panel
@@ -466,11 +466,11 @@ function BIMDashboard() {
                 onWireframeModeChange={handleWireframeModeChange}
                 selectedSensorIdFromViewer={viewerSelectedSensorId}
               />
-            ) : activePanel === "database" || activePanel === "ai" ? (
+    ) : activePanel === "database" || activePanel === "ai" || activePanel === "fm" ? (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
                 <p className="text-gray-400">
-                  Panel for {activePanel.toUpperCase()}
+      Panel for {activePanel.toUpperCase()}
                 </p>
               </div>
             ) : (

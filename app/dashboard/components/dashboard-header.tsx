@@ -5,12 +5,12 @@ import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder } fro
 interface DashboardHeaderProps {
   onSignOut: () => void;
   user?: any;
-  activePanel: 'bim' | 'iot' | 'database' | 'ai' | null; // Added active panel state
-  onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai') => void; // Added panel change handler
-  onCreateProject: () => void; // Added create project handler
-  selectedProject?: any; // Added selected project prop
-  onShowProjectInfo?: () => void; // Added project info handler
-  onShowMyProjects?: () => void; // Show projects dashboard
+  activePanel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | null; // Added FM
+  onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => void; // Added FM
+  onCreateProject: () => void;
+  selectedProject?: any;
+  onShowProjectInfo?: () => void;
+  onShowMyProjects?: () => void;
 }
 
 export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo, onShowMyProjects }: DashboardHeaderProps) {
@@ -18,7 +18,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Helper function for button styles
-  const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai') => {
+  const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
     return `px-2.5 py-1 text-sm rounded transition-colors ${
       activePanel === panel
         ? "text-white bg-gray-700/50" // Style for active button
@@ -42,6 +42,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
             <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
             <button className={getButtonClass('database')} onClick={() => onPanelChange('database')}>Database</button>
             <button className={getButtonClass('ai')} onClick={() => onPanelChange('ai')}>AI</button>
+            <button className={getButtonClass('fm')} onClick={() => onPanelChange('fm')}>FM</button>
           </nav>
         </div>
 
