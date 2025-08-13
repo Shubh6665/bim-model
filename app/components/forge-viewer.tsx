@@ -54,6 +54,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [overlayPos, setOverlayPos] = useState<{ x: number; y: number } | null>(null);
     const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
     const isDraggingRef = useRef(false);
+    const wasDraggedRef = useRef(false);
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -842,6 +843,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         setOverlayPos({ x: startX, y: startY });
         dragOffsetRef.current = { dx: e.clientX - startX, dy: e.clientY - startY };
         isDraggingRef.current = true;
+        wasDraggedRef.current = true;
         (e.target as Element).setPointerCapture?.(e.pointerId);
         e.preventDefault();
         e.stopPropagation();
@@ -870,6 +872,37 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         e.preventDefault();
         e.stopPropagation();
     };
+
+    // Helper: position overlay at center-right of container
+    const positionOverlayCenterRight = () => {
+        if (!viewerContainer.current || !overlayRef.current) return;
+        const containerRect = viewerContainer.current.getBoundingClientRect();
+        const overlayRect = overlayRef.current.getBoundingClientRect();
+        const marginRight = 50; // px from right
+        const x = Math.max(0, containerRect.width - overlayRect.width - marginRight);
+        const y = Math.max(0, Math.round((containerRect.height - overlayRect.height) / 2));
+        setOverlayPos({ x, y });
+    };
+
+    // When overlay opens initially, place it center-right (responsive)
+    useEffect(() => {
+        if (!viewerOverlay) return;
+        wasDraggedRef.current = false;
+        // Wait for overlay DOM to mount then measure
+        const id = requestAnimationFrame(() => positionOverlayCenterRight());
+        return () => cancelAnimationFrame(id);
+    }, [viewerOverlay]);
+
+    // Recompute on resize if user hasn't dragged it
+    useEffect(() => {
+        const onResize = () => {
+            if (viewerOverlay && !wasDraggedRef.current) {
+                positionOverlayCenterRight();
+            }
+        };
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, [viewerOverlay]);
 
     return (
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
