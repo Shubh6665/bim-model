@@ -841,24 +841,36 @@ export function BIMPanel({
         leafIds.forEach(nodeId => vm.setNodeOff(nodeId, false));
       }
       
-      // Prevent any restoration
+      // Prevent any restoration (with cancelable guard)
       const protectionTime = 3000;
       const startTime = Date.now();
-      
-      // Override showAll
+
       const origShowAll = viewer.showAll;
-      viewer.showAll = function() {
-        if (Date.now() - startTime < protectionTime) {
+      const origSetVisibility = fragList.setVisibility;
+
+      // Install cancelable guard so other flows (e.g., Show All) can immediately disable it
+      (viewer as any).__isolationProtectionRestore?.();
+      (viewer as any).__isolationProtectionActive = true;
+      (viewer as any).__isolationProtectionRestore = () => {
+        try { viewer.showAll = origShowAll; } catch {}
+        try { fragList.setVisibility = origSetVisibility; } catch {}
+        (viewer as any).__isolationProtectionActive = false;
+        (viewer as any).__isolationProtectionRestore = undefined;
+        console.log('[Filter] Fragment isolation protection canceled');
+      };
+
+      // Override showAll during protection window
+      viewer.showAll = function(this: any, ...args: any[]) {
+        if ((viewer as any).__isolationProtectionActive && (Date.now() - startTime < protectionTime)) {
           console.log('[Filter] BLOCKED showAll during isolation protection');
           return;
         }
-        return origShowAll.apply(this, arguments);
-      };
-      
+        return (origShowAll as any).apply(viewer, args);
+      } as any;
+
       // Override fragment visibility restoration
-      const origSetVisibility = fragList.setVisibility;
-      fragList.setVisibility = function(fragId: number, visible: boolean) {
-        if (Date.now() - startTime < protectionTime) {
+      fragList.setVisibility = function(this: any, fragId: number, visible: boolean) {
+        if ((viewer as any).__isolationProtectionActive && (Date.now() - startTime < protectionTime)) {
           // During protection, only allow visibility changes that match our isolation
           const shouldBeVisible = selectedFragments.has(fragId);
           if (visible && !shouldBeVisible) {
@@ -870,14 +882,15 @@ export function BIMPanel({
             return;
           }
         }
-        return origSetVisibility.call(this, fragId, visible);
-      };
-      
-      // Restore original methods after protection period
+        return (origSetVisibility as any).call(fragList, fragId, visible);
+      } as any;
+
+      // Auto-restore after protection period
       setTimeout(() => {
-        viewer.showAll = origShowAll;
-        fragList.setVisibility = origSetVisibility;
-        console.log('[Filter] Fragment isolation protection ended');
+        if ((viewer as any).__isolationProtectionActive) {
+          try { (viewer as any).__isolationProtectionRestore?.(); } catch {}
+          console.log('[Filter] Fragment isolation protection ended');
+        }
       }, protectionTime);
       
       console.log(`[Filter] Direct fragment isolation complete - showing ${selectedFragments.size} fragments`);
@@ -909,13 +922,66 @@ export function BIMPanel({
     
     if (viewer) {
       try {
-        // Restore full model without refitting or reloading
-        if (viewer.isolate) viewer.isolate([]); // clear any isolate state
-        viewer.clearSelection();
-        viewer.showAll(); // ensure everything visible
-        // Minimal invalidate to avoid perceived reload
-        if (viewer.impl && viewer.impl.invalidate) viewer.impl.invalidate(false, false, true);
-        console.log('Cleared all filters. Restored full model visibility.');
+        // If isolation protection is active from filtering, cancel it immediately
+        try { (viewer as any).__isolationProtectionRestore?.(); } catch {}
+        (viewer as any).__isolationProtectionActive = false;
+
+        // 0) Hard reset viewer state (no reload). This clears selection, isolates, cut planes, explode, etc.
+        try { (viewer as any).reset && (viewer as any).reset(); } catch {}
+
+        // 1) Clear any isolate state and selection (defensive after reset)
+        if (viewer.isolate) viewer.isolate([]);
+        try { viewer.clearSelection(); } catch {}
+        try { (viewer as any).select([]); } catch {}
+        try { (viewer as any).impl?.selector?.setSelection([], (viewer as any).model); } catch {}
+        try { (viewer as any).impl?.selector?.setAggregateSelection?.([]); } catch {}
+        // Reset visual states that can bias the next frame
+        try { (viewer as any).setCutPlanes && (viewer as any).setCutPlanes([]); } catch {}
+        try { (viewer as any).explode && (viewer as any).explode(0); } catch {}
+        try { (viewer as any).setGhosting && (viewer as any).setGhosting(false); } catch {}
+
+        // 2) Force all nodes visible using visibilityManager (more reliable than showAll after hide/isolate chains)
+        const model = viewer.model;
+        const tree = model ? model.getInstanceTree() : null;
+        const vm = (viewer as any).visibilityManager;
+        if (tree && vm) {
+          const rootId = tree.getRootId();
+          const makeVisible = (nodeId: number) => {
+            try { vm.setNodeOff(nodeId, false); } catch {}
+            tree.enumNodeChildren(nodeId, (childId: number) => {
+              makeVisible(childId);
+              return true;
+            });
+          };
+          makeVisible(rootId);
+          // Clear any isolation lists maintained internally
+          try { vm.aggregateIsolatedNodes && vm.aggregateIsolatedNodes([]); } catch {}
+          // Clear any theming colors that might emphasize previous selection
+          try { viewer.clearThemingColors(model); } catch {}
+        } else {
+          // Fallback
+          try { viewer.showAll(); } catch {}
+        }
+
+        // 3) Invalidate and fit to the model's global bounding box immediately (visibility-agnostic)
+        if (viewer.impl && viewer.impl.invalidate) viewer.impl.invalidate(true, true, true);
+        try {
+          let bbox: any = null;
+          if (model && (model as any).getBoundingBox) {
+            bbox = (model as any).getBoundingBox();
+          } else if (model && (model as any).getData && (model as any).getData().bbox) {
+            bbox = (model as any).getData().bbox;
+          }
+          if (bbox) {
+            // Use navigation.fitBounds with immediate=true so it doesn't animate through intermediate states
+            (viewer as any).navigation.fitBounds(true, bbox, false);
+          } else if (typeof (viewer as any).fitToView === 'function') {
+            // Fallback: fitToView on whole scene
+            (viewer as any).fitToView(undefined, undefined, true);
+          }
+        } catch {}
+
+        console.log('Cleared all filters. Restored full model visibility and camera fit.');
       } catch (e) {
         console.warn('Error clearing filters, falling back to showAll:', e);
         try { viewer.showAll(); } catch {}
