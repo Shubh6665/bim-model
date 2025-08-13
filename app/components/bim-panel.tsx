@@ -71,6 +71,7 @@ export function BIMPanel({
   const [saveMessage, setSaveMessage] = useState('');
   const [filterName, setFilterName] = useState('');
   const [filterCategory, setFilterCategory] = useState(''); // type filtering removed
+  const [filterCategory2, setFilterCategory2] = useState(''); // optional second category (AND)
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [groupedByType, setGroupedByType] = useState<Record<string, { label: string; dbId: number }[]>>({});
@@ -131,6 +132,7 @@ export function BIMPanel({
     setGroupedByType({});
     setExpandedGroups(new Set());
     setFilterCategory('');
+    setFilterCategory2('');
   // type filter removed
     setFilterName('');
     setIsHierarchyLoaded(false);
@@ -694,10 +696,11 @@ export function BIMPanel({
 
     const nameQ = filterName;
     const catQ = filterCategory; // expects one of the predefined values
+    const catQ2 = filterCategory2; // optional second category (AND)
   // type filtering removed
 
     // If nothing entered, show all
-  if (!nameQ && !catQ) {
+  if (!nameQ && !catQ && !catQ2) {
       // Clear isolate state and show all
       try {
         if (viewer.isolate) viewer.isolate([]);
@@ -712,10 +715,11 @@ export function BIMPanel({
 
     const matched: number[] = [];
     const propsCache = propsCacheRef.current;
-  for (const dbId of dbIdsCacheRef.current) {
+    for (const dbId of dbIdsCacheRef.current) {
       const props = propsCache[dbId] || {};
       const catOk = catQ ? matchCategoryDynamic(props, catQ) : true;
-      if (!catOk) continue;
+      const cat2Ok = catQ2 ? matchCategoryDynamic(props, catQ2) : true;
+      if (!catOk || !cat2Ok) continue;
       const nameOk = nameQ ? matchText(props, fieldsForName, nameQ) : true;
       if (!nameOk) continue;
   // type filter removed
@@ -726,6 +730,7 @@ export function BIMPanel({
       console.warn('[Filter] Property-index match returned 0. Trying search fallback...');
       let searchKeywords: string[] = [];
       if (catQ) searchKeywords = [catQ];
+      if (catQ2) searchKeywords.push(catQ2);
       // Include text queries as well
       if (nameQ) searchKeywords.push(nameQ);
   // type filter removed
@@ -918,6 +923,7 @@ export function BIMPanel({
   const handleClearFilters = () => {
     setFilterName('');
     setFilterCategory('');
+    setFilterCategory2('');
   // type filter removed
     
     if (viewer) {
@@ -1378,6 +1384,24 @@ export function BIMPanel({
                 placeholder="Search by name..."
                 className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm"
               />
+            </div>
+
+            {/* AND Category dropdown */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center rounded bg-gray-700 text-gray-200 text-[10px] px-1.5 py-0.5">AND</span>
+                <label className="block text-xs text-gray-400">Additional Category</label>
+              </div>
+              <select
+                value={filterCategory2 || ''}
+                onChange={(e) => setFilterCategory2(e.target.value || '')}
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
+              >
+                <option value="">(Optional) Select another category…</option>
+                {availableCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
 
             {/* Actions */}
