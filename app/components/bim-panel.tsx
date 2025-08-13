@@ -70,9 +70,7 @@ export function BIMPanel({
   const [viewName, setViewName] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [filterName, setFilterName] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [filterCategory, setFilterCategory] = useState(''); // type filtering removed
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [groupedByType, setGroupedByType] = useState<Record<string, { label: string; dbId: number }[]>>({});
@@ -129,12 +127,11 @@ export function BIMPanel({
     if (!viewer?.model) return;
     
     setPropertyIndexReady(false);
-    setAvailableCategories([]);
-    setAvailableTypes([]);
+  setAvailableCategories([]);
     setGroupedByType({});
     setExpandedGroups(new Set());
     setFilterCategory('');
-    setFilterType('');
+  // type filter removed
     setFilterName('');
     setIsHierarchyLoaded(false);
     
@@ -173,31 +170,7 @@ export function BIMPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer?.model]);
 
-  useEffect(() => {
-    const computeTypes = async () => {
-      if (!viewer?.model) return;
-      const ok = await ensurePropertyIndex();
-      if (!ok) return;
-      const propsCache = propsCacheRef.current;
-      const types = new Set<string>();
-      const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Family', 'Type'];
-      const cat = filterCategory || '';
-      for (const dbId of dbIdsCacheRef.current) {
-        const props = propsCache[dbId] || {};
-        // If a category is selected, only include matching
-        const include = cat ? matchCategoryDynamic(props, cat) : true;
-        if (!include) continue;
-        for (const key of fieldsForType) {
-          const v = props[key];
-          if (v && String(v).trim()) types.add(String(v).trim());
-        }
-      }
-      const list = Array.from(types).sort((a, b) => a.localeCompare(b));
-      setAvailableTypes(list);
-    };
-    computeTypes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterCategory, propertyIndexReady]);
+    // removed types computation effect
 
   // Build hierarchical list per selected category (Type -> instances)
   useEffect(() => {
@@ -721,10 +694,10 @@ export function BIMPanel({
 
     const nameQ = filterName;
     const catQ = filterCategory; // expects one of the predefined values
-    const typeQ = filterType;
+  // type filtering removed
 
     // If nothing entered, show all
-    if (!nameQ && !catQ && !typeQ) {
+  if (!nameQ && !catQ) {
       // Clear isolate state and show all
       try {
         if (viewer.isolate) viewer.isolate([]);
@@ -735,7 +708,7 @@ export function BIMPanel({
     }
 
     const fieldsForName = ['Name', '__nodeName', 'Family and Type', 'Type Name'];
-    const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Type'];
+  // const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Type']; // removed
 
     const matched: number[] = [];
     const propsCache = propsCacheRef.current;
@@ -745,8 +718,7 @@ export function BIMPanel({
       if (!catOk) continue;
       const nameOk = nameQ ? matchText(props, fieldsForName, nameQ) : true;
       if (!nameOk) continue;
-      const typeOk = typeQ ? matchText(props, fieldsForType, typeQ) : true;
-      if (!typeOk) continue;
+  // type filter removed
       matched.push(dbId);
     }
 
@@ -756,7 +728,7 @@ export function BIMPanel({
       if (catQ) searchKeywords = [catQ];
       // Include text queries as well
       if (nameQ) searchKeywords.push(nameQ);
-      if (typeQ) searchKeywords.push(typeQ);
+  // type filter removed
       // Search across common attributes and globally
       let found: number[] = [];
       if (searchKeywords.length > 0) {
@@ -933,7 +905,7 @@ export function BIMPanel({
   const handleClearFilters = () => {
     setFilterName('');
     setFilterCategory('');
-    setFilterType('');
+  // type filter removed
     
     if (viewer) {
       viewer.showAll();
@@ -1307,7 +1279,7 @@ export function BIMPanel({
                 onChange={(e) => {
                   const val = e.target.value;
                   setFilterCategory(val || '');
-                  setFilterType('');
+                  // removed type filter reset
                 }}
                 className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
               >
@@ -1320,22 +1292,7 @@ export function BIMPanel({
               </select>
             </div>
 
-            {/* Type dropdown (only shown when category is selected) */}
-            {filterCategory && (
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Type</label>
-                <select
-                  value={filterType || ''}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
-                >
-                  <option value="">All {filterCategory} types</option>
-                  {availableTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Type dropdown removed */}
 
             {/* Search input */}
             <div>
