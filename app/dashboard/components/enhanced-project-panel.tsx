@@ -248,7 +248,7 @@ export function EnhancedProjectPanel({
     <div className="h-full bg-gray-800 text-white flex flex-col w-80 min-w-80 max-w-80">
       <div className="p-4 border-b border-gray-700">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white">My Projects</h2>
+          <h2 className="text-lg font-semibold text-white">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
         </div>
 
         {/* Tabs - hidden when a project is selected */}
