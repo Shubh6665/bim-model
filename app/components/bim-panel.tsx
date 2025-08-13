@@ -908,9 +908,18 @@ export function BIMPanel({
   // type filter removed
     
     if (viewer) {
-      viewer.showAll();
-      viewer.clearSelection();
-      console.log('Cleared all filters and showing all model elements');
+      try {
+        // Restore full model without refitting or reloading
+        if (viewer.isolate) viewer.isolate([]); // clear any isolate state
+        viewer.clearSelection();
+        viewer.showAll(); // ensure everything visible
+        // Minimal invalidate to avoid perceived reload
+        if (viewer.impl && viewer.impl.invalidate) viewer.impl.invalidate(false, false, true);
+        console.log('Cleared all filters. Restored full model visibility.');
+      } catch (e) {
+        console.warn('Error clearing filters, falling back to showAll:', e);
+        try { viewer.showAll(); } catch {}
+      }
     }
   };
 
@@ -1315,8 +1324,8 @@ export function BIMPanel({
               </button>
               <button
                 onClick={() => {
+                  // Single clear action restores full model without extra operations
                   handleClearFilters();
-                  if (viewer) viewer.showAll();
                 }}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
               >
