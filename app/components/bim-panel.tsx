@@ -73,13 +73,15 @@ export function BIMPanel({
   const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('');
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(false);
   const [groupedByType, setGroupedByType] = useState<Record<string, { label: string; dbId: number }[]>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [modelHierarchy, setModelHierarchy] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [isHierarchyLoaded, setIsHierarchyLoaded] = useState(false);
-  // Cached property index for robust filtering across models
+  // In-memory index for the CURRENT model only (reset on model change)
   const [propertyIndexReady, setPropertyIndexReady] = useState(false);
   const dbIdsCacheRef = useRef<number[]>([]);
   const propsCacheRef = useRef<Record<number, Record<string, string>>>({});
@@ -122,25 +124,55 @@ export function BIMPanel({
     }
   }, [viewer]);
 
-  // Load model hierarchy when viewer is ready
+  // Reset all states when model changes
   useEffect(() => {
-    if (viewer && viewer.model && !isHierarchyLoaded) {
-      loadModelHierarchy();
-    }
-  }, [viewer?.model, isHierarchyLoaded]); // Only depend on model, not entire viewer object
+    if (!viewer?.model) return;
+    
+    setPropertyIndexReady(false);
+    setAvailableCategories([]);
+    setAvailableTypes([]);
+    setGroupedByType({});
+    setExpandedGroups(new Set());
+    setFilterCategory('');
+    setFilterType('');
+    setFilterName('');
+    setIsHierarchyLoaded(false);
+    
+    // Load hierarchy only once when model changes
+    loadModelHierarchy();
+  }, [viewer?.model]);
 
-  // Proactively build property index when user opens Filter panel
+  // Build property index and categories when model loads or Filter panel opens
   useEffect(() => {
     const preindex = async () => {
+      console.log('[BIMPanel] Filter panel useEffect triggered:', {
+        activeCommand,
+        hasViewer: !!viewer,
+        hasModel: !!viewer?.model,
+        modelId: viewer?.model?.id || 'none'
+      });
+      // Trigger category extraction if Filter panel is active AND model is loaded
       if (activeCommand === 'filter-objects' && viewer?.model) {
-        await ensurePropertyIndex();
+        console.log('[BIMPanel] Calling rebuildIndexAndCategories...');
+        await rebuildIndexAndCategories();
       }
     };
     preindex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCommand, viewer?.model]);
 
-  // Recompute available types when category changes or index ready
+  // Also trigger category extraction when model loads if Filter panel is already open
+  useEffect(() => {
+    const extractOnModelLoad = async () => {
+      if (viewer?.model && activeCommand === 'filter-objects') {
+        console.log('[BIMPanel] Model loaded while Filter panel open, extracting categories...');
+        await rebuildIndexAndCategories();
+      }
+    };
+    extractOnModelLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer?.model]);
+
   useEffect(() => {
     const computeTypes = async () => {
       if (!viewer?.model) return;
@@ -149,11 +181,11 @@ export function BIMPanel({
       const propsCache = propsCacheRef.current;
       const types = new Set<string>();
       const fieldsForType = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Family', 'Type'];
-      const cat = filterCategory as keyof typeof categoryKeywords | '';
+      const cat = filterCategory || '';
       for (const dbId of dbIdsCacheRef.current) {
         const props = propsCache[dbId] || {};
         // If a category is selected, only include matching
-        const include = cat ? matchCategory(props, cat) : true;
+        const include = cat ? matchCategoryDynamic(props, cat) : true;
         if (!include) continue;
         for (const key of fieldsForType) {
           const v = props[key];
@@ -173,14 +205,14 @@ export function BIMPanel({
       if (!viewer?.model) return;
       const ok = await ensurePropertyIndex();
       if (!ok) return;
-      const cat = filterCategory as keyof typeof categoryKeywords | '';
+      const cat = filterCategory || '';
       if (!cat) { setGroupedByType({}); return; }
       const propsCache = propsCacheRef.current;
       const typeFields = ['Type Name', 'Family and Type', 'Object Type', 'ObjectType', 'Family', 'Type'];
       const groups: Record<string, { label: string; dbId: number }[]> = {};
       for (const dbId of dbIdsCacheRef.current) {
         const props = propsCache[dbId] || {};
-        if (!matchCategory(props, cat)) continue;
+        if (!matchCategoryDynamic(props, cat)) continue;
         // derive type
         let t = '';
         for (const k of typeFields) { const v = props[k]; if (v) { t = String(v); break; } }
@@ -519,48 +551,77 @@ export function BIMPanel({
   const ensurePropertyIndex = async () => {
     if (!viewer || !viewer.model) return false;
     if (propertyIndexReady && dbIdsCacheRef.current.length > 0) {
-      console.log('[Filter] Using cached property index');
       return true;
     }
+    return await rebuildIndexAndCategories();
+  };
 
+  // Build a fresh index for the current model and extract categories from model browser structure
+  const rebuildIndexAndCategories = async () => {
     try {
+      if (!viewer?.model) return false;
+      setCategoriesLoading(true);
+
       const model = viewer.model;
       const tree = model.getInstanceTree();
-      if (!tree) return false;
+      if (!tree) { setCategoriesLoading(false); return false; }
 
-      // Collect ALL node ids to maximize match coverage
-      const allDbIds: number[] = [];
-      const visited = new Set<number>();
+      await new Promise((resolve) => {
+        if ((tree as any).nodeAccess) return resolve(true);
+        const checkTree = () => {
+          if ((tree as any).nodeAccess) resolve(true);
+          else setTimeout(checkTree, 50);
+        };
+        checkTree();
+      });
+
+  const allDbIds: number[] = []; // leaf/geometry nodes only
       const rootId = tree.getRootId();
-      const walk = (id: number) => {
-        if (visited.has(id)) return;
-        visited.add(id);
-        allDbIds.push(id);
-        tree.enumNodeChildren(id, (childId: number) => {
-          walk(childId);
-          return true;
-        });
+      const categorySet = new Set<string>();
+      const visited = new Set<number>();
+      const blocklist = new Set(['Category', 'Family Name', 'Family Type', 'Type Name', 'Document', 'Project Information', 'Views', 'Sheets', 'Groups']);
+
+      console.log('[Filter] Extracting categories from instance tree and properties...');
+
+      const walk = (nodeId: number, depth = 0) => {
+        if (!nodeId || visited.has(nodeId)) return; // removed artificial depth cap
+        visited.add(nodeId);
+        // Determine if leaf (no children) or has geometry (fragments)
+        let hasChild = false;
+        tree.enumNodeChildren(nodeId, (c: number) => { hasChild = true; return false; });
+        let hasFrags = false;
+        tree.enumNodeFragments(nodeId, () => { hasFrags = true; return true; });
+        if (!hasChild || hasFrags) {
+          allDbIds.push(nodeId); // Only index leaf or direct-geometry nodes
+        }
+
+        if (depth > 0) {
+          const rawName = tree.getNodeName(nodeId);
+          const cleaned = (rawName || '').replace(/\s*\(\d+\)$/, '').replace(/\s*\[\d+\]$/, '').trim();
+          if (cleaned && cleaned.length > 2 && !blocklist.has(cleaned)) {
+            categorySet.add(cleaned);
+          }
+        }
+        tree.enumNodeChildren(nodeId, (childId: number) => walk(childId, depth + 1));
       };
       walk(rootId);
 
-      // Fetch bulk properties in batches
-      // Fetch ALL properties so vendor-specific names are covered
       const batchSize = 2000;
       const propsCache: Record<number, Record<string, string>> = {};
       for (let i = 0; i < allDbIds.length; i += batchSize) {
         const batch = allDbIds.slice(i, i + batchSize);
         const results = await new Promise<any[]>((resolve, reject) => {
-          // Passing null for attributes requests all properties
-          model.getBulkProperties(batch, null, (data: any[]) => resolve(data), reject);
+          model.getBulkProperties(batch, { propFilter: ['Category'] }, (data: any[]) => resolve(data), reject);
         });
         results.forEach((item) => {
           const map: Record<string, string> = {};
           (item.properties || []).forEach((p: any) => {
-            if (typeof p.displayName === 'string' && p.displayName) {
-              map[p.displayName] = String(p.displayValue ?? '');
+            if (p.displayName === 'Category' && p.displayValue) {
+              const cleaned = String(p.displayValue).trim();
+              if (cleaned && !blocklist.has(cleaned)) categorySet.add(cleaned);
             }
+            map[p.displayName] = String(p.displayValue ?? '');
           });
-          // Always include name field as well
           if (typeof item.name === 'string') map['__nodeName'] = item.name;
           propsCache[item.dbId] = map;
         });
@@ -569,43 +630,54 @@ export function BIMPanel({
       dbIdsCacheRef.current = allDbIds;
       propsCacheRef.current = propsCache;
       setPropertyIndexReady(true);
-      console.log(`[Filter] Indexed ${allDbIds.length} nodes with ALL properties.`);
+
+      const categories = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+      setAvailableCategories(categories);
+      setCategoriesLoading(false);
+
+      console.log('[Filter] Extracted categories:', categories);
       return true;
     } catch (e) {
-      console.error('[Filter] Failed to build property index:', e);
+      console.error('[Filter] Failed to build index/categories:', e);
       setPropertyIndexReady(false);
+      setAvailableCategories([]);
+      setCategoriesLoading(false);
       return false;
     }
   };
 
   const norm = (s?: string) => (s || '').toLowerCase().trim();
 
-  // Category keywords across languages/vendors
-  const categoryKeywords: Record<string, string[]> = {
-    walls: ['wall', 'walls', 'parete', 'muro', 'muri', 'ifcwall'],
-    doors: ['door', 'porta', 'porte', 'ifcdoor'],
-    windows: ['window', 'finestra', 'finestre', 'ifcwindow'],
-    floors: ['floor', 'pavimento', 'slab', 'ifcfloorslab', 'ifcslab', 'piano'],
-    roofs: ['roof', 'tetto', 'copertura', 'ifcroof'],
-    structural: ['struct', 'trave', 'pilastro', 'beam', 'column', 'ifccolumn', 'ifcbeam', 'brace']
-  };
+  // Category matching uses dynamic categories derived from model properties
+  const categoryFieldCandidates = ['Category', 'Element Category', 'IFC Class', 'IfcClass', 'System Type'];
 
-  const matchCategory = (props: Record<string, string>, cat: string) => {
-    const keys = categoryKeywords[cat] || [cat];
-    const v = [
+  const matchCategoryDynamic = (props: Record<string, string>, selectedCategory: string) => {
+    const selected = (selectedCategory || '').trim();
+    const selNorm = norm(selected);
+    if (!selNorm) return true;
+    // 1) Exact match against common category fields
+    for (const key of categoryFieldCandidates) {
+      const v = props[key];
+      if (v && norm(String(v)) === selNorm) return true;
+    }
+    // 2) Keyword heuristic (singular/plural)
+    const base = selNorm.replace(/s$/i, ''); // walls -> wall
+    const rx = new RegExp(`\\b${base}s?\\b`, 'i');
+    const haystack = [
       props['Category'],
       props['Element Category'],
-      props['IfcClass'],
       props['IFC Class'],
-      props['Type Name'],
-      props['Family and Type'],
-      props['Family'],
+      props['IfcClass'],
       props['System Type'],
+      props['Name'],
+      props['Family'],
+      props['Family and Type'],
+      props['Type Name'],
       props['Object Type'],
       props['ObjectType'],
       props['__nodeName']
-    ].map(norm).join(' | ');
-    return keys.some(k => v.includes(norm(k)));
+    ].filter(Boolean).join(' | ');
+    return rx.test(haystack);
   };
 
   const matchText = (props: Record<string, string>, keyCandidates: string[], q: string) => {
@@ -667,9 +739,9 @@ export function BIMPanel({
 
     const matched: number[] = [];
     const propsCache = propsCacheRef.current;
-    for (const dbId of dbIdsCacheRef.current) {
+  for (const dbId of dbIdsCacheRef.current) {
       const props = propsCache[dbId] || {};
-      const catOk = catQ ? matchCategory(props, catQ) : true;
+      const catOk = catQ ? matchCategoryDynamic(props, catQ) : true;
       if (!catOk) continue;
       const nameOk = nameQ ? matchText(props, fieldsForName, nameQ) : true;
       if (!nameOk) continue;
@@ -681,7 +753,7 @@ export function BIMPanel({
     if (matched.length === 0) {
       console.warn('[Filter] Property-index match returned 0. Trying search fallback...');
       let searchKeywords: string[] = [];
-      if (catQ) searchKeywords = categoryKeywords[catQ] || [catQ];
+      if (catQ) searchKeywords = [catQ];
       // Include text queries as well
       if (nameQ) searchKeywords.push(nameQ);
       if (typeQ) searchKeywords.push(typeQ);
@@ -712,28 +784,150 @@ export function BIMPanel({
       return;
     }
 
-    // Apply by isolating matched nodes for performance, with robust fallback
-    let isolated = false;
-    try {
-      if (viewer.setGhosting) viewer.setGhosting(false);
-      viewer.isolate(uniqueMatched);
-      isolated = true;
-    } catch (e) {
-      console.warn('[Filter] isolate threw, will fallback:', e);
+    // NEW SIMPLIFIED ISOLATION APPROACH
+    // 1. Expand matched ids to only leaf/geometry nodes to avoid blank scene.
+    const model = viewer.model;
+    const tree = model.getInstanceTree();
+    const geometryIds = new Set<number>();
+    if (tree) {
+      const addWithGeometry = (id: number, depth = 0) => {
+        try {
+          let hasFrags = false;
+            tree.enumNodeFragments(id, (fragId: number) => { hasFrags = true; return true; });
+          if (hasFrags) {
+            geometryIds.add(id);
+            return;
+          }
+          // If no fragments, drill down (protect against deep recursion)
+          if (depth > 30) return; // safety
+          let hasChild = false;
+          tree.enumNodeChildren(id, (cid: number) => {
+            hasChild = true;
+            addWithGeometry(cid, depth + 1);
+            return true;
+          });
+          if (!hasChild && !hasFrags) {
+            // orphan node without geometry - skip
+          }
+        } catch (err) {
+          console.warn('[Filter] Error expanding node', id, err);
+        }
+      };
+      uniqueMatched.forEach(id => addWithGeometry(id));
     }
-    if (!isolated) {
-      try {
-        viewer.hideAll?.();
-        uniqueMatched.forEach((id) => viewer.show?.(id));
-      } catch (e2) {
-        console.error('[Filter] hide/show fallback failed:', e2);
+    const leafIds = geometryIds.size ? Array.from(geometryIds) : uniqueMatched;
+    console.log(`[Filter] Will isolate ${leafIds.length} leaf/geometry nodes (from ${uniqueMatched.length} matched)`);
+
+    // 2. Direct fragment-level isolation (guaranteed to work)
+    try {
+      viewer.clearSelection?.();
+      const impl = viewer.impl;
+      const tree = viewer.model.getInstanceTree();
+      const fragList = viewer.model.getFragmentList();
+      
+      console.log(`[Filter] Starting direct fragment isolation for ${leafIds.length} nodes`);
+      
+      // Get fragments for selected nodes
+      const selectedFragments = new Set<number>();
+      leafIds.forEach(nodeId => {
+        tree.enumNodeFragments(nodeId, (fragId: number) => {
+          selectedFragments.add(fragId);
+          return true;
+        });
+      });
+      
+      // Get total fragment count
+      const totalFrags = fragList.getCount();
+      console.log(`[Filter] Found ${selectedFragments.size} fragments for selected nodes out of ${totalFrags} total`);
+      
+      // Turn OFF all fragments first
+      for (let i = 0; i < totalFrags; i++) {
+        fragList.setVisibility(i, false);
       }
+      
+      // Turn ON only selected fragments
+      selectedFragments.forEach(fragId => {
+        fragList.setVisibility(fragId, true);
+      });
+      
+      // Force immediate render update
+      impl.invalidate(true, true, true);
+      impl.sceneUpdated(true);
+      
+      // Also use visibility manager as backup
+      const vm = impl.visibilityManager;
+      if (vm) {
+        // Turn off all nodes first
+        const allNodes: number[] = [];
+        tree.enumNodeChildren(tree.getRootId(), function collect(nodeId: number) {
+          allNodes.push(nodeId);
+          tree.enumNodeChildren(nodeId, collect);
+          return true;
+        });
+        
+        allNodes.forEach(nodeId => vm.setNodeOff(nodeId, true));
+        leafIds.forEach(nodeId => vm.setNodeOff(nodeId, false));
+      }
+      
+      // Prevent any restoration
+      const protectionTime = 3000;
+      const startTime = Date.now();
+      
+      // Override showAll
+      const origShowAll = viewer.showAll;
+      viewer.showAll = function() {
+        if (Date.now() - startTime < protectionTime) {
+          console.log('[Filter] BLOCKED showAll during isolation protection');
+          return;
+        }
+        return origShowAll.apply(this, arguments);
+      };
+      
+      // Override fragment visibility restoration
+      const origSetVisibility = fragList.setVisibility;
+      fragList.setVisibility = function(fragId: number, visible: boolean) {
+        if (Date.now() - startTime < protectionTime) {
+          // During protection, only allow visibility changes that match our isolation
+          const shouldBeVisible = selectedFragments.has(fragId);
+          if (visible && !shouldBeVisible) {
+            console.log(`[Filter] BLOCKED fragment ${fragId} from becoming visible`);
+            return;
+          }
+          if (!visible && shouldBeVisible) {
+            console.log(`[Filter] BLOCKED fragment ${fragId} from being hidden`);
+            return;
+          }
+        }
+        return origSetVisibility.call(this, fragId, visible);
+      };
+      
+      // Restore original methods after protection period
+      setTimeout(() => {
+        viewer.showAll = origShowAll;
+        fragList.setVisibility = origSetVisibility;
+        console.log('[Filter] Fragment isolation protection ended');
+      }, protectionTime);
+      
+      console.log(`[Filter] Direct fragment isolation complete - showing ${selectedFragments.size} fragments`);
+      
+    } catch (e) {
+      console.error('[Filter] Direct fragment isolation failed:', e);
     }
+
+    // 4. Camera focus & selection
     try {
-      viewer.fitToView?.(uniqueMatched);
-      viewer.select?.(uniqueMatched);
-    } catch {}
-    console.log(`[Filter] Applied. Showing ${uniqueMatched.length} elements. Fallback used: ${!isolated}`);
+      viewer.fitToView?.(leafIds);
+      viewer.select?.(leafIds);
+      viewer.setGhosting?.(false);
+      if (viewer.impl) {
+        viewer.impl.invalidate(true, true, true);
+        viewer.impl.sceneUpdated(true);
+      }
+    } catch (e) {
+      console.warn('[Filter] Post-visual ops failed', e);
+    }
+
+  console.log(`[Filter] Applied simplified filter. Visible elements: ${leafIds.length}`);
   };
 
   const handleClearFilters = () => {
@@ -1117,13 +1311,12 @@ export function BIMPanel({
                 }}
                 className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
               >
-                <option value="">Select category…</option>
-                <option value="walls">Walls</option>
-                <option value="doors">Doors</option>
-                <option value="windows">Windows</option>
-                <option value="floors">Floors</option>
-                <option value="roofs">Roofs</option>
-                <option value="structural">Structural</option>
+                <option value="">
+                  {categoriesLoading && availableCategories.length === 0 ? 'Loading categories…' : 'Select category…'}
+                </option>
+                {availableCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
 

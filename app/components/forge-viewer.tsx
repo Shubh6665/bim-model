@@ -41,8 +41,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [dataVizService, setDataVizService] = useState<DataVizService | null>(null);
     const [isDataVizReady, setIsDataVizReady] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [modelLoaded, setModelLoaded] = useState(false); // tracks geometry loaded irrespective of DataViz
     const initializationRef = useRef(false);
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
+    // Guard to ensure we only invoke onViewerReady once per initialization
+    const hasFiredViewerReadyRef = useRef(false);
     
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
@@ -78,6 +81,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
         initializationRef.current = true;
+        // Reset viewerReady guard for this initialization cycle
+        hasFiredViewerReadyRef.current = false;
         console.log("[ForgeViewer] Starting initialization for URN:", urn);
 
         let viewerInstance: any = null;
@@ -117,7 +122,28 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                 viewerInstance.addEventListener(
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
                                     async () => {
-                                        console.log("[ForgeViewer] Geometry loaded, initializing DataViz service");
+                                        console.log("[ForgeViewer] Geometry loaded");
+                                        setModelLoaded(true);
+                                        // Fire onViewerReady immediately upon geometry load so other panels (e.g., BIMPanel)
+                                        // can access the instance tree without waiting for DataViz initialization.
+                                        if (!hasFiredViewerReadyRef.current && typeof onViewerReady === 'function') {
+                                            try {
+                                                onViewerReady(viewerInstance, null);
+                                                hasFiredViewerReadyRef.current = true;
+                                                console.log("[ForgeViewer] onViewerReady fired on geometry load");
+                                            } catch (e) {
+                                                console.warn("[ForgeViewer] onViewerReady threw on geometry load:", e);
+                                            }
+                                        }
+                                        const needDataVizNow = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+                                        // Skip DataViz initialization if not currently needed
+                                        if (!needDataVizNow) {
+                                            console.log("[ForgeViewer] Skipping DataViz initialization (not needed yet)");
+                                            setIsInitialized(true); // model ready for other panels
+                                            return;
+                                        }
+
+                                        console.log("[ForgeViewer] Initializing DataViz service on geometry load");
                                         // Retry mechanism for DataViz initialization
                                         const initializeDataVizWithRetry = async (maxRetries = 3, delay = 500) => {
                                             for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -151,9 +177,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                             onSensorClick(sensorId);
                                                         }
                                                     });
-                                                    // Call onViewerReady with viewer instance and null for iotExtension
-                                                    if (typeof onViewerReady === 'function') {
-                                                        onViewerReady(viewerInstance, null);
+                                                    // Optionally fire onViewerReady if it hasn't been fired yet
+                                                    if (!hasFiredViewerReadyRef.current && typeof onViewerReady === 'function') {
+                                                        try {
+                                                            onViewerReady(viewerInstance, null);
+                                                            hasFiredViewerReadyRef.current = true;
+                                                            console.log("[ForgeViewer] onViewerReady fired after DataViz ready");
+                                                        } catch (e) {
+                                                            console.warn("[ForgeViewer] onViewerReady threw after DataViz ready:", e);
+                                                        }
                                                     }
                                                     console.log("[ForgeViewer] DataViz service ready after", attempt, "attempts");
                                                     return true;
@@ -200,7 +232,47 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log("[ForgeViewer] Viewer finished.");
             }
         };
-    }, [accessToken, urn, onSensorClick, loadedUrn, onViewerReady]);
+    }, [accessToken, urn, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible]);
+
+    // Late / on-demand DataViz initialization (e.g., BIM panel toggles sensorsVisible later)
+    useEffect(() => {
+        if (!viewer) return;
+        if (isDataVizReady || dataVizService) return; // already initialized
+        if (!modelLoaded) return; // wait for geometry
+        const needDataVizNow = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
+        if (!needDataVizNow) return;
+        let cancelled = false;
+        (async () => {
+            console.log('[ForgeViewer] Performing late DataViz initialization');
+            try {
+                const svc = new DataVizService(viewer);
+                const ok = await svc.initialize();
+                if (!ok || cancelled) return;
+                setDataVizService(svc);
+                setIsDataVizReady(true);
+                // Setup sensor click handler
+                svc.setupSensorClickHandler((dbId: number) => {
+                    const sensorId = svc.getSensorByDbId(dbId);
+                    if (sensorId && onSensorClick) onSensorClick(sensorId);
+                });
+                // Fire onViewerReady if not yet fired
+                if (!hasFiredViewerReadyRef.current && typeof onViewerReady === 'function') {
+                    try {
+                        onViewerReady(viewer, null);
+                        hasFiredViewerReadyRef.current = true;
+                        console.log('[ForgeViewer] onViewerReady fired after late DataViz init');
+                    } catch (e) {
+                        console.warn('[ForgeViewer] onViewerReady threw after late DataViz init:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('[ForgeViewer] Late DataViz initialization failed:', e);
+            } finally {
+                if (!cancelled) setIsInitialized(true); // ensure initialized flag
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [viewer, modelLoaded, activePanel, sensorsVisible, isDataVizReady, dataVizService, onSensorClick, onViewerReady]);
 
     // Handle click events for sensor placement
     const handleClick = async (event: MouseEvent) => {
@@ -467,63 +539,66 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [wireframeMode, viewer, isInitialized, activePanel]);
 
-    // Apply the same wireframe effect when in BIM panel and sensorsVisible is ON
+    // Apply the same wireframe effect as IoT panel when in BIM panel and sensorsVisible is ON.
     useEffect(() => {
         if (!viewer || !isInitialized) return;
         if (activePanel !== 'bim') return;
 
         try {
             if (sensorsVisible) {
-                console.log('[ForgeViewer] BIM sensors visible - enabling wireframe (same as IoT)');
-                // Enable wireframe mode similar to IoT
+                console.log('[ForgeViewer] BIM sensors visible - enabling IoT-style wireframe');
+                
+                // This will reset any active filtering, which is expected when entering this mode.
                 viewer.showAll();
                 viewer.setDisplayEdges(true);
+
                 if (viewer.model && viewer.model.getObjectTree) {
                     viewer.model.getObjectTree((instanceTree: any) => {
-                        if (instanceTree) {
-                            const allDbIds: number[] = [];
-                            const collectAllNodeIds = (nodeId: number) => {
-                                allDbIds.push(nodeId);
-                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                                    collectAllNodeIds(childId);
-                                });
-                            };
-                            collectAllNodeIds(instanceTree.getRootId());
-                            const leafNodeIds = allDbIds.filter(nodeId => {
-                                let hasChildren = false;
-                                instanceTree.enumNodeChildren(nodeId, () => { hasChildren = true; });
-                                return !hasChildren && nodeId !== instanceTree.getRootId();
-                            });
-                            if (leafNodeIds.length > 0) {
-                                viewer.hide(leafNodeIds);
-                                setTimeout(() => {
-                                    if (viewer.setDisplayMode) viewer.setDisplayMode(1);
-                                    if (viewer.setGhosting) viewer.setGhosting(true);
-                                }, 100);
-                            } else {
-                                if (viewer.setDisplayMode) viewer.setDisplayMode(1);
+                        if (!instanceTree) return;
+                        
+                        const allDbIds: number[] = [];
+                        const collectAllNodeIds = (nodeId: number) => {
+                            allDbIds.push(nodeId);
+                            instanceTree.enumNodeChildren(nodeId, (childId: number) => collectAllNodeIds(childId));
+                        };
+                        collectAllNodeIds(instanceTree.getRootId());
+
+                        const leafNodeIds = allDbIds.filter(nodeId => {
+                            let hasChildren = false;
+                            instanceTree.enumNodeChildren(nodeId, () => { hasChildren = true; });
+                            return !hasChildren && nodeId !== instanceTree.getRootId();
+                        });
+
+                        if (leafNodeIds.length > 0) {
+                            console.log(`[ForgeViewer] Hiding ${leafNodeIds.length} solid components for wireframe.`);
+                            viewer.hide(leafNodeIds);
+                            setTimeout(() => {
+                                if (viewer.setDisplayMode) viewer.setDisplayMode(1); // wireframe
                                 if (viewer.setGhosting) viewer.setGhosting(true);
-                            }
+                            }, 100);
+                        } else {
+                             if (viewer.setDisplayMode) viewer.setDisplayMode(1);
+                             if (viewer.setGhosting) viewer.setGhosting(true);
                         }
                     });
                 } else {
+                    // Fallback for models without an instance tree
                     if (viewer.setDisplayMode) viewer.setDisplayMode(1);
                     if (viewer.setGhosting) viewer.setGhosting(true);
                 }
             } else {
                 console.log('[ForgeViewer] BIM sensors hidden - restoring solid mode');
-                // Restore solid mode
+                // Restore solid mode and show all elements.
+                // This will also clear any active filtering.
                 viewer.showAll();
                 viewer.setDisplayEdges(true);
-                if (viewer.setDisplayMode) viewer.setDisplayMode(0);
+                if (viewer.setDisplayMode) viewer.setDisplayMode(0); // solid
                 if (viewer.setGhosting) viewer.setGhosting(false);
             }
         } catch (error) {
             console.error('[ForgeViewer] Error applying BIM wireframe on sensor toggle:', error);
         }
-    }, [sensorsVisible, activePanel, viewer, isInitialized]);
-
-    // Simple panel-based rendering control - don't interfere with BIM 2D functionality
+    }, [sensorsVisible, activePanel, viewer, isInitialized]);    // Simple panel-based rendering control - don't interfere with BIM 2D functionality
     useEffect(() => {
         if (!viewer || !isInitialized) {
             console.log("[ForgeViewer] Viewer not ready for panel controls");
