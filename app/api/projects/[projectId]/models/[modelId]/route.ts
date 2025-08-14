@@ -11,7 +11,7 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // PATCH /api/projects/[projectId]/models/[modelId] -> update model metadata/transform
-export async function PATCH(req: NextRequest, { params }: { params: { projectId: string; modelId: string } }) {
+export async function PATCH(req: NextRequest, { params }: any) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { projectId:
 }
 
 // DELETE /api/projects/[projectId]/models/[modelId]
-export async function DELETE(_req: NextRequest, { params }: { params: { projectId: string; modelId: string } }) {
+export async function DELETE(_req: NextRequest, { params }: any) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

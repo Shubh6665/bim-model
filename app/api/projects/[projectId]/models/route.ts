@@ -11,7 +11,7 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // GET /api/projects/[projectId]/models -> list models for a project
-export async function GET(_req: NextRequest, { params }: { params: { projectId: string } }) {
+export async function GET(_req: NextRequest, { params }: any) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ models: [] }, { status: 200 });
@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: { projectId: 
 }
 
 // POST /api/projects/[projectId]/models -> add a model
-export async function POST(req: NextRequest, { params }: { params: { projectId: string } }) {
+export async function POST(req: NextRequest, { params }: any) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

@@ -11,7 +11,7 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // GET: Get specific project by ID
-export async function GET(_request: Request, { params }: { params: { projectId: string } }) {
+export async function GET(_request: Request, { params }: any) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
@@ -36,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: { projectId: 
 }
 
 // PUT: Update specific project by ID (only allow certain fields)
-export async function PUT(request: Request, { params }: { params: { projectId: string } }) {
+export async function PUT(request: Request, { params }: any) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
@@ -113,7 +113,7 @@ export async function PUT(request: Request, { params }: { params: { projectId: s
 }
 
 // DELETE: Delete specific project by ID
-export async function DELETE(_request: Request, { params }: { params: { projectId: string } }) {
+export async function DELETE(_request: Request, { params }: any) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
