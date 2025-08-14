@@ -39,6 +39,16 @@ export function RVTForgeInterface({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  // Safely parse JSON; if not JSON, return text for better error reporting
+  const parseJsonSafe = async (res: Response) => {
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { __nonJson: true, text } as any;
+    }
+  };
+
   // Auto-start processing when component mounts
   useEffect(() => {
     handleStartProcessing();
@@ -51,32 +61,56 @@ export function RVTForgeInterface({
     setCurrentStep('upload');
 
     try {
-      // Step 1: Upload file to Forge
+      // Step 1: Upload file to Forge via signed URL (Vercel-safe, large files)
       setProgress(10);
-      console.log('📤 Starting file upload...');
-      
-      // Create a mock file for now (in real implementation, this would be the actual file)
-      // For demo purposes, we'll use a sample RVT file from your public folder
+      console.log('📤 Starting file upload (signed URL flow)...');
+
+      // Demo file from public folder (replace with actual file selection in production)
       const response = await fetch('/SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt');
       const fileBlob = await response.blob();
       const file = new File([fileBlob], fileName, { type: 'application/octet-stream' });
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const uploadResponse = await fetch('/api/forge/upload', {
+
+      // INIT → get signed URL + uploadKey
+      const initRes = await fetch('/api/forge/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ init: true, fileName: file.name }),
       });
-      
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        console.error('❌ Upload response error:', errorData);
-        throw new Error(errorData.error || `Upload failed with status ${uploadResponse.status}`);
+      const initData = await parseJsonSafe(initRes);
+      if (!initRes.ok) {
+        console.error('❌ INIT error:', initData);
+        const msg = initData?.error || initData?.text || `Init failed (${initRes.status})`;
+        throw new Error(msg);
       }
-      
-      const uploadData = await uploadResponse.json();
-      const { urn } = uploadData;
+      const uploadUrl: string = initData.uploadUrl;
+      const uploadKey: string = initData.uploadKey;
+
+      // PUT → upload file directly to Autodesk S3 using signed URL
+      const arrayBuffer = await file.arrayBuffer();
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: arrayBuffer,
+      });
+      if (!putRes.ok) {
+        const putText = await putRes.text();
+        console.error('❌ S3 PUT error:', putText);
+        throw new Error(`S3 upload failed (${putRes.status}): ${putText}`);
+      }
+
+      // COMPLETE → finalize upload, get objectId and urn
+      const completeRes = await fetch('/api/forge/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ complete: true, fileName: file.name, uploadKey }),
+      });
+      const completeData = await parseJsonSafe(completeRes);
+      if (!completeRes.ok) {
+        console.error('❌ COMPLETE error:', completeData);
+        const msg = completeData?.error || completeData?.text || `Complete failed (${completeRes.status})`;
+        throw new Error(msg);
+      }
+      const urn: string = completeData.urn;
       console.log('✅ File uploaded, URN:', urn);
       
       setProgress(30);
