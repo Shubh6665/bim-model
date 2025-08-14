@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
+import { ObjectId } from 'mongodb';
 
 // Helper to get user email from session
 async function getUserEmail(req: NextRequest): Promise<string | null> {
@@ -18,7 +19,12 @@ export async function GET(req: NextRequest) {
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ projects: [] });
     const projects = await db.collection('projects').find({ userId: user._id }).toArray();
-    return NextResponse.json({ projects });
+    // Ensure backward compatibility: always provide models array
+    const normalized = projects.map((p: any) => ({
+      ...p,
+      models: Array.isArray(p.models) ? p.models : [],
+    }));
+    return NextResponse.json({ projects: normalized });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -47,12 +53,16 @@ export async function POST(req: NextRequest) {
     }
     const {
       name, code, country, municipality, address, cadastral,
-      company, surname, clientName, lat, lng, urn, fileType, description
+      company, surname, clientName, lat, lng, urn, fileType, description,
+      models
     } = body;
     console.log('POST /api/projects body:', body);
-    if (!name || !urn || isNaN(lat) || isNaN(lng)) {
-      console.error('Missing required fields:', { name, urn, lat, lng });
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    // Validation: allow either (legacy) single urn OR (new) models array
+    const hasLegacyUrn = typeof urn === 'string' && urn.length > 0;
+    const hasModelsArray = Array.isArray(models) && models.length > 0;
+    if (!name || isNaN(lat) || isNaN(lng) || (!hasLegacyUrn && !hasModelsArray)) {
+      console.error('Missing required fields:', { name, urn, modelsCount: hasModelsArray ? models.length : 0, lat, lng });
+      return NextResponse.json({ error: 'Missing required fields: require name, lat, lng, and either urn or models[]' }, { status: 400 });
     }
 
     // Save project to DB
@@ -67,8 +77,18 @@ export async function POST(req: NextRequest) {
       company: company || '',
       surname: surname || '',
       clientName: clientName || '',
-      urn,
-      fileType: fileType || '',
+      urn: hasLegacyUrn ? urn : '',
+      fileType: hasLegacyUrn ? (fileType || '') : '',
+      models: hasModelsArray
+        ? models.map((m: any) => ({
+            id: m.id || new ObjectId().toHexString(),
+            name: m.name || 'Model',
+            discipline: m.discipline || 'other',
+            urn: m.urn,
+            fileType: m.fileType || '',
+            transform: m.transform || null,
+          }))
+        : [],
       location: { lat, lng },
       description: description || '',
       createdAt: new Date(),

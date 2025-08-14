@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { RVTForgeInterface } from "./rvt-forge-interface";
 import ForgeViewer from "../../components/forge-viewer";
+import type { ProjectModel } from "@/app/types/projects";
 import { forgeAuthService } from "@/app/services/forge-service";
 
 interface ThreeDViewerProps {
@@ -19,6 +20,7 @@ interface ThreeDViewerProps {
     lng?: number;
     description?: string;
   } | null;
+  models?: ProjectModel[]; // optional federated models for overlay
   onViewerReady?: (viewer: any, iotExtension: any) => void;
   insertMode?: string | null;
   onExitInsertMode?: () => void;
@@ -32,6 +34,7 @@ interface ThreeDViewerProps {
 
 export function ThreeDViewer({
   selectedFile,
+  models,
   onViewerReady,
   insertMode,
   onExitInsertMode,
@@ -122,6 +125,7 @@ export function ThreeDViewer({
         <ForgeViewer
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
+          models={models}
           insertMode={insertMode}
           onExitInsertMode={onExitInsertMode}
           onSensorClick={onSensorClick}

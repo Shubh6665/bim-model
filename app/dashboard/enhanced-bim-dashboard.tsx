@@ -15,6 +15,7 @@ import { useRef } from "react";
 import React from "react";
 import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
+import type { ProjectModel } from "@/app/types/projects";
 import { ProjectInfoModal } from "./components/project-info-modal";
 
 interface ProjectFile {
@@ -38,6 +39,15 @@ interface Project {
   urn?: string;
   description?: string;
   fileType?: string;
+  code?: string;
+  country?: string;
+  municipality?: string;
+  address?: string;
+  cadastral?: string;
+  company?: string;
+  surname?: string;
+  clientName?: string;
+  models?: ProjectModel[];
 }
 
 function BIMDashboard() {
@@ -63,6 +73,8 @@ function BIMDashboard() {
   const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
   // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
+  // Federated overlay: track which models are enabled for overlay
+  const [enabledModelIds, setEnabledModelIds] = useState<Set<string>>(new Set());
 
   // Use sensor context
   const {
@@ -128,11 +140,21 @@ function BIMDashboard() {
         company: p.company,
         surname: p.surname,
         clientName: p.clientName,
+        models: Array.isArray(p.models) ? p.models : [],
       }));
       setProjects(mapped);
     }
     fetchProjects();
   }, []);
+
+  // Whenever a project is selected or its models change, enable all models by default
+  useEffect(() => {
+    if (selectedProject?.models && selectedProject.models.length > 0) {
+      setEnabledModelIds(new Set(selectedProject.models.map(m => m.id)));
+    } else {
+      setEnabledModelIds(new Set());
+    }
+  }, [selectedProject?.id, selectedProject?.models?.length]);
 
   const GOOGLE_MAPS_API_KEY =
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
@@ -189,6 +211,23 @@ function BIMDashboard() {
     setViewMode("viewer");
     console.log("Selected project:", project);
   };
+
+  // Toggle model enablement for overlay
+  const handleToggleModel = (modelId: string) => {
+    setEnabledModelIds(prev => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId); else next.add(modelId);
+      return next;
+    });
+  };
+
+  // Compute the list of models to render in the viewer, keep a deterministic order
+  const orderedEnabledModels: ProjectModel[] | undefined = React.useMemo(() => {
+    if (!selectedProject?.models) return undefined;
+    const order: Record<string, number> = { architecture: 0, structure: 1, mep: 2, electrical: 3, plumbing: 4, hvac: 5, other: 6 } as any;
+    const filtered = selectedProject.models.filter(m => enabledModelIds.has(m.id));
+    return filtered.sort((a, b) => (order[a.discipline || 'other'] ?? 99) - (order[b.discipline || 'other'] ?? 99));
+  }, [selectedProject?.models, enabledModelIds]);
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects((prev) => [...prev, newProject]);
@@ -430,11 +469,12 @@ function BIMDashboard() {
                   <div className="relative w-full h-full">
                     <ThreeDViewer
                       selectedFile={selectedFile}
+                      models={orderedEnabledModels}
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
                       onExitInsertMode={handleExitInsertMode}
-                        onSensorClick={handleViewerSensorClick}
-                        onEmptyClick={() => setViewerSelectedSensorId(null)}
+                      onSensorClick={handleViewerSensorClick}
+                      onEmptyClick={() => {}}
                       activePanel={activePanel}
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
@@ -466,11 +506,11 @@ function BIMDashboard() {
                 onWireframeModeChange={handleWireframeModeChange}
                 selectedSensorIdFromViewer={viewerSelectedSensorId}
               />
-    ) : activePanel === "database" || activePanel === "ai" || activePanel === "fm" ? (
+            ) : activePanel === "database" || activePanel === "ai" || activePanel === "fm" ? (
               // Placeholder for other panels like Database or AI
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
                 <p className="text-gray-400">
-      Panel for {activePanel.toUpperCase()}
+                  Panel for {activePanel.toUpperCase()}
                 </p>
               </div>
             ) : (
@@ -490,6 +530,8 @@ function BIMDashboard() {
                     apiKey={GOOGLE_MAPS_API_KEY}
                     onRequestCreateProject={handleRequestCreateProject}
                     onReturnToMapView={handleReturnToMapView}
+                    enabledModelIds={enabledModelIds}
+                    onToggleModel={handleToggleModel}
                   />
                 ) : (
                   <ModelHierarchyPanel 

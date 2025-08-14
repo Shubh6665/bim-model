@@ -2,11 +2,13 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { DataVizService, SensorSprite } from "../services/dataviz-service";
+import type { ProjectModel } from "@/app/types/projects";
 import { useSensorContext } from "../context/sensor-context";
 
 interface ForgeViewerProps {
     accessToken: string;
     urn: string;
+    models?: ProjectModel[]; // optional federated models; if provided, first is primary
     insertMode?: string | null;
     onSensorPlaced?: (sensor: any) => void;
     onExitInsertMode?: () => void;
@@ -23,6 +25,7 @@ interface ForgeViewerProps {
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
     accessToken,
     urn,
+    models,
     insertMode,
     onSensorPlaced,
     onExitInsertMode,
@@ -44,6 +47,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [modelLoaded, setModelLoaded] = useState(false); // tracks geometry loaded irrespective of DataViz
     const initializationRef = useRef(false);
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
+    const [overlayModelsLoaded, setOverlayModelsLoaded] = useState(false);
     // Guard to ensure we only invoke onViewerReady once per initialization
     const hasFiredViewerReadyRef = useRef(false);
     
@@ -58,7 +62,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
-        if (activePanel === 'iot' && urn && loadedUrn !== urn) {
+        const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
+        if (activePanel === 'iot' && primaryUrn && loadedUrn !== primaryUrn) {
             console.log("[ForgeViewer] IoT tab active and URN changed, forcing re-initialization");
             // Reset initialization state to force re-initialization
             setIsInitialized(false);
@@ -66,33 +71,100 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             setDataVizService(null);
             setViewer(null);
             initializationRef.current = false;
-            setLoadedUrn(urn);
+            setLoadedUrn(primaryUrn);
+            setOverlayModelsLoaded(false);
         }
-    }, [activePanel, urn, loadedUrn]);
+    }, [activePanel, urn, models, loadedUrn]);
+
+    // Re-initialize when federated models selection changes (ids/transforms/order)
+    useEffect(() => {
+        // Build a lightweight signature of the models array
+        const signature = (models || [])
+            .map(m => `${m.id}|${m.urn}|${m.discipline || ''}|${m.transform ? `${m.transform.tx||0},${m.transform.ty||0},${m.transform.tz||0},${m.transform.rx||0},${m.transform.ry||0},${m.transform.rz||0},${m.transform.sx||1},${m.transform.sy||1},${m.transform.sz||1}` : '0,0,0,0,0,0,1,1,1'}`)
+            .join(';');
+        // Store on ref to compare between renders
+        (ForgeViewer as any)._lastModelsSig = (ForgeViewer as any)._lastModelsSig || '';
+        if ((ForgeViewer as any)._lastModelsSig !== signature) {
+            (ForgeViewer as any)._lastModelsSig = signature;
+            const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
+            if (primaryUrn) {
+                console.log('[ForgeViewer] Federated models changed, re-initializing viewer and overlays');
+                setIsInitialized(false);
+                setIsDataVizReady(false);
+                setDataVizService(null);
+                setViewer(null);
+                initializationRef.current = false;
+                setLoadedUrn(primaryUrn);
+                setOverlayModelsLoaded(false);
+            }
+        }
+    }, [models, urn]);
 
     // Update loadedUrn when model is successfully loaded
     useEffect(() => {
-        if (isInitialized && urn && loadedUrn !== urn) {
-            setLoadedUrn(urn);
-            console.log("[ForgeViewer] Model successfully loaded, loadedUrn updated:", urn);
+        const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
+        if (isInitialized && primaryUrn && loadedUrn !== primaryUrn) {
+            setLoadedUrn(primaryUrn);
+            console.log("[ForgeViewer] Model successfully loaded, loadedUrn updated:", primaryUrn);
         }
-    }, [isInitialized, urn, loadedUrn]);
+    }, [isInitialized, urn, models, loadedUrn]);
 
     // Initialize viewer and DataViz service
     useEffect(() => {
-        if (!viewerContainer.current || !accessToken || !urn) return;
+        const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
+        if (!viewerContainer.current || !accessToken || !primaryUrn) return;
         // Prevent multiple initializations for the same URN
-        if (initializationRef.current && loadedUrn === urn) {
+        if (initializationRef.current && loadedUrn === primaryUrn) {
             console.log("[ForgeViewer] Already initialized with current URN, skipping");
             return;
         }
         initializationRef.current = true;
         // Reset viewerReady guard for this initialization cycle
         hasFiredViewerReadyRef.current = false;
-        console.log("[ForgeViewer] Starting initialization for URN:", urn);
+        console.log("[ForgeViewer] Starting initialization for URN:", primaryUrn);
 
         let viewerInstance: any = null;
         let dataVizSvc: DataVizService | null = null;
+
+        const buildMatrixFromTransform = (t?: ProjectModel["transform"]) => {
+            const THREE = (window as any).THREE;
+            if (!THREE) return null;
+            const tx = t?.tx ?? 0, ty = t?.ty ?? 0, tz = t?.tz ?? 0;
+            const rx = (t?.rx ?? 0) * Math.PI / 180;
+            const ry = (t?.ry ?? 0) * Math.PI / 180;
+            const rz = (t?.rz ?? 0) * Math.PI / 180;
+            const sx = t?.sx ?? 1, sy = t?.sy ?? 1, sz = t?.sz ?? 1;
+            const m = new THREE.Matrix4();
+            const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ'));
+            m.compose(new THREE.Vector3(tx, ty, tz), q, new THREE.Vector3(sx, sy, sz));
+            return m;
+        };
+
+        const loadOverlayModels = async () => {
+            if (!models || models.length <= 1) return;
+            const Autodesk = (window as any).Autodesk;
+            for (let i = 1; i < models.length; i++) {
+                const m = models[i];
+                await new Promise<void>((resolve) => {
+                    Autodesk.Viewing.Document.load(
+                        `urn:${m.urn}`,
+                        (doc: any) => {
+                            const geom = doc.getRoot().getDefaultGeometry();
+                            if (!geom) return resolve();
+                            const placementTransform = buildMatrixFromTransform(m.transform || undefined);
+                            const opts: any = { keepCurrentModels: true };
+                            if (placementTransform) opts.placementTransform = placementTransform;
+                            viewerInstance.loadDocumentNode(doc, geom, opts).then(() => {
+                                console.log('[ForgeViewer] Overlay model loaded:', m.name, m.discipline);
+                                resolve();
+                            }).catch(() => resolve());
+                        },
+                        () => resolve()
+                    );
+                });
+            }
+            setOverlayModelsLoaded(true);
+        };
 
         const initializeViewer = () => {
             const Autodesk = (window as any).Autodesk;
@@ -116,7 +188,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     return;
                 }
                 setViewer(viewerInstance);
-                const documentId = `urn:${urn}`;
+                const documentId = `urn:${primaryUrn}`;
                 Autodesk.Viewing.Document.load(
                     documentId,
                     (doc: any) => {
@@ -130,6 +202,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     async () => {
                                         console.log("[ForgeViewer] Geometry loaded");
                                         setModelLoaded(true);
+                                        // Load overlay models (federated) after primary geometry
+                                        if (!overlayModelsLoaded) {
+                                            try { await loadOverlayModels(); } catch {}
+                                        }
                                         // Fire onViewerReady immediately upon geometry load so other panels (e.g., BIMPanel)
                                         // can access the instance tree without waiting for DataViz initialization.
                                         if (!hasFiredViewerReadyRef.current && typeof onViewerReady === 'function') {
@@ -238,7 +314,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log("[ForgeViewer] Viewer finished.");
             }
         };
-    }, [accessToken, urn, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible]);
+    }, [accessToken, urn, models, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible, overlayModelsLoaded]);
 
     // Late / on-demand DataViz initialization (e.g., BIM panel toggles sensorsVisible later)
     useEffect(() => {

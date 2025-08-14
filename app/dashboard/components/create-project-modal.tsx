@@ -136,8 +136,29 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [company, setCompany] = useState("");
   const [surname, setSurname] = useState("");
   const [name, setName] = useState("");
-  // File
-  const [file, setFile] = useState<File | null>(null);
+  // Models (multi-file) state
+  type Discipline = "architecture" | "structure" | "mep" | "electrical" | "plumbing" | "hvac" | "other";
+  type ModelItem = {
+    tempId: string;
+    file?: File;
+    name: string;
+    discipline: Discipline;
+    urn?: string;
+    fileType?: string;
+    status?: "pending" | "uploading" | "translating" | "done" | "error";
+    error?: string;
+    progress?: number;
+  };
+  const [models, setModels] = useState<ModelItem[]>([]);
+  const disciplineOptions: { label: string; value: Discipline }[] = [
+    { label: "Architecture", value: "architecture" },
+    { label: "Structure", value: "structure" },
+    { label: "MEP", value: "mep" },
+    { label: "Electrical", value: "electrical" },
+    { label: "Plumbing", value: "plumbing" },
+    { label: "HVAC", value: "hvac" },
+    { label: "Other", value: "other" },
+  ];
   // Default location (New Delhi, India)
   const [lat, setLat] = useState<number | null>(28.6139);
   const [lng, setLng] = useState<number | null>(77.2090);
@@ -150,10 +171,10 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [progress, setProgress] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Step validation - Project Name, Project Code, and File are required
+  // Step validation - Project Name, Project Code, and at least one Model are required
   const canNext = () => {
     if (step === 0) return !!projectName && !!projectCode;
-    if (step === 3) return !!file; // File upload is required
+    if (step === 3) return models.length > 0; // At least one model required
     return true; // Other steps are optional
   };
   
@@ -177,11 +198,11 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
 
   // Processing steps for progress tracking
   const processingSteps = [
-    "Preparing file for upload...",
-    "Uploading file to Autodesk Forge...",
-    "Starting BIM file translation...",
-    "Converting file to 3D format...",
-    "Finalizing conversion...",
+    "Preparing models for upload...",
+    "Uploading models to Autodesk Forge...",
+    "Starting BIM model translations...",
+    "Converting models to 3D format...",
+    "Finalizing conversions...",
     "Saving project to database...",
     "Project created successfully!"
   ];
@@ -200,87 +221,122 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
     setProcessingUrn(null);
     
     try {
-      // 1. Prepare upload
+      // 1. Prepare uploads
       setProgress(5);
-      await new Promise(res => setTimeout(res, 500)); // Small delay for UX
-      
-      // 2. Upload file to Forge
-      if (!file) throw new Error("No file selected");
-      const fileType = file.name.split('.').pop()?.toUpperCase() || "UNKNOWN";
+      await new Promise(res => setTimeout(res, 300));
+
+      // 2-4. Upload and translate each selected model sequentially
       setCurrentStepIndex(1);
       setProcessingStep(processingSteps[1]);
-      setProgress(15);
-      
-      const uploadForm = new FormData();
-      uploadForm.append("file", file);
-      const uploadRes = await fetch("/api/forge/upload", {
-        method: "POST",
-        body: uploadForm,
-      });
-      // --- Improved error handling for non-JSON responses (e.g., file too large) ---
-      let uploadData: any = {};
-      const contentType = uploadRes.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        uploadData = await uploadRes.json();
-      } else {
-        const text = await uploadRes.text();
-        if (uploadRes.status === 413 || text.toLowerCase().includes("too large")) {
-          throw new Error("File too large. Please upload a smaller file (max 4MB). If you need to upload larger files, contact support.");
+      let completed = 0;
+      const total = models.length;
+      const updatedModels: ModelItem[] = [...models];
+
+      for (let i = 0; i < updatedModels.length; i++) {
+        const m = updatedModels[i];
+        if (!m.file) {
+          updatedModels[i] = { ...m, status: "error", error: "Missing file" };
+          continue;
         }
-        throw new Error(text || "Upload failed (unexpected server response). Please try again or contact support.");
-      }
-      if (!uploadRes.ok || !uploadData.urn) throw new Error(uploadData.error || "Upload failed");
-      
-      const urn = uploadData.urn;
-      setProcessingUrn(urn);
-      setProgress(30);
-      
-      // 3. Start translation
-      setCurrentStepIndex(2);
-      setProcessingStep(processingSteps[2]);
-      const translateRes = await fetch("/api/forge/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urn }),
-      });
-      const translateData = await translateRes.json();
-      if (!translateRes.ok) throw new Error(translateData.error || "Translation failed");
-      setProgress(40);
-      
-      // 4. Poll for status with progress updates
-      setCurrentStepIndex(3);
-      setProcessingStep(processingSteps[3]);
-      let status = "pending";
-      let pollCount = 0;
-      const maxPolls = 60; // up to 5 min
-      
-      while (status !== "success" && pollCount < maxPolls) {
-        await new Promise(res => setTimeout(res, 5000));
-        const statusRes = await fetch(`/api/forge/status/${urn}`);
-        const statusData = await statusRes.json();
-        
-        // Update progress based on polling
-        const conversionProgress = 40 + (pollCount / maxPolls) * 40; // 40% to 80%
-        setProgress(Math.min(conversionProgress, 75));
-        
-        if (statusData.status === "success") {
-          status = "success";
-          setCurrentStepIndex(4);
-          setProcessingStep(processingSteps[4]);
-          setProgress(80);
-          break;
-        } else if (statusData.status === "failed") {
-          throw new Error("Forge translation failed");
+        // Upload via signed URL (init -> PUT -> complete)
+        updatedModels[i] = { ...m, status: "uploading", progress: 10 };
+        setModels([...updatedModels]);
+        const fileType = m.file.name.split('.').pop()?.toUpperCase() || "UNKNOWN";
+        // INIT
+        const initRes = await fetch("/api/forge/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ init: true, fileName: m.file.name })
+        });
+        const initData = await initRes.json();
+        if (!initRes.ok || !initData.uploadUrl || !initData.uploadKey) {
+          throw new Error(initData.error || "Failed to initialize upload");
         }
-        
-        // Update step message with time estimate
-        const timeElapsed = (pollCount + 1) * 5;
-        setProcessingStep(`${processingSteps[3]} (${timeElapsed}s elapsed)`);
-        pollCount++;
+        // PUT file directly to signed URL
+        const putRes = await fetch(initData.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: m.file,
+        });
+        if (!putRes.ok) {
+          const errText = await putRes.text();
+          throw new Error(errText || "Direct upload failed");
+        }
+        // COMPLETE
+        const completeRes = await fetch("/api/forge/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ complete: true, fileName: m.file.name, uploadKey: initData.uploadKey })
+        });
+        const completeData = await completeRes.json();
+        if (!completeRes.ok || !completeData.urn) {
+          throw new Error(completeData.error || "Failed to finalize upload");
+        }
+
+        const urn = completeData.urn;
+        setProcessingUrn(urn);
+
+        // Translate
+        setCurrentStepIndex(2);
+        setProcessingStep(`${processingSteps[2]} (${i + 1}/${total})`);
+        updatedModels[i] = { ...updatedModels[i], status: "translating", progress: 30 };
+        setModels([...updatedModels]);
+
+        const translateRes = await fetch("/api/forge/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urn }),
+        });
+        const translateData = await translateRes.json();
+        if (!translateRes.ok) throw new Error(translateData.error || "Translation failed");
+
+        // Poll status
+        setCurrentStepIndex(3);
+        setProcessingStep(`${processingSteps[3]} (${i + 1}/${total})`);
+        let status = "pending";
+        let pollCount = 0;
+        // Adaptive backoff: start 5s, cap 30s. Up to ~45 minutes max.
+        let delayMs = 5000;
+        const maxPolls = 540; // 5s..30s backoff ~ <= 45min
+        let lastProgressPct = 0;
+        while (status !== "success" && pollCount < maxPolls) {
+          await new Promise(res => setTimeout(res, delayMs));
+          // increase delay gradually up to 30s to reduce API load
+          delayMs = Math.min(delayMs + 2000, 30000);
+          const statusRes = await fetch(`/api/forge/status/${urn}`);
+          const statusData = await statusRes.json();
+          // Update UI progress when available (e.g., "85% complete")
+          const progStr: string | undefined = statusData?.progress || statusData?.derivatives?.[0]?.progress;
+          if (typeof progStr === 'string' && progStr.includes('%')) {
+            const match = progStr.match(/(\d{1,3})%/);
+            const pct = match ? Math.min(99, Math.max(0, parseInt(match[1], 10))) : lastProgressPct;
+            lastProgressPct = pct;
+            // Keep overall between 10..95 during translation
+            const overall = 10 + Math.floor((pct / 100) * 85);
+            setProgress(Math.max(progress, Math.min(overall, 95)));
+          }
+          if (statusData.status === "success") {
+            status = "success";
+            break;
+          } else if (statusData.status === "failed") {
+            throw new Error("Forge translation failed");
+          }
+          pollCount++;
+        }
+        if (status !== "success") {
+          // Do not hard-fail for large files. Proceed and let translation finish in background.
+          console.warn("Translation still in progress; proceeding with background completion.");
+        }
+
+        // Mark model done and store urn/fileType
+        updatedModels[i] = { ...updatedModels[i], status: "done", urn, fileType, progress: 100 };
+        setModels([...updatedModels]);
+        completed++;
+        // Update overall progress roughly 10%..80%
+        const overall = 10 + Math.floor((completed / total) * 70);
+        setProgress(Math.min(overall, 80));
       }
-      
-      if (status !== "success") throw new Error("Forge translation timed out");
-      
+
       // 5. Save project to DB
       setCurrentStepIndex(5);
       setProcessingStep(processingSteps[5]);
@@ -301,8 +357,15 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
           clientName: name,
           lat,
           lng,
-          urn,
-          fileType,
+          models: updatedModels
+            .filter(m => m.urn && m.fileType)
+            .map(m => ({
+              name: m.name || (m.file ? m.file.name : ""),
+              discipline: m.discipline,
+              urn: m.urn,
+              fileType: m.fileType,
+              transform: null,
+            })),
         }),
       });
       const saveData = await saveRes.json();
@@ -330,9 +393,8 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         clientName: saveData.project.clientName,
         lat: saveData.project.location?.lat,
         lng: saveData.project.location?.lng,
-        urn: saveData.project.urn,
+        models: saveData.project.models || [],
         description: saveData.project.description || "",
-        fileType: saveData.project.fileType || fileType,
       });
       
     } catch (err: any) {
@@ -354,7 +416,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         <h3 className="text-2xl font-bold text-white mb-4 text-center pt-6">Create New Project</h3>
         {/* Stepper */}
         <div className="flex justify-center gap-2 mb-4 px-4">
-          {["Project Info", "Location", "Client", "File", "Map"].map((label, i) => (
+          {["Project Info", "Location", "Client", "Models", "Map"].map((label, i) => (
             <div key={label} className={`flex items-center gap-1 ${i < step ? 'text-blue-400' : i === step ? 'text-white' : 'text-gray-500'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 ${i === step ? 'border-blue-500 bg-blue-700' : i < step ? 'border-blue-400 bg-blue-900' : 'border-gray-700 bg-gray-800'}`}>{i+1}</div>
               <span className="text-xs font-medium whitespace-nowrap">{label}</span>
@@ -417,24 +479,69 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
           )}
           {step === 3 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">BIM File Upload <span className="text-red-500">*</span></h4>
-              <label className="block text-gray-300 mb-2">BIM File</label>
-              <div className="mb-3">
-                <label htmlFor="bim-upload" className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${file ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}`} tabIndex={0}>
-                  {file ? (
-                    <span className="flex items-center gap-2 text-green-400 font-medium">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {file.name}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2 text-blue-300 font-medium">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                      Click or drag RVT, IFC, DWG, or NWD file here
-                    </span>
-                  )}
-                  <input id="bim-upload" type="file" accept=".rvt,.ifc,.dwg,.nwd" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} required />
+              <h4 className="text-lg font-semibold text-blue-400 mb-2">BIM Models <span className="text-red-500">*</span></h4>
+              <label className="block text-gray-300 mb-2">Add one or more BIM files</label>
+              <div className="mb-4">
+                <label htmlFor="bim-uploads" className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${models.length > 0 ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}`} tabIndex={0}>
+                  <span className="flex items-center gap-2 text-blue-300 font-medium">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Click or drag multiple RVT, IFC, DWG, or NWD files
+                  </span>
+                  <input id="bim-uploads" type="file" accept=".rvt,.ifc,.dwg,.nwd" multiple className="hidden" onChange={e => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    const newItems: ModelItem[] = files.map((f) => ({
+                      tempId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                      file: f,
+                      name: f.name.replace(/\.[^.]+$/, ''),
+                      discipline: "architecture",
+                      status: "pending",
+                      progress: 0,
+                    }));
+                    setModels(prev => [...prev, ...newItems]);
+                  }} />
                 </label>
               </div>
+
+              {models.length > 0 && (
+                <div className="space-y-3 max-h-56 overflow-auto pr-1">
+                  {models.map((m, idx) => (
+                    <div key={m.tempId} className="border border-gray-700 rounded-lg p-3 bg-gray-800/60">
+                      <div className="flex items-center gap-2 justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white"
+                              value={m.name}
+                              onChange={e => setModels(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                              placeholder="Model name"
+                            />
+                            <select
+                              className="w-40 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white"
+                              value={m.discipline}
+                              onChange={e => setModels(prev => prev.map((x, i) => i === idx ? { ...x, discipline: e.target.value as Discipline } : x))}
+                            >
+                              {disciplineOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="px-3 py-2 bg-red-700 hover:bg-red-600 text-white rounded"
+                              onClick={() => setModels(prev => prev.filter((x) => x.tempId !== m.tempId))}
+                            >Remove</button>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
+                            <span className={`${m.status === 'done' ? 'text-green-400' : m.status === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{m.status || 'pending'}</span>
+                            {m.error && <span className="text-red-400">• {m.error}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {step === 4 && (

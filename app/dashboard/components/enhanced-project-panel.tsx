@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { CreateProjectModal } from "./create-project-modal";
+import type { ProjectModel, Discipline } from "@/app/types/projects";
 
 interface ProjectFile {
   id: string;
@@ -46,6 +47,7 @@ interface Project {
   clientName?: string;
   address?: string;
   cadastral?: string;
+  models?: ProjectModel[];
 }
 
 interface EnhancedProjectPanelProps {
@@ -61,6 +63,9 @@ interface EnhancedProjectPanelProps {
   onRequestCreateProject: () => void;
   onReturnToMapView: () => void;
   onShowHierarchy: () => void;
+  // Federated overlay controls
+  enabledModelIds?: Set<string>;
+  onToggleModel?: (modelId: string) => void;
 }
 
 export function EnhancedProjectPanel({
@@ -76,6 +81,8 @@ export function EnhancedProjectPanel({
   onRequestCreateProject,
   onShowHierarchy,
   onReturnToMapView,
+  enabledModelIds,
+  onToggleModel,
 }: EnhancedProjectPanelProps) {
 
   const [activeTab, setActiveTab] = useState<'projects' | 'models'>('projects');
@@ -297,6 +304,54 @@ export function EnhancedProjectPanel({
                   Back to Google Earth
                 </button>
               </div>
+
+              {/* Models by Discipline (with overlay toggles) */}
+              {selectedProject.models && selectedProject.models.length > 0 && (
+                <div className="mt-2">
+                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Models by discipline</h4>
+                  <div className="space-y-2">
+                    {(() => {
+                      const groups = selectedProject.models!.reduce<Record<Discipline, ProjectModel[]>>((acc: any, m) => {
+                        const key = (m.discipline || 'other') as Discipline;
+                        acc[key] = acc[key] || [];
+                        acc[key].push(m);
+                        return acc;
+                      }, {} as Record<Discipline, ProjectModel[]>);
+                      const order: Discipline[] = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
+                      const label: Record<Discipline,string> = { architecture:'Architecture', structure:'Structure', mep:'MEP', electrical:'Electrical', plumbing:'Plumbing', hvac:'HVAC', other:'Other' };
+                      return order.filter(d => groups[d]?.length).map(d => (
+                        <div key={d} className="border border-gray-700 rounded-lg">
+                          <div className="px-3 py-2 bg-gray-900/60 flex items-center justify-between">
+                            <span className="text-gray-200 text-sm">{label[d]}</span>
+                            <span className="text-xs bg-gray-700 text-gray-200 rounded px-2 py-0.5">{groups[d].length}</span>
+                          </div>
+                          <ul className="divide-y divide-gray-700">
+                            {groups[d].map((m) => (
+                              <li key={m.id} className="px-3 py-2 text-xs flex items-center justify-between">
+                                <label className="flex items-center gap-2 min-w-0 mr-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    className="form-checkbox h-3 w-3 text-blue-500 rounded border-gray-600 bg-gray-800"
+                                    checked={enabledModelIds ? enabledModelIds.has(m.id) : true}
+                                    onChange={() => onToggleModel && onToggleModel(m.id)}
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="truncate text-gray-200">{m.name}</div>
+                                    <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
+                                  </div>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-green-400">URN</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
                   <span className="text-white text-xl font-bold uppercase">{selectedProject.fileType || '?'}</span>
@@ -398,33 +453,37 @@ export function EnhancedProjectPanel({
                 {/* File type icon and badge */}
                 <div className="flex flex-col items-center justify-center mr-2">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
-                    <span className="text-white text-lg font-bold uppercase">
-                      {project.fileType || '?'}
-                    </span>
+                    <span className="text-white text-sm font-bold uppercase">{project.fileType || '?'}</span>
                   </div>
-                  <span className="mt-1 text-xs text-gray-400 uppercase tracking-wider">
-                    {project.fileType || 'Unknown'}
-                  </span>
+                  <span className="mt-1 text-[10px] text-gray-400">{project.code || ''}</span>
                 </div>
                 {/* Project info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-white font-medium text-sm truncate">
-                      {project.name}
-                    </h3>
-                    {project.description && (
-                      <span className="ml-2 px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
-                        {project.description}
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-white truncate">{project.name}</h4>
+                    <span className="text-[10px] bg-gray-700 text-gray-200 rounded px-1.5 py-0.5 ml-2 whitespace-nowrap">{project.country || ''}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                    <span className="font-semibold text-blue-400">Code:</span> {project.code || '—'}
-                    <span className="ml-2 font-semibold text-green-400">{project.lat && project.lng ? '📍' : ''}</span>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400">{project.municipality || ''}</span>
+                    {project.urn && (<span className="text-[10px] text-green-400">URN</span>)}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                    <span>{project.country || '—'}, {project.municipality || '—'}</span>
-                  </div>
+                  {/* Discipline badges */}
+                  {project.models && project.models.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(() => {
+                        const counts = project.models!.reduce<Record<Discipline, number>>((acc: any, m) => {
+                          const key = (m.discipline || 'other') as Discipline;
+                          acc[key] = (acc[key] || 0) + 1;
+                          return acc;
+                        }, {} as Record<Discipline, number>);
+                        const order: Discipline[] = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
+                        const label: Record<Discipline,string> = { architecture:'Arch', structure:'Str', mep:'MEP', electrical:'Elec', plumbing:'Plumb', hvac:'HVAC', other:'Other' };
+                        return order.filter(d => counts[d]).map(d => (
+                          <span key={d} className="text-[10px] bg-gray-700 text-gray-200 rounded px-1.5 py-0.5">{label[d]}: {counts[d]}</span>
+                        ));
+                      })()}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
                     <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{project.fileType || 'Unknown'}</span>
                   </div>

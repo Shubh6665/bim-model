@@ -22,107 +22,108 @@ async function getAccessToken() {
 export async function POST(req: NextRequest) {
   try {
     console.log('🚀 Starting upload process...');
-    
-    // Parse the form data using Next.js App Router compatible method
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    
-    if (!file) {
-      console.log('❌ No file found in form data');
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
-
-    console.log('📁 File received:', file.name, 'Size:', file.size);
-
     const bucketKey = process.env.FORGE_BUCKET_KEY;
     if (!bucketKey) {
       console.log('❌ FORGE_BUCKET_KEY not found in environment');
       return NextResponse.json({ error: 'Bucket key not configured' }, { status: 500 });
     }
 
+    // Support JSON control flow for large files: init and complete
+    const contentType = req.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      const fileName = body.fileName as string | undefined;
+      // INIT: return signed URL so browser can upload directly
+      if (body.init && fileName) {
+        console.log('🪪 INIT signed URL for', fileName);
+        const accessToken = await getAccessToken();
+        const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (!signedUrlRes.ok) {
+          const err = await signedUrlRes.text();
+          console.log('❌ Failed to get signed URL:', err);
+          return NextResponse.json({ error: 'Failed to get signed URL', details: err }, { status: 500 });
+        }
+        const signedUrlData = await signedUrlRes.json();
+        return NextResponse.json({ uploadUrl: signedUrlData.urls[0], uploadKey: signedUrlData.uploadKey });
+      }
+      // COMPLETE: finalize the upload and return URN
+      if (body.complete && fileName && body.uploadKey) {
+        console.log('✅ COMPLETE upload for', fileName);
+        const accessToken = await getAccessToken();
+        const completeRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uploadKey: body.uploadKey }),
+        });
+        if (!completeRes.ok) {
+          const err = await completeRes.text();
+          console.log('❌ Complete upload failed:', err);
+          return NextResponse.json({ error: 'Complete upload failed', details: err }, { status: 500 });
+        }
+        const completeData = await completeRes.json();
+        const objectId = completeData.objectId;
+        const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
+        return NextResponse.json({ objectId, urn });
+      }
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    }
+
+    // Backward-compatible small-file flow via multipart form-data (not recommended for large files)
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    if (!file) {
+      console.log('❌ No file found in form data');
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+    console.log('📁 File received (compat mode):', file.name, 'Size:', file.size);
+
     const fileName = file.name;
     const fileBuffer = await file.arrayBuffer();
-    console.log('📦 File buffer created, size:', fileBuffer.byteLength);
 
-    // Get access token
-    console.log('🔐 Getting access token...');
     const accessToken = await getAccessToken();
-    console.log('✅ Access token obtained');
-
-    // Use signed URL approach for OSS v2
-    console.log('📤 Getting signed upload URL...');
-    
-    // Step 1: Get signed upload URL
     const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
+      headers: { 'Authorization': `Bearer ${accessToken}` },
     });
-    
-    console.log('📡 Signed URL response status:', signedUrlRes.status);
-    
     if (!signedUrlRes.ok) {
       const err = await signedUrlRes.text();
-      console.log('❌ Failed to get signed URL:', err);
       return NextResponse.json({ error: 'Failed to get signed URL', details: err }, { status: 500 });
     }
-    
     const signedUrlData = await signedUrlRes.json();
-    console.log('📋 Signed URL data:', signedUrlData);
-    
     const uploadUrl = signedUrlData.urls[0];
     const uploadKey = signedUrlData.uploadKey;
-    
-    // Step 2: Upload file to S3
-    console.log('📤 Uploading file to S3...');
+
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      },
+      headers: { 'Content-Type': 'application/octet-stream' },
       body: fileBuffer,
     });
-    
-    console.log('📡 S3 upload response status:', uploadRes.status);
-    
     if (!uploadRes.ok) {
       const err = await uploadRes.text();
-      console.log('❌ S3 upload failed:', err);
       return NextResponse.json({ error: 'S3 upload failed', details: err }, { status: 500 });
     }
-    
-    // Step 3: Complete the upload
-    console.log('🔄 Completing upload...');
+
     const completeRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        uploadKey: uploadKey
-      }),
+      body: JSON.stringify({ uploadKey }),
     });
-    
-    console.log('📡 Complete upload response status:', completeRes.status);
-    
     if (!completeRes.ok) {
       const err = await completeRes.text();
-      console.log('❌ Complete upload failed:', err);
       return NextResponse.json({ error: 'Complete upload failed', details: err }, { status: 500 });
     }
-    
     const completeData = await completeRes.json();
-    console.log('📋 Complete upload data:', completeData);
-    
-    console.log('✅ Forge upload successful');
-    
     const objectId = completeData.objectId;
     const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
-    
-    console.log('🎯 Generated URN:', urn);
-    
     return NextResponse.json({ objectId, urn });
   } catch (error: any) {
     console.error('❌ Upload error:', error);
