@@ -39,6 +39,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
+    // Keep a stable ref to the active viewer instance for reliable cleanup
+    const viewerRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [dataVizService, setDataVizService] = useState<DataVizService | null>(null);
@@ -46,10 +48,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [isInitialized, setIsInitialized] = useState(false);
     const [modelLoaded, setModelLoaded] = useState(false); // tracks geometry loaded irrespective of DataViz
     const initializationRef = useRef(false);
+    // Prevent overlapping Autodesk.Viewing.Document.load initializations
+    const initInFlightRef = useRef(false);
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     const [overlayModelsLoaded, setOverlayModelsLoaded] = useState(false);
     // Guard to ensure we only invoke onViewerReady once per initialization
     const hasFiredViewerReadyRef = useRef(false);
+    // Track loaded overlay models by project model id (excluding primary)
+    const overlayModelMapRef = useRef<Map<string, any>>(new Map());
+    const prevOverlaySigRef = useRef<string>("");
     
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
@@ -76,29 +83,98 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [activePanel, urn, models, loadedUrn]);
 
-    // Re-initialize when federated models selection changes (ids/transforms/order)
+    // Dynamically reconcile overlay models without re-initializing primary
     useEffect(() => {
-        // Build a lightweight signature of the models array
-        const signature = (models || [])
-            .map(m => `${m.id}|${m.urn}|${m.discipline || ''}|${m.transform ? `${m.transform.tx||0},${m.transform.ty||0},${m.transform.tz||0},${m.transform.rx||0},${m.transform.ry||0},${m.transform.rz||0},${m.transform.sx||1},${m.transform.sy||1},${m.transform.sz||1}` : '0,0,0,0,0,0,1,1,1'}`)
+        const all = models || [];
+        if (!all.length) return;
+        const primaryUrn = all[0].urn || urn;
+        const viewerInstance = viewerRef.current;
+        // Build overlays signature (exclude primary index 0)
+        const overlaySig = all
+            .slice(1)
+            .map(m => `${m.id}|${m.urn}|${m.transform ? `${m.transform.tx||0},${m.transform.ty||0},${m.transform.tz||0},${m.transform.rx||0},${m.transform.ry||0},${m.transform.rz||0},${m.transform.sx||1},${m.transform.sy||1},${m.transform.sz||1}` : '0,0,0,0,0,0,1,1,1'}`)
             .join(';');
-        // Store on ref to compare between renders
-        (ForgeViewer as any)._lastModelsSig = (ForgeViewer as any)._lastModelsSig || '';
-        if ((ForgeViewer as any)._lastModelsSig !== signature) {
-            (ForgeViewer as any)._lastModelsSig = signature;
-            const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
-            if (primaryUrn) {
-                console.log('[ForgeViewer] Federated models changed, re-initializing viewer and overlays');
-                setIsInitialized(false);
-                setIsDataVizReady(false);
-                setDataVizService(null);
-                setViewer(null);
-                initializationRef.current = false;
-                setLoadedUrn(primaryUrn);
-                setOverlayModelsLoaded(false);
+        // If primary is not the same as loadedUrn, let the main init effect handle re-init
+        if (loadedUrn && primaryUrn && loadedUrn !== primaryUrn) {
+            return;
+        }
+        if (!viewerInstance) {
+            // No viewer yet; main init will load overlays after primary
+            prevOverlaySigRef.current = overlaySig;
+            return;
+        }
+        if (prevOverlaySigRef.current === overlaySig) return;
+        prevOverlaySigRef.current = overlaySig;
+
+        const Autodesk = (window as any).Autodesk;
+        if (!Autodesk || !Autodesk.Viewing) return;
+
+        const buildMatrixFromTransform = (t?: ProjectModel["transform"]) => {
+            const THREE = (window as any).THREE;
+            if (!THREE) return null;
+            const tx = t?.tx ?? 0, ty = t?.ty ?? 0, tz = t?.tz ?? 0;
+            const rx = (t?.rx ?? 0) * Math.PI / 180;
+            const ry = (t?.ry ?? 0) * Math.PI / 180;
+            const rz = (t?.rz ?? 0) * Math.PI / 180;
+            const sx = t?.sx ?? 1, sy = t?.sy ?? 1, sz = t?.sz ?? 1;
+            const m = new THREE.Matrix4();
+            const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ'));
+            m.compose(new THREE.Vector3(tx, ty, tz), q, new THREE.Vector3(sx, sy, sz));
+            return m;
+        };
+
+        // Compute diff
+        const desired = new Map<string, ProjectModel>();
+        for (const m of all.slice(1)) desired.set(m.id, m);
+        const current = overlayModelMapRef.current;
+
+        // Unload removed models
+        for (const [id, mdl] of Array.from(current.entries())) {
+            if (!desired.has(id)) {
+                try {
+                    if (viewerInstance && mdl) {
+                        viewerInstance.unloadModel(mdl);
+                        console.log('[ForgeViewer] Overlay model unloaded:', id);
+                    }
+                } catch (e) {
+                    console.warn('[ForgeViewer] Failed to unload overlay model', id, e);
+                } finally {
+                    current.delete(id);
+                }
             }
         }
-    }, [models, urn]);
+
+        // Load new or update transformed models
+        const loadPromises: Promise<void>[] = [];
+        for (const [id, m] of desired.entries()) {
+            if (current.has(id)) {
+                // TODO: If transform changed significantly, consider reload. For now, skip.
+                continue;
+            }
+            loadPromises.push(new Promise<void>((resolve) => {
+                Autodesk.Viewing.Document.load(
+                    `urn:${m.urn}`,
+                    (doc: any) => {
+                        const geom = doc.getRoot().getDefaultGeometry();
+                        if (!geom) return resolve();
+                        const placementTransform = buildMatrixFromTransform(m.transform || undefined);
+                        const opts: any = { keepCurrentModels: true };
+                        if (placementTransform) opts.placementTransform = placementTransform;
+                        viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
+                            current.set(id, model);
+                            console.log('[ForgeViewer] Overlay model loaded (reconcile):', m.name, m.discipline);
+                            resolve();
+                        }).catch(() => resolve());
+                    },
+                    () => resolve()
+                );
+            }));
+        }
+
+        Promise.all(loadPromises).then(() => {
+            setOverlayModelsLoaded(true);
+        });
+    }, [models, urn, loadedUrn]);
 
     // Update loadedUrn when model is successfully loaded
     useEffect(() => {
@@ -118,7 +194,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.log("[ForgeViewer] Already initialized with current URN, skipping");
             return;
         }
+        if (initInFlightRef.current) {
+            console.log('[ForgeViewer] Initialization already in flight, skipping');
+            return;
+        }
         initializationRef.current = true;
+        initInFlightRef.current = true;
         // Reset viewerReady guard for this initialization cycle
         hasFiredViewerReadyRef.current = false;
         console.log("[ForgeViewer] Starting initialization for URN:", primaryUrn);
@@ -154,7 +235,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             const placementTransform = buildMatrixFromTransform(m.transform || undefined);
                             const opts: any = { keepCurrentModels: true };
                             if (placementTransform) opts.placementTransform = placementTransform;
-                            viewerInstance.loadDocumentNode(doc, geom, opts).then(() => {
+                            viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
+                                try { overlayModelMapRef.current.set(m.id, model); } catch {}
                                 console.log('[ForgeViewer] Overlay model loaded:', m.name, m.discipline);
                                 resolve();
                             }).catch(() => resolve());
@@ -185,9 +267,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 const startedCode = viewerInstance.start();
                 if (startedCode > 0) {
                     setError("Failed to create a Viewer: WebGL not supported.");
+                    initInFlightRef.current = false;
                     return;
                 }
                 setViewer(viewerInstance);
+                viewerRef.current = viewerInstance;
                 const documentId = `urn:${primaryUrn}`;
                 Autodesk.Viewing.Document.load(
                     documentId,
@@ -285,11 +369,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     },
                                     { once: true }
                                 );
+                                // Clear in-flight flag once primary model and overlays have started loading
+                                setTimeout(() => { initInFlightRef.current = false; }, 0);
                             });
                         }
                     },
                     (error: any) => {
                         setError("Failed to load document: " + error.message);
+                        initInFlightRef.current = false;
                     }
                 );
             });
@@ -309,12 +396,27 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             initializeViewer();
         }
         return () => {
-            if (viewer) {
-                viewer.finish();
-                console.log("[ForgeViewer] Viewer finished.");
+            // Finish and cleanup the active viewer instance reliably via ref
+            if (viewerRef.current) {
+                try {
+                    // First unload overlay models to be safe
+                    try {
+                        const v = viewerRef.current;
+                        for (const mdl of overlayModelMapRef.current.values()) {
+                            try { v.unloadModel(mdl); } catch {}
+                        }
+                        overlayModelMapRef.current.clear();
+                    } catch {}
+                    viewerRef.current.finish();
+                    console.log("[ForgeViewer] Viewer finished.");
+                } catch (e) {
+                    console.warn('[ForgeViewer] Error finishing viewer:', e);
+                } finally {
+                    viewerRef.current = null;
+                }
             }
         };
-    }, [accessToken, urn, models, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible, overlayModelsLoaded]);
+    }, [accessToken, urn, models, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible]);
 
     // Late / on-demand DataViz initialization (e.g., BIM panel toggles sensorsVisible later)
     useEffect(() => {
