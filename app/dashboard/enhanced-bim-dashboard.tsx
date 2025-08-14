@@ -147,12 +147,19 @@ function BIMDashboard() {
     fetchProjects();
   }, []);
 
-  // Whenever a project is selected or its models change, enable all models by default
+  // Whenever a project is selected or its models change, enable ONLY Architecture by default
   useEffect(() => {
-    if (selectedProject?.models && selectedProject.models.length > 0) {
-      setEnabledModelIds(new Set(selectedProject.models.map(m => m.id)));
-    } else {
+    const models = selectedProject?.models || [];
+    if (models.length === 0) {
       setEnabledModelIds(new Set());
+      return;
+    }
+    // Prefer architecture models; if none, fallback to the first in order
+    const archIds = models.filter(m => (m.discipline || '').toLowerCase() === 'architecture').map(m => m.id);
+    if (archIds.length > 0) {
+      setEnabledModelIds(new Set(archIds));
+    } else {
+      setEnabledModelIds(new Set([models[0].id]));
     }
   }, [selectedProject?.id, selectedProject?.models?.length]);
 

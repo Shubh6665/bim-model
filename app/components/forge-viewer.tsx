@@ -57,7 +57,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Track loaded overlay models by project model id (excluding primary)
     const overlayModelMapRef = useRef<Map<string, any>>(new Map());
     const prevOverlaySigRef = useRef<string>("");
-    
+
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
     // Draggable overlay state
@@ -66,6 +66,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
     const isDraggingRef = useRef(false);
     const wasDraggedRef = useRef(false);
+
+    // Helper to toggle an entire model's visibility by fragment
+    const setModelVisible = (model: any, visible: boolean) => {
+        try {
+            if (!model?.getFragmentList) return;
+            const fragList = model.getFragmentList();
+            const count = fragList.getCount?.() ?? 0;
+            for (let i = 0; i < count; i++) fragList.setVisibility(i, !!visible);
+        } catch (e) {
+            console.warn('[ForgeViewer] setModelVisible failed', e);
+        }
+    };
 
     // Effect to force re-initialization when switching to IoT tab
     useEffect(() => {
@@ -238,6 +250,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                                 try { overlayModelMapRef.current.set(m.id, model); } catch {}
                                 console.log('[ForgeViewer] Overlay model loaded:', m.name, m.discipline);
+                                // Hide overlay model by default so only primary shows
+                                setModelVisible(model, false);
                                 resolve();
                             }).catch(() => resolve());
                         },
