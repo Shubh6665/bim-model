@@ -221,9 +221,21 @@ function BIMDashboard() {
 
   // Toggle model enablement for overlay
   const handleToggleModel = (modelId: string) => {
-    setEnabledModelIds(prev => {
+    setEnabledModelIds((prev) => {
       const next = new Set(prev);
-      if (next.has(modelId)) next.delete(modelId); else next.add(modelId);
+      const isCurrentlyEnabled = next.has(modelId);
+
+      // If trying to disable the only enabled model, block the action
+      if (isCurrentlyEnabled && next.size === 1) {
+        console.warn('[Models] At least one model must remain enabled. Enable another model before disabling this one.');
+        return prev; // no change
+      }
+
+      if (isCurrentlyEnabled) {
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
       return next;
     });
   };

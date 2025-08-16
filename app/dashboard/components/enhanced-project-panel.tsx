@@ -353,14 +353,9 @@ export function EnhancedProjectPanel({
                 </div>
               )}
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
-                  <span className="text-white text-xl font-bold uppercase">{selectedProject.fileType || '?'}</span>
-                </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
-                  <span className="inline-block bg-gray-700 text-gray-300 text-xs rounded px-2 py-0.5 mr-2">{selectedProject.fileType || 'Unknown'}</span>
-                  <span className="inline-block bg-blue-700 text-white text-xs rounded px-2 py-0.5">{selectedProject.code || 'No Code'}</span>
-                </div>
+                  </div>
               </div>
               <div className="grid grid-cols-1 gap-2 text-gray-300 text-sm">
                 <div className="flex items-center gap-2">
@@ -388,41 +383,8 @@ export function EnhancedProjectPanel({
                   <span className="text-gray-200">{selectedProject.lat}, {selectedProject.lng}</span>
                 </div>
               </div>
-              <div className="mb-2">
-                <span className="font-semibold text-gray-300">Description:</span>
-                
-                {/* Mock Sensor Data Section */}
-                <div className="mb-4 mt-2 p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm shadow flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-blue-300">
-                    <span>🌡️</span>
-                    <span className="font-semibold">Temperature:</span>
-                    <span className="text-white">22.5°C</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-green-300">
-                    <span>💧</span>
-                    <span className="font-semibold">Humidity:</span>
-                    <span className="text-white">45%</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-yellow-300">
-                    <span>🟢</span>
-                    <span className="font-semibold">CO₂ Level:</span>
-                    <span className="text-white">410 ppm</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <span>🔧</span>
-                    <span className="font-semibold">Last Sensor Update:</span>
-                    <span className="text-white">2025-07-15 14:32</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={onShowHierarchy}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md transition-colors flex items-center justify-center"
-                >
-                  View Hierarchy
-                </button>
-              </div>
+              {/* Description and sensor stats removed per request */}
+              
             </div>
         ) : (
           // No project selected: show tabs content
