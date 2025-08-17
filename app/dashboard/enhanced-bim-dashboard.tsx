@@ -78,6 +78,10 @@ function BIMDashboard() {
   // Federated overlay: track which models are enabled for overlay
   const [enabledModelIds, setEnabledModelIds] = useState<Set<string>>(new Set());
   const lastProcessedProjectId = useRef<string | null>(null);
+  // Guard to prevent duplicate "Show All" invocations in quick succession (e.g., StrictMode/dev)
+  const showAllGuardRef = useRef<number>(0);
+  // Guard to prevent duplicate toggle invocations in dev mode
+  const toggleGuardRef = useRef<number>(0);
 
   // Use sensor context
   const {
@@ -100,22 +104,18 @@ function BIMDashboard() {
   // Auto-switch to wireframe when IoT panel is active
   useEffect(() => {
     if (activePanel === "iot") {
-      console.log('[Dashboard] IoT panel activated - setting wireframe mode to true');
       setWireframeMode(true); // Default to wireframe for better sensor visibility
       
       // Ensure the viewer receives the wireframe mode change with multiple triggers
       setTimeout(() => {
-        console.log('[Dashboard] Triggering wireframe mode for IoT panel (first trigger)');
         setWireframeMode(true); // Force trigger wireframe mode again
       }, 300); // Delay to ensure panel and viewer are ready
       
       // Additional trigger to ensure wireframe mode is applied
       setTimeout(() => {
-        console.log('[Dashboard] Triggering wireframe mode for IoT panel (second trigger)');
         setWireframeMode(false); // Toggle to force re-application
         setTimeout(() => {
           setWireframeMode(true); // Set back to wireframe
-          console.log('[Dashboard] Wireframe mode should now be properly applied');
         }, 100);
       }, 600); // Second trigger after more delay
     }
@@ -126,7 +126,6 @@ function BIMDashboard() {
     async function fetchProjects() {
       const res = await fetch("/api/projects");
       const data = await res.json();
-      console.log("Fetched projects from MongoDB:", data);
       const mapped = (data.projects || []).map((p: any) => ({
         id: String(p._id || p.id),
         name: p.name,
@@ -158,7 +157,6 @@ function BIMDashboard() {
 
     // Only run this logic if the project ID has changed
     if (projectId && projectId !== lastProcessedProjectId.current) {
-      console.log(`[Dashboard] New project selected (${projectId}), setting default model visibility.`);
       lastProcessedProjectId.current = projectId;
 
       if (models.length === 0) {
@@ -204,11 +202,9 @@ function BIMDashboard() {
         setCurrentProject(project.id); // Set project in sensor context
       }
     }
-    console.log("Selected file:", file);
   };
 
   const handleProcessingComplete = (urn: string, file: ProjectFile) => {
-    console.log("Processing completed for file:", file.name, "URN:", urn);
     setSelectedFile((prev) => (prev ? { ...prev, urn } : null));
     setProjects((prev) =>
       prev.map((p) => (p.id === file.id ? { ...p, urn } : p)),
@@ -233,21 +229,23 @@ function BIMDashboard() {
     };
     setSelectedFile(file);
     setViewMode("viewer");
-    console.log("Selected project:", project);
   };
 
   // Toggle model enablement for overlay
   const handleToggleModel = (modelId: string) => {
-    console.log('🎛️  [Dashboard] MODEL TOGGLE REQUESTED');
-    console.log('   Model ID:', modelId);
+    // Re-entrancy guard: suppress duplicate calls within 250ms
+    const now = Date.now();
+    if (toggleGuardRef.current && (now - toggleGuardRef.current) < 250) {
+      return;
+    }
+    toggleGuardRef.current = now;
+    setTimeout(() => { toggleGuardRef.current = 0; }, 300);
+
     
     setEnabledModelIds((prev) => {
       const next = new Set(prev);
       const isCurrentlyEnabled = next.has(modelId);
       
-      console.log('   Current state:', isCurrentlyEnabled ? 'ENABLED' : 'DISABLED');
-      console.log('   Currently enabled models:', Array.from(prev));
-      console.log('   Total enabled count:', prev.size);
 
       // If trying to disable the only enabled model, block the action
       if (isCurrentlyEnabled && next.size === 1) {
@@ -256,10 +254,8 @@ function BIMDashboard() {
       }
 
       if (isCurrentlyEnabled) {
-        console.log('   🔴 DISABLING model:', modelId);
         next.delete(modelId);
       } else {
-        console.log('   🟢 ENABLING model:', modelId);
         
         // WORKAROUND: Auto-enable Architecture when enabling any other model
         // This prevents overlay loading errors that occur when Architecture is off
@@ -268,15 +264,12 @@ function BIMDashboard() {
         );
         
         if (architectureModel && !next.has(architectureModel.id) && modelId !== architectureModel.id) {
-          console.log('   🏗️  AUTO-ENABLING Architecture to support overlay:', architectureModel.id);
           next.add(architectureModel.id);
         }
         
         next.add(modelId);
       }
       
-      console.log('   ✅ New enabled models:', Array.from(next));
-      console.log('   📊 New total count:', next.size);
       
       return next;
     });
@@ -318,7 +311,6 @@ function BIMDashboard() {
 
   // Viewer-originated sensor click: select and set filter for IoT panel
   const handleViewerSensorClick = (sensorId: string) => {
-    console.log("[Viewer] Sensor clicked:", sensorId);
     // Set filter immediately to ensure IoTPanel reacts even if sensors array hasn't refreshed yet
     setViewerSelectedSensorId(sensorId);
     const sensor = sensors.find(s => s.id === sensorId);
@@ -329,7 +321,6 @@ function BIMDashboard() {
 
   // Panel-originated sensor click: select only (no filtering)
   const handlePanelSensorClick = (sensorId: string) => {
-    console.log("[Panel] Sensor clicked:", sensorId);
     const sensor = sensors.find(s => s.id === sensorId);
     if (sensor) {
       selectSensor(sensor);
@@ -344,18 +335,13 @@ function BIMDashboard() {
 
   // Handler for wireframe mode toggle
   const handleWireframeModeChange = (wireframe: boolean) => {
-    console.log(`[Dashboard] Wireframe mode change requested: ${wireframe}`);
-    console.log(`[Dashboard] Current wireframe state: ${wireframeMode}`);
     setWireframeMode(wireframe);
-    console.log(`[Dashboard] Wireframe mode updated to: ${wireframe}`);
   };
 
   // Handler for sensor form submission
   const handleSensorFormSubmit = async (formData: SensorFormData) => {
-    console.log("[Dashboard] Sensor form submitted:", formData);
     const newSensor = await placeSensorWithDetails(formData);
     if (newSensor) {
-      console.log("[Dashboard] Sensor placed successfully:", newSensor.name);
       // Exit insert mode after successful placement
       setInsertMode(null);
     }
@@ -363,14 +349,12 @@ function BIMDashboard() {
 
   // Handler for sensor form cancellation
   const handleSensorFormCancel = () => {
-    console.log("[Dashboard] Sensor form cancelled");
     hideSensorForm();
     setInsertMode(null);
   };
 
   // Handler for showing project information
   const handleShowProjectInfo = () => {
-    console.log("[Dashboard] Show project info requested");
     setShowProjectInfo(true);
   };
 
@@ -387,20 +371,16 @@ function BIMDashboard() {
     if (activePanel === 'iot') {
       // If we're in IoT panel, this affects the IoT sensors
       // The sensor visibility is handled by the IoT panel itself
-      console.log(`Sensors visibility toggled: ${visible}`);
     } else {
       // In BIM panel, this could toggle any placed sensors
-      console.log(`BIM sensor visibility toggled: ${visible}`);
     }
   };
 
   const handleSaveCurrentView = (viewName: string) => {
-    console.log(`View '${viewName}' saved successfully`);
     // The actual saving is handled in the BIM panel component
   };
 
   const handleFilterObjects = (filters: any) => {
-    console.log('Object filters applied:', filters);
     // The actual filtering is handled in the BIM panel component
   };
 
@@ -417,7 +397,6 @@ function BIMDashboard() {
 
   // Handler for saving project information (if editing is enabled)
   const handleSaveProjectInfo = (updatedProject: Project) => {
-    console.log("[Dashboard] Project info save requested:", updatedProject);
     // Update the selected project and projects list
     setSelectedProject(updatedProject);
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
@@ -426,7 +405,6 @@ function BIMDashboard() {
 
   // Handler for project updated from API
   const handleProjectUpdated = (updatedProject: Project) => {
-    console.log("[Dashboard] Project updated from API:", updatedProject);
     // Update the selected project and projects list
     setSelectedProject(updatedProject);
     setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
@@ -619,6 +597,33 @@ function BIMDashboard() {
                 models={selectedProject?.models}
                 enabledModelIds={enabledModelIds}
                 onToggleModel={handleToggleModel}
+                onRestoreEnabledModelsVisibility={(viewer) => {
+                  // Re-entrancy guard: suppress duplicate calls within 350ms
+                  const now = Date.now();
+                  if (showAllGuardRef.current && (now - showAllGuardRef.current) < 350) {
+                    console.log('🔄 [Show All] Duplicate call suppressed');
+                    return;
+                  }
+                  showAllGuardRef.current = now;
+                  setTimeout(() => { showAllGuardRef.current = 0; }, 400);
+
+                  // Restore visibility for all currently enabled models immediately
+                  if (!viewer || !selectedProject?.models || !enabledModelIds.size) return;
+                  
+                  
+                  // Force immediate visibility update by triggering the effect synchronously
+                  setTimeout(() => {
+                    setEnabledModelIds(prev => {
+                      const current = new Set(prev);
+                      return current;
+                    });
+                  }, 0);
+                  
+                  // Also invalidate viewer to apply changes immediately
+                  if (viewer.impl?.invalidate) {
+                    viewer.impl.invalidate(true);
+                  }
+                }}
               />
             ) : activePanel === "iot" ? (
               <IoTPanel 

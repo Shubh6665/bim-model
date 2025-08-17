@@ -37,6 +37,7 @@ interface BIMPanelProps {
   models?: ProjectModel[];
   enabledModelIds?: Set<string>;
   onToggleModel?: (modelId: string) => void;
+  onRestoreEnabledModelsVisibility?: (viewer: any) => void;
 }
 
 interface FilterOptions {
@@ -60,19 +61,20 @@ interface SavedView {
   };
 }
 
-export function BIMPanel({
+export const BIMPanel: React.FC<BIMPanelProps> = ({
   onBackToProjects,
   onSave2DView,
   onSave3DView,
   onSaveCurrentView,
   onFilterObjects,
   onToggleSensors,
-  sensorsVisible = false,
+  sensorsVisible,
   viewer,
   models,
   enabledModelIds,
   onToggleModel,
-}: BIMPanelProps) {
+  onRestoreEnabledModelsVisibility,
+}) => {
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState('');
@@ -227,16 +229,9 @@ export function BIMPanel({
   }, [activeCommand, viewer?.model]);
 
   // Also trigger category extraction when model loads if Filter panel is already open
-  useEffect(() => {
-    const extractOnModelLoad = async () => {
-      if (viewer?.model && activeCommand === 'filter-objects') {
-        console.log('[BIMPanel] Model loaded while Filter panel open, extracting categories...');
-        await rebuildIndexAndCategories();
-      }
-    };
-    extractOnModelLoad();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer?.model]);
+  // NOTE: Removed duplicate effect that also depended on viewer?.model and
+  // called rebuildIndexAndCategories(), as the previous effect already handles
+  // the same condition (activeCommand === 'filter-objects' && viewer?.model).
 
     // removed types computation effect
 
@@ -587,12 +582,44 @@ export function BIMPanel({
   // Build a property index for all nodes (leaf nodes) with bulk properties
   const getActiveModels = () => {
     if (!viewer) return [] as any[];
+    // Gather all models known to the viewer
+    const allModels: any[] = [];
     const vis = (viewer as any).getVisibleModels?.();
-    if (Array.isArray(vis) && vis.length) return vis;
-    const mq = (viewer as any).impl?.modelQueue?.();
-    const all = typeof mq?.getModels === 'function' ? mq.getModels() : [];
-    if (Array.isArray(all) && all.length) return all;
-    return viewer.model ? [viewer.model] : [];
+    if (Array.isArray(vis) && vis.length) {
+      allModels.push(...vis);
+    } else {
+      const mq = (viewer as any).impl?.modelQueue?.();
+      const all = typeof mq?.getModels === 'function' ? mq.getModels() : [];
+      if (Array.isArray(all) && all.length) allModels.push(...all);
+      else if (viewer.model) allModels.push(viewer.model);
+    }
+
+    // If no enabled set provided, keep existing behavior
+    if (!enabledModelIds || enabledModelIds.size === 0) return allModels;
+
+    // Build quick lookup from project-model id -> urn
+    const projectByUrn = new Map<string, string>(); // urn -> projectModelId
+    if (Array.isArray(models)) {
+      for (const pm of models) {
+        if (pm?.urn && pm?.id) projectByUrn.set(pm.urn, pm.id);
+      }
+    }
+
+    // Filter: only models whose mapped project id is enabled
+    const enabledModels = allModels.filter((m) => {
+      const urn = getModelURN(m);
+      const pmId = projectByUrn.get(urn);
+      if (pmId) return enabledModelIds.has(pmId);
+      // Fallback: if we couldn't map, include only if all models are enabled (conservative)
+      return false;
+    });
+
+    console.log('[Filter] Active models filtered by enabledModelIds:', {
+      total: allModels.length,
+      enabled: enabledModels.length,
+      enabledIds: Array.from(enabledModelIds || [])
+    });
+    return enabledModels;
   };
 
   const ensurePropertyIndex = async () => {
@@ -603,6 +630,21 @@ export function BIMPanel({
       return true;
     }
     return await rebuildIndexAndCategories();
+  };
+
+  // Helper to safely extract a model's URN across different viewer versions
+  const getModelURN = (m: any): string => {
+    try {
+      return (
+        m?.myData?.urn ||
+        (typeof m?.getData === 'function' ? m.getData()?.urn : undefined) ||
+        m?.urn ||
+        (typeof m?.getData === 'function' ? m.getData()?.loadOptions?.documentUrn : undefined) ||
+        ''
+      );
+    } catch {
+      return '';
+    }
   };
 
   // Build a fresh index for the current model and extract categories from model browser structure
@@ -752,9 +794,10 @@ export function BIMPanel({
   };
 
   // Fallback: use Forge viewer.search to find dbIds by keywords
-  const searchDbIdsForKeywords = async (keywords: string[], attributeNames?: string[]) => {
-    if (!viewer) return [] as number[];
+  const searchDbIdsForKeywords = async (keywords: string[], attributeNames?: string[]): Promise<number[]> => {
     const found = new Set<number>();
+    const activeModels = getActiveModels();
+    
     for (const kw of keywords) {
       const res: number[] = await new Promise((resolve) => {
         viewer.search(
@@ -764,7 +807,16 @@ export function BIMPanel({
           attributeNames
         );
       });
-      res.forEach(id => found.add(id));
+      
+      // Filter search results to only include dbIds from active (enabled) models
+      const filteredRes = res.filter(dbId => {
+        return activeModels.some(model => {
+          const modelDbIds = modelDbIdsRef.current.get(model.id) || [];
+          return modelDbIds.includes(dbId);
+        });
+      });
+      
+      filteredRes.forEach(id => found.add(id));
     }
     return Array.from(found);
   };
@@ -931,7 +983,15 @@ export function BIMPanel({
           safeRestoreAllVisibility(viewer);
         }
 
-        // 3) Invalidate and fit to the model's global bounding box immediately (visibility-agnostic)
+        // 3) Restore visibility for enabled models only
+        if (typeof onRestoreEnabledModelsVisibility === 'function') {
+          onRestoreEnabledModelsVisibility(viewer);
+        } else {
+          // Fallback: restore all models if callback not provided
+          safeRestoreAllVisibility(viewer);
+        }
+        
+        // 4) Invalidate and fit to enabled models' bounding box
         try { viewer.impl?.invalidate?.(true); } catch {}
         safeFitToView(viewer);
         try {

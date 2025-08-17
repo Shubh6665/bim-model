@@ -398,6 +398,17 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
   // Remove model
   const [removeModelId, setRemoveModelId] = useState<string>("");
+  
+  // Debug project access
+  useEffect(() => {
+    if (project) {
+      console.log('[ProjectAdminModal] Project access:', {
+        owner: project.access?.owner,
+        role: project.access?.role,
+        packages: project.access?.packages
+      });
+    }
+  }, [project]);
   const handleRemoveModel = async () => {
     if (!project || !removeModelId) return;
     if (!project.access?.owner) {
@@ -742,14 +753,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
           {activeTab === "remove" && (
             <div className="space-y-4">
-              {!project.access?.owner && (
-                <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
-                  Only the project owner can delete models.
-                </div>
-              )}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Select Model to Remove</label>
-                <select value={removeModelId} onChange={(e) => setRemoveModelId(e.target.value)} disabled={!project.access?.owner} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60">
+                <select 
+                  value={removeModelId} 
+                  onChange={(e) => setRemoveModelId(e.target.value)} 
+                  disabled={!project?.access?.owner} 
+                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
+                >
                   <option value="">-- Choose a model --</option>
                   {(project.models || []).map((m) => (
                     <option key={m.id} value={m.id}>{m.name} ({m.discipline || 'other'})</option>

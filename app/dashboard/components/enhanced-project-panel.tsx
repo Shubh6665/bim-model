@@ -338,11 +338,6 @@ export function EnhancedProjectPanel({
               {selectedProject.models && selectedProject.models.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold text-blue-300 mb-2">Models Uploaded</h4>
-                  {!selectedProject.access?.owner && (
-                    <div className="mb-2 text-[12px] px-3 py-2 rounded border border-yellow-700/40 bg-yellow-900/30 text-yellow-200">
-                      Only the project owner can delete models.
-                    </div>
-                  )}
                   <div className="space-y-3">
                     {(() => {
                       const groups = selectedProject.models!.reduce<Record<Discipline, ProjectModel[]>>((acc: any, m) => {
