@@ -34,11 +34,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
-    const result = await db.collection('invites').findOneAndUpdate(
-      { _id: new ObjectId(inviteId), projectId: project._id },
-      { $set: update },
-      { returnDocument: 'after' }
-    );
+    const updateFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { $or: [ { projectId: project._id }, { projectId: String(project._id) } ] } ] };
+    const result = await db
+      .collection('invites')
+      .findOneAndUpdate(updateFilter, { $set: update }, { returnDocument: 'after' });
     const updated = result?.value;
     if (!updated) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
 
@@ -65,7 +64,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
 
     const invites = await db
       .collection('invites')
-      .find({ projectId: project._id })
+      .find({ $or: [ { projectId: project._id }, { projectId: String(project._id) } ] })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -95,7 +94,8 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ proj
     if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
 
     // remove the invite only if it belongs to the project
-    const res = await db.collection('invites').deleteOne({ _id: new ObjectId(inviteId), projectId: project._id });
+    const deleteFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { $or: [ { projectId: project._id }, { projectId: String(project._id) } ] } ] };
+    const res = await db.collection('invites').deleteOne(deleteFilter);
     if (res.deletedCount === 0) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
 
     return NextResponse.json({ success: true });

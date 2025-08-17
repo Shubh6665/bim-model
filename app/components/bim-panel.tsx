@@ -140,6 +140,55 @@ export function BIMPanel({
     }
   }, [viewer]);
 
+  // --- Safe viewer helpers -------------------------------------------------
+  const safeRestoreAllVisibility = (v: any) => {
+    try {
+      if (!v) return;
+      const model = v.model;
+      const vm = v.impl?.visibilityManager;
+      // Restore fragments visibility
+      if (model?.getFragmentList) {
+        const fl = model.getFragmentList();
+        const n = fl.getCount?.() ?? 0;
+        for (let i = 0; i < n; i++) fl.setVisibility(i, true);
+      }
+      // Restore node-off flags if possible
+      if (model?.getObjectTree && vm && typeof vm.setNodeOff === 'function') {
+        model.getObjectTree((tree: any) => {
+          if (!tree) return;
+          const root = tree.getRootId?.() ?? 1;
+          const walk = (id: number) => { try { vm.setNodeOff(id, false); } catch {}; tree.enumNodeChildren(id, (c: number) => walk(c)); };
+          walk(root);
+          v.impl?.invalidate?.(true);
+        });
+      } else {
+        v.impl?.invalidate?.(true);
+      }
+    } catch (e) {
+      console.warn('[BIMPanel] safeRestoreAllVisibility failed', e);
+    }
+  };
+
+  const safeFitToView = (v: any, ids?: number[] | undefined) => {
+    try {
+      if (!v) return;
+      if (typeof v.fitToView === 'function') {
+        if (Array.isArray(ids) && ids.length) v.fitToView(ids);
+        else v.fitToView();
+        return;
+      }
+      // Fallback: zoom to model bounding box
+      const bbox = v.model?.getBoundingBox?.();
+      if (bbox && v.navigation?.fitBounds) {
+        v.navigation.fitBounds(true, bbox);
+      } else {
+        v.impl?.invalidate?.(true);
+      }
+    } catch (e) {
+      console.warn('[BIMPanel] safeFitToView failed', e);
+    }
+  };
+
   // Reset all states when model changes
   useEffect(() => {
     if (!viewer?.model) return;
@@ -419,8 +468,8 @@ export function BIMPanel({
             
             // Check if viewer has proper visibility manager before proceeding
             if (viewer.impl && viewer.impl.visibilityManager) {
-              // Show all hidden elements first
-              viewer.showAll();
+              // Show all hidden elements first (restores after 2D mode)
+              safeRestoreAllVisibility(viewer);
               
               // Reset view to 3D perspective
               if (viewer.setViewType && typeof viewer.setViewType === 'function') {
@@ -438,7 +487,7 @@ export function BIMPanel({
               }
               
               // Reset camera to show the entire model
-              viewer.fitToView();
+              safeFitToView(viewer);
               
               // Reset any display modes that might have been set
               if (viewer.setDisplayMode && typeof viewer.setDisplayMode === 'function') {
@@ -459,17 +508,13 @@ export function BIMPanel({
             } else {
               console.warn('Viewer visibility manager not ready, using basic restoration');
               // Basic restoration without showAll
-              if (viewer.fitToView && typeof viewer.fitToView === 'function') {
-                viewer.fitToView();
-              }
+              safeFitToView(viewer);
             }
           } catch (error) {
             console.error('Error restoring 3D view:', error);
             // Fallback: just try fitToView if available
             try {
-              if (viewer.fitToView && typeof viewer.fitToView === 'function') {
-                viewer.fitToView();
-              }
+              safeFitToView(viewer);
             } catch (fallbackError) {
               console.warn('Fallback restoration also failed:', fallbackError);
             }
@@ -746,7 +791,7 @@ export function BIMPanel({
       try {
         if (viewer.isolate) viewer.isolate([]);
       } catch {}
-      if (viewer.showAll) viewer.showAll();
+      safeRestoreAllVisibility(viewer);
       if (viewer.clearSelection) viewer.clearSelection();
       return;
     }
@@ -800,7 +845,7 @@ export function BIMPanel({
       }
       if (foundPerModel.length === 0) {
         console.warn('[Filter] Fallback search also found 0. Restoring view.');
-        viewer.showAll?.();
+        safeRestoreAllVisibility(viewer);
         viewer.clearSelection?.();
         return;
       }
@@ -821,21 +866,21 @@ export function BIMPanel({
     }
 
     // Fallback: isolate per model sequentially
-    try {
-      // Show all first to reset
-      viewer.showAll?.();
-      for (const s of perModelMatches) {
-        if (typeof viewer.isolate === 'function') {
-          // @ts-ignore isolate(nodeIds, model?)
-          viewer.isolate(s.ids, s.model);
+      try {
+        // Show all first to reset
+        safeRestoreAllVisibility(viewer);
+        for (const s of perModelMatches) {
+          if (typeof viewer.isolate === 'function') {
+            // @ts-ignore isolate(nodeIds, model?)
+            viewer.isolate(s.ids, s.model);
+          }
         }
+        safeFitToView(viewer);
+        return;
+      } catch (e) {
+        console.warn('[Filter] Per-model isolate failed, restoring view', e);
+        safeRestoreAllVisibility(viewer);
       }
-      viewer.fitToView?.();
-      return;
-    } catch (e) {
-      console.warn('[Filter] Per-model isolate failed, restoring view', e);
-      viewer.showAll?.();
-    }
 
     // Multi-model isolation already handled above (aggregate/per-model). Legacy single-model
     // fragment-level isolation path removed.
@@ -869,29 +914,26 @@ export function BIMPanel({
 
         // 2) Force all nodes visible using visibilityManager (more reliable than showAll after hide/isolate chains)
         const model = viewer.model;
-        const tree = model ? model.getInstanceTree() : null;
-        const vm = (viewer as any).visibilityManager;
-        if (tree && vm) {
-          const rootId = tree.getRootId();
-          const makeVisible = (nodeId: number) => {
-            try { vm.setNodeOff(nodeId, false); } catch {}
-            tree.enumNodeChildren(nodeId, (childId: number) => {
-              makeVisible(childId);
-              return true;
+        if (viewer.impl?.visibilityManager && model?.getObjectTree) {
+          try {
+            model.getObjectTree((tree: any) => {
+              if (!tree) return;
+              const vm = viewer.impl.visibilityManager;
+              const root = tree.getRootId?.() ?? 1;
+              const walk = (id: number) => { try { vm.setNodeOff(id, false); } catch {}; tree.enumNodeChildren(id, (c: number) => walk(c)); };
+              walk(root);
             });
-          };
-          makeVisible(rootId);
-          // Clear any isolation lists maintained internally
-          try { vm.aggregateIsolatedNodes && vm.aggregateIsolatedNodes([]); } catch {}
-          // Clear any theming colors that might emphasize previous selection
+          } catch {}
+          try { viewer.impl.invalidate?.(true); } catch {}
           try { viewer.clearThemingColors(model); } catch {}
         } else {
           // Fallback
-          try { viewer.showAll(); } catch {}
+          safeRestoreAllVisibility(viewer);
         }
 
         // 3) Invalidate and fit to the model's global bounding box immediately (visibility-agnostic)
-        if (viewer.impl && viewer.impl.invalidate) viewer.impl.invalidate(true, true, true);
+        try { viewer.impl?.invalidate?.(true); } catch {}
+        safeFitToView(viewer);
         try {
           let bbox: any = null;
           if (model && (model as any).getBoundingBox) {
@@ -911,7 +953,7 @@ export function BIMPanel({
         console.log('Cleared all filters. Restored full model visibility and camera fit.');
       } catch (e) {
         console.warn('Error clearing filters, falling back to showAll:', e);
-        try { viewer.showAll(); } catch {}
+        safeRestoreAllVisibility(viewer);
       }
     }
   };
@@ -944,7 +986,7 @@ export function BIMPanel({
     try {
       if (selectedNodeIds.size === 0) {
         // No selection - show all objects
-        viewer.showAll();
+        safeRestoreAllVisibility(viewer);
         viewer.clearSelection();
         console.log('✅ Showing all objects');
         return;
@@ -1013,15 +1055,13 @@ export function BIMPanel({
         console.log(`✅ Applied filter: showing ${uniqueVisibleDbIds.length} objects`);
       } else {
         console.warn('⚠️ No objects found for selected categories');
-        viewer.showAll();
+        safeRestoreAllVisibility(viewer);
       }
       
     } catch (error) {
       console.error('❌ Filter error:', error);
       // Restore all objects on error
-      if (viewer && viewer.showAll) {
-        viewer.showAll();
-      }
+      if (viewer) safeRestoreAllVisibility(viewer);
     }
   };
 

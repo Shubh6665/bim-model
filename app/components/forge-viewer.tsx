@@ -9,6 +9,7 @@ interface ForgeViewerProps {
     accessToken: string;
     urn: string;
     models?: ProjectModel[]; // optional federated models; if provided, first is primary
+    enabledModelIds?: Set<string>; // Track which models should be visible
     insertMode?: string | null;
     onSensorPlaced?: (sensor: any) => void;
     onExitInsertMode?: () => void;
@@ -26,6 +27,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     accessToken,
     urn,
     models,
+    enabledModelIds,
     insertMode,
     onSensorPlaced,
     onExitInsertMode,
@@ -57,6 +59,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Track loaded overlay models by project model id (excluding primary)
     const overlayModelMapRef = useRef<Map<string, any>>(new Map());
     const prevOverlaySigRef = useRef<string>("");
+    // Persistently remember which project model id is the true primary loaded into viewer.model
+    const primaryModelIdRef = useRef<string | null>(null);
 
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
@@ -69,13 +73,90 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Helper to toggle an entire model's visibility by fragment
     const setModelVisible = (model: any, visible: boolean) => {
+        console.log(`🔧 setModelVisible called: ${visible ? 'SHOW' : 'HIDE'} model`);
         try {
-            if (!model?.getFragmentList) return;
+            if (!model?.getFragmentList) {
+                console.warn('   ⚠️  Model has no getFragmentList method');
+                return;
+            }
             const fragList = model.getFragmentList();
             const count = fragList.getCount?.() ?? 0;
-            for (let i = 0; i < count; i++) fragList.setVisibility(i, !!visible);
+            console.log(`   📊 Processing ${count} fragments`);
+            
+            for (let i = 0; i < count; i++) {
+                fragList.setVisibility(i, !!visible);
+            }
+            
+            console.log(`   ✅ ${count} fragments set to ${visible ? 'VISIBLE' : 'HIDDEN'}`);
         } catch (e) {
-            console.warn('[ForgeViewer] setModelVisible failed', e);
+            console.error('   ❌ setModelVisible failed:', e);
+        }
+    };
+
+    // Safely toggle edge display, avoiding prefs null issues in some builds
+    const safeSetDisplayEdges = (v: any, enabled: boolean) => {
+        try {
+            if (!v || typeof v.setDisplayEdges !== 'function') return;
+            if (!v.prefs || !v.impl || !v.impl.prefs) return; // avoid this.prefs.set crash
+            // Additional check for prefs.set method
+            if (typeof v.prefs.set !== 'function') return;
+            v.setDisplayEdges(!!enabled);
+        } catch (e) {
+            console.warn('[ForgeViewer] setDisplayEdges failed', e);
+        }
+    };
+
+    // Helper: ensure viewer visibility manager is ready before calling showAll/visibility ops
+    const canUseVisibility = (v: any) => !!(v && v.impl && v.impl.visibilityManager && typeof v.showAll === 'function');
+
+    // Safer alternative to viewer.showAll() that avoids internal showAllLayers dependency
+    const safeRestoreAllVisibility = (v: any) => {
+        try {
+            if (!v) return;
+            const vm = v.impl?.visibilityManager;
+            const model = v.model;
+            if (model) {
+                // Ensure all fragments are visible
+                setModelVisible(model, true);
+                // Ensure all nodes are turned on (not set off)
+                if (model.getObjectTree && vm && typeof vm.setNodeOff === 'function') {
+                    model.getObjectTree((tree: any) => {
+                        if (!tree) return;
+                        const walk = (nodeId: number) => {
+                            try { vm.setNodeOff(nodeId, false); } catch {}
+                            tree.enumNodeChildren(nodeId, (childId: number) => walk(childId));
+                        };
+                        const rootId = tree.getRootId?.() ?? 1;
+                        walk(rootId);
+                        v.impl?.invalidate?.(true);
+                    });
+                } else {
+                    // Fallback: at least invalidate to reflect fragment visibility
+                    v.impl?.invalidate?.(true);
+                }
+            }
+        } catch (err) {
+            console.warn('[ForgeViewer] safeRestoreAllVisibility failed', err);
+        }
+    };
+
+    // Ensure primary and overlay models are visible according to enabledModelIds
+    const restoreAllModelsVisibility = (v: any) => {
+        try {
+            // Primary model
+            safeRestoreAllVisibility(v);
+            // Overlay models (federated)
+            const overlays = overlayModelMapRef.current;
+            if (overlays && overlays.size > 0) {
+                for (const [modelId, mdl] of overlays.entries()) {
+                    // If enabledModelIds is not provided, default to showing all overlays
+                    const shouldShow = !enabledModelIds || enabledModelIds.size === 0 || enabledModelIds.has(modelId as string);
+                    setModelVisible(mdl, shouldShow);
+                }
+            }
+            v.impl?.invalidate?.(true);
+        } catch (e) {
+            console.warn('[ForgeViewer] restoreAllModelsVisibility failed', e);
         }
     };
 
@@ -188,12 +269,17 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         });
     }, [models, urn, loadedUrn]);
 
-    // Update loadedUrn when model is successfully loaded
+    // Update loadedUrn when model is successfully loaded - keep URN stable to prevent reinit
     useEffect(() => {
         const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
         if (isInitialized && primaryUrn && loadedUrn !== primaryUrn) {
-            setLoadedUrn(primaryUrn);
-            console.log("[ForgeViewer] Model successfully loaded, loadedUrn updated:", primaryUrn);
+            // Only update if we haven't loaded any model yet, to prevent reinit on model toggles
+            if (!loadedUrn) {
+                setLoadedUrn(primaryUrn);
+                console.log("[ForgeViewer] Model successfully loaded, loadedUrn updated:", primaryUrn);
+            } else {
+                console.log("[ForgeViewer] Skipping URN update to prevent reinit:", primaryUrn, "current:", loadedUrn);
+            }
         }
     }, [isInitialized, urn, models, loadedUrn]);
 
@@ -201,9 +287,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     useEffect(() => {
         const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
         if (!viewerContainer.current || !accessToken || !primaryUrn) return;
-        // Prevent multiple initializations for the same URN
-        if (initializationRef.current && loadedUrn === primaryUrn) {
-            console.log("[ForgeViewer] Already initialized with current URN, skipping");
+        // Prevent multiple initializations - once initialized, don't reinit for model toggles
+        if (initializationRef.current && loadedUrn) {
+            console.log("[ForgeViewer] Already initialized with URN:", loadedUrn, "skipping reinit for:", primaryUrn);
             return;
         }
         if (initInFlightRef.current) {
@@ -294,6 +380,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         if (viewables) {
                             viewerInstance.loadDocumentNode(doc, viewables).then(() => {
                                 setIsLoading(false);
+                                // Capture the primary project model id once at initialization
+                                try {
+                                    if (!primaryModelIdRef.current) {
+                                        const initPrimaryId = (models && models.length > 0) ? models[0].id : null;
+                                        primaryModelIdRef.current = initPrimaryId || null;
+                                        console.log('[ForgeViewer] Primary model id set:', primaryModelIdRef.current);
+                                    }
+                                } catch {}
                                 // Wait for GEOMETRY_LOADED_EVENT before initializing DataViz
                                 viewerInstance.addEventListener(
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
@@ -645,11 +739,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 // Enable wireframe mode for IoT - hide solid surfaces and show only structural edges
                 console.log('[ForgeViewer] Enabling wireframe mode for IoT panel - hiding solid components');
                 
-                // First ensure all elements are visible
-                if (viewer?.showAll) viewer.showAll();
+                // First ensure all enabled models (primary + overlays) are visible
+                restoreAllModelsVisibility(viewer);
                 
                 // Enable edge display for wireframe effect
-                if (viewer?.setDisplayEdges) viewer.setDisplayEdges(true);
+                safeSetDisplayEdges(viewer, true);
                 
                 // Get the object tree and hide all solid components to show only wireframe structure
                 if (viewer?.model && viewer.model.getObjectTree) {
@@ -714,11 +808,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 // Solid mode - show full model with normal rendering
                 console.log('[ForgeViewer] Enabling solid mode for IoT panel');
                 
-                // Show all elements (restore hidden components)
-                if (viewer?.showAll) viewer.showAll();
+                // Restore visibility for primary and enabled overlay models
+                restoreAllModelsVisibility(viewer);
                 
                 // Keep edges visible for better visibility in IoT mode
-                if (viewer?.setDisplayEdges) viewer.setDisplayEdges(true);
+                safeSetDisplayEdges(viewer, true);
                 
                 // Use solid rendering mode
                 if (viewer?.setDisplayMode) {
@@ -746,9 +840,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             if (sensorsVisible) {
                 console.log('[ForgeViewer] BIM sensors visible - enabling IoT-style wireframe');
                 
-                // This will reset any active filtering, which is expected when entering this mode.
-                viewer.showAll();
-                viewer.setDisplayEdges(true);
+                // Do NOT reset visibility; only adjust rendering flags
+                safeSetDisplayEdges(viewer, true);
 
                 if (viewer.model && viewer.model.getObjectTree) {
                     viewer.model.getObjectTree((instanceTree: any) => {
@@ -788,8 +881,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log('[ForgeViewer] BIM sensors hidden - restoring solid mode');
                 // Restore solid mode and show all elements.
                 // This will also clear any active filtering.
-                viewer.showAll();
-                viewer.setDisplayEdges(true);
+                // Do NOT reset visibility; only adjust rendering flags
+                safeSetDisplayEdges(viewer, true);
                 if (viewer.setDisplayMode) viewer.setDisplayMode(0); // solid
                 if (viewer.setGhosting) viewer.setGhosting(false);
             }
@@ -831,7 +924,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 }
                 
                 // Ensure edges are visible
-                viewer.setDisplayEdges(true);
+                safeSetDisplayEdges(viewer, true);
                 
                 console.log("[ForgeViewer] Normal rendering mode set for non-IoT panel");
             }
@@ -839,6 +932,88 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.error("[ForgeViewer] Error in panel rendering control:", error);
         }
     }, [activePanel, viewer, isInitialized]);
+
+    // Handle model visibility based on enabledModelIds
+    useEffect(() => {
+        console.log('[ForgeViewer] Model visibility effect triggered');
+        console.log('  - viewer ready:', !!viewer);
+        console.log('  - isInitialized:', isInitialized);
+        console.log('  - models count:', models?.length || 0);
+        console.log('  - enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'null');
+        console.log('  - overlayModelsLoaded:', overlayModelsLoaded);
+
+        // Only require a ready viewer and initialized flag; handle even single-model cases
+        if (!viewer || !isInitialized) {
+            console.log('[ForgeViewer] Skipping model visibility - prerequisites not met');
+            return;
+        }
+        if (!enabledModelIds || enabledModelIds.size === 0) {
+            console.log('[ForgeViewer] Skipping model visibility - no enabled models');
+            return;
+        }
+
+        console.log('🔄 [ForgeViewer] STARTING model visibility management');
+        console.log('📋 Enabled models:', Array.from(enabledModelIds));
+        console.log('📦 Available models:', (models || []).map(m => `${m.id} (${m.name} - ${m.discipline})`));
+
+        try {
+            // Get the true primary model instance and id captured at init
+            const primaryModel = viewer.model;
+            const truePrimaryId = primaryModelIdRef.current;
+            const primaryInfo = truePrimaryId ? (((models || []).find(m => m.id === truePrimaryId)) || { name: 'Unknown' }) : null;
+
+            // Handle primary model visibility against enabled set
+            if (truePrimaryId && primaryModel) {
+                const shouldShowPrimary = enabledModelIds.has(truePrimaryId);
+                console.log(`🏗️  PRIMARY MODEL: ${primaryInfo?.name || 'Unknown'} (${truePrimaryId})`);
+                console.log(`   Status: ${shouldShowPrimary ? '✅ SHOW' : '❌ HIDE'}`);
+                console.log(`   Fragment count: ${primaryModel.getFragmentList?.()?.getCount?.() || 'unknown'}`);
+
+                setModelVisible(primaryModel, shouldShowPrimary);
+
+                if (shouldShowPrimary) {
+                    console.log(`   ✅ Primary model ${truePrimaryId} set to VISIBLE`);
+                } else {
+                    console.log(`   ❌ Primary model ${truePrimaryId} set to HIDDEN`);
+                }
+            } else {
+                console.log('[ForgeViewer] Primary model id not set yet; skipping primary visibility update');
+            }
+
+            // Handle overlay models visibility
+            console.log(`🔗 OVERLAY MODELS: ${overlayModelMapRef.current.size} loaded`);
+            for (const [modelId, overlayModel] of overlayModelMapRef.current.entries()) {
+                // Skip if this overlay id matches the true primary id to avoid double-toggling
+                if (truePrimaryId && modelId === truePrimaryId) continue;
+                const modelInfo = (models || []).find(m => m.id === modelId);
+                const shouldShow = enabledModelIds.has(modelId);
+                
+                console.log(`   🏗️  ${modelInfo?.name || 'Unknown'} (${modelId})`);
+                console.log(`      Status: ${shouldShow ? '✅ SHOW' : '❌ HIDE'}`);
+                console.log(`      Fragment count: ${overlayModel.getFragmentList?.()?.getCount?.() || 'unknown'}`);
+                
+                setModelVisible(overlayModel, shouldShow);
+                
+                if (shouldShow) {
+                    console.log(`      ✅ Overlay model ${modelId} set to VISIBLE`);
+                } else {
+                    console.log(`      ❌ Overlay model ${modelId} set to HIDDEN`);
+                }
+            }
+
+            // Force viewer refresh to apply visibility changes
+            if (viewer.impl?.invalidate) {
+                viewer.impl.invalidate(true);
+                console.log('🔄 Viewer invalidated to apply visibility changes');
+            }
+
+            console.log('✅ [ForgeViewer] Model visibility management COMPLETED');
+
+        } catch (error) {
+            console.error('❌ [ForgeViewer] Error managing model visibility:', error);
+            console.error('   Stack:', (error as Error).stack);
+        }
+    }, [enabledModelIds, viewer, isInitialized, models, overlayModelsLoaded]);
 
         // Effect to handle sensor highlighting when selectedSensor changes
     useEffect(() => {

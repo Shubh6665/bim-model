@@ -20,6 +20,7 @@ interface Project {
   address?: string;
   cadastral?: string;
   models?: ProjectModel[];
+  access?: { owner?: boolean; role?: string; packages?: string[] };
 }
 
 interface ProjectAdminModalProps {
@@ -111,15 +112,38 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   // Invites list state
   const [invitesList, setInvitesList] = useState<any[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
+  const [canManageInvites, setCanManageInvites] = useState(true);
+
+  // Safely extract a string id from a Mongo ObjectId or string
+  const getInviteId = (inv: any): string => {
+    const raw = inv?._id ?? inv?.id;
+    if (typeof raw === 'string') return raw;
+    if (raw?.$oid) return raw.$oid;
+    if (typeof raw?.toString === 'function') return raw.toString();
+    return '';
+  };
 
   const loadInvites = async () => {
     if (!project) return;
     setInvitesLoading(true);
     try {
+      setError(null);
       const res = await fetch(`/api/projects/${project.id}/invites`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to load invites');
+      if (!res.ok) {
+        // If user is not the owner, don't surface a scary error banner.
+        if (res.status === 404 && (json?.error || '').toLowerCase().includes('not owner')) {
+          setCanManageInvites(false);
+          setInvitesList([]);
+          setError(null);
+          return;
+        }
+        throw new Error(json.error || 'Failed to load invites');
+      }
       setInvitesList(Array.isArray(json.invites) ? json.invites : []);
+      // Clear any previous transient errors on success
+      setError(null);
+      setCanManageInvites(true);
     } catch (e: any) {
       setError(e.message || 'Failed to load invites');
     } finally {
@@ -128,7 +152,10 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   };
 
   useEffect(() => {
+    // Clear any stale errors on any tab switch
+    setError(null);
     if (activeTab === 'access' && project) {
+      setCanManageInvites(true);
       loadInvites();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -143,6 +170,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to revoke invite');
       await loadInvites();
+      setError(null);
     } catch (e: any) {
       setError(e.message || 'Failed to revoke invite');
     } finally {
@@ -153,7 +181,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   type Pkg = 'BIM' | 'IoT' | 'Database' | 'AI' | 'FM';
   const toggleInvitePackage = (inviteId: string, pkg: Pkg) => {
     setInvitesList((prev) => prev.map((inv) => {
-      if (String(inv._id) !== String(inviteId)) return inv;
+      if (getInviteId(inv) !== String(inviteId)) return inv;
       const current: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
       const has = current.includes(pkg);
       const next = has ? current.filter((p) => p !== pkg) : [...current, pkg];
@@ -166,7 +194,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     setSaving(true);
     setError(null);
     try {
-      const inv = invitesList.find((i) => String(i._id) === String(inviteId));
+      const inv = invitesList.find((i) => getInviteId(i) === String(inviteId));
       const packages = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
       const res = await fetch(`/api/projects/${project.id}/invites`, {
         method: 'PATCH',
@@ -176,6 +204,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update packages');
       await loadInvites();
+      setError(null);
     } catch (e: any) {
       setError(e.message || 'Failed to update packages');
     } finally {
@@ -214,6 +243,8 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         society: "",
         packages: { BIM: true, IoT: false, Database: false, AI: false, FM: false },
       });
+      await loadInvites();
+      setError(null);
     } catch (e: any) {
       setError(e.message || "Failed to send invite");
     } finally {
@@ -369,6 +400,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [removeModelId, setRemoveModelId] = useState<string>("");
   const handleRemoveModel = async () => {
     if (!project || !removeModelId) return;
+    if (!project.access?.owner) {
+      // UI should already disable, but guard anyway
+      setError('Only the project owner can delete models');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -524,6 +560,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
           {activeTab === "access" && (
             <div className="space-y-4">
+              {!canManageInvites && (
+                <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
+                  Only the project owner can manage access. You can view your assigned packages below.
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Name</label>
@@ -562,7 +603,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleSendInvite} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleSendInvite} disabled={saving || !canManageInvites} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
                   <Mail className="w-4 h-4" />
                   <span>{saving ? "Sending..." : "Send Invite"}</span>
                 </button>
@@ -593,7 +634,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                       </thead>
                       <tbody>
                         {invitesList.map((inv) => {
-                          const id = String(inv._id);
+                          const id = getInviteId(inv);
                           const pkgs: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
                           const isAccepted = inv.status === 'accepted';
                           return (
@@ -608,7 +649,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                 <div className="flex flex-wrap gap-2">
                                   {(['BIM','IoT','Database','AI','FM'] as Pkg[]).map((pkg) => (
                                     <label key={pkg} className={`flex items-center gap-1 px-2 py-1 rounded border ${pkgs.includes(pkg) ? 'bg-blue-600/20 border-blue-500 text-blue-200' : 'bg-gray-700/40 border-gray-600 text-gray-300'}`}>
-                                      <input type="checkbox" checked={pkgs.includes(pkg)} onChange={() => toggleInvitePackage(id, pkg)} />
+                                      <input type="checkbox" checked={pkgs.includes(pkg)} onChange={() => toggleInvitePackage(id, pkg)} disabled={!canManageInvites} />
                                       {pkg}
                                     </label>
                                   ))}
@@ -616,8 +657,8 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                               </td>
                               <td className="py-2 pr-3">
                                 <div className="flex gap-2">
-                                  <button onClick={() => saveInvitePackages(id)} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded">Save</button>
-                                  <button onClick={() => handleRevokeInvite(id)} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded">Revoke</button>
+                                  <button onClick={() => saveInvitePackages(id)} disabled={!canManageInvites} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50">Save</button>
+                                  <button onClick={() => handleRevokeInvite(id)} disabled={!canManageInvites} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50">Revoke</button>
                                 </div>
                               </td>
                             </tr>
@@ -701,9 +742,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
           {activeTab === "remove" && (
             <div className="space-y-4">
+              {!project.access?.owner && (
+                <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
+                  Only the project owner can delete models.
+                </div>
+              )}
               <div>
                 <label className="block text-sm text-gray-300 mb-2">Select Model to Remove</label>
-                <select value={removeModelId} onChange={(e) => setRemoveModelId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white">
+                <select value={removeModelId} onChange={(e) => setRemoveModelId(e.target.value)} disabled={!project.access?.owner} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60">
                   <option value="">-- Choose a model --</option>
                   {(project.models || []).map((m) => (
                     <option key={m.id} value={m.id}>{m.name} ({m.discipline || 'other'})</option>
@@ -711,7 +757,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </select>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleRemoveModel} disabled={saving || !removeModelId} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleRemoveModel} disabled={saving || !removeModelId || !project.access?.owner} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
                 </button>

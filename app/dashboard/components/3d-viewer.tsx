@@ -21,6 +21,7 @@ interface ThreeDViewerProps {
     description?: string;
   } | null;
   models?: ProjectModel[]; // optional federated models for overlay
+  enabledModelIds?: Set<string>; // Track which models should be visible
   onViewerReady?: (viewer: any, iotExtension: any) => void;
   insertMode?: string | null;
   onExitInsertMode?: () => void;
@@ -35,6 +36,7 @@ interface ThreeDViewerProps {
 export function ThreeDViewer({
   selectedFile,
   models,
+  enabledModelIds,
   onViewerReady,
   insertMode,
   onExitInsertMode,
@@ -126,6 +128,7 @@ export function ThreeDViewer({
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
           models={models}
+          enabledModelIds={enabledModelIds}
           insertMode={insertMode}
           onExitInsertMode={onExitInsertMode}
           onSensorClick={onSensorClick}

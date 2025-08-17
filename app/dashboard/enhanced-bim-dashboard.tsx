@@ -77,6 +77,7 @@ function BIMDashboard() {
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
   // Federated overlay: track which models are enabled for overlay
   const [enabledModelIds, setEnabledModelIds] = useState<Set<string>>(new Set());
+  const lastProcessedProjectId = useRef<string | null>(null);
 
   // Use sensor context
   const {
@@ -127,7 +128,7 @@ function BIMDashboard() {
       const data = await res.json();
       console.log("Fetched projects from MongoDB:", data);
       const mapped = (data.projects || []).map((p: any) => ({
-        id: p._id || p.id,
+        id: String(p._id || p.id),
         name: p.name,
         lat: p.location?.lat,
         lng: p.location?.lng,
@@ -150,21 +151,34 @@ function BIMDashboard() {
     fetchProjects();
   }, []);
 
-  // Whenever a project is selected or its models change, enable ONLY Architecture by default
+  // When a project is selected, set a sensible default for enabled models (once)
   useEffect(() => {
+    const projectId = selectedProject?.id;
     const models = selectedProject?.models || [];
-    if (models.length === 0) {
+
+    // Only run this logic if the project ID has changed
+    if (projectId && projectId !== lastProcessedProjectId.current) {
+      console.log(`[Dashboard] New project selected (${projectId}), setting default model visibility.`);
+      lastProcessedProjectId.current = projectId;
+
+      if (models.length === 0) {
+        setEnabledModelIds(new Set());
+        return;
+      }
+
+      // Prefer architecture models; if none, fallback to the first in order
+      const archIds = models.filter(m => (m.discipline || '').toLowerCase() === 'architecture').map(m => m.id);
+      if (archIds.length > 0) {
+        setEnabledModelIds(new Set(archIds));
+      } else {
+        setEnabledModelIds(new Set([models[0].id]));
+      }
+    } else if (!projectId) {
+      // If no project is selected, clear everything
+      lastProcessedProjectId.current = null;
       setEnabledModelIds(new Set());
-      return;
     }
-    // Prefer architecture models; if none, fallback to the first in order
-    const archIds = models.filter(m => (m.discipline || '').toLowerCase() === 'architecture').map(m => m.id);
-    if (archIds.length > 0) {
-      setEnabledModelIds(new Set(archIds));
-    } else {
-      setEnabledModelIds(new Set([models[0].id]));
-    }
-  }, [selectedProject?.id, selectedProject?.models?.length]);
+  }, [selectedProject]); // Depend on the whole project object to detect changes
 
   const GOOGLE_MAPS_API_KEY =
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
@@ -224,21 +238,34 @@ function BIMDashboard() {
 
   // Toggle model enablement for overlay
   const handleToggleModel = (modelId: string) => {
+    console.log('🎛️  [Dashboard] MODEL TOGGLE REQUESTED');
+    console.log('   Model ID:', modelId);
+    
     setEnabledModelIds((prev) => {
       const next = new Set(prev);
       const isCurrentlyEnabled = next.has(modelId);
+      
+      console.log('   Current state:', isCurrentlyEnabled ? 'ENABLED' : 'DISABLED');
+      console.log('   Currently enabled models:', Array.from(prev));
+      console.log('   Total enabled count:', prev.size);
 
       // If trying to disable the only enabled model, block the action
       if (isCurrentlyEnabled && next.size === 1) {
-        console.warn('[Models] At least one model must remain enabled. Enable another model before disabling this one.');
+        console.warn('⚠️  [Models] BLOCKED: At least one model must remain enabled. Enable another model before disabling this one.');
         return prev; // no change
       }
 
       if (isCurrentlyEnabled) {
+        console.log('   🔴 DISABLING model:', modelId);
         next.delete(modelId);
       } else {
+        console.log('   🟢 ENABLING model:', modelId);
         next.add(modelId);
       }
+      
+      console.log('   ✅ New enabled models:', Array.from(next));
+      console.log('   📊 New total count:', next.size);
+      
       return next;
     });
   };
@@ -532,6 +559,7 @@ function BIMDashboard() {
                     <ThreeDViewer
                       selectedFile={selectedFile}
                       models={orderedEnabledModels}
+                      enabledModelIds={enabledModelIds}
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
                       onExitInsertMode={handleExitInsertMode}
