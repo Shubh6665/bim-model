@@ -73,7 +73,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Helper to toggle an entire model's visibility by fragment
     const setModelVisible = (model: any, visible: boolean) => {
-        console.log(`🔧 setModelVisible called: ${visible ? 'SHOW' : 'HIDE'} model`);
         try {
             if (!model?.getFragmentList) {
                 console.warn('   ⚠️  Model has no getFragmentList method');
@@ -81,13 +80,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             }
             const fragList = model.getFragmentList();
             const count = fragList.getCount?.() ?? 0;
-            console.log(`   📊 Processing ${count} fragments`);
             
             for (let i = 0; i < count; i++) {
                 fragList.setVisibility(i, !!visible);
             }
-            
-            console.log(`   ✅ ${count} fragments set to ${visible ? 'VISIBLE' : 'HIDDEN'}`);
         } catch (e) {
             console.error('   ❌ setModelVisible failed:', e);
         }
@@ -227,7 +223,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 try {
                     if (viewerInstance && mdl) {
                         viewerInstance.unloadModel(mdl);
-                        console.log('[ForgeViewer] Overlay model unloaded:', id);
                     }
                 } catch (e) {
                     console.warn('[ForgeViewer] Failed to unload overlay model', id, e);
@@ -255,7 +250,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         if (placementTransform) opts.placementTransform = placementTransform;
                         viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                             current.set(id, model);
-                            console.log('[ForgeViewer] Overlay model loaded (reconcile):', m.name, m.discipline);
                             resolve();
                         }).catch(() => resolve());
                     },
@@ -335,7 +329,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             if (placementTransform) opts.placementTransform = placementTransform;
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                                 try { overlayModelMapRef.current.set(m.id, model); } catch {}
-                                console.log('[ForgeViewer] Overlay model loaded:', m.name, m.discipline);
+                                
                                 // Hide overlay model by default so only primary shows
                                 setModelVisible(model, false);
                                 resolve();
@@ -392,7 +386,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                 viewerInstance.addEventListener(
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
                                     async () => {
-                                        console.log("[ForgeViewer] Geometry loaded");
                                         setModelLoaded(true);
                                         // Load overlay models (federated) after primary geometry
                                         if (!overlayModelsLoaded) {
@@ -935,26 +928,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Handle model visibility based on enabledModelIds
     useEffect(() => {
-        console.log('[ForgeViewer] Model visibility effect triggered');
-        console.log('  - viewer ready:', !!viewer);
-        console.log('  - isInitialized:', isInitialized);
-        console.log('  - models count:', models?.length || 0);
-        console.log('  - enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'null');
-        console.log('  - overlayModelsLoaded:', overlayModelsLoaded);
-
         // Only require a ready viewer and initialized flag; handle even single-model cases
         if (!viewer || !isInitialized) {
-            console.log('[ForgeViewer] Skipping model visibility - prerequisites not met');
             return;
         }
         if (!enabledModelIds || enabledModelIds.size === 0) {
-            console.log('[ForgeViewer] Skipping model visibility - no enabled models');
             return;
         }
-
-        console.log('🔄 [ForgeViewer] STARTING model visibility management');
-        console.log('📋 Enabled models:', Array.from(enabledModelIds));
-        console.log('📦 Available models:', (models || []).map(m => `${m.id} (${m.name} - ${m.discipline})`));
 
         try {
             // Get the true primary model instance and id captured at init
@@ -965,50 +945,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             // Handle primary model visibility against enabled set
             if (truePrimaryId && primaryModel) {
                 const shouldShowPrimary = enabledModelIds.has(truePrimaryId);
-                console.log(`🏗️  PRIMARY MODEL: ${primaryInfo?.name || 'Unknown'} (${truePrimaryId})`);
-                console.log(`   Status: ${shouldShowPrimary ? '✅ SHOW' : '❌ HIDE'}`);
-                console.log(`   Fragment count: ${primaryModel.getFragmentList?.()?.getCount?.() || 'unknown'}`);
-
                 setModelVisible(primaryModel, shouldShowPrimary);
-
-                if (shouldShowPrimary) {
-                    console.log(`   ✅ Primary model ${truePrimaryId} set to VISIBLE`);
-                } else {
-                    console.log(`   ❌ Primary model ${truePrimaryId} set to HIDDEN`);
-                }
-            } else {
-                console.log('[ForgeViewer] Primary model id not set yet; skipping primary visibility update');
             }
 
             // Handle overlay models visibility
-            console.log(`🔗 OVERLAY MODELS: ${overlayModelMapRef.current.size} loaded`);
             for (const [modelId, overlayModel] of overlayModelMapRef.current.entries()) {
                 // Skip if this overlay id matches the true primary id to avoid double-toggling
                 if (truePrimaryId && modelId === truePrimaryId) continue;
                 const modelInfo = (models || []).find(m => m.id === modelId);
                 const shouldShow = enabledModelIds.has(modelId);
-                
-                console.log(`   🏗️  ${modelInfo?.name || 'Unknown'} (${modelId})`);
-                console.log(`      Status: ${shouldShow ? '✅ SHOW' : '❌ HIDE'}`);
-                console.log(`      Fragment count: ${overlayModel.getFragmentList?.()?.getCount?.() || 'unknown'}`);
-                
                 setModelVisible(overlayModel, shouldShow);
-                
-                if (shouldShow) {
-                    console.log(`      ✅ Overlay model ${modelId} set to VISIBLE`);
-                } else {
-                    console.log(`      ❌ Overlay model ${modelId} set to HIDDEN`);
-                }
             }
 
             // Force viewer refresh to apply visibility changes
             if (viewer.impl?.invalidate) {
                 viewer.impl.invalidate(true);
-                console.log('🔄 Viewer invalidated to apply visibility changes');
             }
-
-            console.log('✅ [ForgeViewer] Model visibility management COMPLETED');
-
+            
         } catch (error) {
             console.error('❌ [ForgeViewer] Error managing model visibility:', error);
             console.error('   Stack:', (error as Error).stack);
