@@ -646,13 +646,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log('[ForgeViewer] Enabling wireframe mode for IoT panel - hiding solid components');
                 
                 // First ensure all elements are visible
-                viewer.showAll();
+                if (viewer?.showAll) viewer.showAll();
                 
                 // Enable edge display for wireframe effect
-                viewer.setDisplayEdges(true);
+                if (viewer?.setDisplayEdges) viewer.setDisplayEdges(true);
                 
                 // Get the object tree and hide all solid components to show only wireframe structure
-                if (viewer.model && viewer.model.getObjectTree) {
+                if (viewer?.model && viewer.model.getObjectTree) {
                     viewer.model.getObjectTree((instanceTree: any) => {
                         if (instanceTree) {
                             const allDbIds: number[] = [];
@@ -681,16 +681,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             
                             // Hide all leaf components (solid surfaces) to show only wireframe structure
                             if (leafNodeIds.length > 0) {
-                                viewer.hide(leafNodeIds);
+                                if (viewer?.hide) viewer.hide(leafNodeIds);
                                 
                                 // Force wireframe rendering mode after hiding components
                                 setTimeout(() => {
-                                    if (viewer.setDisplayMode) {
+                                    if (viewer?.setDisplayMode) {
                                         viewer.setDisplayMode(1); // Wireframe/ghost mode
                                     }
                                     
                                     // Enable ghosting for wireframe effect
-                                    if (viewer.setGhosting) {
+                                    if (viewer?.setGhosting) {
                                         viewer.setGhosting(true);
                                     }
                                     
@@ -701,10 +701,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     });
                 } else {
                     // Fallback: Use built-in wireframe mode
-                    if (viewer.setDisplayMode) {
+                    if (viewer?.setDisplayMode) {
                         viewer.setDisplayMode(1); // Wireframe mode
                     }
-                    if (viewer.setGhosting) {
+                    if (viewer?.setGhosting) {
                         viewer.setGhosting(true);
                     }
                 }
@@ -715,18 +715,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log('[ForgeViewer] Enabling solid mode for IoT panel');
                 
                 // Show all elements (restore hidden components)
-                viewer.showAll();
+                if (viewer?.showAll) viewer.showAll();
                 
                 // Keep edges visible for better visibility in IoT mode
-                viewer.setDisplayEdges(true);
+                if (viewer?.setDisplayEdges) viewer.setDisplayEdges(true);
                 
                 // Use solid rendering mode
-                if (viewer.setDisplayMode) {
+                if (viewer?.setDisplayMode) {
                     viewer.setDisplayMode(0); // Solid mode
                 }
                 
                 // Disable ghosting
-                if (viewer.setGhosting) {
+                if (viewer?.setGhosting) {
                     viewer.setGhosting(false);
                 }
                 

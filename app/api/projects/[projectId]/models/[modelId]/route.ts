@@ -11,7 +11,7 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // PATCH /api/projects/[projectId]/models/[modelId] -> update model metadata/transform
-export async function PATCH(req: NextRequest, { params }: any) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ projectId: string, modelId: string }> }) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -20,7 +20,8 @@ export async function PATCH(req: NextRequest, { params }: any) {
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(params.projectId), userId: user._id });
+    const { projectId, modelId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const body = await req.json();
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
     }
 
     const res = await db.collection('projects').updateOne(
-      { _id: new ObjectId(params.projectId), userId: user._id, 'models.id': params.modelId },
+      { _id: new ObjectId(projectId), userId: user._id, 'models.id': modelId },
       ({ $set: Object.fromEntries(Object.entries(update).map(([k, v]) => ([`models.$.${k}`, v]))) } as unknown as UpdateFilter<any>)
     );
 
@@ -59,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: any) {
 }
 
 // DELETE /api/projects/[projectId]/models/[modelId]
-export async function DELETE(_req: NextRequest, { params }: any) {
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ projectId: string, modelId: string }> }) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -68,9 +69,10 @@ export async function DELETE(_req: NextRequest, { params }: any) {
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
+    const { projectId, modelId } = await context.params;
     const res = await db.collection('projects').updateOne(
-      { _id: new ObjectId(params.projectId), userId: user._id },
-      ({ $pull: { models: { id: params.modelId } } } as unknown as UpdateFilter<any>)
+      { _id: new ObjectId(projectId), userId: user._id },
+      ({ $pull: { models: { id: modelId } } } as unknown as UpdateFilter<any>)
     );
 
     if (res.matchedCount !== 1) return NextResponse.json({ error: 'Project not found' }, { status: 404 });

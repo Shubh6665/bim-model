@@ -11,11 +11,11 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // GET: Get specific project by ID
-export async function GET(_request: Request, { params }: any) {
+export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { projectId } = params;
+    const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
@@ -36,11 +36,11 @@ export async function GET(_request: Request, { params }: any) {
 }
 
 // PUT: Update specific project by ID (only allow certain fields)
-export async function PUT(request: Request, { params }: any) {
+export async function PUT(request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { projectId } = params;
+    const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });
@@ -113,11 +113,11 @@ export async function PUT(request: Request, { params }: any) {
 }
 
 // DELETE: Delete specific project by ID
-export async function DELETE(_request: Request, { params }: any) {
+export async function DELETE(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
     const db = await getDb();
     const email = await getUserEmail();
-    const { projectId } = params;
+    const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
     const user = await db.collection('users').findOne({ email });

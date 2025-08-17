@@ -11,7 +11,7 @@ async function getUserEmail(): Promise<string | null> {
 }
 
 // GET /api/projects/[projectId]/models -> list models for a project
-export async function GET(_req: NextRequest, { params }: any) {
+export async function GET(_req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ models: [] }, { status: 200 });
@@ -20,7 +20,8 @@ export async function GET(_req: NextRequest, { params }: any) {
     const user = await db.collection('users').findOne({ email });
     if (!user) return NextResponse.json({ models: [] }, { status: 200 });
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(params.projectId), userId: user._id });
+    const { projectId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const models: ProjectModel[] = Array.isArray(project.models) ? project.models : [];
@@ -31,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: any) {
 }
 
 // POST /api/projects/[projectId]/models -> add a model
-export async function POST(req: NextRequest, { params }: any) {
+export async function POST(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
     const email = await getUserEmail();
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -45,7 +46,8 @@ export async function POST(req: NextRequest, { params }: any) {
 
     if (!urn) return NextResponse.json({ error: 'urn is required' }, { status: 400 });
 
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(params.projectId), userId: user._id });
+    const { projectId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const newModel: ProjectModel = {
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest, { params }: any) {
     };
 
     const updateRes = await db.collection('projects').updateOne(
-      { _id: new ObjectId(params.projectId), userId: user._id },
+      { _id: new ObjectId(projectId), userId: user._id },
       ({ $push: { models: newModel } } as unknown as UpdateFilter<any>)
     );
 

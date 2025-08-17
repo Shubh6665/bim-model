@@ -16,7 +16,7 @@ import React from "react";
 import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
 import type { ProjectModel } from "@/app/types/projects";
-import { ProjectInfoModal } from "./components/project-info-modal";
+import { ProjectAdminModal } from "./components/project-admin-modal";
 
 interface ProjectFile {
   id: string;
@@ -590,14 +590,12 @@ function BIMDashboard() {
           />
         )}
         
-        {/* Project Information Modal */}
-        <ProjectInfoModal
+        {/* Project Administration Modal (multi-tab) */}
+        <ProjectAdminModal
           project={selectedProject}
           isOpen={showProjectInfo}
           onClose={handleCloseProjectInfo}
-          onSave={handleSaveProjectInfo}
           onProjectUpdated={handleProjectUpdated}
-          isEditable={true} // Enable editing for allowed fields
         />
         
         {/* Sensor Insertion Form Modal */}
