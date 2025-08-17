@@ -260,6 +260,18 @@ function BIMDashboard() {
         next.delete(modelId);
       } else {
         console.log('   🟢 ENABLING model:', modelId);
+        
+        // WORKAROUND: Auto-enable Architecture when enabling any other model
+        // This prevents overlay loading errors that occur when Architecture is off
+        const architectureModel = selectedProject?.models?.find(m => 
+          m.discipline === 'architecture' || m.name?.toLowerCase().includes('architecture')
+        );
+        
+        if (architectureModel && !next.has(architectureModel.id) && modelId !== architectureModel.id) {
+          console.log('   🏗️  AUTO-ENABLING Architecture to support overlay:', architectureModel.id);
+          next.add(architectureModel.id);
+        }
+        
         next.add(modelId);
       }
       
@@ -459,6 +471,24 @@ function BIMDashboard() {
       setTimeout(() => setNoAccessMsg(null), 3000);
       return;
     }
+    
+    // WORKAROUND: Auto-enable Architecture when switching to IoT panel
+    // This prevents crashes when IoT panel tries to access viewer without Architecture
+    if (panel === 'iot' && selectedProject?.models) {
+      const architectureModel = selectedProject.models.find(m => 
+        m.discipline === 'architecture' || m.name?.toLowerCase().includes('architecture')
+      );
+      
+      if (architectureModel && !enabledModelIds.has(architectureModel.id)) {
+        console.log('🏗️  [IoT Panel] AUTO-ENABLING Architecture to prevent crashes:', architectureModel.id);
+        setEnabledModelIds(prev => {
+          const next = new Set(prev);
+          next.add(architectureModel.id);
+          return next;
+        });
+      }
+    }
+    
     setActivePanel(panel);
   };
 

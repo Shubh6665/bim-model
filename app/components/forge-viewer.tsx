@@ -250,6 +250,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         if (placementTransform) opts.placementTransform = placementTransform;
                         viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                             current.set(id, model);
+                            // Set visibility based on current enabledModelIds immediately
+                            try {
+                                const shouldShow = enabledModelIds ? enabledModelIds.has(id) : false;
+                                setModelVisible(model, shouldShow);
+                                if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
+                            } catch {}
                             resolve();
                         }).catch(() => resolve());
                     },
@@ -329,9 +335,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             if (placementTransform) opts.placementTransform = placementTransform;
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                                 try { overlayModelMapRef.current.set(m.id, model); } catch {}
-                                
-                                // Hide overlay model by default so only primary shows
-                                setModelVisible(model, false);
+                                // Set visibility based on current enabledModelIds immediately
+                                try {
+                                    const shouldShow = enabledModelIds ? enabledModelIds.has(m.id) : false;
+                                    setModelVisible(model, shouldShow);
+                                    if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
+                                } catch {}
                                 resolve();
                             }).catch(() => resolve());
                         },
@@ -930,11 +939,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     useEffect(() => {
         // Only require a ready viewer and initialized flag; handle even single-model cases
         if (!viewer || !isInitialized) {
+            console.log('[ForgeViewer] Model visibility: viewer not ready');
             return;
         }
         if (!enabledModelIds || enabledModelIds.size === 0) {
+            console.log('[ForgeViewer] Model visibility: no enabled models');
             return;
         }
+
+        console.log('[ForgeViewer] Model visibility effect running:');
+        console.log('  - enabledModelIds:', Array.from(enabledModelIds));
+        console.log('  - overlayModelsLoaded:', overlayModelsLoaded);
+        console.log('  - overlay models count:', overlayModelMapRef.current.size);
 
         try {
             // Get the true primary model instance and id captured at init
@@ -945,21 +961,56 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             // Handle primary model visibility against enabled set
             if (truePrimaryId && primaryModel) {
                 const shouldShowPrimary = enabledModelIds.has(truePrimaryId);
+                console.log(`  - Primary model ${truePrimaryId}: ${shouldShowPrimary ? 'SHOW' : 'HIDE'}`);
                 setModelVisible(primaryModel, shouldShowPrimary);
             }
 
             // Handle overlay models visibility
+            console.log('  - Processing overlay models:');
+            const shownOverlayModels: any[] = [];
             for (const [modelId, overlayModel] of overlayModelMapRef.current.entries()) {
                 // Skip if this overlay id matches the true primary id to avoid double-toggling
                 if (truePrimaryId && modelId === truePrimaryId) continue;
                 const modelInfo = (models || []).find(m => m.id === modelId);
                 const shouldShow = enabledModelIds.has(modelId);
                 setModelVisible(overlayModel, shouldShow);
+                if (shouldShow) shownOverlayModels.push(overlayModel);
             }
+
+            // If primary is hidden but one or more overlays are shown, fit camera to shown overlays
+            try {
+                const primaryHidden = !truePrimaryId || !enabledModelIds.has(truePrimaryId);
+                if (primaryHidden && shownOverlayModels.length > 0 && viewer?.navigation) {
+                    const THREE = (window as any).THREE;
+                    if (!THREE) throw new Error('THREE not available');
+                    const unionBox = new THREE.Box3();
+                    for (const mdl of shownOverlayModels) {
+                        const frags = mdl.getFragmentList?.();
+                        if (!frags) continue;
+                        const box = new THREE.Box3();
+                        const tmp = new THREE.Box3();
+                        const count = frags.getCount?.() || 0;
+                        for (let i = 0; i < count; i++) {
+                            frags.getWorldBounds(i, tmp);
+                            box.union(tmp);
+                        }
+                        unionBox.union(box);
+                    }
+                    if (!unionBox.isEmpty()) {
+                        // Expand slightly for padding
+                        const size = new THREE.Vector3();
+                        unionBox.getSize(size);
+                        const pad = Math.max(size.x, size.y, size.z) * 0.05;
+                        unionBox.expandByScalar(pad);
+                        viewer.navigation.fitBounds(true, unionBox);
+                    }
+                }
+            } catch {}
 
             // Force viewer refresh to apply visibility changes
             if (viewer.impl?.invalidate) {
                 viewer.impl.invalidate(true);
+                console.log('  - Viewer invalidated to apply changes');
             }
             
         } catch (error) {
