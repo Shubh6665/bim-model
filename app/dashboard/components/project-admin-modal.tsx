@@ -405,13 +405,15 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       console.log('[ProjectAdminModal] Project access:', {
         owner: project.access?.owner,
         role: project.access?.role,
-        packages: project.access?.packages
+        packages: project.access?.packages,
+        fullAccess: project.access
       });
+      console.log('[ProjectAdminModal] Full project:', project);
     }
   }, [project]);
   const handleRemoveModel = async () => {
     if (!project || !removeModelId) return;
-    if (!project.access?.owner) {
+    if (!project.access?.owner && project.access?.role !== 'Owner') {
       // UI should already disable, but guard anyway
       setError('Only the project owner can delete models');
       return;
@@ -758,7 +760,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 <select 
                   value={removeModelId} 
                   onChange={(e) => setRemoveModelId(e.target.value)} 
-                  disabled={!project?.access?.owner} 
+                  disabled={!project?.access?.owner && project?.access?.role !== 'Owner'} 
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
                 >
                   <option value="">-- Choose a model --</option>
@@ -768,7 +770,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </select>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleRemoveModel} disabled={saving || !removeModelId || !project.access?.owner} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleRemoveModel} disabled={saving || !removeModelId || (!project.access?.owner && project?.access?.role !== 'Owner')} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
                 </button>

@@ -45,13 +45,25 @@ export async function GET(req: NextRequest) {
       const key = String(p._id);
       if (!byId.has(key)) {
         // attach access
-        let access = { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[] };
-        if (!user || (user && String(p.userId) !== String(user._id))) {
+        const isOwner = user && String(p.userId) === String(user._id);
+        let access = { 
+          role: 'Owner', 
+          packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[],
+          owner: true
+        };
+        if (!isOwner) {
           const inv = inviteByProject.get(key);
           if (inv) {
             access = {
               role: inv?.invitee?.role || 'General',
               packages: Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [],
+              owner: false
+            };
+          } else {
+            access = {
+              role: 'General',
+              packages: [],
+              owner: false
             };
           }
         }
