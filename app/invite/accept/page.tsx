@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const params = useSearchParams();
   const router = useRouter();
   const { status: authStatus } = useSession();
@@ -66,5 +66,20 @@ export default function AcceptInvitePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0b0b0b", color: "#eee" }}>
+        <div style={{ maxWidth: 520, width: "100%", padding: 24, background: "#111827", border: "1px solid #1f2937", borderRadius: 12 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Loading...</h1>
+          <p>Preparing invitation acceptance...</p>
+        </div>
+      </div>
+    }>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
