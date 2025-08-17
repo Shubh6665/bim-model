@@ -10,6 +10,101 @@ async function getUserEmail(): Promise<string | null> {
   return session?.user?.email || null;
 }
 
+// PATCH /api/projects/[projectId]/invites -> update an invite (packages/status) (owner only)
+export async function PATCH(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
+  try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+    const db = await getDb();
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const { projectId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+
+    const body = await req.json();
+    const { inviteId, packages, status } = body || {};
+    if (!inviteId) return NextResponse.json({ error: 'inviteId is required' }, { status: 400 });
+
+    const update: any = {};
+    if (Array.isArray(packages)) update['invitee.packages'] = packages;
+    if (status && ['pending', 'accepted', 'declined', 'expired'].includes(status)) update['status'] = status;
+
+    if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+
+    const result = await db.collection('invites').findOneAndUpdate(
+      { _id: new ObjectId(inviteId), projectId: project._id },
+      { $set: update },
+      { returnDocument: 'after' }
+    );
+    const updated = result?.value;
+    if (!updated) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+
+    return NextResponse.json({ success: true, invite: updated });
+  } catch (err: any) {
+    console.error('PATCH invite error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// GET /api/projects/[projectId]/invites -> list invites for this project (owner only)
+export async function GET(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
+  try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+    const db = await getDb();
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const { projectId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+
+    const invites = await db
+      .collection('invites')
+      .find({ projectId: project._id })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return NextResponse.json({ invites });
+  } catch (err: any) {
+    console.error('GET invites error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE /api/projects/[projectId]/invites?inviteId=... -> revoke/remove an invite (owner only)
+export async function DELETE(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
+  try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const inviteId = searchParams.get('inviteId');
+    if (!inviteId) return NextResponse.json({ error: 'inviteId is required' }, { status: 400 });
+
+    const db = await getDb();
+    const user = await db.collection('users').findOne({ email });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const { projectId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+
+    // remove the invite only if it belongs to the project
+    const res = await db.collection('invites').deleteOne({ _id: new ObjectId(inviteId), projectId: project._id });
+    if (res.deletedCount === 0) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error('DELETE invite error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 // POST /api/projects/[projectId]/invites -> create and (optionally) send an invite
 export async function POST(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -50,56 +145,59 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
 
     await db.collection('invites').insertOne(inviteDoc);
 
-    // Build accept link for the invitee
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
-    const acceptUrl = `${baseUrl}/invite/accept?token=${inviteDoc.token}&projectId=${projectId}`;
+    // Attempt to send email via SMTP (Nodemailer)
+    let emailSent = false;
+    let emailError: string | undefined;
+    try {
+      const host = process.env.SMTP_HOST;
+      const port = Number(process.env.SMTP_PORT || 587);
+      const userSmtp = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
+      const from = process.env.MAIL_FROM || 'noreply@example.com';
+      const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
 
-    // Attempt to send email via SMTP if env vars are present
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM } = process.env as Record<string, string | undefined>;
-
-    if (SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && MAIL_FROM) {
-      try {
+      if (host && userSmtp && pass) {
         const transporter = nodemailer.createTransport({
-          host: SMTP_HOST,
-          port: Number(SMTP_PORT),
-          secure: Number(SMTP_PORT) === 465, // true for 465, false for 587/25
-          auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS,
-          },
+          host,
+          port,
+          secure: port === 465, // true for 465, false for 587/25
+          auth: { user: userSmtp, pass },
         });
 
+        const acceptUrl = `${appBaseUrl}/invite/accept?token=${inviteDoc.token}&projectId=${projectId}`;
+
         const html = `
-          <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111">
-            <h2>You have been invited to a BIM project</h2>
-            <p>Hello${name ? ` ${name}` : ''},</p>
-            <p>You have been invited to collaborate on the project <strong>${project.name || 'Project'}</strong>.</p>
-            <p>Role: <strong>${role || 'General'}</strong>${society ? ` · Society: <strong>${society}</strong>` : ''}</p>
-            <p>Packages: ${(Array.isArray(packages) ? packages : []).join(', ') || 'None'}</p>
-            <p>Please click the link below to accept the invitation:</p>
-            <p><a href="${acceptUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px">Accept Invitation</a></p>
-            <p>If the button doesn’t work, copy and paste this URL into your browser:</p>
-            <p><code>${acceptUrl}</code></p>
-            <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />
-            <p style="color:#6b7280">This link will be used to validate your access. If you didn’t expect this invitation, you can safely ignore this email.</p>
+          <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111">
+            <h2>You have been invited to a project</h2>
+            <p><strong>Project:</strong> ${project.name || 'Untitled Project'}</p>
+            <p><strong>Invited by:</strong> ${user.email}</p>
+            <p>
+              Click the button below to accept the invitation and get access.
+            </p>
+            <p>
+              <a href="${acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Accept Invitation</a>
+            </p>
+            <p>If the button doesn’t work, copy and paste this link in your browser:</p>
+            <p style="word-break:break-all"><a href="${acceptUrl}">${acceptUrl}</a></p>
           </div>
         `;
 
         await transporter.sendMail({
-          from: MAIL_FROM,
+          from,
           to: inviteeEmail,
-          subject: `Invitation to join project: ${project.name || 'BIM Project'}`,
+          subject: `Invitation to join project${project.name ? `: ${project.name}` : ''}`,
           html,
         });
-      } catch (mailErr) {
-        console.error('SMTP send error:', mailErr);
-        // Continue without failing the request
+        emailSent = true;
+      } else {
+        emailError = 'SMTP not configured (missing SMTP_HOST/USER/PASS).';
       }
-    } else {
-      console.warn('SMTP env vars missing; skipping email send');
+    } catch (e: any) {
+      console.error('Error sending invite email:', e);
+      emailError = e?.message || 'Failed to send email';
     }
 
-    return NextResponse.json({ success: true, inviteId: inviteDoc._id, token: inviteDoc.token });
+    return NextResponse.json({ success: true, inviteId: inviteDoc._id, token: inviteDoc.token, emailSent, emailError });
   } catch (err: any) {
     console.error('Error creating invite:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

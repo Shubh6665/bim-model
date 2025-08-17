@@ -108,6 +108,81 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     "Other",
   ];
 
+  // Invites list state
+  const [invitesList, setInvitesList] = useState<any[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+
+  const loadInvites = async () => {
+    if (!project) return;
+    setInvitesLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/invites`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to load invites');
+      setInvitesList(Array.isArray(json.invites) ? json.invites : []);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load invites');
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'access' && project) {
+      loadInvites();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, project?.id]);
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!project) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/invites?inviteId=${inviteId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to revoke invite');
+      await loadInvites();
+    } catch (e: any) {
+      setError(e.message || 'Failed to revoke invite');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  type Pkg = 'BIM' | 'IoT' | 'Database' | 'AI' | 'FM';
+  const toggleInvitePackage = (inviteId: string, pkg: Pkg) => {
+    setInvitesList((prev) => prev.map((inv) => {
+      if (String(inv._id) !== String(inviteId)) return inv;
+      const current: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
+      const has = current.includes(pkg);
+      const next = has ? current.filter((p) => p !== pkg) : [...current, pkg];
+      return { ...inv, invitee: { ...inv.invitee, packages: next } };
+    }));
+  };
+
+  const saveInvitePackages = async (inviteId: string) => {
+    if (!project) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const inv = invitesList.find((i) => String(i._id) === String(inviteId));
+      const packages = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
+      const res = await fetch(`/api/projects/${project.id}/invites`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId, packages }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to update packages');
+      await loadInvites();
+    } catch (e: any) {
+      setError(e.message || 'Failed to update packages');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSendInvite = async () => {
     if (!project) return;
     setSaving(true);
@@ -491,6 +566,67 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   <Mail className="w-4 h-4" />
                   <span>{saving ? "Sending..." : "Send Invite"}</span>
                 </button>
+              </div>
+
+              {/* Invites list */}
+              <div className="pt-2 border-t border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-200">Invitations</h3>
+                  <button onClick={loadInvites} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded">Refresh</button>
+                </div>
+                {invitesLoading ? (
+                  <div className="text-sm text-gray-400">Loading invites…</div>
+                ) : invitesList.length === 0 ? (
+                  <div className="text-sm text-gray-400">No invites yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-300">
+                          <th className="py-2 pr-3">Name</th>
+                          <th className="py-2 pr-3">Email</th>
+                          <th className="py-2 pr-3">Role</th>
+                          <th className="py-2 pr-3">Status</th>
+                          <th className="py-2 pr-3">Packages</th>
+                          <th className="py-2 pr-3">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invitesList.map((inv) => {
+                          const id = String(inv._id);
+                          const pkgs: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
+                          const isAccepted = inv.status === 'accepted';
+                          return (
+                            <tr key={id} className="border-t border-gray-700">
+                              <td className="py-2 pr-3 text-gray-200">{`${inv?.invitee?.name || ''} ${inv?.invitee?.surname || ''}`.trim() || '—'}</td>
+                              <td className="py-2 pr-3 text-gray-300">{inv?.invitee?.email}</td>
+                              <td className="py-2 pr-3 text-gray-300">{inv?.invitee?.role || 'General'}</td>
+                              <td className="py-2 pr-3">
+                                <span className={`px-2 py-0.5 rounded text-xs ${isAccepted ? 'bg-green-800/30 text-green-300' : 'bg-yellow-800/30 text-yellow-300'}`}>{inv.status}</span>
+                              </td>
+                              <td className="py-2 pr-3">
+                                <div className="flex flex-wrap gap-2">
+                                  {(['BIM','IoT','Database','AI','FM'] as Pkg[]).map((pkg) => (
+                                    <label key={pkg} className={`flex items-center gap-1 px-2 py-1 rounded border ${pkgs.includes(pkg) ? 'bg-blue-600/20 border-blue-500 text-blue-200' : 'bg-gray-700/40 border-gray-600 text-gray-300'}`}>
+                                      <input type="checkbox" checked={pkgs.includes(pkg)} onChange={() => toggleInvitePackage(id, pkg)} />
+                                      {pkg}
+                                    </label>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="py-2 pr-3">
+                                <div className="flex gap-2">
+                                  <button onClick={() => saveInvitePackages(id)} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded">Save</button>
+                                  <button onClick={() => handleRevokeInvite(id)} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded">Revoke</button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -17,10 +17,51 @@ export async function GET(req: NextRequest) {
     const email = await getUserEmail(req);
     if (!email) return NextResponse.json({ projects: [] });
     const user = await db.collection('users').findOne({ email });
-    if (!user) return NextResponse.json({ projects: [] });
-    const projects = await db.collection('projects').find({ userId: user._id }).toArray();
+    // Owned projects (if user exists)
+    const ownedFilter = user ? { userId: user._id } : { _id: { $in: [] } };
+    const ownedProjects = await db.collection('projects').find(ownedFilter).toArray();
+
+    // Invited projects with accepted status for this email
+    const acceptedInvites = await db
+      .collection('invites')
+      .find({ 'invitee.email': email, status: 'accepted' })
+      .toArray();
+    const invitedProjectIds = acceptedInvites.map((i: any) => i.projectId).filter(Boolean);
+    const invitedProjects = invitedProjectIds.length
+      ? await db
+          .collection('projects')
+          .find({ _id: { $in: invitedProjectIds } })
+          .toArray()
+      : [];
+
+    // Union projects by _id
+    const byId = new Map<string, any>();
+    // index invites by projectId
+    const inviteByProject = new Map<string, any>();
+    acceptedInvites.forEach((inv: any) => inviteByProject.set(String(inv.projectId), inv));
+
+    // merge
+    [...ownedProjects, ...invitedProjects].forEach((p: any) => {
+      const key = String(p._id);
+      if (!byId.has(key)) {
+        // attach access
+        let access = { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[] };
+        if (!user || (user && String(p.userId) !== String(user._id))) {
+          const inv = inviteByProject.get(key);
+          if (inv) {
+            access = {
+              role: inv?.invitee?.role || 'General',
+              packages: Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [],
+            };
+          }
+        }
+        byId.set(key, { ...p, access });
+      }
+    });
+    const union = Array.from(byId.values());
+
     // Ensure backward compatibility: always provide models array
-    const normalized = projects.map((p: any) => ({
+    const normalized = union.map((p: any) => ({
       ...p,
       models: Array.isArray(p.models) ? p.models : [],
     }));
