@@ -48,6 +48,7 @@ interface Project {
   surname?: string;
   clientName?: string;
   models?: ProjectModel[];
+  access?: { role?: string; packages?: string[]; owner?: boolean };
 }
 
 function BIMDashboard() {
@@ -71,6 +72,7 @@ function BIMDashboard() {
   const [showProjectPanel, setShowProjectPanel] = useState(true); // Show project panel initially
   const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
   const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
+  const [noAccessMsg, setNoAccessMsg] = useState<string | null>(null);
   // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
   // Federated overlay: track which models are enabled for overlay
@@ -141,6 +143,7 @@ function BIMDashboard() {
         surname: p.surname,
         clientName: p.clientName,
         models: Array.isArray(p.models) ? p.models : [],
+        access: p.access || undefined,
       }));
       setProjects(mapped);
     }
@@ -402,6 +405,41 @@ function BIMDashboard() {
     setShowOnlySelectedOnMap(false);
   };
 
+  // Map panel -> package name
+  const panelToPackage: Record<NonNullable<typeof activePanel>, string> = {
+    bim: 'BIM',
+    iot: 'IoT',
+    database: 'Database',
+    ai: 'AI',
+    fm: 'FM',
+  } as const;
+
+  const canAccessPanel = (panel: NonNullable<typeof activePanel>) => {
+    // No project selected → allow navigation (will show project panel)
+    if (!selectedProject) return true;
+    // Owners have full access
+    if (selectedProject?.access?.owner) return true;
+    const pkg = panelToPackage[panel];
+    const granted = selectedProject?.access?.packages || [];
+    return granted.includes(pkg);
+  };
+
+  const handlePanelChange = (panel: typeof activePanel) => {
+    if (!panel) { setActivePanel(null); return; }
+    if (!canAccessPanel(panel)) {
+      setNoAccessMsg(`You do not have access to the ${panel.toUpperCase()} section for this project.`);
+      // Auto-clear message after a short delay
+      setTimeout(() => setNoAccessMsg(null), 3000);
+      return;
+    }
+    setActivePanel(panel);
+  };
+
+  // Header expects non-null panels; wrap with a typed adapter
+  const handleHeaderPanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
+    handlePanelChange(panel);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
@@ -409,7 +447,7 @@ function BIMDashboard() {
         onSignOut={handleSignOut}
         user={session?.user}
         activePanel={activePanel}
-        onPanelChange={setActivePanel}
+        onPanelChange={handleHeaderPanelChange}
         onCreateProject={handleRequestCreateProject}
         selectedProject={selectedProject}
         onShowProjectInfo={handleShowProjectInfo}
@@ -418,6 +456,11 @@ function BIMDashboard() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
+        {noAccessMsg && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg border border-red-400">
+            {noAccessMsg}
+          </div>
+        )}
         {projects.length === 0 ? (
           // Empty state panel
           <div className="flex flex-1 items-center justify-center bg-gray-900">

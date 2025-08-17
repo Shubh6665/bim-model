@@ -15,9 +15,19 @@ export async function GET(req: NextRequest) {
 
     const db = await getDb();
 
-    const invite = await db.collection('invites').findOne({ token, projectId: new ObjectId(projectId) });
+    // First, try exact match by token + projectId
+    let invite = await db.collection('invites').findOne({ token, projectId: new ObjectId(projectId) });
+    // If not found, try by token only (in case projectId string mismatch)
     if (!invite) {
-      return NextResponse.json({ error: 'Invite not found or already handled' }, { status: 404 });
+      invite = await db.collection('invites').findOne({ token });
+    }
+    if (!invite) {
+      return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+    }
+
+    // Idempotent: if already accepted, just return success
+    if (invite.status === 'accepted') {
+      return NextResponse.json({ success: true, alreadyAccepted: true });
     }
 
     // Update status to accepted

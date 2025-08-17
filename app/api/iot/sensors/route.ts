@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/auth-config";
 
 interface SensorData {
   id?: string;
@@ -22,18 +24,44 @@ interface SensorData {
   link?: string;
 }
 
+async function getUserEmail() {
+  const session = await getServerSession(authOptions);
+  return session?.user?.email || null;
+}
+
+async function hasProjectAccess(projectId: string, requiredPackage: 'IoT', userEmail: string) {
+  const db = await getDb();
+  // owner check
+  const user = await db.collection('users').findOne({ email: userEmail });
+  if (!user) return false;
+  const ownerProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+  if (ownerProject) return true;
+  // invited with package
+  const invite = await db.collection('invites').findOne({
+    projectId: new ObjectId(projectId),
+    'invitee.email': userEmail,
+    status: 'accepted',
+    'invitee.packages': requiredPackage,
+  });
+  return !!invite;
+}
+
 export async function GET(request: Request) {
   try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
     const sensorType = searchParams.get("type");
-
+    if (!projectId) {
+      return NextResponse.json({ message: 'projectId is required' }, { status: 400 });
+    }
+    const allowed = await hasProjectAccess(projectId, 'IoT', email);
+    if (!allowed) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     const db = await getDb();
     let query: any = {};
 
-    if (projectId) {
-      query.projectId = projectId;
-    }
+    query.projectId = projectId;
 
     if (sensorType) {
       query.type = sensorType;
@@ -74,6 +102,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     const sensorData: SensorData = await request.json();
 
     // Validate required fields
@@ -86,6 +116,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    // Require projectId and verify IoT access for this project
+    if (!sensorData.projectId) {
+      return NextResponse.json({ message: 'projectId is required' }, { status: 400 });
+    }
+    const allowedPost = await hasProjectAccess(sensorData.projectId, 'IoT', email);
+    if (!allowedPost) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const db = await getDb();
 
@@ -132,6 +169,8 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const sensorId = searchParams.get("id");
 
@@ -144,6 +183,14 @@ export async function PUT(request: Request) {
 
     const updates = await request.json();
     const db = await getDb();
+
+    // find sensor to determine projectId for access check
+    const existing = await db.collection('iot_sensors').findOne({ _id: new ObjectId(sensorId) });
+    if (!existing) {
+      return NextResponse.json({ message: 'Sensor not found' }, { status: 404 });
+    }
+    const allowed = await hasProjectAccess(String(existing.projectId), 'IoT', email);
+    if (!allowed) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     // Remove id from updates to avoid conflicts
     const { id, ...updateData } = updates;
@@ -202,6 +249,8 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const email = await getUserEmail();
+    if (!email) return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const sensorId = searchParams.get("id");
 
@@ -213,6 +262,13 @@ export async function DELETE(request: Request) {
     }
 
     const db = await getDb();
+    const existing = await db.collection('iot_sensors').findOne({ _id: new ObjectId(sensorId) });
+    if (!existing) {
+      return NextResponse.json({ message: 'Sensor not found' }, { status: 404 });
+    }
+    const allowed = await hasProjectAccess(String(existing.projectId), 'IoT', email);
+    if (!allowed) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+
     const result = await db
       .collection("iot_sensors")
       .deleteOne({ _id: new ObjectId(sensorId) });
