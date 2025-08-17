@@ -465,18 +465,18 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Floor Selection */}
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2 text-white">
-            <Building2 className="h-5 w-5" />
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold flex items-center gap-2 text-white">
+            <Building2 className="h-4 w-4" />
             Floor Selection
           </h3>
           <div className="flex items-center gap-2">
             <button
               onClick={toggleSensorVisibility}
-              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-gray-300"
+              className="p-1 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors text-gray-300"
               title={showSensors ? "Hide Sensors" : "Show Sensors"}
             >
               {showSensors ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -484,13 +484,13 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
           </div>
         </div>
         
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-1 gap-1.5">
           {/* All Floors Option */}
           <button
             onClick={() => handleFloorSelect(null)}
             onDoubleClick={() => handleFloorDoubleClick(null)}
             disabled={isLoading}
-            className={`p-3 rounded-lg border text-left transition-colors ${
+            className={`p-2 rounded-md border text-left transition-colors ${
               !currentFloor
                 ? 'bg-blue-600 border-blue-500 text-white'
                 : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-200'
@@ -498,28 +498,27 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-medium">All Floors (3D View)</div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm font-medium">All Floors (3D View)</div>
+                <div className="text-xs text-gray-400">
                   {filteredSensors.size} sensors total
                 </div>
               </div>
-              <Layers className="h-4 w-4" />
+              <Layers className="h-3 w-3" />
             </div>
           </button>
           
           {/* Individual Floor Options */}
           {availableFloors.map((floor) => {
-            const floorSensors = floorDataView?.floor?.id === floor.id 
-              ? filteredSensors.size 
+            const floorSensors = floorDataView?.floor?.id === floor.id
+              ? filteredSensors.size
               : 0;
-            
             return (
               <button
                 key={floor.id}
                 onClick={() => handleFloorSelect(floor.id)}
                 onDoubleClick={() => handleFloorDoubleClick(floor.id)}
                 disabled={isLoading}
-                className={`p-3 rounded-lg border text-left transition-colors ${
+                className={`p-2 rounded-md border text-left transition-colors ${
                   currentFloor?.id === floor.id
                     ? 'bg-blue-600 border-blue-500 text-white'
                     : 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-200'
@@ -527,16 +526,16 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium">{floor.name}</div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm font-medium">{floor.name}</div>
+                    <div className="text-xs text-gray-400">
                       Level {floor.levelIndex} • Z: {floor.zMin.toFixed(1)}m - {floor.zMax.toFixed(1)}m
                       {currentFloor?.id === floor.id && ` • ${floorSensors} sensors`}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {floor.levelIndex > 0 && <ArrowUp className="h-4 w-4" />}
-                    {floor.levelIndex < 0 && <ArrowDown className="h-4 w-4" />}
-                    <Building2 className="h-4 w-4" />
+                    {floor.levelIndex > 0 && <ArrowUp className="h-3 w-3" />}
+                    {floor.levelIndex < 0 && <ArrowDown className="h-3 w-3" />}
+                    <Building2 className="h-3 w-3" />
                   </div>
                 </div>
               </button>
@@ -544,27 +543,6 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
           })}
         </div>
       </div>
-
-      {/* Floor Information */}
-      {currentFloor && (
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">Current Floor: {currentFloor.name}</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-blue-600">Level Index:</span> {currentFloor.levelIndex}
-            </div>
-            <div>
-              <span className="text-blue-600">Z Range:</span> {currentFloor.zMin.toFixed(1)}m - {currentFloor.zMax.toFixed(1)}m
-            </div>
-            <div>
-              <span className="text-blue-600">Filtered Sensors:</span> {filteredSensors.size}
-            </div>
-            <div>
-              <span className="text-blue-600">View Mode:</span> 2D Orthographic
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Sensor List for Current Floor */}
       {showSensors && filteredSensors.size > 0 && (
