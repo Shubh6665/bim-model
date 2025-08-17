@@ -310,42 +310,34 @@ export function EnhancedProjectPanel({
                   <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
                 </div>
               </div>
-              {/* Project info card */}
-              <div className="text-sm bg-gray-900/70 border border-gray-700 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-blue-500 to-purple-500" />
-                <div className="space-y-2 divide-y divide-gray-800">
-                  <div className="flex items-center justify-between pt-0">
-                    <span className="text-gray-400 font-medium">Company</span>
-                    <span className="text-gray-100">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-gray-400 font-medium">Client</span>
-                    <span className="text-gray-100">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-gray-400 font-medium">Location</span>
-                    <span className="text-gray-100">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-gray-400 font-medium">Address</span>
-                    <span className="text-gray-100 truncate max-w-[55%] text-right">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-gray-400 font-medium">Cadastral</span>
-                    <span className="text-gray-100">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-gray-400 font-medium">Lat/Lng</span>
-                    <span className="text-gray-100">{selectedProject.lat}, {selectedProject.lng}</span>
-                  </div>
+              {/* Project info card - clean minimal */}
+              <div className="text-sm bg-gray-900 border border-gray-700 rounded-lg p-4 shadow-sm">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <div className="text-gray-400">Company</div>
+                  <div className="text-gray-100 text-right truncate">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</div>
+
+                  <div className="text-gray-400">Client</div>
+                  <div className="text-gray-100 text-right truncate">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</div>
+
+                  <div className="text-gray-400">Location</div>
+                  <div className="text-gray-100 text-right truncate">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</div>
+
+                  <div className="text-gray-400">Address</div>
+                  <div className="text-gray-100 text-right truncate">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</div>
+
+                  <div className="text-gray-400">Cadastral</div>
+                  <div className="text-gray-100 text-right truncate">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</div>
+
+                  <div className="text-gray-400">Lat/Lng</div>
+                  <div className="text-gray-100 text-right">{selectedProject.lat}, {selectedProject.lng}</div>
                 </div>
               </div>
 
-              {/* Models Uploaded (names only) */}
+              {/* Models Uploaded - minimal, neat */}
               {selectedProject.models && selectedProject.models.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold text-blue-300 mb-2">Models Uploaded</h4>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {(() => {
                       const groups = selectedProject.models!.reduce<Record<Discipline, ProjectModel[]>>((acc: any, m) => {
                         const key = (m.discipline || 'other') as Discipline;
@@ -356,19 +348,20 @@ export function EnhancedProjectPanel({
                       const order: Discipline[] = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
                       const label: Record<Discipline,string> = { architecture:'Architecture', structure:'Structure', mep:'MEP', electrical:'Electrical', plumbing:'Plumbing', hvac:'HVAC', other:'Other' };
                       return order.filter(d => groups[d]?.length).map(d => (
-                        <div key={d} className="border border-gray-700 rounded-lg">
-                          <div className="px-3 py-2 bg-gray-900/60 flex items-center justify-between">
-                            <span className="text-gray-200 text-sm">{label[d]}</span>
-                            <span className="text-xs bg-gray-700 text-gray-200 rounded px-2 py-0.5">{groups[d].length}</span>
-                          </div>
-                          <ul className="divide-y divide-gray-700">
-                            {groups[d].map((m) => (
-                              <li key={m.id} className="px-3 py-2 text-xs">
-                                <div className="truncate text-gray-200">{m.name}</div>
-                                <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
-                              </li>
-                            ))}
-                          </ul>
+                    <div key={d}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-indigo-300 text-sm`}>{label[d]}</span>
+                        <span className={`text-[10px] rounded px-2 py-0.5 bg-gray-700 text-gray-200`}>{groups[d].length}</span>
+                      </div>
+                      <ul className="space-y-1">
+                        {groups[d].map((m) => (
+                          <li key={m.id} className="text-xs flex items-center gap-2 text-gray-200">
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full bg-gray-500`} />
+                            <span className="truncate">{m.name}</span>
+                            <span className="ml-auto text-[10px] text-gray-400">{m.fileType || '—'}</span>
+                          </li>
+                        ))}
+                      </ul>
                         </div>
                       ));
                     })()}
