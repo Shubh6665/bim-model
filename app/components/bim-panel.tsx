@@ -1267,9 +1267,9 @@ export function BIMPanel({
 
       case "filter-objects":
         return (
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
-              <Filter className="h-5 w-5" />
+          <div className="space-y-1.5">
+            <h3 className="text-base font-semibold mb-1 flex items-center gap-1 text-white">
+              <Filter className="h-4 w-4" />
               Filter Objects
             </h3>
 
@@ -1283,7 +1283,7 @@ export function BIMPanel({
                   setFilterCategory(val || '');
                   // removed type filter reset
                 }}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm mb-1"
               >
                 <option value="">
                   {categoriesLoading && availableCategories.length === 0 ? 'Loading categories…' : 'Select category…'}
@@ -1303,7 +1303,7 @@ export function BIMPanel({
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
                 placeholder="Search by name..."
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm"
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm"
               />
             </div>
 
@@ -1316,7 +1316,7 @@ export function BIMPanel({
               <select
                 value={filterCategory2 || ''}
                 onChange={(e) => setFilterCategory2(e.target.value || '')}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-3 py-1.5 text-sm mb-2"
+                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm mb-1"
               >
                 <option value="">(Optional) Select another category…</option>
                 {availableCategories.map((c) => (
@@ -1326,10 +1326,10 @@ export function BIMPanel({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <button
                 onClick={handleApplyFilters}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-md transition-colors"
               >
                 Apply Filters
               </button>
@@ -1338,7 +1338,7 @@ export function BIMPanel({
                   // Single clear action restores full model without extra operations
                   handleClearFilters();
                 }}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-1.5 px-3 rounded-md transition-colors"
               >
                 Show All
               </button>
