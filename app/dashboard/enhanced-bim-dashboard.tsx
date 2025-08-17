@@ -515,6 +515,9 @@ function BIMDashboard() {
                 onToggleSensors={handleToggleSensors}
                 sensorsVisible={sensorsVisible}
                 viewer={viewer}
+                models={selectedProject?.models}
+                enabledModelIds={enabledModelIds}
+                onToggleModel={handleToggleModel}
               />
             ) : activePanel === "iot" ? (
               <IoTPanel 

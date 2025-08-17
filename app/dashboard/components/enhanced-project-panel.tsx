@@ -305,10 +305,46 @@ export function EnhancedProjectPanel({
                 </button>
               </div>
 
-              {/* Models by Discipline (with overlay toggles) */}
+              <div className="flex items-center gap-3 mb-2">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
+                </div>
+              </div>
+              {/* Project info card */}
+              <div className="text-sm bg-gray-900/70 border border-gray-700 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-blue-500 to-purple-500" />
+                <div className="space-y-2 divide-y divide-gray-800">
+                  <div className="flex items-center justify-between pt-0">
+                    <span className="text-gray-400 font-medium">Company</span>
+                    <span className="text-gray-100">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-400 font-medium">Client</span>
+                    <span className="text-gray-100">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-400 font-medium">Location</span>
+                    <span className="text-gray-100">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-400 font-medium">Address</span>
+                    <span className="text-gray-100 truncate max-w-[55%] text-right">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-400 font-medium">Cadastral</span>
+                    <span className="text-gray-100">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-gray-400 font-medium">Lat/Lng</span>
+                    <span className="text-gray-100">{selectedProject.lat}, {selectedProject.lng}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Models Uploaded (names only) */}
               {selectedProject.models && selectedProject.models.length > 0 && (
-                <div className="mt-2">
-                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Models by discipline</h4>
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Models Uploaded</h4>
                   <div className="space-y-2">
                     {(() => {
                       const groups = selectedProject.models!.reduce<Record<Discipline, ProjectModel[]>>((acc: any, m) => {
@@ -327,22 +363,9 @@ export function EnhancedProjectPanel({
                           </div>
                           <ul className="divide-y divide-gray-700">
                             {groups[d].map((m) => (
-                              <li key={m.id} className="px-3 py-2 text-xs flex items-center justify-between">
-                                <label className="flex items-center gap-2 min-w-0 mr-2 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    className="form-checkbox h-3 w-3 text-blue-500 rounded border-gray-600 bg-gray-800"
-                                    checked={enabledModelIds ? enabledModelIds.has(m.id) : true}
-                                    onChange={() => onToggleModel && onToggleModel(m.id)}
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="truncate text-gray-200">{m.name}</div>
-                                    <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
-                                  </div>
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-green-400">URN</span>
-                                </div>
+                              <li key={m.id} className="px-3 py-2 text-xs">
+                                <div className="truncate text-gray-200">{m.name}</div>
+                                <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
                               </li>
                             ))}
                           </ul>
@@ -352,37 +375,6 @@ export function EnhancedProjectPanel({
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-3 mb-2">
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
-                  </div>
-              </div>
-              <div className="grid grid-cols-1 gap-2 text-gray-300 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Company:</span>
-                  <span className="text-gray-200">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Client:</span>
-                  <span className="text-gray-200">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Location:</span>
-                  <span className="text-gray-200">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Address:</span>
-                  <span className="text-gray-200">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Cadastral:</span>
-                  <span className="text-gray-200">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">Lat/Lng:</span>
-                  <span className="text-gray-200">{selectedProject.lat}, {selectedProject.lng}</span>
-                </div>
-              </div>
               {/* Description and sensor stats removed per request */}
               
             </div>

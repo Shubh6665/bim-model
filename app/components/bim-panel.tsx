@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Floor2DView } from "./floor-2d-view";
 import { FloorData } from "./floor-data-view";
+import type { ProjectModel } from "@/app/types/projects";
 
 interface BIMPanelProps {
   onBackToProjects: () => void;
@@ -32,6 +33,10 @@ interface BIMPanelProps {
   onToggleSensors?: (visible: boolean) => void;
   sensorsVisible?: boolean;
   viewer?: any; // Forge viewer instance
+  // Models toggle props
+  models?: ProjectModel[];
+  enabledModelIds?: Set<string>;
+  onToggleModel?: (modelId: string) => void;
 }
 
 interface FilterOptions {
@@ -64,6 +69,9 @@ export function BIMPanel({
   onToggleSensors,
   sensorsVisible = false,
   viewer,
+  models,
+  enabledModelIds,
+  onToggleModel,
 }: BIMPanelProps) {
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
@@ -1425,7 +1433,7 @@ export function BIMPanel({
   };
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
+    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex flex-col items-center">
         <h2 className="text-xl font-bold text-white mb-3">BIM</h2>
@@ -1438,74 +1446,136 @@ export function BIMPanel({
         </button>
       </div>
 
-      {/* Command Buttons */}
-      <div className="p-4 border-b border-gray-800">
-        <div className="grid grid-cols-1 gap-2">
-          <button
-            onClick={() => setActiveCommand(activeCommand === '2d-views' ? null : '2d-views')}
-            className={`flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-              activeCommand === '2d-views'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span className="font-medium text-sm">2D Views</span>
-          </button>
-
-          <button
-            onClick={() => setActiveCommand(activeCommand === '3d-views' ? null : '3d-views')}
-            className={`flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-              activeCommand === '3d-views'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-            }`}
-          >
-            <Box className="h-4 w-4" />
-            <span className="font-medium text-sm">3D Views</span>
-          </button>
-
-          <button
-            onClick={() => setActiveCommand(activeCommand === 'save-view' ? null : 'save-view')}
-            className={`flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-              activeCommand === 'save-view'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-            }`}
-          >
-            <Save className="h-4 w-4" />
-            <span className="font-medium text-sm">Save View</span>
-          </button>
-
-          <button
-            onClick={() => setActiveCommand(activeCommand === 'filter-objects' ? null : 'filter-objects')}
-            className={`flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-              activeCommand === 'filter-objects'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-            }`}
-          >
-            <Filter className="h-4 w-4" />
-            <span className="font-medium text-sm">Filter Objects</span>
-          </button>
-
-          <button
-            onClick={() => setActiveCommand(activeCommand === 'view-sensors' ? null : 'view-sensors')}
-            className={`flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-              activeCommand === 'view-sensors'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-            }`}
-          >
-            <Eye className="h-4 w-4" />
-            <span className="font-medium text-sm">View Sensors</span>
-          </button>
+      {/* Split body: top models, bottom commands */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Top half: Models (scrollable) */}
+        <div className="basis-1/2 min-h-0 overflow-y-auto border-b border-gray-800">
+          <div className="p-4">
+            <h3 className="text-sm font-semibold text-blue-300 mb-2">Models</h3>
+            {models && models.length > 0 ? (
+              <div className="space-y-2">
+                {(() => {
+                  // Group by discipline for tidy view
+                  const groups: Record<string, ProjectModel[]> = {};
+                  for (const m of models) {
+                    const key = (m.discipline || 'other').toLowerCase();
+                    (groups[key] ||= []).push(m);
+                  }
+                  const order = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
+                  const label: Record<string,string> = { architecture:'Architecture', structure:'Structure', mep:'MEP', electrical:'Electrical', plumbing:'Plumbing', hvac:'HVAC', other:'Other' };
+                  return order.filter(d => groups[d]?.length).map((d) => (
+                    <div key={d} className="border border-gray-800 rounded-md overflow-hidden">
+                      <div className="px-3 py-2 bg-gray-800 flex items-center justify-between">
+                        <span className="text-gray-200 text-sm">{label[d]}</span>
+                        <span className="text-xs bg-gray-700 text-gray-300 rounded px-2 py-0.5">{groups[d].length}</span>
+                      </div>
+                      <ul className="divide-y divide-gray-800">
+                        {groups[d].map((m) => {
+                          const isOn = enabledModelIds ? enabledModelIds.has(m.id) : true;
+                          return (
+                            <li key={m.id} className="px-3 py-2 text-xs flex items-center justify-between">
+                              <div className="min-w-0 mr-3">
+                                <div className="truncate text-gray-200">{m.name}</div>
+                                <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
+                              </div>
+                              <button
+                                className={`p-1.5 rounded-md border ${isOn ? 'text-green-400 border-green-400/30 hover:bg-green-500/10' : 'text-gray-400 border-gray-700 hover:bg-gray-700/50'}`}
+                                onClick={() => onToggleModel && onToggleModel(m.id)}
+                                title={isOn ? 'Hide model' : 'Show model'}
+                              >
+                                {isOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ));
+                })()}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400">No models available.</div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Command Content */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        {renderCommandContent()}
+        {/* Bottom half: Commands row + content (scrollable) */}
+        <div className="basis-1/2 min-h-0 flex flex-col">
+          {/* Command Buttons - single row */}
+          <div className="p-3 border-b border-gray-800">
+            <div className="grid grid-cols-5 gap-2">
+              <button
+                onClick={() => setActiveCommand(activeCommand === '2d-views' ? null : '2d-views')}
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
+                  activeCommand === '2d-views'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
+                }`}
+                title="2D Views"
+              >
+                <Layers className="h-4 w-4" />
+                <span>2D</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCommand(activeCommand === '3d-views' ? null : '3d-views')}
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
+                  activeCommand === '3d-views'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
+                }`}
+                title="3D Views"
+              >
+                <Box className="h-4 w-4" />
+                <span>3D</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCommand(activeCommand === 'save-view' ? null : 'save-view')}
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
+                  activeCommand === 'save-view'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
+                }`}
+                title="Save View"
+              >
+                <Save className="h-4 w-4" />
+                <span>Save</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCommand(activeCommand === 'filter-objects' ? null : 'filter-objects')}
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
+                  activeCommand === 'filter-objects'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
+                }`}
+                title="Filter Objects"
+              >
+                <Filter className="h-4 w-4" />
+                <span>Filter</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCommand(activeCommand === 'view-sensors' ? null : 'view-sensors')}
+                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
+                  activeCommand === 'view-sensors'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
+                }`}
+                title="View Sensors"
+              >
+                <Eye className="h-4 w-4" />
+                <span>Sensors</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Command Content */}
+          <div className="flex-1 p-4 overflow-y-auto min-h-0">
+            {renderCommandContent()}
+          </div>
+        </div>
       </div>
     </div>
   );
