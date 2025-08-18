@@ -72,7 +72,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update project");
-      if (onProjectUpdated) onProjectUpdated(edited);
+      if (onProjectUpdated) onProjectUpdated({ ...(edited as Project), access: project.access });
     } catch (e: any) {
       setError(e.message || "Failed to update project");
     } finally {
@@ -380,6 +380,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               clientName: json.project.clientName,
               fileType: json.project.fileType,
               models: Array.isArray(json.project.models) ? json.project.models : [],
+              access: json.project.access || { owner: true, role: 'Owner', packages: ['BIM','IoT','Database','AI','FM'] },
             });
           }
         } catch {}
@@ -446,6 +447,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               clientName: json.project.clientName,
               fileType: json.project.fileType,
               models: Array.isArray(json.project.models) ? json.project.models : [],
+              access: json.project.access || { owner: true, role: 'Owner', packages: ['BIM','IoT','Database','AI','FM'] },
             });
           }
         } catch {}

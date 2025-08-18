@@ -328,6 +328,12 @@ function BIMDashboard() {
     }
   };
 
+  // Viewer empty click: clear selection and IoT panel filter
+  const handleViewerEmptyClick = () => {
+    setViewerSelectedSensorId(null);
+    selectSensor(null);
+  };
+
   const handleSensorPlaced = (sensorData: any) => {
     // Add the sensor to the context
     placeSensor(sensorData.position, sensorData.room);
@@ -572,7 +578,7 @@ function BIMDashboard() {
                       insertMode={insertMode}
                       onExitInsertMode={handleExitInsertMode}
                       onSensorClick={handleViewerSensorClick}
-                      onEmptyClick={() => {}}
+                      onEmptyClick={handleViewerEmptyClick}
                       activePanel={activePanel}
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}

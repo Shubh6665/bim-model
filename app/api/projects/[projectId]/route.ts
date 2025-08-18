@@ -27,8 +27,13 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     });
     
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    
-    return NextResponse.json({ project });
+    // Attach access info for owner (single-project endpoint currently only returns owner projects)
+    const access = {
+      role: 'Owner',
+      packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[],
+      owner: true,
+    };
+    return NextResponse.json({ project: { ...project, access } });
   } catch (error: any) {
     console.error('Error fetching project:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -101,9 +106,15 @@ export async function PUT(request: Request, context: { params: Promise<{ project
       userId: user._id 
     });
     
+    // Attach access info for owner
+    const access = {
+      role: 'Owner',
+      packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[],
+      owner: true,
+    };
     return NextResponse.json({ 
       message: 'Project updated successfully',
-      project: updatedProject 
+      project: updatedProject ? { ...updatedProject, access } : null,
     });
     
   } catch (error: any) {
