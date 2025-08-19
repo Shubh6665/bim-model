@@ -75,7 +75,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
   onToggleModel,
   onRestoreEnabledModelsVisibility,
 }) => {
-  const [activeCommand, setActiveCommand] = useState<string | null>(null);
+  const [activeCommand, setActiveCommand] = useState<string | null>("models");
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
@@ -1521,41 +1521,16 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
           </div>
         );
 
-      default:
+      case "models":
         return (
-          <div className="text-center py-8">
-            <Building className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">BIM Tools</h3>
-            <p className="text-gray-500">Select a command from above to get started</p>
-          </div>
-        );
-    }
-  };
-
-  return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full min-h-0">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex flex-col items-center">
-        <h2 className="text-xl font-bold text-white mb-3">BIM</h2>
-        <button
-          onClick={onBackToProjects}
-          className="flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors w-full justify-center"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Project Info
-        </button>
-      </div>
-
-      {/* Split body: top models, bottom commands */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {/* Top half: Models (scrollable) */}
-        <div className="basis-1/2 min-h-0 overflow-y-auto border-b border-gray-800">
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-blue-300 mb-2">Models</h3>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+              <Layers className="h-5 w-5" />
+              Models
+            </h3>
             {models && models.length > 0 ? (
               <div className="space-y-2">
                 {(() => {
-                  // Group by discipline for tidy view
                   const groups: Record<string, ProjectModel[]> = {};
                   for (const m of models) {
                     const key = (m.discipline || 'other').toLowerCase();
@@ -1597,85 +1572,82 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
               <div className="text-xs text-gray-400">No models available.</div>
             )}
           </div>
-        </div>
+        );
 
-        {/* Bottom half: Commands row + content (scrollable) */}
-        <div className="basis-1/2 min-h-0 flex flex-col">
-          {/* Command Buttons - single row */}
-          <div className="p-3 border-b border-gray-800">
-            <div className="grid grid-cols-5 gap-2">
-              <button
-                onClick={() => setActiveCommand(activeCommand === '2d-views' ? null : '2d-views')}
-                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
-                  activeCommand === '2d-views'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-                }`}
-                title="2D Views"
-              >
-                <Layers className="h-4 w-4" />
-                <span>2D</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCommand(activeCommand === '3d-views' ? null : '3d-views')}
-                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
-                  activeCommand === '3d-views'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-                }`}
-                title="3D Views"
-              >
-                <Box className="h-4 w-4" />
-                <span>3D</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCommand(activeCommand === 'save-view' ? null : 'save-view')}
-                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
-                  activeCommand === 'save-view'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-                }`}
-                title="Save View"
-              >
-                <Save className="h-4 w-4" />
-                <span>Save</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCommand(activeCommand === 'filter-objects' ? null : 'filter-objects')}
-                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
-                  activeCommand === 'filter-objects'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-                }`}
-                title="Filter Objects"
-              >
-                <Filter className="h-4 w-4" />
-                <span>Filter</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCommand(activeCommand === 'view-sensors' ? null : 'view-sensors')}
-                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-md text-center transition-colors text-[11px] ${
-                  activeCommand === 'view-sensors'
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-                }`}
-                title="View Sensors"
-              >
-                <Eye className="h-4 w-4" />
-                <span>Sensors</span>
-              </button>
-            </div>
+      default:
+        return (
+          <div className="text-center py-8">
+            <Building className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+            <h3 className="text-lg font-semibold text-gray-300 mb-2">BIM Tools</h3>
+            <p className="text-gray-500">Select a command from above to get started</p>
           </div>
+        );
+    }
+  };
 
-          {/* Command Content */}
-          <div className="flex-1 p-4 overflow-y-auto min-h-0">
-            {renderCommandContent()}
-          </div>
-        </div>
+  return (
+    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full min-h-0">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-800 flex flex-col items-center">
+        <h2 className="text-xl font-bold text-white mb-3">BIM</h2>
+        <button
+          onClick={onBackToProjects}
+          className="flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors w-full justify-center"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Project Info
+        </button>
+      </div>
+
+      {/* Vertical menu (compact) */}
+      <div className="p-3 space-y-1.5 border-b border-gray-800">
+        <button
+          onClick={() => setActiveCommand('models')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Layers className="h-4 w-4" />
+          <span className="font-medium">Models</span>
+        </button>
+        <button
+          onClick={() => setActiveCommand('2d-views')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '2d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Layers className="h-4 w-4" />
+          <span className="font-medium">2D Views</span>
+        </button>
+        <button
+          onClick={() => setActiveCommand('3d-views')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '3d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Box className="h-4 w-4" />
+          <span className="font-medium">3D Views</span>
+        </button>
+        <button
+          onClick={() => setActiveCommand('save-view')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'save-view' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Save className="h-4 w-4" />
+          <span className="font-medium">Save View</span>
+        </button>
+        <button
+          onClick={() => setActiveCommand('filter-objects')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'filter-objects' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Filter className="h-4 w-4" />
+          <span className="font-medium">Filter Objects</span>
+        </button>
+        <button
+          onClick={() => setActiveCommand('view-sensors')}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'view-sensors' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Eye className="h-4 w-4" />
+          <span className="font-medium">View Sensors</span>
+        </button>
+      </div>
+
+      {/* Command Content */}
+      <div className="flex-1 p-4 overflow-y-auto min-h-0">
+        {renderCommandContent()}
       </div>
     </div>
   );
