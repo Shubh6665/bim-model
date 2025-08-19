@@ -337,7 +337,11 @@ export function EnhancedProjectPanel({
               {/* Models Uploaded - minimal, neat */}
               {selectedProject.models && selectedProject.models.length > 0 && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Models Uploaded</h4>
+                  <div className="mb-2">
+                    <span className="inline-block bg-blue-600 text-white px-5 py-2.5 rounded-xl text-base font-semibold">
+                      Models Uploaded
+                    </span>
+                  </div>
                   <div className="space-y-3">
                     {(() => {
                       const groups = selectedProject.models!.reduce<Record<Discipline, ProjectModel[]>>((acc: any, m) => {
