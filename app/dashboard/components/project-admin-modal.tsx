@@ -712,7 +712,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Model Name</label>
+                  <label className="block text-sm text-gray-300 mb-1">Model Description</label>
                   <input value={newModel.name} onChange={(e) => setNewModel({ ...newModel, name: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
                 </div>
                 <div>
