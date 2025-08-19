@@ -139,6 +139,10 @@ export function EnhancedProjectPanel({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
 
+  // Format coordinates to fit nicely in the info card
+  const formatCoord = (n: number | undefined | null) =>
+    typeof n === 'number' && isFinite(n) ? n.toFixed(4) : '—';
+
   // Keep tabs state independent; when a project is selected we hide tabs
   // and show the project information view.
 
@@ -330,7 +334,7 @@ export function EnhancedProjectPanel({
                   <div className="text-gray-100 text-right truncate">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</div>
 
                   <div className="text-gray-400">Lat/Lng</div>
-                  <div className="text-gray-100 text-right">{selectedProject.lat}, {selectedProject.lng}</div>
+                  <div className="text-gray-100 text-right">{formatCoord(selectedProject.lat)}, {formatCoord(selectedProject.lng)}</div>
                 </div>
               </div>
 
