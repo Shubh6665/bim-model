@@ -409,6 +409,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
   // Remove model
   const [removeModelId, setRemoveModelId] = useState<string>("");
+  const [showConfirmRemove, setShowConfirmRemove] = useState(false);
   
   // Debug project access
   useEffect(() => {
@@ -797,11 +798,27 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </select>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleRemoveModel} disabled={saving || !removeModelId || (!project.access?.owner && project?.access?.role !== 'Owner')} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || (!project.access?.owner && project?.access?.role !== 'Owner')} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
                 </button>
               </div>
+              {showConfirmRemove && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-w-md mx-4">
+                    <div className="p-4 border-b border-gray-700">
+                      <h3 className="text-lg font-semibold text-white">Confirm Removal</h3>
+                    </div>
+                    <div className="p-4 text-gray-200">
+                      Are you sure you want to remove this model?
+                    </div>
+                    <div className="p-4 flex justify-end gap-2 border-t border-gray-700">
+                      <button onClick={() => setShowConfirmRemove(false)} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
+                      <button onClick={async () => { setShowConfirmRemove(false); await handleRemoveModel(); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">Yes</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
