@@ -262,7 +262,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   // Upload/Replace Model
   const [newModel, setNewModel] = useState<{ name: string; discipline: string; urn: string; fileType: string }>({
     name: "",
-    discipline: "Architecture",
+    discipline: "architecture",
     urn: "",
     fileType: "RVT",
   });
@@ -271,6 +271,9 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [translating, setTranslating] = useState(false);
 
   const existingModels = useMemo(() => (project?.models || []), [project?.models]);
+
+  // Capitalize helper: first letter uppercase, rest lowercase
+  const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s);
 
   const extToFileType = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
@@ -714,8 +717,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Discipline</label>
-                  <select value={newModel.discipline} onChange={(e) => setNewModel({ ...newModel, discipline: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white">
-                    {['architecture','structure','mep','electrical','plumbing','hvac','other'].map(d => <option key={d} value={d}>{d}</option>)}
+                  <select value={newModel.discipline}
+                          onChange={(e) => setNewModel({ ...newModel, discipline: e.target.value.toLowerCase() })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white capitalize">
+                    {['architecture','structure','mep','electrical','plumbing','hvac','other'].map(d => (
+                      <option key={d} value={d}>{capitalize(d)}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -785,7 +792,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 >
                   <option value="">-- Choose a model --</option>
                   {(project.models || []).map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.discipline || 'other'})</option>
+                    <option key={m.id} value={m.id}>{m.name} ({capitalize((m.discipline || 'other') as string)})</option>
                   ))}
                 </select>
               </div>
