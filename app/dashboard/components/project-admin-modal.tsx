@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { X, Building, Upload, Trash2, Save, Mail, CheckSquare } from "lucide-react";
+import { X, Building, Upload, Trash2, Save, Mail, CheckSquare, Edit3 } from "lucide-react";
 import type { ProjectModel } from "@/app/types/projects";
 
 interface Project {
@@ -39,9 +39,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
   // Editable fields for Project Information
   const [edited, setEdited] = useState<Project | null>(project);
+  // Editing toggle for Project Information tab
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
 
   useEffect(() => {
-    if (project) setEdited({ ...project });
+    if (project) {
+      setEdited({ ...project });
+      setIsEditingInfo(false); // reset editing when project changes
+    }
   }, [project]);
 
   // Do not early-return before declaring all hooks; guard rendering later
@@ -73,6 +78,8 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update project");
       if (onProjectUpdated) onProjectUpdated({ ...(edited as Project), access: project.access });
+      // exit edit mode on success
+      setIsEditingInfo(false);
     } catch (e: any) {
       setError(e.message || "Failed to update project");
     } finally {
@@ -499,31 +506,31 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Project Name</label>
-                  <input value={edited?.name || ""} onChange={(e) => handleProjectField("name", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.name || ""} onChange={(e) => handleProjectField("name", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Project Code</label>
-                  <input value={edited?.code || ""} onChange={(e) => handleProjectField("code", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.code || ""} onChange={(e) => handleProjectField("code", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm text-gray-300 mb-1">Description</label>
-                  <textarea value={edited?.description || ""} onChange={(e) => handleProjectField("description", e.target.value)} rows={3} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <textarea value={edited?.description || ""} onChange={(e) => handleProjectField("description", e.target.value)} rows={3} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Country</label>
-                  <input value={edited?.country || ""} onChange={(e) => handleProjectField("country", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.country || ""} onChange={(e) => handleProjectField("country", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Municipality</label>
-                  <input value={edited?.municipality || ""} onChange={(e) => handleProjectField("municipality", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.municipality || ""} onChange={(e) => handleProjectField("municipality", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Address</label>
-                  <input value={edited?.address || ""} onChange={(e) => handleProjectField("address", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.address || ""} onChange={(e) => handleProjectField("address", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Cadastral</label>
-                  <input value={edited?.cadastral || ""} onChange={(e) => handleProjectField("cadastral", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={edited?.cadastral || ""} onChange={(e) => handleProjectField("cadastral", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-500 mb-1">Latitude (read-only)</label>
@@ -540,11 +547,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-300 mb-1">Company</label>
-                    <input value={edited?.company || ""} onChange={(e) => handleProjectField("company", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                    <input value={edited?.company || ""} onChange={(e) => handleProjectField("company", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-300 mb-1">Client Name</label>
-                    <input value={edited?.clientName || ""} onChange={(e) => handleProjectField("clientName", e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                    <input value={edited?.clientName || ""} onChange={(e) => handleProjectField("clientName", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-500 mb-1">File Type (read-only)</label>
@@ -564,11 +571,22 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   <div className="px-3 py-2 bg-gray-700 rounded text-gray-300 font-mono text-xs break-all">{project.urn}</div>
                 </div>
               )}
-              <div className="flex justify-end">
-                <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md">
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? "Saving..." : "Save"}</span>
-                </button>
+              {/* Bottom actions: Edit (when not editing), Save + Cancel (when editing) */}
+              <div className="flex justify-end gap-2">
+                {!isEditingInfo ? (
+                  <button onClick={() => setIsEditingInfo(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit</span>
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md">
+                      <Save className="w-4 h-4" />
+                      <span>{saving ? "Saving..." : "Save"}</span>
+                    </button>
+                    <button onClick={() => { setEdited(project ? { ...project } : null); setIsEditingInfo(false); }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
+                  </>
+                )}
               </div>
             </div>
           )}
