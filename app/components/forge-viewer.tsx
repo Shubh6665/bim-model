@@ -888,8 +888,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return;
         }
 
-        // Skip wireframe mode changes if not in IoT panel
-        if (activePanel !== 'iot') {
+        // Skip wireframe mode changes if not in IoT panel or BIM panel
+        if (activePanel !== 'iot' && activePanel !== 'bim') {
             return;
         }
 
