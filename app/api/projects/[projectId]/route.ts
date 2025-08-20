@@ -10,6 +10,50 @@ async function getUserEmail(): Promise<string | null> {
   return session?.user?.email || null;
 }
 
+async function getSessionUser(db: any, email: string) {
+  return db.collection('users').findOne({ email });
+}
+
+async function getInviteFor(db: any, projectId: string, email: string) {
+  return db.collection('invites').findOne({
+    projectId: new ObjectId(projectId),
+    status: 'accepted',
+    'invitee.email': email,
+  });
+}
+
+async function canReadProject(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true; // global admin
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  if (String(project.userId) === String(user._id)) return true; // owner
+  const invite = await getInviteFor(db, projectId, email);
+  return !!invite; // any accepted invite grants read
+}
+
+async function canUpdateProject(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true; // global admin
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  if (String(project.userId) === String(user._id)) return true; // owner
+  const invite = await getInviteFor(db, projectId, email);
+  // ProjectAdmin can update
+  return invite?.invitee?.role === 'ProjectAdmin';
+}
+
+async function canDeleteProject(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true; // global admin
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  if (String(project.userId) === String(user._id)) return true; // owner
+  // ProjectAdmin can also delete within this project (full admin permissions scoped to project)
+  const invite = await getInviteFor(db, projectId, email);
+  return invite?.invitee?.role === 'ProjectAdmin';
+}
+
 // GET: Get specific project by ID
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -18,21 +62,31 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
-    const project = await db.collection('projects').findOne({ 
-      _id: new ObjectId(projectId),
-      userId: user._id 
-    });
-    
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    // Attach access info for owner (single-project endpoint currently only returns owner projects)
-    const access = {
-      role: 'Owner',
-      packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[],
-      owner: true,
-    };
+
+    const canRead = await canReadProject(db, projectId, user, email);
+    if (!canRead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    // Determine access
+    const isOwner = String(project.userId) === String(user._id);
+    let access: any;
+    if (isOwner) {
+      access = { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: true };
+    } else if (user.role === 'admin') {
+      // Global admin acts as project admin for this project
+      access = { role: 'ProjectAdmin', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: false };
+    } else {
+      const invite = await getInviteFor(db, projectId, email);
+      access = {
+        role: invite?.invitee?.role || 'General',
+        packages: Array.isArray(invite?.invitee?.packages) ? invite!.invitee.packages : [],
+        owner: false,
+      };
+    }
     return NextResponse.json({ project: { ...project, access } });
   } catch (error: any) {
     console.error('Error fetching project:', error);
@@ -48,9 +102,12 @@ export async function PUT(request: Request, context: { params: Promise<{ project
     const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
+    const allowed = await canUpdateProject(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
     // Parse JSON body
     let body;
     try {
@@ -89,10 +146,7 @@ export async function PUT(request: Request, context: { params: Promise<{ project
     
     // Update the project
     const result = await db.collection('projects').updateOne(
-      { 
-        _id: new ObjectId(projectId),
-        userId: user._id 
-      },
+      { _id: new ObjectId(projectId) },
       { $set: updateData }
     );
     
@@ -101,17 +155,13 @@ export async function PUT(request: Request, context: { params: Promise<{ project
     }
     
     // Fetch and return updated project
-    const updatedProject = await db.collection('projects').findOne({ 
-      _id: new ObjectId(projectId),
-      userId: user._id 
-    });
+    const updatedProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     
-    // Attach access info for owner
-    const access = {
-      role: 'Owner',
-      packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[],
-      owner: true,
-    };
+    // Attach access info based on user
+    const isOwner = updatedProject && String(updatedProject.userId) === String(user._id);
+    const access = isOwner
+      ? { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: true }
+      : { role: 'ProjectAdmin', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: false };
     return NextResponse.json({ 
       message: 'Project updated successfully',
       project: updatedProject ? { ...updatedProject, access } : null,
@@ -131,13 +181,13 @@ export async function DELETE(_request: Request, context: { params: Promise<{ pro
     const { projectId } = await context.params;
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
-    const result = await db.collection('projects').deleteOne({ 
-      _id: new ObjectId(projectId),
-      userId: user._id 
-    });
+    const allowed = await canDeleteProject(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const result = await db.collection('projects').deleteOne({ _id: new ObjectId(projectId) });
     
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });

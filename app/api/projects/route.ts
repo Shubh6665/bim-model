@@ -93,7 +93,16 @@ export async function POST(req: NextRequest) {
     if (!user) {
       // Create user if not exists
       const result = await db.collection('users').insertOne({ email, createdAt: new Date() });
-      user = { _id: result.insertedId, email };
+      user = { _id: result.insertedId, email } as any;
+    }
+
+    // Safety guard
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    // Only global administrators can create new projects
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Only administrators can create projects' }, { status: 403 });
     }
 
     // Parse JSON body
@@ -118,7 +127,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: require name, lat, lng, and either urn or models[]' }, { status: 400 });
     }
 
-    // Save project to DB
+    // Save project to DB (owner is the admin creating it)
     const project = {
       userId: user._id,
       name,

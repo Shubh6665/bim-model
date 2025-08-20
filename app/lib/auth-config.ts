@@ -32,12 +32,19 @@ export const authOptions: NextAuthOptions = {
         try {
           const db = await getDb();
           const existing = await db.collection('users').findOne({ email: user.email });
+          // Determine role using ADMIN_EMAILS env (comma-separated emails)
+          const adminEmails = (process.env.ADMIN_EMAILS || "")
+            .split(",")
+            .map(e => e.trim().toLowerCase())
+            .filter(Boolean);
+          const isAdmin = !!(user.email && adminEmails.includes(String(user.email).toLowerCase()));
           if (!existing) {
             // Store all Google user data
             await db.collection('users').insertOne({
               ...user,
               provider: account.provider,
               providerAccountId: account.providerAccountId,
+              role: isAdmin ? 'admin' : 'user',
               createdAt: new Date(),
             });
           } else {
@@ -48,6 +55,8 @@ export const authOptions: NextAuthOptions = {
                   ...user,
                   provider: account.provider,
                   providerAccountId: account.providerAccountId,
+                  // Only elevate to admin if configured; don't demote here to avoid surprises
+                  ...(isAdmin && existing.role !== 'admin' ? { role: 'admin' } : {}),
                   updatedAt: new Date(),
                 }
               }

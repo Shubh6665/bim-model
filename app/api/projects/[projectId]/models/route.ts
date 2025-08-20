@@ -10,6 +10,37 @@ async function getUserEmail(): Promise<string | null> {
   return session?.user?.email || null;
 }
 
+async function getSessionUser(db: any, email: string) {
+  return db.collection('users').findOne({ email });
+}
+
+async function getInviteFor(db: any, projectId: string, email: string) {
+  return db.collection('invites').findOne({
+    projectId: new ObjectId(projectId),
+    status: 'accepted',
+    'invitee.email': email,
+  });
+}
+
+async function canReadProject(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  if (String(project.userId) === String(user._id)) return true;
+  return !!(await getInviteFor(db, projectId, email));
+}
+
+async function canModifyModels(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  if (String(project.userId) === String(user._id)) return true;
+  const invite = await getInviteFor(db, projectId, email);
+  return invite?.invitee?.role === 'ProjectAdmin';
+}
+
 // GET /api/projects/[projectId]/models -> list models for a project
 export async function GET(_req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -17,11 +48,14 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ projec
     if (!email) return NextResponse.json({ models: [] }, { status: 200 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ models: [] }, { status: 200 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    const allowed = await canReadProject(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const models: ProjectModel[] = Array.isArray(project.models) ? project.models : [];
@@ -38,7 +72,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const body = await req.json();
@@ -47,7 +81,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
     if (!urn) return NextResponse.json({ error: 'urn is required' }, { status: 400 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    const allowed = await canModifyModels(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const newModel: ProjectModel = {
@@ -60,7 +97,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
     };
 
     const updateRes = await db.collection('projects').updateOne(
-      { _id: new ObjectId(projectId), userId: user._id },
+      { _id: new ObjectId(projectId) },
       ({ $push: { models: newModel } } as unknown as UpdateFilter<any>)
     );
 

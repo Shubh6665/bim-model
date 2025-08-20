@@ -10,6 +10,33 @@ async function getUserEmail(): Promise<string | null> {
   return session?.user?.email || null;
 }
 
+async function getSessionUser(db: any, email: string) {
+  return db.collection('users').findOne({ email });
+}
+
+async function isOwner(db: any, projectId: string, user: any) {
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  return project && String(project.userId) === String(user?._id);
+}
+
+async function isProjectAdmin(db: any, projectId: string, email: string) {
+  const accepted = await db.collection('invites').findOne({
+    projectId: new ObjectId(projectId),
+    status: 'accepted',
+    'invitee.email': email,
+    'invitee.role': 'ProjectAdmin',
+  });
+  return !!accepted;
+}
+
+async function authorizeInviteManager(db: any, projectId: string, user: any, email: string) {
+  if (!user) return false;
+  if (user.role === 'admin') return true; // global admin
+  if (await isOwner(db, projectId, user)) return true;
+  if (await isProjectAdmin(db, projectId, email)) return true;
+  return false;
+}
+
 // PATCH /api/projects/[projectId]/invites -> update an invite (packages/status) (owner only)
 export async function PATCH(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
@@ -17,12 +44,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
-    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+    const allowed = await authorizeInviteManager(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
     const { inviteId, packages, status } = body || {};
@@ -34,7 +61,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
-    const updateFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { $or: [ { projectId: project._id }, { projectId: String(project._id) } ] } ] };
+    const updateFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { projectId: new ObjectId(projectId) } ] };
     const result = await db
       .collection('invites')
       .findOneAndUpdate(updateFilter, { $set: update }, { returnDocument: 'after' });
@@ -55,16 +82,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
-    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+    const allowed = await authorizeInviteManager(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const invites = await db
       .collection('invites')
-      .find({ $or: [ { projectId: project._id }, { projectId: String(project._id) } ] })
+      .find({ projectId: new ObjectId(projectId) })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -86,15 +113,15 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ proj
     if (!inviteId) return NextResponse.json({ error: 'inviteId is required' }, { status: 400 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
-    if (!project) return NextResponse.json({ error: 'Project not found or not owner' }, { status: 404 });
+    const allowed = await authorizeInviteManager(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     // remove the invite only if it belongs to the project
-    const deleteFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { $or: [ { projectId: project._id }, { projectId: String(project._id) } ] } ] };
+    const deleteFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { projectId: new ObjectId(projectId) } ] };
     const res = await db.collection('invites').deleteOne(deleteFilter);
     if (res.deletedCount === 0) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
 
@@ -112,12 +139,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const db = await getDb();
-    const user = await db.collection('users').findOne({ email });
+    const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
-    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const allowed = await authorizeInviteManager(db, projectId, user, email);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
     const { name, surname, email: inviteeEmail, role, society, packages } = body || {};
@@ -126,9 +155,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
       return NextResponse.json({ error: 'Valid invitee email is required' }, { status: 400 });
     }
 
+    // Allow nomination of ProjectAdmin by Owner, Global Admin, or existing Project Administrator
+    const isGlobalAdmin = user.role === 'admin';
+    const isOwnerUser = String(proj.userId) === String(user._id);
+    const isProjAdmin = await isProjectAdmin(db, projectId, email);
+    if (role === 'ProjectAdmin' && !(isGlobalAdmin || isOwnerUser || isProjAdmin)) {
+      return NextResponse.json({ error: 'Only owner, administrator, or existing Project Administrator can nominate a Project Administrator' }, { status: 403 });
+    }
+
     const inviteDoc = {
       _id: new ObjectId(),
-      projectId: project._id,
+      projectId: proj._id,
       inviterUserId: user._id,
       invitee: {
         name: name || '',
@@ -169,7 +206,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
         const html = `
           <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111">
             <h2>You have been invited to a project</h2>
-            <p><strong>Project:</strong> ${project.name || 'Untitled Project'}</p>
+            <p><strong>Project:</strong> ${proj.name || 'Untitled Project'}</p>
             <p><strong>Invited by:</strong> ${user.email}</p>
             <p>
               Click the button below to accept the invitation and get access.
@@ -185,7 +222,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
         await transporter.sendMail({
           from,
           to: inviteeEmail,
-          subject: `Invitation to join project${project.name ? `: ${project.name}` : ''}`,
+          subject: `Invitation to join project${proj.name ? `: ${proj.name}` : ''}`,
           html,
         });
         emailSent = true;
