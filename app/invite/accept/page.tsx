@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 
 function AcceptInviteContent() {
   const params = useSearchParams();
@@ -27,6 +27,32 @@ function AcceptInviteContent() {
         setStatus("loading");
         const res = await fetch(`/api/invites/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`);
         const json = await res.json();
+
+        // Require auth with invited email
+        if (res.status === 401 && json?.requiresAuth) {
+          const invitedEmail = json?.invitedEmail as string | undefined;
+          const callbackUrl = typeof window !== "undefined" ? window.location.href : `/invite/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`;
+          await signIn("google", {
+            callbackUrl,
+            // Hints Google to show the invited account
+            login_hint: invitedEmail,
+            prompt: "select_account",
+          } as any);
+          return;
+        }
+        // Wrong account signed in: sign out and prompt correct one
+        if (res.status === 403 && json?.error === 'wrong_account') {
+          const invitedEmail = json?.invitedEmail as string | undefined;
+          const callbackUrl = typeof window !== "undefined" ? window.location.href : `/invite/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`;
+          await signOut({ redirect: false });
+          await signIn("google", {
+            callbackUrl,
+            login_hint: invitedEmail,
+            prompt: "select_account",
+          } as any);
+          return;
+        }
+
         if (!res.ok || !json.success) {
           throw new Error(json.error || "Failed to accept invite");
         }
@@ -39,13 +65,11 @@ function AcceptInviteContent() {
       }
     };
 
-    // If not authenticated, go to sign-in first and come back here
-    if (authStatus === "unauthenticated") {
-      const callbackUrl = typeof window !== "undefined" ? window.location.href : `/invite/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`;
-      signIn("google", { callbackUrl });
-      return;
-    }
+    // If not authenticated, we still call accept(); server will respond 401 with invitedEmail and we will redirect with login_hint.
     if (authStatus === "authenticated") {
+      accept();
+    }
+    if (authStatus === "unauthenticated") {
       accept();
     }
   }, [params, router, authStatus]);

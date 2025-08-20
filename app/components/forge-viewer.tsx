@@ -61,6 +61,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const prevOverlaySigRef = useRef<string>("");
     // Persistently remember which project model id is the true primary loaded into viewer.model
     const primaryModelIdRef = useRef<string | null>(null);
+    // Prevent duplicate DataViz initialization attempts
+    const dataVizInitInFlightRef = useRef(false);
 
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
@@ -156,20 +158,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
-    // Effect to force re-initialization when switching to IoT tab
+    // Do NOT re-initialize the viewer on IoT panel switch; keep the same session to avoid flicker
     useEffect(() => {
-        const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
-        if (activePanel === 'iot' && primaryUrn && loadedUrn !== primaryUrn) {
-            // Reset initialization state to force re-initialization
-            setIsInitialized(false);
-            setIsDataVizReady(false);
-            setDataVizService(null);
-            setViewer(null);
-            initializationRef.current = false;
-            setLoadedUrn(primaryUrn);
-            setOverlayModelsLoaded(false);
-        }
-    }, [activePanel, urn, models, loadedUrn]);
+        // No-op: maintaining current viewer/session across panel switches
+        // Ensures overlays remain and avoids DataViz re-init races
+    }, [activePanel]);
 
     // Dynamically reconcile overlay models without re-initializing primary
     useEffect(() => {
@@ -453,10 +446,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                         // Retry mechanism for DataViz initialization
                                         const initializeDataVizWithRetry = async (maxRetries = 3, delay = 500) => {
                                             for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                                                
+                                                // If already initialized or in-flight, stop
+                                                if (isDataVizReady || dataVizService || dataVizInitInFlightRef.current) {
+                                                    return true;
+                                                }
+                                                dataVizInitInFlightRef.current = true;
+
                                                 // Validate viewer before attempting initialization
                                                 if (!viewerInstance || !viewerInstance.loadExtension) {
                                                     if (attempt === maxRetries) {
+                                                        dataVizInitInFlightRef.current = false;
                                                         return false;
                                                     }
                                                     // Wait before next attempt
@@ -489,13 +488,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                             console.warn("[ForgeViewer] onViewerReady threw after DataViz ready:", e);
                                                         }
                                                     }
+                                                    dataVizInitInFlightRef.current = false;
                                                     return true;
                                                 } else {
                                                     if (attempt === maxRetries) {
+                                                        dataVizInitInFlightRef.current = false;
                                                         return false;
                                                     }
                                                 }
                                             }
+                                            dataVizInitInFlightRef.current = false;
                                             return false;
                                         };
                                         await initializeDataVizWithRetry();
@@ -553,13 +555,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Late / on-demand DataViz initialization (e.g., BIM panel toggles sensorsVisible later)
     useEffect(() => {
         if (!viewer) return;
-        if (isDataVizReady || dataVizService) return; // already initialized
+        if (isDataVizReady || dataVizService || dataVizInitInFlightRef.current) return; // already initializing/ready
         if (!modelLoaded) return; // wait for geometry
         const needDataVizNow = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
         if (!needDataVizNow) return;
         let cancelled = false;
         (async () => {
             try {
+                dataVizInitInFlightRef.current = true;
                 const svc = new DataVizService(viewer);
                 const ok = await svc.initialize();
                 if (!ok || cancelled) return;
@@ -582,6 +585,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             } catch (e) {
                 console.warn('[ForgeViewer] Late DataViz initialization failed:', e);
             } finally {
+                dataVizInitInFlightRef.current = false;
                 if (!cancelled) setIsInitialized(true); // ensure initialized flag
             }
         })();
@@ -930,6 +934,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         // Only require a ready viewer and initialized flag; handle even single-model cases
         if (!viewer || !isInitialized) {
             console.log('[ForgeViewer] Model visibility: viewer not ready');
+            return;
+        }
+        // In IoT mode we only change rendering (wireframe), not model visibility to avoid flicker
+        if (activePanel === 'iot') {
             return;
         }
         if (!enabledModelIds || enabledModelIds.size === 0) {
