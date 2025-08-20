@@ -468,8 +468,13 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             
             // Check if viewer has proper visibility manager before proceeding
             if (viewer.impl && viewer.impl.visibilityManager) {
-              // Show all hidden elements first (restores after 2D mode)
-              safeRestoreAllVisibility(viewer);
+              // Restore visibility for enabled models only
+              if (onRestoreEnabledModelsVisibility) {
+                onRestoreEnabledModelsVisibility(viewer);
+              } else {
+                // Fallback if prop not provided
+                safeRestoreAllVisibility(viewer);
+              }
               
               // Reset view to 3D perspective
               if (viewer.setViewType && typeof viewer.setViewType === 'function') {

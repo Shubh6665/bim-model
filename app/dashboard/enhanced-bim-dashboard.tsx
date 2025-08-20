@@ -157,8 +157,9 @@ function BIMDashboard() {
     const projectId = selectedProject?.id;
     const models = selectedProject?.models || [];
 
-    // Only run this logic if the project ID has changed
-    if (projectId && projectId !== lastProcessedProjectId.current) {
+    // Only run this logic if the project ID has changed AND enabledModelIds is empty
+    if (projectId && projectId !== lastProcessedProjectId.current && enabledModelIds.size === 0) {
+      console.log('🏗️ [Dashboard] Setting initial enabled models for new project:', projectId);
       lastProcessedProjectId.current = projectId;
 
       if (models.length === 0) {
@@ -169,16 +170,23 @@ function BIMDashboard() {
       // Prefer architecture models; if none, fallback to the first in order
       const archIds = models.filter(m => (m.discipline || '').toLowerCase() === 'architecture').map(m => m.id);
       if (archIds.length > 0) {
+        console.log('🏗️ [Dashboard] Enabling architecture models by default:', archIds);
         setEnabledModelIds(new Set(archIds));
       } else {
+        console.log('🏗️ [Dashboard] Enabling first model by default:', models[0].id);
         setEnabledModelIds(new Set([models[0].id]));
       }
     } else if (!projectId) {
       // If no project is selected, clear everything
+      console.log('🏗️ [Dashboard] Clearing enabled models - no project selected');
       lastProcessedProjectId.current = null;
       setEnabledModelIds(new Set());
+    } else if (projectId && projectId !== lastProcessedProjectId.current) {
+      // Project changed but we already have enabled models - just update the ref
+      console.log('🏗️ [Dashboard] Project changed but keeping existing enabled models:', Array.from(enabledModelIds));
+      lastProcessedProjectId.current = projectId;
     }
-  }, [selectedProject]); // Depend on the whole project object to detect changes
+  }, [selectedProject, enabledModelIds.size]); // Also depend on enabledModelIds size
 
   const GOOGLE_MAPS_API_KEY =
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
@@ -594,8 +602,10 @@ function BIMDashboard() {
                   
                   
                   // Force immediate visibility update by triggering the effect synchronously
+                  console.log('🔄 [Dashboard] View Sensors clicked - forcing visibility refresh');
                   setTimeout(() => {
                     setEnabledModelIds(prev => {
+                      console.log('🔄 [Dashboard] Current enabled models during refresh:', Array.from(prev));
                       const current = new Set(prev);
                       return current;
                     });

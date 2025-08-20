@@ -73,19 +73,115 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const isDraggingRef = useRef(false);
     const wasDraggedRef = useRef(false);
 
-    // Helper to toggle an entire model's visibility by fragment
+    // Helper to completely disable/enable an entire model using visibilityManager
     const setModelVisible = (model: any, visible: boolean) => {
         try {
-            if (!model?.getFragmentList) {
-                console.warn('   ⚠️  Model has no getFragmentList method');
+            console.log(`🔧 [setModelVisible] Called with visible=${visible}`);
+            
+            if (!model || !viewer?.impl?.visibilityManager) {
+                console.warn('   ⚠️  Model or visibilityManager not available');
                 return;
             }
-            const fragList = model.getFragmentList();
-            const count = fragList.getCount?.() ?? 0;
             
-            for (let i = 0; i < count; i++) {
-                fragList.setVisibility(i, !!visible);
+            const visibilityManager = viewer.impl.visibilityManager;
+            
+            if (!model.getObjectTree) {
+                console.warn('   ⚠️  Model has no getObjectTree method');
+                return;
             }
+            
+            // Try multiple approaches to completely hide the model
+            if (!visible) {
+                console.log('🔧 [setModelVisible] Attempting to HIDE model completely');
+                
+                // Method 1: Hide using viewer.hide() with root node
+                try {
+                    const rootId = model.getRootId();
+                    console.log(`🔧 [setModelVisible] Hiding root node: ${rootId}`);
+                    if (viewer.hide && rootId) {
+                        viewer.hide(rootId, model);
+                    }
+                } catch (e) {
+                    console.warn('🔧 [setModelVisible] Root hide failed:', e);
+                }
+                
+                // Method 2: Set model visibility to false at fragment level
+                try {
+                    if (model.getFragmentList) {
+                        const fragList = model.getFragmentList();
+                        const count = fragList.getCount?.() ?? 0;
+                        console.log(`🔧 [setModelVisible] Setting ${count} fragments invisible`);
+                        for (let i = 0; i < count; i++) {
+                            fragList.setVisibility(i, false);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('🔧 [setModelVisible] Fragment visibility failed:', e);
+                }
+            } else {
+                console.log('🔧 [setModelVisible] Attempting to SHOW model');
+                
+                // Method 1: Show using viewer.show() with root node
+                try {
+                    const rootId = model.getRootId();
+                    console.log(`🔧 [setModelVisible] Showing root node: ${rootId}`);
+                    if (viewer.show && rootId) {
+                        viewer.show(rootId, model);
+                    }
+                } catch (e) {
+                    console.warn('🔧 [setModelVisible] Root show failed:', e);
+                }
+                
+                // Method 2: Set model visibility to true at fragment level
+                try {
+                    if (model.getFragmentList) {
+                        const fragList = model.getFragmentList();
+                        const count = fragList.getCount?.() ?? 0;
+                        console.log(`🔧 [setModelVisible] Setting ${count} fragments visible`);
+                        for (let i = 0; i < count; i++) {
+                            fragList.setVisibility(i, true);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('🔧 [setModelVisible] Fragment visibility failed:', e);
+                }
+            }
+            
+            // Method 3: Use visibilityManager.setNodeOff for all nodes
+            model.getObjectTree((instanceTree: any) => {
+                if (!instanceTree) return;
+                
+                const allNodeIds: number[] = [];
+                const collectAllNodes = (nodeId: number) => {
+                    allNodeIds.push(nodeId);
+                    instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                        collectAllNodes(childId);
+                    });
+                };
+                
+                // Start from root and collect all nodes
+                const rootId = instanceTree.getRootId();
+                collectAllNodes(rootId);
+                
+                console.log(`🔧 [setModelVisible] Processing ${allNodeIds.length} nodes with visibilityManager`);
+                
+                // Use visibilityManager.setNodeOff to completely hide/show nodes
+                for (const nodeId of allNodeIds) {
+                    try {
+                        // setNodeOff(nodeId, true) = completely hidden, setNodeOff(nodeId, false) = visible
+                        visibilityManager.setNodeOff(nodeId, !visible, model);
+                    } catch (e) {
+                        // Ignore individual node errors
+                    }
+                }
+                
+                // Force viewer refresh
+                if (viewer.impl?.invalidate) {
+                    viewer.impl.invalidate(true);
+                }
+                
+                console.log(`   ✅ Model ${visible ? 'ENABLED' : 'DISABLED'} with ${allNodeIds.length} nodes`);
+            });
         } catch (e) {
             console.error('   ❌ setModelVisible failed:', e);
         }
@@ -138,23 +234,57 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
-    // Ensure primary and overlay models are visible according to enabledModelIds
-    const restoreAllModelsVisibility = (v: any) => {
+    // Apply model visibility according to enabledModelIds using complete disable/enable
+    const applyModelVisibility = (v: any) => {
         try {
-            // Primary model
-            safeRestoreAllVisibility(v);
-            // Overlay models (federated)
+            console.log('🚀 [applyModelVisibility] Starting model visibility control');
+            console.log('🚀 [applyModelVisibility] enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'none');
+            console.log('🚀 [applyModelVisibility] activePanel:', activePanel);
+            
+            if (!enabledModelIds || enabledModelIds.size === 0) {
+                console.log('🚀 [applyModelVisibility] No enabledModelIds provided, showing all models');
+                return;
+            }
+            
+            // Handle primary model
+            const primaryModel = v?.model;
+            const truePrimaryId = primaryModelIdRef.current;
+            console.log('🚀 [applyModelVisibility] Primary model info:', {
+                hasModel: !!primaryModel,
+                truePrimaryId,
+                modelId: primaryModel?.getModelId?.(),
+                rootId: primaryModel?.getRootId?.()
+            });
+            
+            if (primaryModel && truePrimaryId) {
+                const shouldShow = enabledModelIds.has(truePrimaryId);
+                console.log(`🚀 [applyModelVisibility] Primary model ${truePrimaryId}: ${shouldShow ? 'ENABLE' : 'DISABLE'}`);
+                setModelVisible(primaryModel, shouldShow);
+            }
+            
+            // Handle overlay models
             const overlays = overlayModelMapRef.current;
+            console.log('🚀 [applyModelVisibility] Overlay models count:', overlays.size);
+            
             if (overlays && overlays.size > 0) {
                 for (const [modelId, mdl] of overlays.entries()) {
-                    // If enabledModelIds is not provided, default to showing all overlays
-                    const shouldShow = !enabledModelIds || enabledModelIds.size === 0 || enabledModelIds.has(modelId as string);
+                    const shouldShow = enabledModelIds.has(modelId as string);
+                    console.log(`🚀 [applyModelVisibility] Overlay model ${modelId}: ${shouldShow ? 'ENABLE' : 'DISABLE'}`);
+                    console.log('🚀 [applyModelVisibility] Overlay model details:', {
+                        modelId,
+                        hasModel: !!mdl,
+                        internalModelId: mdl?.getModelId?.(),
+                        rootId: mdl?.getRootId?.()
+                    });
                     setModelVisible(mdl, shouldShow);
                 }
             }
+            
+            // Force viewer refresh
             v.impl?.invalidate?.(true);
+            console.log('🚀 [applyModelVisibility] Model visibility control completed');
         } catch (e) {
-            console.warn('[ForgeViewer] restoreAllModelsVisibility failed', e);
+            console.error('🚀 [applyModelVisibility] Failed:', e);
         }
     };
 
@@ -443,6 +573,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             return;
                                         }
 
+                                        // Helper to wait for toolController to be ready, preventing race conditions on init
+                                        const waitForToolController = (viewer: any, timeout = 5000): Promise<void> => {
+                                            return new Promise((resolve, reject) => {
+                                                const startTime = Date.now();
+                                                const checkInterval = setInterval(() => {
+                                                    if (viewer && viewer.toolController) {
+                                                        clearInterval(checkInterval);
+                                                        console.log('[ForgeViewer] toolController is ready.');
+                                                        resolve();
+                                                    } else if (Date.now() - startTime > timeout) {
+                                                        clearInterval(checkInterval);
+                                                        reject(new Error("Timed out waiting for toolController."));
+                                                    }
+                                                }, 100); // Poll every 100ms
+                                            });
+                                        };
+
                                         // Retry mechanism for DataViz initialization
                                         const initializeDataVizWithRetry = async (maxRetries = 3, delay = 500) => {
                                             for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -500,7 +647,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             dataVizInitInFlightRef.current = false;
                                             return false;
                                         };
-                                        await initializeDataVizWithRetry();
+                                        try {
+                                            // First, wait for the tool controller to be safely available
+                                            await waitForToolController(viewerInstance);
+                                            // Then, proceed with DataViz initialization
+                                            await initializeDataVizWithRetry();
+                                        } catch (err) {
+                                            console.error('[ForgeViewer] Failed to initialize DataViz service due to toolController timeout:', err);
+                                            setError('Failed to initialize IoT features.');
+                                        }
                                     },
                                     { once: true }
                                 );
@@ -740,93 +895,90 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
 
         try {
-            if (wireframeMode) {
-                // Enable wireframe mode for IoT - hide solid surfaces and show only structural edges
-                
-                // First ensure all enabled models (primary + overlays) are visible
-                restoreAllModelsVisibility(viewer);
-                
-                // Enable edge display for wireframe effect
-                safeSetDisplayEdges(viewer, true);
-                
-                // Get the object tree and hide all solid components to show only wireframe structure
-                if (viewer?.model && viewer.model.getObjectTree) {
-                    viewer.model.getObjectTree((instanceTree: any) => {
-                        if (instanceTree) {
-                            const allDbIds: number[] = [];
-                            
-                            // Collect all node IDs recursively
-                            const collectAllNodeIds = (nodeId: number) => {
-                                allDbIds.push(nodeId);
-                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                                    collectAllNodeIds(childId);
+            (async () => {
+                const modelsToProcess: any[] = [];
+                const primary = viewer?.model;
+                if (primary) modelsToProcess.push(primary);
+                for (const mdl of overlayModelMapRef.current.values()) {
+                    if (mdl) modelsToProcess.push(mdl);
+                }
+
+                // Respect enabledModelIds: only process models that are currently enabled if the set is provided
+                const isEnabled = (modelId: string | null): boolean => {
+                    if (!enabledModelIds || enabledModelIds.size === 0) return true;
+                    if (!modelId) return false;
+                    return enabledModelIds.has(modelId);
+                };
+
+                // Map models to their project ids so we can filter using enabledModelIds
+                const modelIdMap = new Map<any, string | null>();
+                // Primary id
+                modelIdMap.set(primary, primaryModelIdRef.current);
+                // Overlay ids
+                for (const [id, mdl] of overlayModelMapRef.current.entries()) {
+                    modelIdMap.set(mdl, id);
+                }
+
+                // Helper to collect leaf dbIds for a model
+                const collectLeafDbIds = (mdl: any): Promise<number[]> => {
+                    return new Promise((resolve) => {
+                        const ids: number[] = [];
+                        if (!mdl?.getObjectTree) return resolve(ids);
+                        try {
+                            mdl.getObjectTree((tree: any) => {
+                                if (!tree) return resolve(ids);
+                                const all: number[] = [];
+                                const root = tree.getRootId?.() ?? 1;
+                                const walk = (nodeId: number) => {
+                                    all.push(nodeId);
+                                    tree.enumNodeChildren(nodeId, (childId: number) => walk(childId));
+                                };
+                                walk(root);
+                                const leaves = all.filter((nodeId) => {
+                                    let hasChildren = false;
+                                    tree.enumNodeChildren(nodeId, () => { hasChildren = true; });
+                                    return !hasChildren && nodeId !== root;
                                 });
-                            };
-                            
-                            // Start from root and collect all nodes
-                            collectAllNodeIds(instanceTree.getRootId());
-                            
-                            // Filter to get only leaf nodes (actual geometry components)
-                            const leafNodeIds = allDbIds.filter(nodeId => {
-                                let hasChildren = false;
-                                instanceTree.enumNodeChildren(nodeId, () => {
-                                    hasChildren = true;
-                                });
-                                return !hasChildren && nodeId !== instanceTree.getRootId();
+                                resolve(leaves);
                             });
-                            
-                            
-                            // Hide all leaf components (solid surfaces) to show only wireframe structure
-                            if (leafNodeIds.length > 0) {
-                                if (viewer?.hide) viewer.hide(leafNodeIds);
-                                
-                                // Force wireframe rendering mode after hiding components
-                                setTimeout(() => {
-                                    if (viewer?.setDisplayMode) {
-                                        viewer.setDisplayMode(1); // Wireframe/ghost mode
-                                    }
-                                    
-                                    // Enable ghosting for wireframe effect
-                                    if (viewer?.setGhosting) {
-                                        viewer.setGhosting(true);
-                                    }
-                                    
-                                }, 100);
-                            }
+                        } catch {
+                            resolve(ids);
                         }
                     });
+                };
+
+                if (wireframeMode) {
+                    // Wireframe: keep model visibility as-is; hide leaf nodes per model to show only edges
+                    safeSetDisplayEdges(viewer, true);
+                    if (viewer?.setDisplayMode) viewer.setDisplayMode(1);
+                    if (viewer?.setGhosting) viewer.setGhosting(true);
+
+                    for (const mdl of modelsToProcess) {
+                        const mid = modelIdMap.get(mdl) ?? null;
+                        if (!isEnabled(mid)) continue; // skip disabled models
+                        const leaves = await collectLeafDbIds(mdl);
+                        if (leaves.length > 0 && viewer?.hide) {
+                            try { viewer.hide(leaves, mdl); } catch {}
+                        }
+                    }
                 } else {
-                    // Fallback: Use built-in wireframe mode
-                    if (viewer?.setDisplayMode) {
-                        viewer.setDisplayMode(1); // Wireframe mode
+                    // Solid: unhide the leaf nodes per model and use solid rendering
+                    safeSetDisplayEdges(viewer, true);
+                    if (viewer?.setDisplayMode) viewer.setDisplayMode(0);
+                    if (viewer?.setGhosting) viewer.setGhosting(false);
+
+                    for (const mdl of modelsToProcess) {
+                        const mid = modelIdMap.get(mdl) ?? null;
+                        if (!isEnabled(mid)) continue; // skip disabled models
+                        const leaves = await collectLeafDbIds(mdl);
+                        if (leaves.length > 0 && viewer?.show) {
+                            try { viewer.show(leaves, mdl); } catch {}
+                        }
                     }
-                    if (viewer?.setGhosting) {
-                        viewer.setGhosting(true);
-                    }
                 }
-                
-            } else {
-                // Solid mode - show full model with normal rendering
-                
-                // Restore visibility for primary and enabled overlay models
-                restoreAllModelsVisibility(viewer);
-                
-                // Keep edges visible for better visibility in IoT mode
-                safeSetDisplayEdges(viewer, true);
-                
-                // Use solid rendering mode
-                if (viewer?.setDisplayMode) {
-                    viewer.setDisplayMode(0); // Solid mode
-                }
-                
-                // Disable ghosting
-                if (viewer?.setGhosting) {
-                    viewer.setGhosting(false);
-                }
-                
-            }
+            })();
         } catch (error) {
-            console.error("[ForgeViewer] Error setting wireframe mode:", error);
+            console.error('[ForgeViewer] Error setting wireframe mode:', error);
         }
     }, [wireframeMode, viewer, isInitialized, activePanel]);
 
@@ -875,128 +1027,48 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [activePanel, viewer, isInitialized]);
 
-    // BIM panel: apply exact same wireframe/solid logic as IoT panel
+    // BIM panel: always use solid mode, no wireframe
     useEffect(() => {
         if (!viewer || !isInitialized) return;
         if (activePanel !== 'bim') return;
 
-        console.log('[ForgeViewer] BIM wireframe mode effect triggered:', {
-            wireframeMode,
-            hasViewer: !!viewer,
-            hasModel: !!viewer?.model,
-            enabledModelIds: enabledModelIds ? Array.from(enabledModelIds) : 'none'
-        });
+        console.log('🏗️ [BIM Panel] Setting up solid mode only');
 
         try {
-            if (wireframeMode) {
-                console.log('[ForgeViewer] BIM: Applying wireframe mode - hiding solid surfaces');
-                
-                // First ensure all enabled models (primary + overlays) are visible
-                restoreAllModelsVisibility(viewer);
-                
-                // Enable edge display for wireframe effect
-                safeSetDisplayEdges(viewer, true);
-                
-                // Get the object tree and hide all solid components to show only wireframe structure
-                if (viewer?.model && viewer.model.getObjectTree) {
-                    viewer.model.getObjectTree((instanceTree: any) => {
-                        if (instanceTree) {
-                            const allDbIds: number[] = [];
-                            
-                            // Collect all node IDs recursively
-                            const collectAllNodeIds = (nodeId: number) => {
-                                allDbIds.push(nodeId);
-                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                                    collectAllNodeIds(childId);
-                                });
-                            };
-                            
-                            // Start from root and collect all nodes
-                            collectAllNodeIds(instanceTree.getRootId());
-                            
-                            // Filter to get only leaf nodes (actual geometry components)
-                            const leafNodeIds = allDbIds.filter(nodeId => {
-                                let hasChildren = false;
-                                instanceTree.enumNodeChildren(nodeId, () => {
-                                    hasChildren = true;
-                                });
-                                return !hasChildren && nodeId !== instanceTree.getRootId();
-                            });
-                            
-                            console.log('[ForgeViewer] BIM wireframe: hiding', leafNodeIds.length, 'leaf nodes for wireframe effect');
-                            
-                            // Hide all leaf components (solid surfaces) to show only wireframe structure
-                            if (leafNodeIds.length > 0) {
-                                if (viewer?.hide) viewer.hide(leafNodeIds);
-                                
-                                // Force wireframe rendering mode after hiding components
-                                setTimeout(() => {
-                                    if (viewer?.setDisplayMode) {
-                                        viewer.setDisplayMode(1); // Wireframe/ghost mode
-                                    }
-                                    
-                                    // Enable ghosting for wireframe effect
-                                    if (viewer?.setGhosting) {
-                                        viewer.setGhosting(true);
-                                    }
-                                    
-                                    console.log('[ForgeViewer] BIM wireframe mode applied successfully');
-                                }, 100);
-                            }
-                        }
-                    });
-                } else {
-                    // Fallback: Use built-in wireframe mode
-                    console.log('[ForgeViewer] BIM wireframe: using fallback wireframe mode');
-                    if (viewer?.setDisplayMode) {
-                        viewer.setDisplayMode(1); // Wireframe mode
-                    }
-                    if (viewer?.setGhosting) {
-                        viewer.setGhosting(true);
-                    }
-                }
-                
-            } else {
-                console.log('[ForgeViewer] BIM: Applying solid mode - showing full model');
-                
-                // Solid mode - show full model with normal rendering
-                
-                // Restore visibility for primary and enabled overlay models
-                restoreAllModelsVisibility(viewer);
-                
-                // Keep edges visible for better visibility
-                safeSetDisplayEdges(viewer, true);
-                
-                // Use solid rendering mode
-                if (viewer?.setDisplayMode) {
-                    viewer.setDisplayMode(0); // Solid mode
-                }
-                
-                // Disable ghosting
-                if (viewer?.setGhosting) {
-                    viewer.setGhosting(false);
-                }
-                
-                console.log('[ForgeViewer] BIM solid mode applied successfully');
+            // BIM panel always uses solid mode
+            console.log('🏗️ [BIM Panel] Applying solid mode');
+            
+            // Apply current model visibility settings first
+            applyModelVisibility(viewer);
+            
+            // Ensure solid rendering mode
+            if (viewer?.setDisplayMode) {
+                viewer.setDisplayMode(0); // Solid mode
             }
+            
+            // Disable ghosting
+            if (viewer?.setGhosting) {
+                viewer.setGhosting(false);
+            }
+            
+            // Keep edges visible for better visibility
+            safeSetDisplayEdges(viewer, true);
+            
+            console.log('🏗️ [BIM Panel] Solid mode applied successfully');
         } catch (error) {
-            console.error('[ForgeViewer] Error setting BIM wireframe mode:', error);
+            console.error('🏗️ [BIM Panel] Error setting solid mode:', error);
         }
-    }, [wireframeMode, activePanel, viewer, isInitialized]);
+    }, [activePanel, viewer, isInitialized, enabledModelIds]);
 
-    // Handle model visibility based on enabledModelIds
+    // Handle model visibility based on enabledModelIds - complete disable/enable system
     useEffect(() => {
-        // Only require a ready viewer and initialized flag; handle even single-model cases
         if (!viewer || !isInitialized) {
             console.log('[ForgeViewer] Model visibility: viewer not ready');
             return;
         }
-        // In IoT mode we only change rendering (wireframe), not model visibility to avoid flicker
-        if (activePanel === 'iot') {
-            return;
-        }
+        
         if (!enabledModelIds || enabledModelIds.size === 0) {
-            console.log('[ForgeViewer] Model visibility: no enabled models');
+            console.log('[ForgeViewer] Model visibility: no enabled models specified');
             return;
         }
 
@@ -1005,72 +1077,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         console.log('  - overlayModelsLoaded:', overlayModelsLoaded);
         console.log('  - overlay models count:', overlayModelMapRef.current.size);
 
-        try {
-            // Get the true primary model instance and id captured at init
-            const primaryModel = viewer.model;
-            const truePrimaryId = primaryModelIdRef.current;
-            const primaryInfo = truePrimaryId ? (((models || []).find(m => m.id === truePrimaryId)) || { name: 'Unknown' }) : null;
-
-            // Handle primary model visibility against enabled set
-            if (truePrimaryId && primaryModel) {
-                const shouldShowPrimary = enabledModelIds.has(truePrimaryId);
-                console.log(`  - Primary model ${truePrimaryId}: ${shouldShowPrimary ? 'SHOW' : 'HIDE'}`);
-                setModelVisible(primaryModel, shouldShowPrimary);
-            }
-
-            // Handle overlay models visibility
-            console.log('  - Processing overlay models:');
-            const shownOverlayModels: any[] = [];
-            for (const [modelId, overlayModel] of overlayModelMapRef.current.entries()) {
-                // Skip if this overlay id matches the true primary id to avoid double-toggling
-                if (truePrimaryId && modelId === truePrimaryId) continue;
-                const modelInfo = (models || []).find(m => m.id === modelId);
-                const shouldShow = enabledModelIds.has(modelId);
-                setModelVisible(overlayModel, shouldShow);
-                if (shouldShow) shownOverlayModels.push(overlayModel);
-            }
-
-            // If primary is hidden but one or more overlays are shown, fit camera to shown overlays
-            try {
-                const primaryHidden = !truePrimaryId || !enabledModelIds.has(truePrimaryId);
-                if (primaryHidden && shownOverlayModels.length > 0 && viewer?.navigation) {
-                    const THREE = (window as any).THREE;
-                    if (!THREE) throw new Error('THREE not available');
-                    const unionBox = new THREE.Box3();
-                    for (const mdl of shownOverlayModels) {
-                        const frags = mdl.getFragmentList?.();
-                        if (!frags) continue;
-                        const box = new THREE.Box3();
-                        const tmp = new THREE.Box3();
-                        const count = frags.getCount?.() || 0;
-                        for (let i = 0; i < count; i++) {
-                            frags.getWorldBounds(i, tmp);
-                            box.union(tmp);
-                        }
-                        unionBox.union(box);
-                    }
-                    if (!unionBox.isEmpty()) {
-                        // Expand slightly for padding
-                        const size = new THREE.Vector3();
-                        unionBox.getSize(size);
-                        const pad = Math.max(size.x, size.y, size.z) * 0.05;
-                        unionBox.expandByScalar(pad);
-                        viewer.navigation.fitBounds(true, unionBox);
-                    }
-                }
-            } catch {}
-
-            // Force viewer refresh to apply visibility changes
-            if (viewer.impl?.invalidate) {
-                viewer.impl.invalidate(true);
-                console.log('  - Viewer invalidated to apply changes');
-            }
-            
-        } catch (error) {
-            console.error('❌ [ForgeViewer] Error managing model visibility:', error);
-            console.error('   Stack:', (error as Error).stack);
-        }
-    }, [enabledModelIds, viewer, isInitialized, models, overlayModelsLoaded]);
+        // Apply complete model visibility control
+        applyModelVisibility(viewer);
+        
+    }, [enabledModelIds, viewer, isInitialized, overlayModelsLoaded, models]);
 
         // Effect to handle sensor highlighting when selectedSensor changes
     useEffect(() => {
