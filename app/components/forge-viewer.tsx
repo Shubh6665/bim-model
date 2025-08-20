@@ -175,17 +175,20 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     useEffect(() => {
         const all = models || [];
         if (!all.length) return;
-        const primaryUrn = all[0].urn || urn;
         const viewerInstance = viewerRef.current;
-        // Build overlays signature (exclude primary index 0)
-        const overlaySig = all
-            .slice(1)
+
+        // Determine the true primary by the id captured at initialization
+        const truePrimaryId = primaryModelIdRef.current;
+        // Build overlays from all models except the true primary id (fallback: exclude index 0 if unknown)
+        const overlays = truePrimaryId
+            ? all.filter(m => m.id !== truePrimaryId)
+            : all.slice(1);
+
+        // Build a stable signature of overlays (id + urn + transform)
+        const overlaySig = overlays
             .map(m => `${m.id}|${m.urn}|${m.transform ? `${m.transform.tx||0},${m.transform.ty||0},${m.transform.tz||0},${m.transform.rx||0},${m.transform.ry||0},${m.transform.rz||0},${m.transform.sx||1},${m.transform.sy||1},${m.transform.sz||1}` : '0,0,0,0,0,0,1,1,1'}`)
             .join(';');
-        // If primary is not the same as loadedUrn, let the main init effect handle re-init
-        if (loadedUrn && primaryUrn && loadedUrn !== primaryUrn) {
-            return;
-        }
+
         if (!viewerInstance) {
             // No viewer yet; main init will load overlays after primary
             prevOverlaySigRef.current = overlaySig;
@@ -211,9 +214,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             return m;
         };
 
-        // Compute diff
+        // Compute diff: desired set is our overlays list
         const desired = new Map<string, ProjectModel>();
-        for (const m of all.slice(1)) desired.set(m.id, m);
+        for (const m of overlays) desired.set(m.id, m);
         const current = overlayModelMapRef.current;
 
         // Unload removed models
@@ -244,11 +247,29 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     (doc: any) => {
                         const geom = doc.getRoot().getDefaultGeometry();
                         if (!geom) return resolve();
-                        const placementTransform = buildMatrixFromTransform(m.transform || undefined);
+                        const userTransform = buildMatrixFromTransform(m.transform || undefined);
                         const opts: any = { keepCurrentModels: true };
-                        if (placementTransform) opts.placementTransform = placementTransform;
+                        if (userTransform) opts.placementTransform = userTransform;
                         viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                             current.set(id, model);
+                            try {
+                                const THREE = (window as any).THREE;
+                                // Auto-align using globalOffset difference if possible
+                                const primaryOffset = viewerInstance?.model?.getData?.().globalOffset;
+                                const overlayOffset = model?.getData?.().globalOffset;
+                                if (THREE && primaryOffset && overlayOffset) {
+                                    const dx = (primaryOffset.x || 0) - (overlayOffset.x || 0);
+                                    const dy = (primaryOffset.y || 0) - (overlayOffset.y || 0);
+                                    const dz = (primaryOffset.z || 0) - (overlayOffset.z || 0);
+                                    const alignM = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                    if (typeof model.setPlacementTransform === 'function') {
+                                        const finalM = userTransform ? alignM.clone().multiply(userTransform) : alignM;
+                                        model.setPlacementTransform(finalM);
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('[ForgeViewer] Failed to auto-align overlay model (reconcile)', id, e);
+                            }
                             // Set visibility based on current enabledModelIds immediately
                             try {
                                 const shouldShow = enabledModelIds ? enabledModelIds.has(id) : false;
@@ -316,6 +337,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         const loadOverlayModels = async () => {
             if (!models || models.length <= 1) return;
             const Autodesk = (window as any).Autodesk;
+            const THREE = (window as any).THREE;
             for (let i = 1; i < models.length; i++) {
                 const m = models[i];
                 await new Promise<void>((resolve) => {
@@ -324,11 +346,29 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         (doc: any) => {
                             const geom = doc.getRoot().getDefaultGeometry();
                             if (!geom) return resolve();
-                            const placementTransform = buildMatrixFromTransform(m.transform || undefined);
+                            const userTransform = buildMatrixFromTransform(m.transform || undefined);
                             const opts: any = { keepCurrentModels: true };
-                            if (placementTransform) opts.placementTransform = placementTransform;
+                            if (userTransform) opts.placementTransform = userTransform;
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                                 try { overlayModelMapRef.current.set(m.id, model); } catch {}
+                                try {
+                                    // Auto-align using globalOffset difference if possible
+                                    const primaryOffset = viewerInstance?.model?.getData?.().globalOffset;
+                                    const overlayOffset = model?.getData?.().globalOffset;
+                                    if (THREE && primaryOffset && overlayOffset) {
+                                        const dx = (primaryOffset.x || 0) - (overlayOffset.x || 0);
+                                        const dy = (primaryOffset.y || 0) - (overlayOffset.y || 0);
+                                        const dz = (primaryOffset.z || 0) - (overlayOffset.z || 0);
+                                        const alignM = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                        if (typeof model.setPlacementTransform === 'function') {
+                                            // Compose user transform (if any) with alignment
+                                            const finalM = userTransform ? alignM.clone().multiply(userTransform) : alignM;
+                                            model.setPlacementTransform(finalM);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn('[ForgeViewer] Failed to auto-align overlay model', m.id, e);
+                                }
                                 // Set visibility based on current enabledModelIds immediately
                                 try {
                                     const shouldShow = enabledModelIds ? enabledModelIds.has(m.id) : false;
