@@ -100,10 +100,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    // Only global administrators can create new projects
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Only administrators can create projects' }, { status: 403 });
-    }
+    // Any authenticated user can create projects; they become the owner
 
     // Parse JSON body
     let body;
@@ -127,7 +124,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: require name, lat, lng, and either urn or models[]' }, { status: 400 });
     }
 
-    // Save project to DB (owner is the admin creating it)
+    // Save project to DB (owner is the user creating it)
     const project = {
       userId: user._id,
       name,

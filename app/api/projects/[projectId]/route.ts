@@ -24,7 +24,6 @@ async function getInviteFor(db: any, projectId: string, email: string) {
 
 async function canReadProject(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true; // global admin
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (String(project.userId) === String(user._id)) return true; // owner
@@ -34,7 +33,6 @@ async function canReadProject(db: any, projectId: string, user: any, email: stri
 
 async function canUpdateProject(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true; // global admin
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (String(project.userId) === String(user._id)) return true; // owner
@@ -45,7 +43,6 @@ async function canUpdateProject(db: any, projectId: string, user: any, email: st
 
 async function canDeleteProject(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true; // global admin
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (String(project.userId) === String(user._id)) return true; // owner
@@ -76,9 +73,6 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     let access: any;
     if (isOwner) {
       access = { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: true };
-    } else if (user.role === 'admin') {
-      // Global admin acts as project admin for this project
-      access = { role: 'ProjectAdmin', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: false };
     } else {
       const invite = await getInviteFor(db, projectId, email);
       access = {

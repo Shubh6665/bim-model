@@ -31,9 +31,8 @@ async function isProjectAdmin(db: any, projectId: string, email: string) {
 
 async function authorizeInviteManager(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true; // global admin
+  // Only project owner can manage invites
   if (await isOwner(db, projectId, user)) return true;
-  if (await isProjectAdmin(db, projectId, email)) return true;
   return false;
 }
 
@@ -155,12 +154,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
       return NextResponse.json({ error: 'Valid invitee email is required' }, { status: 400 });
     }
 
-    // Allow nomination of ProjectAdmin by Owner, Global Admin, or existing Project Administrator
-    const isGlobalAdmin = user.role === 'admin';
+    // Only Owner can nominate a Project Administrator
     const isOwnerUser = String(proj.userId) === String(user._id);
-    const isProjAdmin = await isProjectAdmin(db, projectId, email);
-    if (role === 'ProjectAdmin' && !(isGlobalAdmin || isOwnerUser || isProjAdmin)) {
-      return NextResponse.json({ error: 'Only owner, administrator, or existing Project Administrator can nominate a Project Administrator' }, { status: 403 });
+    if (role === 'ProjectAdmin' && !isOwnerUser) {
+      return NextResponse.json({ error: 'Only the project owner can nominate a Project Administrator' }, { status: 403 });
     }
 
     const inviteDoc = {

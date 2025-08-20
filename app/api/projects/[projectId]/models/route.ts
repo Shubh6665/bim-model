@@ -24,7 +24,6 @@ async function getInviteFor(db: any, projectId: string, email: string) {
 
 async function canReadProject(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (String(project.userId) === String(user._id)) return true;
@@ -33,7 +32,6 @@ async function canReadProject(db: any, projectId: string, user: any, email: stri
 
 async function canModifyModels(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (String(project.userId) === String(user._id)) return true;

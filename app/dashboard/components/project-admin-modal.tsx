@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/app/context/auth-context";
 import { X, Building, Upload, Trash2, Save, Mail, CheckSquare, Edit3 } from "lucide-react";
 import type { ProjectModel } from "@/app/types/projects";
 
@@ -36,6 +37,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [activeTab, setActiveTab] = useState<TabKey>("info");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   // Editable fields for Project Information
   const [edited, setEdited] = useState<Project | null>(project);
@@ -111,7 +113,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     "Facility Manager",
     "General",
     "Maintenance Team",
-    "PA",
+    "ProjectAdmin",
     "Planner",
     "Other",
   ];
@@ -120,6 +122,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [invitesList, setInvitesList] = useState<any[]>([]);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [canManageInvites, setCanManageInvites] = useState(true);
+
+  // Access checks
+  const isOwner = !!project?.access?.owner || project?.access?.role === 'Owner';
+  const isProjectAdmin = project?.access?.role === 'ProjectAdmin';
+  const canManage = isOwner; // Only Owner manages invites
+  const canUploadOrReplace = isOwner || isProjectAdmin;
+  const canRemoveModel = isOwner || isProjectAdmin;
 
   // Safely extract a string id from a Mongo ObjectId or string
   const getInviteId = (inv: any): string => {
@@ -162,11 +171,17 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     // Clear any stale errors on any tab switch
     setError(null);
     if (activeTab === 'access' && project) {
-      setCanManageInvites(true);
-      loadInvites();
+      // set capability based on role
+      setCanManageInvites(canManage);
+      if (canManage) {
+        loadInvites();
+      } else {
+        // Do not call API if not allowed
+        setInvitesList([]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, project?.id]);
+  }, [activeTab, project?.id, canManage]);
 
   const handleRevokeInvite = async (inviteId: string) => {
     if (!project) return;
@@ -605,19 +620,19 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Name</label>
-                  <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Surname</label>
-                  <input value={invite.surname} onChange={(e) => setInvite({ ...invite, surname: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={invite.surname} onChange={(e) => setInvite({ ...invite, surname: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Email</label>
-                  <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Role</label>
-                  <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white">
+                  <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60">
                     {roles.map((r) => (
                       <option key={r} value={r}>{r}</option>
                     ))}
@@ -625,14 +640,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm text-gray-300 mb-1">Society</label>
-                  <input value={invite.society} onChange={(e) => setInvite({ ...invite, society: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={invite.society} onChange={(e) => setInvite({ ...invite, society: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm text-gray-300 mb-2">Packages</label>
                   <div className="flex flex-wrap gap-3">
                     {(["BIM", "IoT", "Database", "AI", "FM"] as const).map((pkg) => (
                       <label key={pkg} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${invite.packages[pkg] ? "bg-blue-600/20 border-blue-500 text-blue-200" : "bg-gray-700/50 border-gray-600 text-gray-300"}`}>
-                        <input type="checkbox" checked={invite.packages[pkg]} onChange={(e) => setInvite({ ...invite, packages: { ...invite.packages, [pkg]: e.target.checked } })} />
+                        <input type="checkbox" checked={invite.packages[pkg]} onChange={(e) => setInvite({ ...invite, packages: { ...invite.packages, [pkg]: e.target.checked } })} disabled={!canManageInvites} />
                         <CheckSquare className="w-4 h-4" /> {pkg}
                       </label>
                     ))}
@@ -711,16 +726,22 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
           {activeTab === "upload" && (
             <div className="space-y-4">
+              {!canUploadOrReplace && (
+                <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
+                  Only the project owner, a global admin, or a project admin can upload or replace models.
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Model Description</label>
-                  <input value={newModel.name} onChange={(e) => setNewModel({ ...newModel, name: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={newModel.name} onChange={(e) => setNewModel({ ...newModel, name: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Discipline</label>
                   <select value={newModel.discipline}
                           onChange={(e) => setNewModel({ ...newModel, discipline: e.target.value.toLowerCase() })}
-                          className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white capitalize">
+                          disabled={!canUploadOrReplace}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white capitalize disabled:opacity-60">
                     {['architecture','structure','mep','electrical','plumbing','hvac','other'].map(d => (
                       <option key={d} value={d}>{capitalize(d)}</option>
                     ))}
@@ -728,7 +749,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Paste URN (optional)</label>
-                  <input value={newModel.urn} onChange={(e) => setNewModel({ ...newModel, urn: e.target.value })} placeholder="urn:adsk.objects:..." className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={newModel.urn} onChange={(e) => setNewModel({ ...newModel, urn: e.target.value })} placeholder="urn:adsk.objects:..." disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                   <p className="text-xs text-gray-400 mt-1">Option A: Paste URN directly</p>
                 </div>
                 <div>
@@ -747,10 +768,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                         setNewModel((prev) => ({ ...prev, fileType: inferred }));
                       }
                     }}
+                    disabled={!canUploadOrReplace}
                   />
                   <label
                     htmlFor="modelFile"
-                    className="w-full flex items-center justify-between gap-3 px-3 py-3 rounded-md border border-dashed border-gray-600 bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer transition-colors"
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-md border border-dashed border-gray-600 ${canUploadOrReplace ? 'bg-gray-700 hover:bg-gray-600 cursor-pointer' : 'bg-gray-800 cursor-not-allowed opacity-60'} text-gray-200 transition-colors`}
                     title="Click to choose a file"
                   >
                     <span className="truncate">
@@ -764,7 +786,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">File Type</label>
-                  <input value={newModel.fileType} onChange={(e) => setNewModel({ ...newModel, fileType: e.target.value })} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white" />
+                  <input value={newModel.fileType} onChange={(e) => setNewModel({ ...newModel, fileType: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
                 </div>
               </div>
               {(uploading || translating) && (
@@ -773,7 +795,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
               )}
               <div className="flex justify-end">
-                <button onClick={handleUploadOrReplace} disabled={saving || !newModel.name || (!newModel.urn && !selectedFile)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleUploadOrReplace} disabled={saving || !canUploadOrReplace || !newModel.name || (!newModel.urn && !selectedFile)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
                   <Upload className="w-4 h-4" />
                   <span>{saving ? "Submitting..." : "Upload / Replace"}</span>
                 </button>
@@ -788,7 +810,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 <select 
                   value={removeModelId} 
                   onChange={(e) => setRemoveModelId(e.target.value)} 
-                  disabled={!project?.access?.owner && project?.access?.role !== 'Owner'} 
+                  disabled={!canRemoveModel} 
                   className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
                 >
                   <option value="">-- Choose a model --</option>
@@ -798,7 +820,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </select>
               </div>
               <div className="flex justify-end">
-                <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || (!project.access?.owner && project?.access?.role !== 'Owner')} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || !canRemoveModel} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
                 </button>

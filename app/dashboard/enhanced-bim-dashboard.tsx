@@ -517,12 +517,14 @@ function BIMDashboard() {
                 Get started by creating your first BIM project. Upload your RVT
                 file, set a location, and view your model in 3D!
               </p>
-              <button
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg font-semibold shadow-lg transition-colors"
-                onClick={handleRequestCreateProject}
-              >
-                + Create Project
-              </button>
+              {session?.user && (
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg font-semibold shadow-lg transition-colors"
+                  onClick={handleRequestCreateProject}
+                >
+                  + Create Project
+                </button>
+              )}
             </div>
           </div>
         ) : (

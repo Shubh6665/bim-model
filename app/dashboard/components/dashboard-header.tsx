@@ -88,6 +88,38 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                 <div className="p-3 border-b border-gray-700">
                   <p className="text-sm font-medium text-white">{user?.name || "User"}</p>
                   <p className="text-xs text-gray-400">{user?.email || "-"}</p>
+                  {/* Role badge (project-scoped if available) */}
+                  {(() => {
+                    // Determine role to show
+                    const isOwner = !!selectedProject?.access?.owner || selectedProject?.access?.role === 'Owner';
+                    const projRole = isOwner ? 'Owner' : (selectedProject?.access?.role || '');
+                    const fallbackRole = user?.role === 'admin' ? 'Global Admin' : 'User';
+                    const role = projRole || fallbackRole;
+                    // Color mapping
+                    const colorMap: Record<string, string> = {
+                      'Owner': 'bg-purple-600/20 text-purple-300 border-purple-500/40',
+                      'ProjectAdmin': 'bg-blue-600/20 text-blue-300 border-blue-500/40',
+                      'General': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
+                      'BIM Specialist': 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
+                      'BIM Coordinator': 'bg-teal-600/20 text-teal-300 border-teal-500/40',
+                      'BIM Manager': 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
+                      'Designer': 'bg-pink-600/20 text-pink-300 border-pink-500/40',
+                      'Facility Manager': 'bg-amber-600/20 text-amber-300 border-amber-500/40',
+                      'Maintenance Team': 'bg-lime-600/20 text-lime-300 border-lime-500/40',
+                      'Planner': 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40',
+                      'Other': 'bg-slate-600/20 text-slate-300 border-slate-500/40',
+                      'Global Admin': 'bg-red-600/20 text-red-300 border-red-500/40',
+                      'User': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
+                    };
+                    const cls = colorMap[role] || 'bg-gray-600/20 text-gray-300 border-gray-500/40';
+                    return (
+                      <div className="mt-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border ${cls}`}>
+                          {role}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="py-1">
                   <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
@@ -107,13 +139,15 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <span>Project Info</span>
                   </button>
                   <div className="border-t border-gray-700 my-1"></div>
-                  <button 
-                    onClick={onCreateProject}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
-                  >
-                    <span className="w-4 h-4 flex items-center justify-center">+</span>
-                    <span>Create Project</span>
-                  </button>
+                  {user && (
+                    <button 
+                      onClick={onCreateProject}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
+                    >
+                      <span className="w-4 h-4 flex items-center justify-center">+</span>
+                      <span>Create Project</span>
+                    </button>
+                  )}
                   <button
                     className="w-full flex items-center gap-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition-colors"
                     onClick={onSignOut}
