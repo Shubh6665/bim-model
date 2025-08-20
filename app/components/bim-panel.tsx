@@ -38,6 +38,9 @@ interface BIMPanelProps {
   enabledModelIds?: Set<string>;
   onToggleModel?: (modelId: string) => void;
   onRestoreEnabledModelsVisibility?: (viewer: any) => void;
+  // View mode (wireframe/solid)
+  wireframeMode?: boolean;
+  onWireframeModeChange?: (wireframe: boolean) => void;
 }
 
 interface FilterOptions {
@@ -74,6 +77,8 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
   enabledModelIds,
   onToggleModel,
   onRestoreEnabledModelsVisibility,
+  wireframeMode,
+  onWireframeModeChange,
 }) => {
   const [activeCommand, setActiveCommand] = useState<string | null>("models");
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
@@ -1502,6 +1507,29 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             </h3>
             
             <div className="space-y-3">
+              {/* View Mode Toggle */}
+              <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium text-white">View Mode</div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    className={`px-3 py-2 rounded-md text-sm border ${wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    onClick={() => onWireframeModeChange?.(true)}
+                    title="Show wireframe (edges only)"
+                  >
+                    Wireframe
+                  </button>
+                  <button
+                    className={`px-3 py-2 rounded-md text-sm border ${!wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    onClick={() => onWireframeModeChange?.(false)}
+                    title="Show solid shading"
+                  >
+                    Solid
+                  </button>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700">
                 <div>
                   <div className="font-medium text-white">Sensor Visibility</div>

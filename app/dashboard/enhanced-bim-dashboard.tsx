@@ -67,7 +67,7 @@ function BIMDashboard() {
   >(null); // Added 'fm'
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
-  const [wireframeMode, setWireframeMode] = useState<boolean>(true); // Default to wireframe for IoT panel
+  const [wireframeMode, setWireframeMode] = useState<boolean>(false); // Default to solid; IoT panel will switch to wireframe on activation
   const [rightSidebarView, setRightSidebarView] = useState<'details' | 'hierarchy'>('details');
   const [showProjectPanel, setShowProjectPanel] = useState(true); // Show project panel initially
   const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
@@ -101,23 +101,25 @@ function BIMDashboard() {
     loading: sensorLoading,
   } = useSensorContext();
 
-  // Auto-switch to wireframe when IoT panel is active
+  // Auto-switch rendering mode on panel changes
   useEffect(() => {
     if (activePanel === "iot") {
-      setWireframeMode(true); // Default to wireframe for better sensor visibility
-      
+      // Prefer wireframe in IoT for better sensor visibility
+      setWireframeMode(true);
       // Ensure the viewer receives the wireframe mode change with multiple triggers
       setTimeout(() => {
         setWireframeMode(true); // Force trigger wireframe mode again
-      }, 300); // Delay to ensure panel and viewer are ready
-      
+      }, 300);
       // Additional trigger to ensure wireframe mode is applied
       setTimeout(() => {
         setWireframeMode(false); // Toggle to force re-application
         setTimeout(() => {
           setWireframeMode(true); // Set back to wireframe
         }, 100);
-      }, 600); // Second trigger after more delay
+      }, 600);
+    } else if (activePanel === "bim") {
+      // Entering BIM should default to solid; user can toggle as needed in BIM panel
+      setWireframeMode(false);
     }
   }, [activePanel]);
 
@@ -604,6 +606,8 @@ function BIMDashboard() {
                     viewer.impl.invalidate(true);
                   }
                 }}
+                wireframeMode={wireframeMode}
+                onWireframeModeChange={handleWireframeModeChange}
               />
             ) : activePanel === "iot" ? (
               <IoTPanel 

@@ -830,62 +830,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [wireframeMode, viewer, isInitialized, activePanel]);
 
-    // Apply the same wireframe effect as IoT panel when in BIM panel and sensorsVisible is ON.
-    useEffect(() => {
-        if (!viewer || !isInitialized) return;
-        if (activePanel !== 'bim') return;
-
-        try {
-            if (sensorsVisible) {
-                
-                // Do NOT reset visibility; only adjust rendering flags
-                safeSetDisplayEdges(viewer, true);
-
-                if (viewer.model && viewer.model.getObjectTree) {
-                    viewer.model.getObjectTree((instanceTree: any) => {
-                        if (!instanceTree) return;
-                        
-                        const allDbIds: number[] = [];
-                        const collectAllNodeIds = (nodeId: number) => {
-                            allDbIds.push(nodeId);
-                            instanceTree.enumNodeChildren(nodeId, (childId: number) => collectAllNodeIds(childId));
-                        };
-                        collectAllNodeIds(instanceTree.getRootId());
-
-                        const leafNodeIds = allDbIds.filter(nodeId => {
-                            let hasChildren = false;
-                            instanceTree.enumNodeChildren(nodeId, () => { hasChildren = true; });
-                            return !hasChildren && nodeId !== instanceTree.getRootId();
-                        });
-
-                        if (leafNodeIds.length > 0) {
-                            viewer.hide(leafNodeIds);
-                            setTimeout(() => {
-                                if (viewer.setDisplayMode) viewer.setDisplayMode(1); // wireframe
-                                if (viewer.setGhosting) viewer.setGhosting(true);
-                            }, 100);
-                        } else {
-                             if (viewer.setDisplayMode) viewer.setDisplayMode(1);
-                             if (viewer.setGhosting) viewer.setGhosting(true);
-                        }
-                    });
-                } else {
-                    // Fallback for models without an instance tree
-                    if (viewer.setDisplayMode) viewer.setDisplayMode(1);
-                    if (viewer.setGhosting) viewer.setGhosting(true);
-                }
-            } else {
-                // Restore solid mode and show all elements.
-                // This will also clear any active filtering.
-                // Do NOT reset visibility; only adjust rendering flags
-                safeSetDisplayEdges(viewer, true);
-                if (viewer.setDisplayMode) viewer.setDisplayMode(0); // solid
-                if (viewer.setGhosting) viewer.setGhosting(false);
-            }
-        } catch (error) {
-            console.error('[ForgeViewer] Error applying BIM wireframe on sensor toggle:', error);
-        }
-    }, [sensorsVisible, activePanel, viewer, isInitialized]);    // Simple panel-based rendering control - don't interfere with BIM 2D functionality
+    // Note: Sensor visibility toggle in BIM panel now only controls sensor sprites, not wireframe mode
+    // Wireframe/solid mode is controlled by the dedicated wireframe toggle buttons    // Simple panel-based rendering control - don't interfere with BIM 2D functionality
     useEffect(() => {
         if (!viewer || !isInitialized) {
             console.log("[ForgeViewer] Viewer not ready for panel controls");
@@ -928,6 +874,115 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             console.error("[ForgeViewer] Error in panel rendering control:", error);
         }
     }, [activePanel, viewer, isInitialized]);
+
+    // BIM panel: apply exact same wireframe/solid logic as IoT panel
+    useEffect(() => {
+        if (!viewer || !isInitialized) return;
+        if (activePanel !== 'bim') return;
+
+        console.log('[ForgeViewer] BIM wireframe mode effect triggered:', {
+            wireframeMode,
+            hasViewer: !!viewer,
+            hasModel: !!viewer?.model,
+            enabledModelIds: enabledModelIds ? Array.from(enabledModelIds) : 'none'
+        });
+
+        try {
+            if (wireframeMode) {
+                console.log('[ForgeViewer] BIM: Applying wireframe mode - hiding solid surfaces');
+                
+                // First ensure all enabled models (primary + overlays) are visible
+                restoreAllModelsVisibility(viewer);
+                
+                // Enable edge display for wireframe effect
+                safeSetDisplayEdges(viewer, true);
+                
+                // Get the object tree and hide all solid components to show only wireframe structure
+                if (viewer?.model && viewer.model.getObjectTree) {
+                    viewer.model.getObjectTree((instanceTree: any) => {
+                        if (instanceTree) {
+                            const allDbIds: number[] = [];
+                            
+                            // Collect all node IDs recursively
+                            const collectAllNodeIds = (nodeId: number) => {
+                                allDbIds.push(nodeId);
+                                instanceTree.enumNodeChildren(nodeId, (childId: number) => {
+                                    collectAllNodeIds(childId);
+                                });
+                            };
+                            
+                            // Start from root and collect all nodes
+                            collectAllNodeIds(instanceTree.getRootId());
+                            
+                            // Filter to get only leaf nodes (actual geometry components)
+                            const leafNodeIds = allDbIds.filter(nodeId => {
+                                let hasChildren = false;
+                                instanceTree.enumNodeChildren(nodeId, () => {
+                                    hasChildren = true;
+                                });
+                                return !hasChildren && nodeId !== instanceTree.getRootId();
+                            });
+                            
+                            console.log('[ForgeViewer] BIM wireframe: hiding', leafNodeIds.length, 'leaf nodes for wireframe effect');
+                            
+                            // Hide all leaf components (solid surfaces) to show only wireframe structure
+                            if (leafNodeIds.length > 0) {
+                                if (viewer?.hide) viewer.hide(leafNodeIds);
+                                
+                                // Force wireframe rendering mode after hiding components
+                                setTimeout(() => {
+                                    if (viewer?.setDisplayMode) {
+                                        viewer.setDisplayMode(1); // Wireframe/ghost mode
+                                    }
+                                    
+                                    // Enable ghosting for wireframe effect
+                                    if (viewer?.setGhosting) {
+                                        viewer.setGhosting(true);
+                                    }
+                                    
+                                    console.log('[ForgeViewer] BIM wireframe mode applied successfully');
+                                }, 100);
+                            }
+                        }
+                    });
+                } else {
+                    // Fallback: Use built-in wireframe mode
+                    console.log('[ForgeViewer] BIM wireframe: using fallback wireframe mode');
+                    if (viewer?.setDisplayMode) {
+                        viewer.setDisplayMode(1); // Wireframe mode
+                    }
+                    if (viewer?.setGhosting) {
+                        viewer.setGhosting(true);
+                    }
+                }
+                
+            } else {
+                console.log('[ForgeViewer] BIM: Applying solid mode - showing full model');
+                
+                // Solid mode - show full model with normal rendering
+                
+                // Restore visibility for primary and enabled overlay models
+                restoreAllModelsVisibility(viewer);
+                
+                // Keep edges visible for better visibility
+                safeSetDisplayEdges(viewer, true);
+                
+                // Use solid rendering mode
+                if (viewer?.setDisplayMode) {
+                    viewer.setDisplayMode(0); // Solid mode
+                }
+                
+                // Disable ghosting
+                if (viewer?.setGhosting) {
+                    viewer.setGhosting(false);
+                }
+                
+                console.log('[ForgeViewer] BIM solid mode applied successfully');
+            }
+        } catch (error) {
+            console.error('[ForgeViewer] Error setting BIM wireframe mode:', error);
+        }
+    }, [wireframeMode, activePanel, viewer, isInitialized]);
 
     // Handle model visibility based on enabledModelIds
     useEffect(() => {

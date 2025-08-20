@@ -155,20 +155,15 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
           <div className="flex gap-2 w-full">
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                mode === "insert" 
-                  ? "bg-gray-600 text-gray-400 cursor-not-allowed" // Disabled during insertion
-                  : wireframeMode 
-                    ? "bg-blue-600 text-white shadow-md" 
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                wireframeMode 
+                  ? "bg-blue-600 text-white shadow-md" 
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
               onClick={() => {
-                if (mode !== "insert") {
-                  console.log('[IoTPanel] Wireframe button clicked');
-                  triggerWireframeMode();
-                }
+                console.log('[IoTPanel] Wireframe button clicked');
+                triggerWireframeMode();
               }}
-              disabled={mode === "insert"}
-              title={mode === "insert" ? "Wireframe mode disabled during sensor insertion" : "Wireframe mode - Shows model structure for better sensor visibility"}
+              title={"Wireframe mode - Shows model structure for better sensor visibility"}
             >
               🔲 Wireframe
             </button>
