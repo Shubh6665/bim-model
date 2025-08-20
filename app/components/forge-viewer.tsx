@@ -365,34 +365,117 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 continue;
             }
             loadPromises.push(new Promise<void>((resolve) => {
+                console.log(`🔧 [${id}] Reconcile Load - Loading overlay model:`, m.urn);
+                
                 Autodesk.Viewing.Document.load(
                     `urn:${m.urn}`,
                     (doc: any) => {
                         const geom = doc.getRoot().getDefaultGeometry();
                         if (!geom) return resolve();
+                        
+                        // Apply enhanced loading options for proper alignment
+                        const opts: any = { 
+                            keepCurrentModels: true,
+                            applyRefPoint: true,  // Critical for BIM discipline alignment
+                            isAEC: true,         // Enable AEC-specific alignment features
+                            applyScaling: 'm'    // Use meter scaling for consistency
+                        };
+                        let forcedGO = false;
+                        
+                        // Force reconcile-loaded overlays to use the same globalOffset as primary
+                        try {
+                            const primary = viewerInstance?.model;
+                            const pData = primary?.getData?.();
+                            const THREE = (window as any).THREE;
+                            if (THREE && pData?.globalOffset) {
+                                const go = pData.globalOffset;
+                                opts.globalOffset = new THREE.Vector3(go.x || 0, go.y || 0, go.z || 0);
+                                console.log(`🔧 [${id}] Reconcile - Using primary globalOffset for overlay load:`, opts.globalOffset);
+                                forcedGO = true;
+                            }
+                        } catch (e) {
+                            console.warn(`🔧 [${id}] Reconcile - Failed to set globalOffset from primary:`, e);
+                        }
+                        
                         const userTransform = buildMatrixFromTransform(m.transform || undefined);
-                        const opts: any = { keepCurrentModels: true };
-                        if (userTransform) opts.placementTransform = userTransform;
+                        if (userTransform) {
+                            opts.placementTransform = userTransform;
+                            console.log(`🔧 [${id}] Reconcile - Applied user transform:`, m.transform);
+                        }
+                        
                         viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                             current.set(id, model);
+                            
+                            // Enhanced alignment using proper globalOffset handling
                             try {
                                 const THREE = (window as any).THREE;
-                                // Auto-align using globalOffset difference if possible
-                                const primaryOffset = viewerInstance?.model?.getData?.().globalOffset;
-                                const overlayOffset = model?.getData?.().globalOffset;
-                                if (THREE && primaryOffset && overlayOffset) {
-                                    const dx = (primaryOffset.x || 0) - (overlayOffset.x || 0);
-                                    const dy = (primaryOffset.y || 0) - (overlayOffset.y || 0);
-                                    const dz = (primaryOffset.z || 0) - (overlayOffset.z || 0);
-                                    const alignM = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                    if (typeof model.setPlacementTransform === 'function') {
-                                        const finalM = userTransform ? alignM.clone().multiply(userTransform) : alignM;
-                                        model.setPlacementTransform(finalM);
+                                const primaryModel = viewerInstance?.model;
+                                
+                                if (primaryModel && model && THREE) {
+                                    const primaryData = primaryModel.getData?.();
+                                    const overlayData = model.getData?.();
+                                    
+                                    console.log(`🔧 [${id}] Reconcile - Model data comparison:`);
+                                    console.log(`   Primary globalOffset:`, primaryData?.globalOffset);
+                                    console.log(`   Overlay globalOffset:`, overlayData?.globalOffset);
+                                    
+                                    if (primaryData?.globalOffset && overlayData?.globalOffset) {
+                                        const primaryOffset = primaryData.globalOffset;
+                                        const overlayOffset = overlayData.globalOffset;
+                                        
+                                        // Use the difference to align models properly
+                                        const dx = (overlayOffset.x || 0) - (primaryOffset.x || 0);
+                                        const dy = (overlayOffset.y || 0) - (primaryOffset.y || 0);
+                                        const dz = (overlayOffset.z || 0) - (primaryOffset.z || 0);
+                                        
+                                        console.log(` [${id}] Reconcile - Calculated alignment offset: dx=${dx}, dy=${dy}, dz=${dz}`);
+                                        
+                                        // If we already forced globalOffset at load time, allow only small residual translation correction
+                                        if (forcedGO) {
+                                            const maxResidual = 0.5; // meters
+                                            const needsSmallFix = (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(dz) > 1e-3)
+                                                && (Math.abs(dx) < maxResidual && Math.abs(dy) < maxResidual && Math.abs(dz) < maxResidual);
+                                            if (needsSmallFix) {
+                                                const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                                
+                                                // Compose with existing user transform if any
+                                                let finalTransform = alignMatrix;
+                                                if (userTransform) {
+                                                    finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
+                                                }
+                                                
+                                                if (typeof model.setPlacementTransform === 'function') {
+                                                    model.setPlacementTransform(finalTransform);
+                                                    console.log(` [${id}] Reconcile - Applied small residual correction:`, finalTransform.elements);
+                                                }
+                                            } else {
+                                                console.log(` [${id}] Reconcile - Skipping manual alignment (forced globalOffset)`);
+                                            }
+                                        } else {
+                                            // Only apply alignment if there's a significant offset difference
+                                            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
+                                                const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                                
+                                                // Compose with existing user transform if any
+                                                let finalTransform = alignMatrix;
+                                                if (userTransform) {
+                                                    finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
+                                                }
+                                                
+                                                if (typeof model.setPlacementTransform === 'function') {
+                                                    model.setPlacementTransform(finalTransform);
+                                                    console.log(`🔧 [${id}] Reconcile - Applied alignment transform:`, finalTransform.elements);
+                                                }
+                                            } else {
+                                                console.log(`🔧 [${id}] Reconcile - Models already aligned, no transform needed`);
+                                            }
+                                        }
                                     }
                                 }
                             } catch (e) {
-                                console.warn('[ForgeViewer] Failed to auto-align overlay model (reconcile)', id, e);
+                                console.warn(`🔧 [${id}] Reconcile - Alignment failed:`, e);
                             }
+                            
                             // Set visibility based on current enabledModelIds immediately
                             try {
                                 const shouldShow = enabledModelIds ? enabledModelIds.has(id) : false;
@@ -400,9 +483,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                 if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
                             } catch {}
                             resolve();
-                        }).catch(() => resolve());
+                        }).catch((err: any) => {
+                            console.error(`🔧 [${id}] Reconcile - Failed to load overlay model:`, err);
+                            resolve();
+                        });
                     },
-                    () => resolve()
+                    (err: any) => {
+                        console.error(`🔧 [${id}] Reconcile - Failed to load document:`, err);
+                        resolve();
+                    }
                 );
             }));
         }
@@ -461,37 +550,118 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             if (!models || models.length <= 1) return;
             const Autodesk = (window as any).Autodesk;
             const THREE = (window as any).THREE;
+            
+            console.log('🔧 [loadOverlayModels] Starting overlay model loading for', models.length - 1, 'models');
+            
             for (let i = 1; i < models.length; i++) {
                 const m = models[i];
+                console.log(`🔧 [${m.id}] Loading overlay model:`, m.urn);
+                
                 await new Promise<void>((resolve) => {
                     Autodesk.Viewing.Document.load(
                         `urn:${m.urn}`,
                         (doc: any) => {
                             const geom = doc.getRoot().getDefaultGeometry();
                             if (!geom) return resolve();
+                            
+                            // Build proper loading options for discipline alignment
+                            const opts: any = { 
+                                keepCurrentModels: true,
+                                applyRefPoint: true,  // Critical for BIM discipline alignment
+                                isAEC: true,         // Enable AEC-specific alignment features
+                                applyScaling: 'm'    // Use meter scaling for consistency
+                            };
+                            let forcedGO = false;
+                            
+                            // If primary model is available, force overlays to use the same globalOffset
+                            try {
+                                const primary = viewerInstance?.model;
+                                const pData = primary?.getData?.();
+                                if (THREE && pData?.globalOffset) {
+                                    const go = pData.globalOffset;
+                                    opts.globalOffset = new THREE.Vector3(go.x || 0, go.y || 0, go.z || 0);
+                                    console.log(`🔧 [${m.id}] Using primary globalOffset for overlay load:`, opts.globalOffset);
+                                    forcedGO = true;
+                                }
+                            } catch (e) {
+                                console.warn(`🔧 [${m.id}] Failed to set globalOffset from primary:`, e);
+                            }
+                            
+                            // Apply user transform if provided
                             const userTransform = buildMatrixFromTransform(m.transform || undefined);
-                            const opts: any = { keepCurrentModels: true };
-                            if (userTransform) opts.placementTransform = userTransform;
+                            if (userTransform) {
+                                opts.placementTransform = userTransform;
+                                console.log(`🔧 [${m.id}] Applied user transform:`, m.transform);
+                            }
+                            
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
                                 try { overlayModelMapRef.current.set(m.id, model); } catch {}
+                                
+                                // Enhanced alignment using proper globalOffset handling
                                 try {
-                                    // Auto-align using globalOffset difference if possible
-                                    const primaryOffset = viewerInstance?.model?.getData?.().globalOffset;
-                                    const overlayOffset = model?.getData?.().globalOffset;
-                                    if (THREE && primaryOffset && overlayOffset) {
-                                        const dx = (primaryOffset.x || 0) - (overlayOffset.x || 0);
-                                        const dy = (primaryOffset.y || 0) - (overlayOffset.y || 0);
-                                        const dz = (primaryOffset.z || 0) - (overlayOffset.z || 0);
-                                        const alignM = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                        if (typeof model.setPlacementTransform === 'function') {
-                                            // Compose user transform (if any) with alignment
-                                            const finalM = userTransform ? alignM.clone().multiply(userTransform) : alignM;
-                                            model.setPlacementTransform(finalM);
+                                    const primaryModel = viewerInstance?.model;
+                                    if (primaryModel && model && THREE) {
+                                        const primaryData = primaryModel.getData?.();
+                                        const overlayData = model.getData?.();
+                                        
+                                        console.log(`🔧 [${m.id}] Model data comparison:`);
+                                        console.log(`   Primary globalOffset:`, primaryData?.globalOffset);
+                                        console.log(`   Overlay globalOffset:`, overlayData?.globalOffset);
+                                        
+                                        if (primaryData?.globalOffset && overlayData?.globalOffset) {
+                                            // Calculate proper alignment offset
+                                            const primaryOffset = primaryData.globalOffset;
+                                            const overlayOffset = overlayData.globalOffset;
+                                            
+                                            // Use the difference to align models properly
+                                            const dx = (overlayOffset.x || 0) - (primaryOffset.x || 0);
+                                            const dy = (overlayOffset.y || 0) - (primaryOffset.y || 0);
+                                            const dz = (overlayOffset.z || 0) - (primaryOffset.z || 0);
+                                            
+                                            console.log(`🔧 [${m.id}] Calculated alignment offset: dx=${dx}, dy=${dy}, dz=${dz}`);
+                                            
+                                            if (forcedGO) {
+                                                const maxResidual = 0.5; // meters
+                                                const needsSmallFix = (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(dz) > 1e-3)
+                                                    && (Math.abs(dx) < maxResidual && Math.abs(dy) < maxResidual && Math.abs(dz) < maxResidual);
+                                                if (needsSmallFix) {
+                                                    const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                                    let finalTransform = alignMatrix;
+                                                    if (userTransform) finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
+                                                    if (typeof model.setPlacementTransform === 'function') {
+                                                        model.setPlacementTransform(finalTransform);
+                                                        console.log(`🔧 [${m.id}] Applied small residual correction:`, finalTransform.elements);
+                                                    }
+                                                } else {
+                                                    console.log(`🔧 [${m.id}] Skipping manual alignment (forced globalOffset)`);
+                                                }
+                                            } else {
+                                                // Only apply alignment if there's a significant offset difference
+                                                if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
+                                                    const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
+                                                    
+                                                    // Compose with existing user transform if any
+                                                    let finalTransform = alignMatrix;
+                                                    if (userTransform) {
+                                                        finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
+                                                    }
+                                                    
+                                                    if (typeof model.setPlacementTransform === 'function') {
+                                                        model.setPlacementTransform(finalTransform);
+                                                        console.log(`🔧 [${m.id}] Applied alignment transform:`, finalTransform.elements);
+                                                    }
+                                                } else {
+                                                    console.log(`🔧 [${m.id}] Models already aligned, no transform needed`);
+                                                }
+                                            }
+                                        } else {
+                                            console.log(`🔧 [${m.id}] Missing globalOffset data, using user transform only`);
                                         }
                                     }
                                 } catch (e) {
-                                    console.warn('[ForgeViewer] Failed to auto-align overlay model', m.id, e);
+                                    console.warn(`🔧 [${m.id}] Alignment failed:`, e);
                                 }
+                                
                                 // Set visibility based on current enabledModelIds immediately
                                 try {
                                     const shouldShow = enabledModelIds ? enabledModelIds.has(m.id) : false;
@@ -499,13 +669,20 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
                                 } catch {}
                                 resolve();
-                            }).catch(() => resolve());
+                            }).catch((err: any) => {
+                                console.error(`🔧 [${m.id}] Failed to load overlay model:`, err);
+                                resolve();
+                            });
                         },
-                        () => resolve()
+                        (err: any) => {
+                            console.error(`🔧 [${m.id}] Failed to load document:`, err);
+                            resolve();
+                        }
                     );
                 });
             }
             setOverlayModelsLoaded(true);
+            console.log('🔧 [loadOverlayModels] Completed loading all overlay models');
         };
 
         const initializeViewer = () => {
@@ -538,7 +715,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     (doc: any) => {
                         const viewables = doc.getRoot().getDefaultGeometry();
                         if (viewables) {
-                            viewerInstance.loadDocumentNode(doc, viewables).then(() => {
+                            // Apply enhanced loading options for primary model too
+                            const primaryOpts: any = {
+                                applyRefPoint: true,  // Critical for BIM discipline alignment
+                                isAEC: true,         // Enable AEC-specific alignment features
+                                applyScaling: 'm'    // Use meter scaling for consistency
+                            };
+                            
+                            console.log('🔧 [Primary Model] Loading with enhanced alignment options:', primaryOpts);
+                            
+                            viewerInstance.loadDocumentNode(doc, viewables, primaryOpts).then(() => {
                                 setIsLoading(false);
                                 // Capture the primary project model id once at initialization
                                 try {
