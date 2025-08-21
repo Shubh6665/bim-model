@@ -1558,7 +1558,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
         return (
           <div className="space-y-2">
             <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
-              <Layers className="h-5 w-5" />
+              <img src="/icon.svg" alt="Models" className="h-6 w-6 invert" />
               Models
             </h3>
             {models && models.length > 0 ? (
@@ -1636,9 +1636,9 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       <div className="p-3 space-y-1.5 border-b border-gray-800">
         <button
           onClick={() => setActiveCommand('models')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
-          <Layers className="h-4 w-4" />
+          <img src="/icon.svg" alt="Models" className="h-5 w-5 invert" />
           <span className="font-medium">Models</span>
         </button>
         <button
