@@ -41,7 +41,8 @@ async function hasProjectAccess(projectId: string, requiredPackage: 'IoT', userE
     projectId: new ObjectId(projectId),
     'invitee.email': userEmail,
     status: 'accepted',
-    'invitee.packages': requiredPackage,
+    // packages is an array; use $in to check membership
+    'invitee.packages': { $in: [requiredPackage] },
   });
   return !!invite;
 }

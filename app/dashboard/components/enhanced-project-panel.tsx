@@ -342,9 +342,7 @@ export function EnhancedProjectPanel({
               {selectedProject.models && selectedProject.models.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2">
-                    <span className="inline-block bg-blue-600 text-white px-5 py-2.5 rounded-xl text-base font-semibold">
-                      Models Uploaded
-                    </span>
+                    <h4 className="text-base font-semibold text-white">Models Uploaded</h4>
                   </div>
                   <div className="space-y-3">
                     {(() => {

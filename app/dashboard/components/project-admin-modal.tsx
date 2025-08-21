@@ -35,7 +35,8 @@ type TabKey = "info" | "access" | "upload" | "remove";
 
 export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }: ProjectAdminModalProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("info");
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false); // For sending new invites
+  const [updatingPackageId, setUpdatingPackageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -113,7 +114,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     "Facility Manager",
     "General",
     "Maintenance Team",
-    "ProjectAdmin",
+    "Project Admin",
     "Planner",
     "Other",
   ];
@@ -130,9 +131,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const canUploadOrReplace = isOwner || isProjectAdmin;
   const canRemoveModel = isOwner || isProjectAdmin;
 
-  // Safely extract a string id from a Mongo ObjectId or string
+  // Safely extract a string id from normalized 'id' (preferred) or Mongo ObjectId
   const getInviteId = (inv: any): string => {
-    const raw = inv?._id ?? inv?.id;
+    if (!inv) return '';
+    if (typeof inv.id === 'string' && inv.id.length) return inv.id;
+    const raw = inv._id;
     if (typeof raw === 'string') return raw;
     if (raw?.$oid) return raw.$oid;
     if (typeof raw?.toString === 'function') return raw.toString();
@@ -213,7 +216,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
   const saveInvitePackages = async (inviteId: string) => {
     if (!project) return;
-    setSaving(true);
+    setUpdatingPackageId(inviteId);
     setError(null);
     try {
       const inv = invitesList.find((i) => getInviteId(i) === String(inviteId));
@@ -225,12 +228,16 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update packages');
-      await loadInvites();
+
+      // Update the local state with the returned invite data for a faster UI update
+      setInvitesList((prev) =>
+        prev.map((invite) => (getInviteId(invite) === inviteId ? json.invite : invite))
+      );
       setError(null);
     } catch (e: any) {
       setError(e.message || 'Failed to update packages');
     } finally {
-      setSaving(false);
+      setUpdatingPackageId(null);
     }
   };
 
@@ -709,7 +716,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                               </td>
                               <td className="py-2 pr-3">
                                 <div className="flex gap-2">
-                                  <button onClick={() => saveInvitePackages(id)} disabled={!canManageInvites} className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50">Save</button>
+                                  <button
+                                    onClick={() => saveInvitePackages(id)}
+                                    className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 disabled:bg-gray-400 w-16 flex justify-center"
+                                    disabled={updatingPackageId === id}
+                                  >
+                                    {updatingPackageId === id ? 'Saving' : 'Save'}
+                                  </button>
                                   <button onClick={() => handleRevokeInvite(id)} disabled={!canManageInvites} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50">Revoke</button>
                                 </div>
                               </td>

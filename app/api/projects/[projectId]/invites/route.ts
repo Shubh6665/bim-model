@@ -60,14 +60,38 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
-    const updateFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { projectId: new ObjectId(projectId) } ] };
-    const result = await db
-      .collection('invites')
-      .findOneAndUpdate(updateFilter, { $set: update }, { returnDocument: 'after' });
-    const updated = result?.value;
-    if (!updated) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+    // Pre-check: fetch invite by id first for clear diagnostics
+    const idMatchFilter: any = { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] };
+    const existing = await db.collection('invites').findOne(idMatchFilter);
+    if (!existing) {
+      console.warn('[PATCH invites] No invite found by id', { inviteId, projectId });
+      return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+    }
 
-    return NextResponse.json({ success: true, invite: updated });
+    // Validate invite belongs to the project in the route
+    const existingProjId = existing.projectId?.toHexString ? existing.projectId.toHexString() : String(existing.projectId || '');
+    if (existingProjId && String(existingProjId) !== String(projectId)) {
+      console.warn('[PATCH invites] Invite belongs to different project', { inviteId, routeProjectId: projectId, inviteProjectId: existingProjId });
+      return NextResponse.json({ error: 'Invite does not belong to this project' }, { status: 404 });
+    }
+
+    // Use updateOne and then findOne to ensure we return the updated document reliably.
+    const updateResult = await db.collection('invites').updateOne({ _id: existing._id }, { $set: update });
+
+    if (updateResult.matchedCount === 0) {
+      console.error('[PATCH invites] Document not found for update, though it was just fetched.', { inviteId });
+      return NextResponse.json({ error: 'Invite not found during update' }, { status: 404 });
+    }
+
+    // Re-fetch the document to get its latest state to return to the client.
+    const updatedInvite = await db.collection('invites').findOne({ _id: existing._id });
+
+    if (!updatedInvite) {
+      console.error('[PATCH invites] Invite disappeared after update', { inviteId });
+      return NextResponse.json({ error: 'Could not retrieve invite after update' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, invite: updatedInvite });
   } catch (err: any) {
     console.error('PATCH invite error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -94,7 +118,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
       .sort({ createdAt: -1 })
       .toArray();
 
-    return NextResponse.json({ invites });
+    // Normalize identifiers for client consumption
+    const normalized = invites.map((inv: any) => ({
+      ...inv,
+      id: inv?._id?.toHexString ? inv._id.toHexString() : String(inv?._id || ''),
+      projectId: inv?.projectId?.toHexString ? inv.projectId.toHexString() : String(inv?.projectId || ''),
+    }));
+
+    return NextResponse.json({ invites: normalized });
   } catch (err: any) {
     console.error('GET invites error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -120,9 +151,23 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ proj
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     // remove the invite only if it belongs to the project
-    const deleteFilter: any = { $and: [ { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] }, { projectId: new ObjectId(projectId) } ] };
-    const res = await db.collection('invites').deleteOne(deleteFilter);
-    if (res.deletedCount === 0) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+    // Support both ObjectId and string storage for _id and projectId
+    const deleteFilter: any = {
+      $and: [
+        { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] },
+        { $or: [ { projectId: new ObjectId(projectId) }, { projectId } ] },
+      ],
+    };
+    let res = await db.collection('invites').deleteOne(deleteFilter);
+    if (res.deletedCount === 0) {
+      // Fallback: match by _id only
+      const idOnlyFilter: any = { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] };
+      res = await db.collection('invites').deleteOne(idOnlyFilter);
+      if (res.deletedCount === 0) {
+        console.warn('[DELETE invites] Invite not found', { inviteId, projectId });
+        return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

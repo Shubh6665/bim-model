@@ -124,6 +124,20 @@ export function SensorProvider({ children }: SensorProviderProps) {
       
       const response = await fetch(`/api/iot/sensors?projectId=${currentProjectId}`);
       if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.warn(`[SensorContext] sensors GET failed: ${response.status} ${response.statusText} body=${text}`);
+        if (response.status === 401) {
+          // Not authenticated – treat as empty for now (middleware will redirect on protected pages)
+          setSensors([]);
+          setError('Not authenticated');
+          return;
+        }
+        if (response.status === 403) {
+          // Invited user without IoT package – show empty, avoid crash
+          setSensors([]);
+          setError('No IoT access for this project');
+          return;
+        }
         throw new Error('Failed to fetch sensors');
       }
       const fetchedSensors = await response.json();
