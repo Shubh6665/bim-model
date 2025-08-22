@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder } from "lucide-react";
+import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -11,11 +12,63 @@ interface DashboardHeaderProps {
   selectedProject?: any;
   onShowProjectInfo?: () => void;
   onShowMyProjects?: () => void;
+  platformOwner?: boolean;
 }
 
-export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo, onShowMyProjects }: DashboardHeaderProps) {
+export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo, onShowMyProjects, platformOwner }: DashboardHeaderProps) {
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showPendingAdminsModal, setShowPendingAdminsModal] = useState(false);
+  const [canManagePendingAdmins, setCanManagePendingAdmins] = useState<boolean>(false);
+  const [pendingAdminsCount, setPendingAdminsCount] = useState<number>(0);
+  const [canCreate, setCanCreate] = useState<boolean>(false);
+
+  // Probe capability and fetch count: Only Platform Owner can access /api/admins
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    let aborted = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/admins', { method: 'GET' });
+        if (aborted) return;
+        setCanManagePendingAdmins(res.ok);
+        if (res.ok) {
+          const data = await res.json();
+          const count = Array.isArray(data?.pending) ? data.pending.length : 0;
+          setPendingAdminsCount(count);
+        } else {
+          setPendingAdminsCount(0);
+        }
+      } catch {
+        if (aborted) return;
+        setCanManagePendingAdmins(false);
+        setPendingAdminsCount(0);
+      }
+    })();
+    return () => { aborted = true; };
+  }, [showProfileMenu]);
+
+  // Probe if user can create project
+  useEffect(() => {
+    if (!showProfileMenu) return;
+    let aborted = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/projects/can-create');
+        if (aborted) return;
+        if (r.ok) {
+          const j = await r.json();
+          setCanCreate(!!j?.canCreate);
+        } else {
+          setCanCreate(false);
+        }
+      } catch {
+        if (aborted) return;
+        setCanCreate(false);
+      }
+    })();
+    return () => { aborted = true; };
+  }, [showProfileMenu]);
 
   // Helper function for button styles
   const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
@@ -88,35 +141,32 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                 <div className="p-3 border-b border-gray-700">
                   <p className="text-sm font-medium text-white">{user?.name || "User"}</p>
                   <p className="text-xs text-gray-400">{user?.email || "-"}</p>
-                  {/* Role badge (project-scoped if available) */}
+                  {/* RBAC Role badges (project-scoped or global PlatformOwner) */}
                   {(() => {
-                    // Determine role to show
-                    const isOwner = !!selectedProject?.access?.owner || selectedProject?.access?.role === 'Owner';
-                    const projRole = isOwner ? 'Owner' : (selectedProject?.access?.role || '');
-                    const fallbackRole = user?.role === 'admin' ? 'Global Admin' : 'User';
-                    const role = projRole || fallbackRole;
-                    // Color mapping
+                    // If no project selected and platformOwner=true, show PlatformOwner as global badge
+                    const role: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : 'General');
+                    const isOwner: boolean = !!selectedProject?.access?.owner;
+                    // Color mapping for known roles
                     const colorMap: Record<string, string> = {
-                      'Owner': 'bg-purple-600/20 text-purple-300 border-purple-500/40',
+                      'PlatformOwner': 'bg-purple-600/20 text-purple-300 border-purple-500/40',
+                      'Administrator': 'bg-red-600/20 text-red-300 border-red-500/40',
+                      'AdministratorPending': 'bg-amber-600/20 text-amber-200 border-amber-500/40',
                       'ProjectAdmin': 'bg-blue-600/20 text-blue-300 border-blue-500/40',
                       'General': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
-                      'BIM Specialist': 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40',
-                      'BIM Coordinator': 'bg-teal-600/20 text-teal-300 border-teal-500/40',
-                      'BIM Manager': 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40',
-                      'Designer': 'bg-pink-600/20 text-pink-300 border-pink-500/40',
-                      'Facility Manager': 'bg-amber-600/20 text-amber-300 border-amber-500/40',
-                      'Maintenance Team': 'bg-lime-600/20 text-lime-300 border-lime-500/40',
-                      'Planner': 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40',
-                      'Other': 'bg-slate-600/20 text-slate-300 border-slate-500/40',
-                      'Global Admin': 'bg-red-600/20 text-red-300 border-red-500/40',
-                      'User': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
                     };
-                    const cls = colorMap[role] || 'bg-gray-600/20 text-gray-300 border-gray-500/40';
+                    const roleCls = colorMap[role] || 'bg-gray-600/20 text-gray-300 border-gray-500/40';
+                    const displayRole = role === 'ProjectAdmin' ? 'Project Admin' : role;
+                    const ownerCls = 'bg-fuchsia-600/20 text-fuchsia-300 border-fuchsia-500/40';
                     return (
-                      <div className="mt-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border ${cls}`}>
-                          {role}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border ${roleCls}`}>
+                          {displayRole}
                         </span>
+                        {isOwner && role !== 'Owner' && role !== 'PlatformOwner' && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border ${ownerCls}`}>
+                            Owner
+                          </span>
+                        )}
                       </div>
                     );
                   })()}
@@ -131,6 +181,26 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <span>My Projects</span>
                   </button>
                   
+                  {canManagePendingAdmins && (
+                    <button
+                      className="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                      onClick={() => { setShowPendingAdminsModal(true); setShowProfileMenu(false); }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-500 text-[10px] text-gray-300">PA</span>
+                        <span>Pending Admins</span>
+                      </span>
+                      {pendingAdminsCount > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-gray-900 text-[10px] font-bold"
+                          title={`${pendingAdminsCount} pending`}
+                        >
+                          !
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   <button 
                     className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
                     onClick={onShowProjectInfo}
@@ -139,7 +209,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <span>Project Info</span>
                   </button>
                   <div className="border-t border-gray-700 my-1"></div>
-                  {user && (
+                  {user && canCreate && (
                     <button 
                       onClick={onCreateProject}
                       className="w-full flex items-center gap-2 px-3 py-2 text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
@@ -165,6 +235,9 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         </div>
       </div>
       {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>}
+      {showPendingAdminsModal && (
+        <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
+      )}
     </header>
   );
 }

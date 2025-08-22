@@ -124,12 +124,34 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [canManageInvites, setCanManageInvites] = useState(true);
 
-  // Access checks
-  const isOwner = !!project?.access?.owner || project?.access?.role === 'Owner';
-  const isProjectAdmin = project?.access?.role === 'ProjectAdmin';
-  const canManage = isOwner; // Only Owner manages invites
-  const canUploadOrReplace = isOwner || isProjectAdmin;
-  const canRemoveModel = isOwner || isProjectAdmin;
+  // Access checks based on RBAC requirements
+  const effectiveRole = project?.access?.role as string | undefined;
+  // Display label: insert space for Project Admin
+  const displayRoleLabel = effectiveRole === 'ProjectAdmin' ? 'Project Admin' : (effectiveRole || 'User');
+  const isPlatformOwner = effectiveRole === 'PlatformOwner';
+  const isAdministrator = effectiveRole === 'Administrator';
+  const isProjectAdmin = effectiveRole === 'ProjectAdmin' || effectiveRole === 'Project Admin';
+  const isUser = effectiveRole === 'User' || (!isPlatformOwner && !isAdministrator && !isProjectAdmin);
+  
+  // RBAC Permissions according to requirements:
+  // Create Project: Platform Owner, Administrator, Project Administrator
+  const canCreateProject = !!(isPlatformOwner || isAdministrator || isProjectAdmin);
+  
+  // Delete Project: Platform Owner, Administrator ONLY (Project Admin CANNOT delete)
+  const canDeleteProject = !!(isPlatformOwner || isAdministrator);
+  
+  // Update Project: Platform Owner, Administrator, Project Administrator
+  const canUpdateProject = !!(isPlatformOwner || isAdministrator || isProjectAdmin);
+  
+  // Manage Access (invite users): Platform Owner, Administrator, Project Administrator
+  const canManage = !!(isPlatformOwner || isAdministrator || isProjectAdmin);
+  
+  // Add/Delete Models: Platform Owner, Administrator, Project Administrator
+  const canUploadOrReplace = !!(isPlatformOwner || isAdministrator || isProjectAdmin);
+  const canRemoveModel = !!(isPlatformOwner || isAdministrator || isProjectAdmin);
+  
+  // Appoint Project Admin: Platform Owner, Administrator ONLY
+  const canAppointProjectAdmin = !!(isPlatformOwner || isAdministrator);
 
   // Safely extract a string id from normalized 'id' (preferred) or Mongo ObjectId
   const getInviteId = (inv: any): string => {
@@ -432,6 +454,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   // Remove model
   const [removeModelId, setRemoveModelId] = useState<string>("");
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const [showConfirmDeleteProject, setShowConfirmDeleteProject] = useState(false);
   
   // Debug project access
   useEffect(() => {
@@ -447,9 +470,9 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   }, [project]);
   const handleRemoveModel = async () => {
     if (!project || !removeModelId) return;
-    if (!project.access?.owner && project.access?.role !== 'Owner') {
+    if (!canRemoveModel) {
       // UI should already disable, but guard anyway
-      setError('Only the project owner can delete models');
+      setError('You do not have permission to delete models');
       return;
     }
     setSaving(true);
@@ -493,6 +516,27 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete project");
+      
+      // Close modal and notify parent
+      onClose();
+      // Optionally refresh projects list or redirect
+      window.location.reload(); // Simple approach - could be improved with proper state management
+    } catch (e: any) {
+      setError(e.message || "Failed to delete project");
+    } finally {
+      setSaving(false);
+      setShowConfirmDeleteProject(false);
+    }
+  };
+
   // Safe guard just before rendering
   if (!isOpen || !project) return null;
 
@@ -503,7 +547,10 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         <div className="flex items-center justify-between p-5 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <Building className="w-6 h-6 text-blue-400" />
-            <h2 className="text-xl font-semibold text-white">Project Administration</h2>
+            <div>
+              <h2 className="text-xl font-semibold text-white">Project Administration</h2>
+              <p className="text-sm text-gray-400">Your role: {displayRoleLabel}</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -514,9 +561,15 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         <div className="px-5 pt-3">
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button onClick={() => setActiveTab("info")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "info" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Project Information</button>
-            <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Manage Access</button>
-            <button onClick={() => setActiveTab("upload")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "upload" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Upload Model</button>
-            <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Remove a Model</button>
+            {canManage && (
+              <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Manage Access</button>
+            )}
+            {canUploadOrReplace && (
+              <button onClick={() => setActiveTab("upload")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "upload" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Upload Model</button>
+            )}
+            {canRemoveModel && (
+              <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Remove a Model</button>
+            )}
           </div>
         </div>
 
@@ -598,22 +651,40 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
               )}
               {/* Bottom actions: Edit (when not editing), Save + Cancel (when editing) */}
-              <div className="flex justify-end gap-2">
-                {!isEditingInfo ? (
-                  <button onClick={() => setIsEditingInfo(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                    <Edit3 className="w-4 h-4" />
-                    <span>Edit</span>
+              <div className="flex justify-between items-center gap-2">
+                {canUpdateProject && (
+                  <div className="flex gap-2">
+                    {!isEditingInfo ? (
+                      <button onClick={() => setIsEditingInfo(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                        <Edit3 className="w-4 h-4" />
+                        <span>Edit</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md">
+                          <Save className="w-4 h-4" />
+                          <span>{saving ? "Saving..." : "Save"}</span>
+                        </button>
+                        <button onClick={() => { setEdited(project ? { ...project } : null); setIsEditingInfo(false); }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {canDeleteProject && (
+                  <button
+                    onClick={() => setShowConfirmDeleteProject(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Project</span>
                   </button>
-                ) : (
-                  <>
-                    <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md">
-                      <Save className="w-4 h-4" />
-                      <span>{saving ? "Saving..." : "Save"}</span>
-                    </button>
-                    <button onClick={() => { setEdited(project ? { ...project } : null); setIsEditingInfo(false); }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
-                  </>
                 )}
               </div>
+              {!canUpdateProject && (
+                <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
+                  You can only view project information. Contact an Administrator or Project Admin to make changes.
+                </div>
+              )}
             </div>
           )}
 
@@ -621,7 +692,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
             <div className="space-y-4">
               {!canManageInvites && (
                 <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
-                  Only the project owner can manage access. You can view your assigned packages below.
+                  You don't have permission to manage access. You can view your assigned packages below.
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -640,9 +711,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Role</label>
                   <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60">
-                    {roles.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
+                    {roles.map((r) => {
+                      const isPA = r === 'Project Admin';
+                      return (
+                        <option key={r} value={r} disabled={isPA && !canAppointProjectAdmin}>
+                          {r}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div className="md:col-span-2">
@@ -741,7 +817,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
             <div className="space-y-4">
               {!canUploadOrReplace && (
                 <div className="px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">
-                  Only the project owner, a global admin, or a project admin can upload or replace models.
+                  You don't have permission to upload or replace models.
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -858,6 +934,52 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
           )}
         </div>
       </div>
+
+      {/* Delete Project Confirmation Modal */}
+      {showConfirmDeleteProject && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-60">
+          <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Delete Project</h3>
+                <p className="text-sm text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-300 mb-2">
+                Are you sure you want to delete the project <strong>"{project?.name}"</strong>?
+              </p>
+              <p className="text-sm text-gray-400">
+                This will permanently delete:
+              </p>
+              <ul className="text-sm text-gray-400 mt-2 ml-4 list-disc">
+                <li>All project data and models</li>
+                <li>All invitations and access permissions</li>
+                <li>All associated IoT sensors and data</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmDeleteProject(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? "Deleting..." : "Delete Project"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -73,6 +73,7 @@ function BIMDashboard() {
   const [sensorsVisible, setSensorsVisible] = useState(false); // Track sensor visibility
   const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
   const [noAccessMsg, setNoAccessMsg] = useState<string | null>(null);
+  const [canCreateProjectPerm, setCanCreateProjectPerm] = useState<boolean>(false);
   // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
   // Federated overlay: track which models are enabled for overlay
@@ -150,6 +151,27 @@ function BIMDashboard() {
       setProjects(mapped);
     }
     fetchProjects();
+  }, []);
+
+  // Fetch permission to create projects
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/projects/can-create');
+        if (aborted) return;
+        if (r.ok) {
+          const j = await r.json();
+          setCanCreateProjectPerm(!!j?.canCreate);
+        } else {
+          setCanCreateProjectPerm(false);
+        }
+      } catch {
+        if (aborted) return;
+        setCanCreateProjectPerm(false);
+      }
+    })();
+    return () => { aborted = true; };
   }, []);
 
   // When a project is selected, set a sensible default for enabled models (once)
@@ -281,6 +303,11 @@ function BIMDashboard() {
     const filtered = selectedProject.models.filter(m => enabledModelIds.has(m.id));
     return filtered.sort((a, b) => (order[a.discipline || 'other'] ?? 99) - (order[b.discipline || 'other'] ?? 99));
   }, [selectedProject?.models, enabledModelIds]);
+
+  // Derive if the current user is a Platform Owner (from any project access role)
+  const isPlatformOwner = React.useMemo(() => {
+    return projects.some((p: any) => p?.access?.role === 'PlatformOwner');
+  }, [projects]);
 
   const handleProjectCreated = (newProject: Project) => {
     setProjects((prev) => [...prev, newProject]);
@@ -439,8 +466,9 @@ function BIMDashboard() {
   const canAccessPanel = (panel: NonNullable<typeof activePanel>) => {
     // No project selected → allow navigation (will show project panel)
     if (!selectedProject) return true;
-    // Owners have full access
+    // Owners and Platform Owners have full access
     if (selectedProject?.access?.owner) return true;
+    if (selectedProject?.access?.role === 'PlatformOwner') return true;
     const pkg = panelToPackage[panel];
     const granted = selectedProject?.access?.packages || [];
     return granted.includes(pkg);
@@ -477,6 +505,7 @@ function BIMDashboard() {
         selectedProject={selectedProject}
         onShowProjectInfo={handleShowProjectInfo}
         onShowMyProjects={handleShowMyProjects}
+        platformOwner={isPlatformOwner}
       />
 
       {/* Main Content */}
@@ -517,7 +546,7 @@ function BIMDashboard() {
                 Get started by creating your first BIM project. Upload your RVT
                 file, set a location, and view your model in 3D!
               </p>
-              {session?.user && (
+              {session?.user && canCreateProjectPerm && (
                 <button
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg font-semibold shadow-lg transition-colors"
                   onClick={handleRequestCreateProject}

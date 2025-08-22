@@ -3,6 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
+import { canMakeProjectAdmin, canManageAccess, isApprovedAdministratorForCompany, isPlatformOwnerEmail } from '@/app/lib/rbac';
 import nodemailer from 'nodemailer';
 
 async function getUserEmail(): Promise<string | null> {
@@ -24,16 +25,20 @@ async function isProjectAdmin(db: any, projectId: string, email: string) {
     projectId: new ObjectId(projectId),
     status: 'accepted',
     'invitee.email': email,
-    'invitee.role': 'ProjectAdmin',
+    $or: [
+      { 'invitee.role': 'ProjectAdmin' },
+      { 'invitee.role': 'Project Admin' }
+    ]
   });
   return !!accepted;
 }
 
 async function authorizeInviteManager(db: any, projectId: string, user: any, email: string) {
   if (!user) return false;
-  // Only project owner can manage invites
-  if (await isOwner(db, projectId, user)) return true;
-  return false;
+  const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!proj) return false;
+  // Platform Owner, approved company Admin, or Project Admin may manage invites
+  return await canManageAccess(db, proj, email, user);
 }
 
 // PATCH /api/projects/[projectId]/invites -> update an invite (packages/status) (owner only)
@@ -199,10 +204,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ projec
       return NextResponse.json({ error: 'Valid invitee email is required' }, { status: 400 });
     }
 
-    // Only Owner can nominate a Project Administrator
-    const isOwnerUser = String(proj.userId) === String(user._id);
-    if (role === 'ProjectAdmin' && !isOwnerUser) {
-      return NextResponse.json({ error: 'Only the project owner can nominate a Project Administrator' }, { status: 403 });
+    // Only Platform Owner or approved Administrator can nominate a Project Administrator
+    const canAppointPA = await canMakeProjectAdmin(db, proj, email, user);
+    const normRole = String(role || '').replace(/\s+/g, '').toLowerCase();
+    if ((normRole === 'projectadmin' || normRole === 'projectadministrator') && !canAppointPA) {
+      return NextResponse.json({ error: 'Only Platform Owner or approved Administrator can appoint a Project Administrator' }, { status: 403 });
     }
 
     const inviteDoc = {

@@ -3,6 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId, type UpdateFilter } from 'mongodb';
+import { canModifyModels as rbacCanModifyModels } from '@/app/lib/rbac';
 import type { ProjectModel } from '@/app/types/projects';
 
 async function getUserEmail(): Promise<string | null> {
@@ -34,9 +35,7 @@ async function canModifyModels(db: any, projectId: string, user: any, email: str
   if (!user) return false;
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
-  if (String(project.userId) === String(user._id)) return true;
-  const invite = await getInviteFor(db, projectId, email);
-  return invite?.invitee?.role === 'ProjectAdmin';
+  return rbacCanModifyModels(db, project, email, user);
 }
 
 // GET /api/projects/[projectId]/models -> list models for a project

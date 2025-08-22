@@ -3,6 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
+import { canDeleteProject, canUpdateProject, getEffectiveRole, isPlatformOwnerEmail, isApprovedAdministratorForCompany } from '@/app/lib/rbac';
 
 // Helper to get user email from session
 async function getUserEmail(): Promise<string | null> {
@@ -26,29 +27,11 @@ async function canReadProject(db: any, projectId: string, user: any, email: stri
   if (!user) return false;
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
+  if (isPlatformOwnerEmail(email)) return true;
+  if (isApprovedAdministratorForCompany(user, project.company)) return true;
   if (String(project.userId) === String(user._id)) return true; // owner
   const invite = await getInviteFor(db, projectId, email);
   return !!invite; // any accepted invite grants read
-}
-
-async function canUpdateProject(db: any, projectId: string, user: any, email: string) {
-  if (!user) return false;
-  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-  if (!project) return false;
-  if (String(project.userId) === String(user._id)) return true; // owner
-  const invite = await getInviteFor(db, projectId, email);
-  // ProjectAdmin can update
-  return invite?.invitee?.role === 'ProjectAdmin';
-}
-
-async function canDeleteProject(db: any, projectId: string, user: any, email: string) {
-  if (!user) return false;
-  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-  if (!project) return false;
-  if (String(project.userId) === String(user._id)) return true; // owner
-  // ProjectAdmin can also delete within this project (full admin permissions scoped to project)
-  const invite = await getInviteFor(db, projectId, email);
-  return invite?.invitee?.role === 'ProjectAdmin';
 }
 
 // GET: Get specific project by ID
@@ -68,19 +51,12 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const canRead = await canReadProject(db, projectId, user, email);
     if (!canRead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    // Determine access
-    const isOwner = String(project.userId) === String(user._id);
-    let access: any;
-    if (isOwner) {
-      access = { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: true };
-    } else {
-      const invite = await getInviteFor(db, projectId, email);
-      access = {
-        role: invite?.invitee?.role || 'General',
-        packages: Array.isArray(invite?.invitee?.packages) ? invite!.invitee.packages : [],
-        owner: false,
-      };
-    }
+    // Determine access using RBAC effective role
+    const role = await getEffectiveRole(db, project, email, user);
+    let packages: string[] = [];
+    const invite = await getInviteFor(db, projectId, email);
+    if (invite && Array.isArray(invite?.invitee?.packages)) packages = invite.invitee.packages;
+    const access = { role, packages, owner: String(project.userId) === String(user._id) };
     return NextResponse.json({ project: { ...project, access } });
   } catch (error: any) {
     console.error('Error fetching project:', error);
@@ -98,8 +74,11 @@ export async function PUT(request: Request, context: { params: Promise<{ project
     
     const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    
-    const allowed = await canUpdateProject(db, projectId, user, email);
+
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+    const allowed = await canUpdateProject(db, project, email, user);
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     // Parse JSON body
@@ -150,12 +129,12 @@ export async function PUT(request: Request, context: { params: Promise<{ project
     
     // Fetch and return updated project
     const updatedProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    
-    // Attach access info based on user
-    const isOwner = updatedProject && String(updatedProject.userId) === String(user._id);
-    const access = isOwner
-      ? { role: 'Owner', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: true }
-      : { role: 'ProjectAdmin', packages: ['BIM', 'IoT', 'Database', 'AI', 'FM'] as string[], owner: false };
+    const role = updatedProject ? await getEffectiveRole(db, updatedProject, email, user) : 'General';
+    const access = {
+      role,
+      packages: [],
+      owner: !!(updatedProject && String(updatedProject.userId) === String(user._id)),
+    };
     return NextResponse.json({ 
       message: 'Project updated successfully',
       project: updatedProject ? { ...updatedProject, access } : null,
@@ -177,8 +156,10 @@ export async function DELETE(_request: Request, context: { params: Promise<{ pro
     
     const user = await getSessionUser(db, email);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    
-    const allowed = await canDeleteProject(db, projectId, user, email);
+
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const allowed = await canDeleteProject(db, project, email, user);
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const result = await db.collection('projects').deleteOne({ _id: new ObjectId(projectId) });

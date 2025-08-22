@@ -3,6 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId, type UpdateFilter } from 'mongodb';
+import { canModifyModels as rbacCanModifyModels } from '@/app/lib/rbac';
 import type { ProjectModel, ModelTransform, Discipline } from '@/app/types/projects';
 
 async function getUserEmail(): Promise<string | null> {
@@ -21,8 +22,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId, modelId } = await context.params;
-    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const allowed = await rbacCanModifyModels(db, project, email, user);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
     const update: Partial<ProjectModel> = {};
@@ -46,7 +49,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
     }
 
     const res = await db.collection('projects').updateOne(
-      { _id: new ObjectId(projectId), userId: user._id, 'models.id': modelId },
+      { _id: new ObjectId(projectId), 'models.id': modelId },
       ({ $set: Object.fromEntries(Object.entries(update).map(([k, v]) => ([`models.$.${k}`, v]))) } as unknown as UpdateFilter<any>)
     );
 
@@ -70,12 +73,16 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ pro
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const { projectId, modelId } = await context.params;
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const allowed = await rbacCanModifyModels(db, project, email, user);
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const res = await db.collection('projects').updateOne(
-      { _id: new ObjectId(projectId), userId: user._id },
+      { _id: new ObjectId(projectId) },
       ({ $pull: { models: { id: modelId } } } as unknown as UpdateFilter<any>)
     );
 
-    if (res.matchedCount !== 1) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    if (res.matchedCount !== 1) return NextResponse.json({ error: 'Project not found or model not present' }, { status: 404 });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
