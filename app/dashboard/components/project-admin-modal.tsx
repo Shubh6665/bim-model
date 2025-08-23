@@ -31,7 +31,7 @@ interface ProjectAdminModalProps {
   onProjectUpdated?: (updated: Project) => void;
 }
 
-type TabKey = "info" | "access" | "upload" | "remove";
+type TabKey = "info" | "profile" | "access" | "upload" | "remove";
 
 export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }: ProjectAdminModalProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("info");
@@ -56,6 +56,130 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
   const handleProjectField = (field: keyof Project, value: any) => {
     setEdited((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  // ---------------- Project-based Profile ----------------
+  type UserProfile = {
+    name?: string;
+    surname?: string;
+    role?: string; // read-only, project-specific role
+    email?: string; // read-only
+    society?: string;
+    telephone?: string;
+    avatarUrl?: string;
+  };
+  const [profile, setProfile] = useState<UserProfile>({});
+  const [editedProfile, setEditedProfile] = useState<UserProfile>({});
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileNotice, setProfileNotice] = useState<string | null>(null);
+
+  const isProfileIncomplete = (p: UserProfile) => {
+    const telOk = !p.telephone || /^\+?[0-9]{7,15}$/.test(p.telephone);
+    return !p.name || !p.surname || !p.email || !telOk;
+  };
+
+  const loadProfile = async () => {
+    if (!project) return;
+    setProfileLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/profile`);
+      const data = await res.json();
+      
+      const p: UserProfile = {
+        ...data.profile,
+        email: user?.email || '',
+        role: project.access?.role || 'User'
+      };
+      
+      console.log('Profile loaded:', p, 'Project access:', project.access);
+      
+      setProfile(p);
+      setEditedProfile({ ...p });
+      
+      // Check if profile is incomplete and show notice
+      if (isProfileIncomplete(p)) {
+        setProfileNotice('Please complete your profile (name, surname, phone).');
+        // Only auto-switch to profile tab if it's really incomplete (missing name/surname)
+        if (!p.name || !p.surname) {
+          setActiveTab('profile');
+        }
+      } else {
+        setProfileNotice(null);
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      // Fallback to default profile
+      const defaultProfile = {
+        email: user?.email || '',
+        role: project.access?.role || 'User',
+        name: '',
+        surname: '',
+        society: '',
+        telephone: '',
+        avatarUrl: ''
+      };
+      setProfile(defaultProfile);
+      setEditedProfile({ ...defaultProfile });
+      setProfileNotice('Please complete your profile (name, surname, phone).');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !project) return;
+    loadProfile();
+    setIsEditingProfile(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, project]);
+
+  const handleProfileField = (field: keyof UserProfile, value: any) => {
+    setEditedProfile((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!project || !editedProfile) return;
+    setSaving(true);
+    setError(null);
+    try {
+      // simple phone validation
+      if (editedProfile.telephone && !/^\+?[0-9]{7,15}$/.test(editedProfile.telephone)) {
+        throw new Error('Please enter a valid telephone number with optional +country code');
+      }
+      const res = await fetch(`/api/projects/${project.id}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editedProfile.name || '',
+          surname: editedProfile.surname || '',
+          society: editedProfile.society || '',
+          telephone: editedProfile.telephone || '',
+          avatarUrl: editedProfile.avatarUrl || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save profile');
+      const savedProfile = {
+        ...data.profile,
+        email: user?.email || '',
+        role: project.access?.role || 'User'
+      };
+      setProfile(savedProfile);
+      setEditedProfile({ ...savedProfile });
+      setProfileNotice(null);
+      setIsEditingProfile(false);
+    } catch (e: any) {
+      setError(e.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelProfile = () => {
+    setEditedProfile({ ...profile });
+    setIsEditingProfile(false);
+    setError(null);
   };
 
   // moved below after all dependencies are declared
@@ -572,6 +696,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         <div className="px-5 pt-3">
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button onClick={() => setActiveTab("info")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "info" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Project Information</button>
+            <button onClick={() => setActiveTab("profile")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "profile" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Profile</button>
             {canManage && (
               <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Manage Access</button>
             )}
@@ -588,9 +713,116 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         {error && (
           <div className="mx-5 mt-2 px-3 py-2 bg-red-900/30 border border-red-700/40 rounded text-red-200 text-sm">{error}</div>
         )}
+        {profileNotice && (
+          <div className="mx-5 mt-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">{profileNotice}</div>
+        )}
 
         {/* Content */}
         <div className="p-5 space-y-6 flex-1 overflow-y-auto">
+          {activeTab === "profile" && (
+            <div className="space-y-4">
+              {profileLoading ? (
+                <div className="text-sm text-gray-400">Loading profile…</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-1">Name</label>
+                      <input 
+                        value={editedProfile.name || ""} 
+                        onChange={(e) => handleProfileField("name", e.target.value)} 
+                        disabled={!isEditingProfile} 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-1">Surname</label>
+                      <input 
+                        value={editedProfile.surname || ""} 
+                        onChange={(e) => handleProfileField("surname", e.target.value)} 
+                        disabled={!isEditingProfile} 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Email (read-only)</label>
+                      <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{profile.email || user?.email}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 mb-1">Role (read-only)</label>
+                      <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{displayRoleLabel}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-1">Society</label>
+                      <input 
+                        value={editedProfile.society || ""} 
+                        onChange={(e) => handleProfileField("society", e.target.value)} 
+                        disabled={!isEditingProfile} 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-300 mb-1">Telephone (+countrycode)</label>
+                      <input 
+                        value={editedProfile.telephone || ""} 
+                        onChange={(e) => handleProfileField("telephone", e.target.value)} 
+                        disabled={!isEditingProfile} 
+                        placeholder="+14151234567" 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm text-gray-300 mb-1">Avatar URL</label>
+                      <input 
+                        value={editedProfile.avatarUrl || ""} 
+                        onChange={(e) => handleProfileField("avatarUrl", e.target.value)} 
+                        disabled={!isEditingProfile} 
+                        placeholder="https://.../avatar.png" 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                      />
+                      {editedProfile.avatarUrl ? (
+                        <div className="mt-2 flex items-center gap-3">
+                          <img src={editedProfile.avatarUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover border border-gray-600" />
+                          <span className="text-xs text-gray-400">Preview</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  
+                  {/* Edit/Save/Cancel buttons */}
+                  <div className="flex justify-end gap-2">
+                    {!isEditingProfile ? (
+                      <button 
+                        onClick={() => setIsEditingProfile(true)} 
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        <span>Edit Profile</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={handleCancelProfile} 
+                          disabled={saving} 
+                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-600 text-white rounded-md"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          onClick={handleSaveProfile} 
+                          disabled={saving} 
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>{saving ? 'Saving...' : 'Save Profile'}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {activeTab === "info" && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
