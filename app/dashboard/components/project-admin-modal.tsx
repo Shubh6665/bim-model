@@ -97,13 +97,9 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       setProfile(p);
       setEditedProfile({ ...p });
       
-      // Check if profile is incomplete and show notice
+      // Check if profile is incomplete and show notice (non-intrusive: no auto-switch)
       if (isProfileIncomplete(p)) {
         setProfileNotice('Please complete your profile (name, surname, phone).');
-        // Only auto-switch to profile tab if it's really incomplete (missing name/surname)
-        if (!p.name || !p.surname) {
-          setActiveTab('profile');
-        }
       } else {
         setProfileNotice(null);
       }
@@ -713,8 +709,16 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         {error && (
           <div className="mx-5 mt-2 px-3 py-2 bg-red-900/30 border border-red-700/40 rounded text-red-200 text-sm">{error}</div>
         )}
-        {profileNotice && (
-          <div className="mx-5 mt-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm">{profileNotice}</div>
+        {activeTab === 'profile' && profileNotice && (
+          <div className="mx-5 mt-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm flex items-start justify-between gap-3">
+            <span>{profileNotice}</span>
+            <button
+              onClick={() => setProfileNotice(null)}
+              className="text-yellow-200/80 hover:text-yellow-100 text-xs underline"
+            >
+              Dismiss
+            </button>
+          </div>
         )}
 
         {/* Content */}
