@@ -32,12 +32,24 @@ function AcceptInviteContent() {
         if (res.status === 401 && json?.requiresAuth) {
           const invitedEmail = json?.invitedEmail as string | undefined;
           const callbackUrl = typeof window !== "undefined" ? window.location.href : `/invite/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`;
-          await signIn("google", {
-            callbackUrl,
-            // Hints Google to show the invited account
-            login_hint: invitedEmail,
-            prompt: "select_account",
-          } as any);
+          const lower = (invitedEmail || '').toLowerCase();
+          const isGmail = lower.endsWith('@gmail.com') || lower.endsWith('@googlemail.com');
+          if (isGmail) {
+            await signIn("google", {
+              callbackUrl,
+              login_hint: invitedEmail,
+              prompt: "select_account",
+            } as any);
+          } else if (invitedEmail) {
+            // Trigger Email/Magic Link sign-in for non-Google emails
+            await signIn("email", {
+              email: invitedEmail,
+              callbackUrl,
+            } as any);
+          } else {
+            // Fallback to generic login page
+            await signIn(undefined, { callbackUrl } as any);
+          }
           return;
         }
         // Wrong account signed in: sign out and prompt correct one
@@ -45,11 +57,22 @@ function AcceptInviteContent() {
           const invitedEmail = json?.invitedEmail as string | undefined;
           const callbackUrl = typeof window !== "undefined" ? window.location.href : `/invite/accept?token=${encodeURIComponent(token)}&projectId=${encodeURIComponent(projectId)}`;
           await signOut({ redirect: false });
-          await signIn("google", {
-            callbackUrl,
-            login_hint: invitedEmail,
-            prompt: "select_account",
-          } as any);
+          const lower = (invitedEmail || '').toLowerCase();
+          const isGmail = lower.endsWith('@gmail.com') || lower.endsWith('@googlemail.com');
+          if (isGmail) {
+            await signIn("google", {
+              callbackUrl,
+              login_hint: invitedEmail,
+              prompt: "select_account",
+            } as any);
+          } else if (invitedEmail) {
+            await signIn("email", {
+              email: invitedEmail,
+              callbackUrl,
+            } as any);
+          } else {
+            await signIn(undefined, { callbackUrl } as any);
+          }
           return;
         }
 

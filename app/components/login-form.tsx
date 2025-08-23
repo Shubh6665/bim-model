@@ -1,19 +1,62 @@
 "use client";
 import { useState } from "react";
 import { useAuth } from "@/app/hooks/use-auth";
+import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 export function LoginForm() {
   const { login, isLoading } = useAuth();
   const [clicked, setClicked] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const handleGoogleLogin = async () => {
     setClicked(true);
-    await login();
-    setClicked(false);
+    try {
+      await signIn("google", { callbackUrl });
+    } finally {
+      setClicked(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+    setEmailSent(null);
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+    try {
+      setEmailSending(true);
+      // Use redirect: false so we can show success message
+      const res = await signIn("email", {
+        email,
+        callbackUrl,
+        redirect: false,
+      });
+      if (res?.ok) {
+        setEmailSent(
+          `Magic link sent to ${email}. Check your inbox to complete sign-in.`
+        );
+      } else {
+        setEmailError(
+          res?.error || "Failed to send magic link. Please try again."
+        );
+      }
+    } catch (err: any) {
+      setEmailError(err?.message || "Unexpected error. Please try again.");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-0 flex flex-col items-center justify-center py-12 px-8 min-h-[480px]">
+    <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-0 flex flex-col items-center justify-center py-12 px-8 min-h-[540px]">
       {/* Logo */}
       <div className="mb-6 flex flex-col items-center">
         <span className="text-3xl font-bold text-black mb-2">Logo</span>
@@ -81,6 +124,76 @@ export function LoginForm() {
           "Sign in with Google"
         )}
       </button>
+
+      {/* Divider */}
+      <div className="relative w-full my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-200" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-white text-gray-500">or</span>
+        </div>
+      </div>
+
+      {/* Email Magic Link Form */}
+      <form onSubmit={handleEmailSignIn} className="w-full">
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          Email address
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+          className="mt-1 mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3"
+          required
+        />
+        {emailError && (
+          <div className="text-sm text-red-600 mb-2" role="alert">
+            {emailError}
+          </div>
+        )}
+        {emailSent && (
+          <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2 mb-2" role="status">
+            {emailSent}
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={emailSending}
+          className={`w-full flex items-center justify-center gap-2 h-11 bg-white text-black border border-gray-300 rounded-md font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 ${
+            emailSending ? "opacity-70 cursor-not-allowed" : "hover:bg-gray-50"
+          }`}
+        >
+          {emailSending ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-black"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              Sending magic link...
+            </>
+          ) : (
+            "Send magic link"
+          )}
+        </button>
+      </form>
       {/* Terms and Privacy */}
       <div className="mt-8 text-xs text-gray-600 text-center max-w-xs">
         <span>

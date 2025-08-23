@@ -1,5 +1,8 @@
 import GoogleProvider from "next-auth/providers/google";
+import EmailProvider from "next-auth/providers/email";
 import type { NextAuthOptions } from "next-auth";
+import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import clientPromise from "@/app/lib/mongodb";
 import { getDb } from "@/app/services/mongodb";
 import { serverConfig } from "@/app/config";
 
@@ -9,7 +12,7 @@ const getBaseUrl = () => {
     return serverConfig.NEXTAUTH_URL;
   }
   if (process.env.NODE_ENV === "production") {
-    return "https://bimmodeling.vercel.app";
+    return "https://bim-model.vercel.app";
   }
   return "http://localhost:3000";
 };
@@ -17,23 +20,37 @@ const getBaseUrl = () => {
 const NEXTAUTH_BASE_URL = getBaseUrl();
 
 export const authOptions: NextAuthOptions = {
+  adapter: MongoDBAdapter(clientPromise as any),
   providers: [
     GoogleProvider({
       clientId: serverConfig.GOOGLE_CLIENT_ID!,
       clientSecret: serverConfig.GOOGLE_CLIENT_SECRET!,
     }),
+    // Email/Magic Link provider to support any email domain
+    EmailProvider({
+      server: {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      },
+      from: process.env.MAIL_FROM || "noreply@example.com",
+      maxAge: 24 * 60 * 60, // tokens valid for 24h
+    }),
   ],
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account }) {
+      // For OAuth (Google), keep access token if present
       if (account && user) {
-        token.accessToken = account.access_token;
-        token.user = user;
-        // Store user in MongoDB on first login (non-blocking)
+        if (account.access_token) token.accessToken = account.access_token as any;
+        token.user = { ...(token.user as any), ...user } as any;
+        // Best-effort user sync for legacy features that read from our custom users collection
         try {
           const db = await getDb();
-          const existing = await db.collection('users').findOne({ email: user.email });
+          const existing = await db.collection('users').findOne({ email: (user as any)?.email });
           if (!existing) {
-            // Store all Google user data
             await db.collection('users').insertOne({
               ...user,
               provider: account.provider,
@@ -42,20 +59,17 @@ export const authOptions: NextAuthOptions = {
               createdAt: new Date(),
             });
           } else {
-            // Optionally update user info on each login
             await db.collection('users').updateOne(
-              { email: user.email },
+              { email: (user as any)?.email },
               { $set: {
                   ...user,
                   provider: account.provider,
                   providerAccountId: account.providerAccountId,
                   updatedAt: new Date(),
-                }
-              }
+                }}
             );
           }
         } catch (e) {
-          // Log but don't block login - just continue
           console.error("Failed to sync user to MongoDB:", e);
         }
       }
@@ -75,7 +89,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/auth/login',
+    signIn: '/',
     error: '/auth/error',
   },
   session: {

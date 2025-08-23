@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
 
   if (protectedRoutes.some((route) => pathname.startsWith(route))) {
     if (!token) {
-      const loginUrl = new URL("/auth/login", request.url);
+      const loginUrl = new URL("/", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
