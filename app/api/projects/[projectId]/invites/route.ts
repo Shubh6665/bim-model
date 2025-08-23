@@ -80,6 +80,17 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
       return NextResponse.json({ error: 'Invite does not belong to this project' }, { status: 404 });
     }
 
+    // For Project Admins, restrict editing to invites they created and never their own
+    const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+    if (!isOwner) {
+      const isSelfInvite = String(existing?.invitee?.email || '').toLowerCase() === email.toLowerCase();
+      const createdBySelf = String(existing?.inviterUserId || '') === String(user._id);
+      if (isSelfInvite || !createdBySelf) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
     // Use updateOne and then findOne to ensure we return the updated document reliably.
     const updateResult = await db.collection('invites').updateOne({ _id: existing._id }, { $set: update });
 
@@ -117,9 +128,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
     const allowed = await authorizeInviteManager(db, projectId, user, email);
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+    // Determine scope: PlatformOwner/Admin see all; Project Admins see only invites they created (and never their own)
+    const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+
+    const baseFilter: any = { projectId: new ObjectId(projectId) };
+    const listFilter: any = isOwner
+      ? baseFilter
+      : { ...baseFilter, inviterUserId: user._id, 'invitee.email': { $ne: email } };
+
     const invites = await db
       .collection('invites')
-      .find({ projectId: new ObjectId(projectId) })
+      .find(listFilter)
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -163,6 +183,23 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ proj
         { $or: [ { projectId: new ObjectId(projectId) }, { projectId } ] },
       ],
     };
+    // Fetch the invite to enforce fine-grained rules for Project Admins
+    const idOnlyFilter: any = { $or: [ { _id: new ObjectId(inviteId) }, { _id: inviteId } ] };
+    const existing = await db.collection('invites').findOne(idOnlyFilter);
+    if (!existing) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
+
+    // Determine if requester is PlatformOwner/Admin of company
+    const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+    if (!isOwner) {
+      // Project Admin: may not revoke their own invite and may only act on invites they created
+      const isSelfInvite = String(existing?.invitee?.email || '').toLowerCase() === email.toLowerCase();
+      const createdBySelf = String(existing?.inviterUserId || '') === String(user._id);
+      if (isSelfInvite || !createdBySelf) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
     let res = await db.collection('invites').deleteOne(deleteFilter);
     if (res.deletedCount === 0) {
       // Fallback: match by _id only

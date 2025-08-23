@@ -58,6 +58,8 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     setEdited((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
+  // moved below after all dependencies are declared
+
   const handleSaveInfo = async () => {
     if (!edited || !project) return;
     setSaving(true);
@@ -132,6 +134,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const isAdministrator = effectiveRole === 'Administrator';
   const isProjectAdmin = effectiveRole === 'ProjectAdmin' || effectiveRole === 'Project Admin';
   const isUser = effectiveRole === 'User' || (!isPlatformOwner && !isAdministrator && !isProjectAdmin);
+  const isOwnerScope = isPlatformOwner || isAdministrator;
   
   // RBAC Permissions according to requirements:
   // Create Project: Platform Owner, Administrator, Project Administrator
@@ -163,6 +166,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     if (typeof raw?.toString === 'function') return raw.toString();
     return '';
   };
+
+  // Invites list to display: owners/admins see all; project admins don't see their own invite row
+  const displayInvites = useMemo(() => {
+    if (isOwnerScope) return invitesList;
+    const me = String(user?.email || '').toLowerCase();
+    return invitesList.filter((inv) => String(inv?.invitee?.email || '').toLowerCase() !== me);
+  }, [invitesList, isOwnerScope, user?.email]);
 
   const loadInvites = async () => {
     if (!project) return;
@@ -752,7 +762,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
                 {invitesLoading ? (
                   <div className="text-sm text-gray-400">Loading invites…</div>
-                ) : invitesList.length === 0 ? (
+                ) : displayInvites.length === 0 ? (
                   <div className="text-sm text-gray-400">No invites yet.</div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -768,7 +778,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                         </tr>
                       </thead>
                       <tbody>
-                        {invitesList.map((inv) => {
+                        {displayInvites.map((inv) => {
                           const id = getInviteId(inv);
                           const pkgs: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
                           const isAccepted = inv.status === 'accepted';

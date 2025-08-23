@@ -449,6 +449,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         lng: saveData.project.location?.lng,
         models: saveData.project.models || [],
         description: saveData.project.description || "",
+        access: saveData.project.access || undefined,
       });
       
     } catch (err: any) {

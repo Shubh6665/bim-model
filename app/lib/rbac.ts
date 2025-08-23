@@ -117,7 +117,7 @@ export async function canManageAccess(db: any, project: any, email: string, user
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
   if (isApprovedAdministratorForCompany(user, project.company)) return true;
-  // ProjectAdmin within this project can manage access
+  // ProjectAdmin within this project can manage access (except appointing other PAs)
   const isPA = await isProjectAdmin(db, String(project._id), email);
   return !!isPA;
 }
