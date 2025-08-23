@@ -1,0 +1,1337 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Folder, 
+  FileText, 
+  Upload, 
+  Download, 
+  Share, 
+  Mail, 
+  Archive, 
+  MoreVertical, 
+  ChevronDown, 
+  ChevronRight, 
+  Plus, 
+  Check, 
+  X,
+  Trash2,
+  Edit3,
+  Link,
+  Eye,
+  EyeOff,
+  FileImage,
+  FileSpreadsheet,
+  File,
+  UserPlus,
+  UserMinus,
+  Edit
+} from 'lucide-react';
+
+interface DatabaseFile {
+  id: string;
+  name: string;
+  type: 'word' | 'pdf' | 'excel' | 'dwg';
+  size: string;
+  modified: string;
+  folderId?: string;
+}
+
+interface DatabaseFolder {
+  id: string;
+  name: string;
+  parentId?: string;
+  children: (DatabaseFolder | DatabaseFile)[];
+  isExpanded?: boolean;
+}
+
+interface DatabasePanelProps {
+  projectId?: string;
+}
+
+export function DatabasePanel({ projectId }: DatabasePanelProps) {
+  const [activeCommand, setActiveCommand] = useState<'manage' | 'new'>('manage');
+  const [folders, setFolders] = useState<DatabaseFolder[]>([]);
+  const [selectedItem, setSelectedItem] = useState<DatabaseFolder | DatabaseFile | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    item: DatabaseFolder | DatabaseFile;
+    type: 'folder' | 'file';
+  } | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [showRenameModal, setShowRenameModal] = useState<{item: DatabaseFolder | DatabaseFile, newName: string} | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState<{item: DatabaseFolder | DatabaseFile, email: string} | null>(null);
+  const [showUserAssignModal, setShowUserAssignModal] = useState<{item: DatabaseFolder | DatabaseFile, email: string, mode?: 'assign' | 'remove'} | null>(null);
+  const [moveState, setMoveState] = useState<{ item: DatabaseFolder | DatabaseFile, targetFolderId?: string | null } | null>(null);
+  const [showFileUpload, setShowFileUpload] = useState<string | null>(null);
+  const [showShareLinkModal, setShowShareLinkModal] = useState<{item: DatabaseFolder | DatabaseFile, shareUrl: string} | null>(null);
+  const [showSendZipModal, setShowSendZipModal] = useState<{ 
+    item: DatabaseFolder | DatabaseFile;
+    recipients: string[];
+    subject: string;
+    message: string;
+  } | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [inlineRename, setInlineRename] = useState<{itemId: string, newName: string} | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [creatingSubfolder, setCreatingSubfolder] = useState<{parentId: string, name: string} | null>(null);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load folders and files from API
+  useEffect(() => {
+    if (projectId) {
+      loadFoldersAndFiles();
+    }
+  }, [projectId]);
+
+  const loadFoldersAndFiles = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/folders`);
+      if (response.ok) {
+        const data = await response.json();
+        const organizedFolders = organizeFoldersAndFiles(data.folders, data.files);
+        setFolders(organizedFolders);
+      }
+    } catch (error) {
+      console.error('Error loading folders and files:', error);
+    }
+  };
+
+  const organizeFoldersAndFiles = (folders: any[], files: any[]): DatabaseFolder[] => {
+    const folderMap = new Map<string, DatabaseFolder>();
+    const rootFolders: DatabaseFolder[] = [];
+
+    // Create folder objects
+    folders.forEach(folder => {
+      const dbFolder: DatabaseFolder = {
+        id: folder._id,
+        name: folder.name,
+        parentId: folder.parentId,
+        children: [],
+        isExpanded: false
+      };
+      folderMap.set(folder._id, dbFolder);
+    });
+
+    // Add files to folders
+    files.forEach(file => {
+      const dbFile: DatabaseFile = {
+        id: file._id,
+        name: file.name,
+        type: file.type,
+        size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+        modified: new Date(file.updatedAt).toLocaleDateString(),
+        folderId: file.folderId
+      };
+
+      if (file.folderId && folderMap.has(file.folderId)) {
+        folderMap.get(file.folderId)!.children.push(dbFile);
+      }
+    });
+
+    // Build folder hierarchy
+    folderMap.forEach(folder => {
+      if (folder.parentId && folderMap.has(folder.parentId)) {
+        folderMap.get(folder.parentId)!.children.push(folder);
+      } else {
+        rootFolders.push(folder);
+      }
+    });
+
+    return rootFolders;
+  };
+
+  const handleNewFolder = async () => {
+    if (!newFolderName.trim() || !projectId) return;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          parentId: null
+        })
+      });
+
+      if (response.ok) {
+        await loadFoldersAndFiles();
+        setNewFolderName('');
+        setActiveCommand('manage');
+      }
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, item: DatabaseFolder | DatabaseFile) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const menuWidth = 200;
+    const menuHeight = 300;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - 10;
+    }
+
+    setContextMenu({
+      x: x,
+      y: y,
+      item,
+      type: 'type' in item ? 'file' : 'folder'
+    });
+  };
+
+  const closeContextMenu = () => setContextMenu(null);
+
+  const handleFileUpload = (folderId: string) => {
+    console.log(`[Upload] Triggering file upload for folderId: ${folderId}`);
+    setShowFileUpload(folderId);
+    if (fileInputRef.current) {
+      console.log('[Upload] File input ref found, clicking.');
+      fileInputRef.current.click();
+    } else {
+      console.error('[Upload] File input ref not found!');
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    console.log('[Upload] handleFileSelected triggered.');
+
+    if (!files || files.length === 0 || !projectId || !showFileUpload) {
+      console.log('[Upload] Pre-condition failed:', { hasFiles: !!files, projectId, showFileUpload });
+      return;
+    }
+
+    const file = files[0];
+    console.log(`[Upload] File selected: ${file.name}, Size: ${file.size}`);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folderId', showFileUpload);
+
+    try {
+      console.log('[Upload] Sending file to server...');
+      const response = await fetch(`/api/projects/${projectId}/files`, {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log(`[Upload] Server response status: ${response.status}`);
+      if (response.ok) {
+        await loadFoldersAndFiles();
+        showNotification('File uploaded successfully!', 'success');
+      } else {
+        const errorData = await response.json();
+        console.error('[Upload] Server error:', errorData);
+        showNotification(errorData.error || 'Failed to upload file', 'error');
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      showNotification('Error uploading file', 'error');
+    } finally {
+      setShowFileUpload(null);
+      // Reset file input value to allow re-uploading the same file
+      if (e.target) {
+        e.target.value = '';
+      }
+      console.log('[Upload] File input value reset.');
+    }
+  };
+
+  const startInlineRename = (item: DatabaseFolder | DatabaseFile) => {
+    setInlineRename({ itemId: item.id, newName: item.name });
+    setContextMenu(null);
+  };
+
+  const saveInlineRename = async () => {
+    if (!inlineRename || !projectId) return;
+    
+    const item = findItemById(inlineRename.itemId);
+    if (!item) return;
+    
+    const isFile = 'type' in item;
+    
+    try {
+      const endpoint = isFile ? 'files' : 'folders';
+      const body = isFile 
+        ? { fileId: item.id, name: inlineRename.newName }
+        : { folderId: item.id, name: inlineRename.newName };
+
+      const response = await fetch(`/api/projects/${projectId}/${endpoint}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        await loadFoldersAndFiles();
+        setInlineRename(null);
+      }
+    } catch (error) {
+      console.error('Error renaming item:', error);
+    }
+  };
+
+  const cancelInlineRename = () => {
+    setInlineRename(null);
+  };
+
+  const handleFolderClick = (folderId: string) => {
+    setSelectedFolderId(folderId);
+    setSelectedItem(findItemById(folderId));
+  };
+
+  const handleOutsideClick = () => {
+    setSelectedFolderId(null);
+    setSelectedItem(null);
+  };
+
+  const startCreateSubfolder = (parentId: string) => {
+    setCreatingSubfolder({ parentId, name: '' });
+    setContextMenu(null);
+  };
+
+  const saveSubfolder = async () => {
+    if (!creatingSubfolder || !projectId || !creatingSubfolder.name.trim()) return;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: creatingSubfolder.name.trim(), 
+          parentId: creatingSubfolder.parentId 
+        })
+      });
+
+      if (response.ok) {
+        await loadFoldersAndFiles();
+        setCreatingSubfolder(null);
+      }
+    } catch (error) {
+      console.error('Error creating subfolder:', error);
+    }
+  };
+
+  const cancelCreateSubfolder = () => {
+    setCreatingSubfolder(null);
+  };
+
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const getFileIcon = (file: DatabaseFile) => {
+    switch (file.type) {
+      case 'word':
+        return <FileText className="w-4 h-4 text-blue-400" />;
+      case 'pdf':
+        return <File className="w-4 h-4 text-red-400" />;
+      case 'excel':
+        return <FileSpreadsheet className="w-4 h-4 text-green-400" />;
+      case 'dwg':
+        return <FileImage className="w-4 h-4 text-purple-400" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const handleSendZip = async () => {
+    if (!showSendZipModal || !projectId) return;
+    
+    const { item, recipients, subject, message } = showSendZipModal;
+    const isFile = 'type' in item;
+    
+    if (!recipients || recipients.length === 0) {
+      showNotification('Please add at least one recipient', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: item.id,
+          itemType: isFile ? 'file' : 'folder',
+          recipients,
+          subject: subject || `Shared ${isFile ? 'file' : 'folder'}: ${item.name}`,
+          message: message || `Please find the attached ${isFile ? 'file' : 'folder'}.`,
+          shareType: 'zip'
+        })
+      });
+
+      if (response.ok) {
+        setShowSendZipModal(null);
+        showNotification(`ZIP sent successfully to ${recipients.length} recipient(s)!`, 'success');
+      } else {
+        const errorData = await response.json();
+        showNotification(errorData.error || 'Failed to send ZIP', 'error');
+      }
+    } catch (error) {
+      console.error('Error sending ZIP:', error);
+      showNotification('Error sending ZIP', 'error');
+    }
+  };
+
+  const findItemById = (id: string): DatabaseFolder | DatabaseFile | null => {
+    const findInFolder = (folder: DatabaseFolder): DatabaseFolder | DatabaseFile | null => {
+      if (folder.id === id) return folder;
+      for (const child of folder.children) {
+        if (child.id === id) return child;
+        if ('children' in child) {
+          const found = findInFolder(child);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    for (const folder of folders) {
+      const found = findInFolder(folder);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const handleRename = async () => {
+    if (!showRenameModal || !projectId) return;
+    
+    const { item, newName } = showRenameModal;
+    const isFile = 'type' in item;
+    
+    try {
+      const endpoint = isFile ? 'files' : 'folders';
+      const body = isFile 
+        ? { fileId: item.id, name: newName }
+        : { folderId: item.id, name: newName };
+
+      const response = await fetch(`/api/projects/${projectId}/${endpoint}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        await loadFoldersAndFiles();
+        setShowRenameModal(null);
+      }
+    } catch (error) {
+      console.error('Error renaming:', error);
+    }
+  };
+
+  const handleDelete = async (item: DatabaseFolder | DatabaseFile) => {
+    if (!projectId) return;
+    
+    const isFile = 'type' in item;
+    const endpoint = isFile ? 'files' : 'folders';
+    const param = isFile ? `fileId=${item.id}` : `folderId=${item.id}`;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/${endpoint}?${param}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        await loadFoldersAndFiles();
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!showEmailModal || !projectId) return;
+    
+    const { item, email } = showEmailModal;
+    const isFile = 'type' in item;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: isFile ? 'file' : 'folder',
+          itemId: item.id,
+          action: 'email',
+          email: email
+        })
+      });
+
+      if (response.ok) {
+        setShowEmailModal(null);
+        showNotification('Email sent successfully!', 'success');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
+  };
+
+  const handleCreateShareLink = async (item: DatabaseFolder | DatabaseFile) => {
+    if (!projectId) return;
+    
+    const isFile = 'type' in item;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: isFile ? 'file' : 'folder',
+          itemId: item.id,
+          action: 'link'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setShowShareLinkModal({ item, shareUrl: data.shareUrl });
+      }
+    } catch (error) {
+      console.error('Error creating share link:', error);
+    }
+  };
+
+  const handleCopyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+    }
+  };
+
+  const handleAssignUser = async () => {
+    if (!showUserAssignModal || !projectId) return;
+    
+    const { item, email, mode } = showUserAssignModal;
+    const isFile = 'type' in item;
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files/assign`, {
+        method: mode === 'remove' ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: isFile ? 'file' : 'folder',
+          itemId: item.id,
+          email: email
+        })
+      });
+
+      if (response.ok) {
+        setShowUserAssignModal(null);
+        showNotification(`User ${mode === 'remove' ? 'removed' : 'assigned'} successfully!`, 'success');
+      }
+    } catch (error) {
+      console.error('Error with user assignment:', error);
+    }
+  };
+
+  const handleDownloadFile = (file: DatabaseFile) => {
+    if (!projectId) return;
+    window.location.href = `/api/projects/${projectId}/files/download?fileId=${file.id}`;
+  };
+
+  const toggleFolderExpansion = (folderId: string) => {
+    const updateFolderRecursive = (folders: DatabaseFolder[]): DatabaseFolder[] => {
+      return folders.map(folder => {
+        if (folder.id === folderId) {
+          return { ...folder, isExpanded: !folder.isExpanded };
+        }
+        if (folder.children) {
+          const updatedChildren = updateFolderRecursive(folder.children.filter(child => !('type' in child)) as DatabaseFolder[]);
+          const files = folder.children.filter(child => 'type' in child);
+          return { ...folder, children: [...updatedChildren, ...files] };
+        }
+        return folder;
+      });
+    };
+    
+    setFolders(prev => updateFolderRecursive(prev));
+  };
+
+  const handleMoveConfirm = async () => {
+    if (!projectId || !moveState) return;
+    const { item, targetFolderId } = moveState;
+    const isFile = 'type' in item;
+    try {
+      if (isFile) {
+        const r = await fetch(`/api/projects/${projectId}/files`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: item.id, moveToFolderId: targetFolderId })
+        });
+        if (!r.ok) throw new Error('Move file failed');
+      } else {
+        const r = await fetch(`/api/projects/${projectId}/folders`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderId: item.id, parentId: targetFolderId || null })
+        });
+        if (!r.ok) throw new Error('Move folder failed');
+      }
+      await loadFoldersAndFiles();
+      setMoveState(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const renderMoveFolderPicker = (folders: DatabaseFolder[], level = 0): React.ReactNode[] => {
+    return folders.map(folder => {
+      return (
+        <div key={folder.id} style={{ marginLeft: `${level * 1.25}rem` }}>
+          <button 
+            className={`w-full text-left px-2 py-1 rounded ${moveState?.targetFolderId === folder.id ? 'bg-blue-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+            onClick={() => setMoveState(prev => prev ? { ...prev, targetFolderId: folder.id } : null)}
+          >
+            <span className="inline-flex items-center gap-2 flex-1">
+              <Folder className="w-4 h-4 text-yellow-400" />
+              {inlineRename && inlineRename.itemId === folder.id ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={inlineRename.newName}
+                    onChange={(e) => setInlineRename(prev => prev ? { ...prev, newName: e.target.value } : null)}
+                    className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveInlineRename();
+                      if (e.key === 'Escape') cancelInlineRename();
+                    }}
+                  />
+                  <button
+                    onClick={saveInlineRename}
+                    className="p-1 text-green-400 hover:text-green-300"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={cancelInlineRename}
+                    className="p-1 text-red-400 hover:text-red-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                folder.name
+              )}
+            </span>
+          </button>
+          {'children' in folder && folder.children && folder.children.length > 0 && (
+            <div>
+              {renderMoveFolderPicker(folder.children.filter(child => !('type' in child)) as DatabaseFolder[], level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  const renderFolderTree = (items: (DatabaseFolder | DatabaseFile)[], level = 0): React.ReactNode => {
+    return items.map((item) => {
+      const isFile = 'type' in item;
+      const isFolder = !isFile;
+      
+      return (
+        <div key={item.id} style={{ marginLeft: `${Math.min(level * 0.75, 3)}rem` }}>
+          <div 
+            key={item.id}
+            className={`group flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer ${
+              selectedFolderId === item.id ? 'bg-blue-700' : selectedItem?.id === item.id ? 'bg-gray-700' : ''
+            }`}
+            onClick={() => {
+              if (isFolder) {
+                handleFolderClick(item.id);
+                const folder = item as DatabaseFolder;
+                toggleFolderExpansion(folder.id);
+              } else {
+                setSelectedItem(item);
+              }
+            }}
+            onContextMenu={(e) => handleContextMenu(e, item)}
+          >
+            {isFolder && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const folder = item as DatabaseFolder;
+                  toggleFolderExpansion(folder.id);
+                }}
+                className="p-0.5 hover:bg-gray-600 rounded"
+              >
+                {(item as DatabaseFolder).isExpanded ? (
+                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 text-gray-400" />
+                )}
+              </button>
+            )}
+            
+            {isFile ? (
+              getFileIcon(item as DatabaseFile)
+            ) : (
+              <Folder className="w-4 h-4 text-yellow-400" />
+            )}
+            
+            {inlineRename && inlineRename.itemId === item.id ? (
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  type="text"
+                  value={inlineRename.newName}
+                  onChange={(e) => setInlineRename(prev => prev ? { ...prev, newName: e.target.value } : null)}
+                  className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveInlineRename();
+                    if (e.key === 'Escape') cancelInlineRename();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    saveInlineRename();
+                  }}
+                  className="p-1 text-green-400 hover:text-green-300"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelInlineRename();
+                  }}
+                  className="p-1 text-red-400 hover:text-red-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <span className="text-gray-200 text-sm flex-1 truncate" title={item.name}>{item.name}</span>
+            )}
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleContextMenu(e, item);
+              }}
+              className="p-1 hover:bg-gray-600 rounded opacity-0 group-hover:opacity-100"
+            >
+              <MoreVertical className="w-3 h-3 text-gray-400" />
+            </button>
+          </div>
+          
+          {isFolder && (item as DatabaseFolder).isExpanded && (
+            <div className="mt-1">
+              {/* Show subfolder creation input if creating subfolder for this folder */}
+              {creatingSubfolder && creatingSubfolder.parentId === item.id && (
+                <div 
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-600 rounded mx-3 mb-2"
+                  style={{ marginLeft: `${Math.min((level + 1) * 0.75, 3)}rem` }}
+                >
+                  <Folder className="w-4 h-4 text-yellow-400" />
+                  <input
+                    type="text"
+                    value={creatingSubfolder.name}
+                    onChange={(e) => setCreatingSubfolder(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    placeholder="Enter subfolder name"
+                    className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveSubfolder();
+                      if (e.key === 'Escape') cancelCreateSubfolder();
+                    }}
+                  />
+                  <button
+                    onClick={saveSubfolder}
+                    className="p-1 text-green-400 hover:text-green-300"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={cancelCreateSubfolder}
+                    className="p-1 text-red-400 hover:text-red-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              {(item as DatabaseFolder).children.length > 0 && (
+                renderFolderTree((item as DatabaseFolder).children, level + 1)
+              )}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  return (
+    <div 
+      className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full"
+      onClick={handleOutsideClick}
+    >
+      {/* Header Commands */}
+      <div className="p-4 border-b border-gray-800">
+        <h2 className="text-lg font-semibold text-white mb-2 text-center">Database</h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveCommand('manage')}
+            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors ${
+              activeCommand === 'manage'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+            }`}
+          >
+            <Folder className="w-4 h-4 mr-2" />
+            Manage
+          </button>
+          <button
+            onClick={() => setActiveCommand('new')}
+            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors ${
+              activeCommand === 'new'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+            }`}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Folder
+          </button>
+        </div>
+      </div>
+
+      {/* Folder Tree */}
+      {activeCommand === 'manage' && (
+        <div className="flex-1 p-4 overflow-auto relative">
+          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
+            Folders & Files
+          </h3>
+          {moveState ? (
+            <div className="space-y-4">
+              <div className="bg-gray-800 p-3 rounded border border-gray-700">
+                <h4 className="text-sm font-medium text-white mb-2">Move '{moveState.item.name}' to:</h4>
+                <div className="max-h-48 overflow-auto border border-gray-600 rounded p-2 bg-gray-900">
+                  <button 
+                    className={`w-full text-left px-2 py-1 rounded mb-1 ${!moveState.targetFolderId ? 'bg-blue-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+                    onClick={() => setMoveState(prev => prev ? { ...prev, targetFolderId: null } : null)}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Folder className="w-4 h-4 text-yellow-400" />
+                      Root Folder
+                    </span>
+                  </button>
+                  {renderMoveFolderPicker(folders)}
+                </div>
+                <div className="flex justify-end gap-2 mt-3">
+                  <button onClick={() => setMoveState(null)} className="px-3 py-1 text-gray-300 hover:text-white text-sm">Cancel</button>
+                  <button onClick={handleMoveConfirm} className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Move</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            renderFolderTree(folders)
+          )}
+        </div>
+      )}
+
+      {/* New Folder Creation */}
+      {activeCommand === 'new' && (
+        <div className="flex-1 p-4 overflow-auto relative">
+          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
+            Create New Folder
+          </h3>
+          <div className="mb-3">
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="New folder name"
+              className="w-full h-8 px-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNewFolder();
+                if (e.key === 'Escape') { setNewFolderName(''); setActiveCommand('manage'); }
+              }}
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <button onClick={handleNewFolder} className="px-3 h-8 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm">Add</button>
+              <button onClick={() => { setNewFolderName(''); setActiveCommand('manage'); }} className="px-3 h-8 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 text-sm">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
+          <div
+            className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            {contextMenu.type === 'folder' ? (
+              // Folder context menu
+              <>
+                <button
+                  onClick={() => {
+                    handleFileUpload(contextMenu.item.id);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload File
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSendZipModal({ 
+                      item: contextMenu.item,
+                      recipients: [],
+                      subject: '',
+                      message: ''
+                    });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Folder
+                </button>
+                <button
+                  onClick={() => {
+                    startInlineRename(contextMenu.item);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Rename Folder
+                </button>
+                <button
+                  onClick={() => { setMoveState({ item: contextMenu.item }); closeContextMenu(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center">
+                  <Folder className="w-4 h-4 mr-2" />
+                  Move Folder
+                </button>
+                <button
+                  onClick={() => {
+                    handleCreateShareLink(contextMenu.item);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Share className="w-4 h-4 mr-2" />
+                  Create Share Link
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserAssignModal({ item: contextMenu.item, email: '' });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Assign to User
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserAssignModal({ item: contextMenu.item, email: '', mode: 'remove' });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <UserMinus className="w-4 h-4 mr-2" />
+                  Remove User Access
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSendZipModal({ 
+                      item: contextMenu.item,
+                      recipients: [],
+                      subject: '',
+                      message: ''
+                    });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Send as ZIP
+                </button>
+                <button
+                  onClick={() => {
+                    handleDelete(contextMenu.item);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Folder
+                </button>
+                <button
+                  onClick={() => {
+                    startCreateSubfolder(contextMenu.item.id);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Subfolder
+                </button>
+              </>
+            ) : (
+              // File context menu
+              <>
+                <button
+                  onClick={() => { handleDownloadFile(contextMenu.item as DatabaseFile); closeContextMenu(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download File
+                </button>
+                <button
+                  onClick={() => {
+                    startInlineRename(contextMenu.item);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Rename File
+                </button>
+                <button
+                  onClick={() => { setMoveState({ item: contextMenu.item }); closeContextMenu(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Move File
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEmailModal({ item: contextMenu.item, email: '' });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send via Email
+                </button>
+                <button
+                  onClick={() => { handleCreateShareLink(contextMenu.item); closeContextMenu(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Share className="w-4 h-4 mr-2" />
+                  Create Share Link
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserAssignModal({ item: contextMenu.item, email: '' });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Assign to User
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserAssignModal({ item: contextMenu.item, email: '', mode: 'remove' });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <UserMinus className="w-4 h-4 mr-2" />
+                  Remove User Access
+                </button>
+                <button
+                  onClick={() => {
+                    handleDelete(contextMenu.item);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete File
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Rename Modal */}
+      {showRenameModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold text-white mb-4">Rename {'type' in showRenameModal.item ? 'File' : 'Folder'}</h3>
+            <input
+              type="text"
+              value={showRenameModal.newName}
+              onChange={(e) => setShowRenameModal(prev => prev ? { ...prev, newName: e.target.value } : null)}
+              className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowRenameModal(null)} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
+              <button onClick={handleRename} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Rename</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-600 rounded-lg">
+                <Mail className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Send via Email</h3>
+            </div>
+            
+            <p className="text-gray-300 text-sm mb-4">
+              Send "{showEmailModal.item.name}" via email
+            </p>
+            
+            <input
+              type="email"
+              value={showEmailModal.email}
+              onChange={(e) => setShowEmailModal(prev => prev ? { ...prev, email: e.target.value } : null)}
+              placeholder="Enter recipient email"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoFocus
+            />
+            
+            <div className="flex justify-end gap-2 mt-6">
+              <button 
+                onClick={() => setShowEmailModal(null)} 
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSendEmail} 
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Assignment Modal */}
+      {showUserAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              {showUserAssignModal.mode === 'remove' ? 'Remove User Access' : 'Assign to User'}
+            </h3>
+            <input
+              type="email"
+              value={showUserAssignModal.email}
+              onChange={(e) => setShowUserAssignModal(prev => prev ? { ...prev, email: e.target.value } : null)}
+              placeholder="Enter user email"
+              className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowUserAssignModal(null)} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
+              <button onClick={handleAssignUser} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
+                {showUserAssignModal.mode === 'remove' ? 'Remove' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Link Modal */}
+      {showShareLinkModal && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-600 rounded-lg">
+                <Share className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Share Link Created</h3>
+            </div>
+            
+            <p className="text-gray-300 text-sm mb-4">
+              Share this link to give others access to "{showShareLinkModal.item.name}"
+            </p>
+            
+            <div className="bg-gray-900 p-3 rounded-lg border border-gray-600 mb-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={showShareLinkModal.shareUrl}
+                  readOnly
+                  className="flex-1 bg-transparent text-gray-300 text-sm outline-none"
+                />
+                <button
+                  onClick={() => handleCopyLink(showShareLinkModal.shareUrl)}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    copySuccess 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {copySuccess ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button 
+                onClick={() => setShowShareLinkModal(null)} 
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send as ZIP Modal */}
+      {showSendZipModal && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-600 rounded-lg">
+                <Mail className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Send as ZIP</h3>
+            </div>
+            
+            <p className="text-gray-300 text-sm mb-4">
+              Send "{showSendZipModal.item.name}" as a ZIP file via email
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Recipients</label>
+                <div className="space-y-2">
+                  {showSendZipModal.recipients.map((email, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => {
+                          const newRecipients = [...showSendZipModal.recipients];
+                          newRecipients[index] = e.target.value;
+                          setShowSendZipModal(prev => prev ? { ...prev, recipients: newRecipients } : null);
+                        }}
+                        className="flex-1 p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                        placeholder="Enter email address"
+                      />
+                      <button
+                        onClick={() => {
+                          const newRecipients = showSendZipModal.recipients.filter((_, i) => i !== index);
+                          setShowSendZipModal(prev => prev ? { ...prev, recipients: newRecipients } : null);
+                        }}
+                        className="p-2 text-red-400 hover:text-red-300"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setShowSendZipModal(prev => prev ? { 
+                        ...prev, 
+                        recipients: [...prev.recipients, ''] 
+                      } : null);
+                    }}
+                    className="w-full p-2 border-2 border-dashed border-gray-600 rounded text-gray-400 hover:border-gray-500 hover:text-gray-300"
+                  >
+                    + Add Recipient
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Subject</label>
+                <input
+                  type="text"
+                  value={showSendZipModal.subject}
+                  onChange={(e) => setShowSendZipModal(prev => prev ? { ...prev, subject: e.target.value } : null)}
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                  placeholder="Email subject"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                <textarea
+                  value={showSendZipModal.message}
+                  onChange={(e) => setShowSendZipModal(prev => prev ? { ...prev, message: e.target.value } : null)}
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 h-20 resize-none"
+                  placeholder="Optional message"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={() => setShowSendZipModal(null)} 
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSendZip} 
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                Send ZIP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+          notification.type === 'success' 
+            ? 'bg-green-600 text-white' 
+            : 'bg-red-600 text-white'
+        }`}>
+          <div className="flex items-center gap-2">
+            {notification.type === 'success' ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <X className="w-5 h-5" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        accept=".doc,.docx,.pdf,.xls,.xlsx,.dwg"
+        onChange={handleFileSelected}
+      />
+    </div>
+  );
+}
