@@ -253,10 +253,11 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     try {
       const inv = invitesList.find((i) => getInviteId(i) === String(inviteId));
       const packages = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
+      const role = String(inv?.invitee?.role || 'General');
       const res = await fetch(`/api/projects/${project.id}/invites`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteId, packages }),
+        body: JSON.stringify({ inviteId, packages, role }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update packages');
@@ -761,55 +762,117 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   <button onClick={loadInvites} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded">Refresh</button>
                 </div>
                 {invitesLoading ? (
-                  <div className="text-sm text-gray-400">Loading invites…</div>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-sm text-gray-400">Loading invites…</div>
+                  </div>
                 ) : displayInvites.length === 0 ? (
-                  <div className="text-sm text-gray-400">No invites yet.</div>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-sm text-gray-400">No invites yet.</div>
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-gray-300">
-                          <th className="py-2 pr-3">Name</th>
-                          <th className="py-2 pr-3">Email</th>
-                          <th className="py-2 pr-3">Role</th>
-                          <th className="py-2 pr-3">Status</th>
-                          <th className="py-2 pr-3">Packages</th>
-                          <th className="py-2 pr-3">Actions</th>
+                        <tr className="text-left text-gray-300 border-b border-gray-700">
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Name</th>
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Role</th>
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Status</th>
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Packages</th>
+                          <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-gray-700">
                         {displayInvites.map((inv) => {
                           const id = getInviteId(inv);
                           const pkgs: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
                           const isAccepted = inv.status === 'accepted';
                           return (
-                            <tr key={id} className="border-t border-gray-700">
-                              <td className="py-2 pr-3 text-gray-200">{`${inv?.invitee?.name || ''} ${inv?.invitee?.surname || ''}`.trim() || '—'}</td>
-                              <td className="py-2 pr-3 text-gray-300">{inv?.invitee?.email}</td>
-                              <td className="py-2 pr-3 text-gray-300">{inv?.invitee?.role || 'General'}</td>
-                              <td className="py-2 pr-3">
-                                <span className={`px-2 py-0.5 rounded text-xs ${isAccepted ? 'bg-green-800/30 text-green-300' : 'bg-yellow-800/30 text-yellow-300'}`}>{inv.status}</span>
+                            <tr key={id} className="hover:bg-gray-800/30 transition-colors">
+                              <td className="py-2.5 pr-3 text-gray-200 text-sm font-medium">
+                                {`${inv?.invitee?.name || ''} ${inv?.invitee?.surname || ''}`.trim() || '—'}
                               </td>
-                              <td className="py-2 pr-3">
-                                <div className="flex flex-wrap gap-2">
-                                  {(['BIM','IoT','Database','AI','FM'] as Pkg[]).map((pkg) => (
-                                    <label key={pkg} className={`flex items-center gap-1 px-2 py-1 rounded border ${pkgs.includes(pkg) ? 'bg-blue-600/20 border-blue-500 text-blue-200' : 'bg-gray-700/40 border-gray-600 text-gray-300'}`}>
-                                      <input type="checkbox" checked={pkgs.includes(pkg)} onChange={() => toggleInvitePackage(id, pkg)} disabled={!canManageInvites} />
+                              <td className="py-2.5 pr-3 text-gray-300 text-sm">
+                                {inv?.invitee?.email}
+                              </td>
+                              <td className="py-2.5 pr-3">
+                                <select
+                                  value={inv?.invitee?.role || 'General'}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setInvitesList((prev) => prev.map((row) => (
+                                      getInviteId(row) === id ? { ...row, invitee: { ...row.invitee, role: value } } : row
+                                    )));
+                                  }}
+                                  disabled={!canManageInvites}
+                                  className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200 text-sm min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  {roles.map((r) => {
+                                    const isPA = r === 'Project Admin';
+                                    return (
+                                      <option key={r} value={r} disabled={isPA && !canAppointProjectAdmin}>
+                                        {r}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </td>
+                              <td className="py-2.5 pr-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  isAccepted 
+                                    ? 'bg-green-800/30 text-green-300' 
+                                    : 'bg-yellow-800/30 text-yellow-300'
+                                }`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className="py-2.5 pr-3">
+                                <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                                  {(['BIM', 'IoT', 'AI', 'FM', 'Database'] as Pkg[]).map((pkg) => (
+                                    <label 
+                                      key={pkg} 
+                                      className={`flex items-center justify-center gap-1 px-2 py-1 rounded border text-xs cursor-pointer transition-all ${
+                                        pkg === 'Database' ? 'col-span-2' : ''
+                                      } ${
+                                        pkgs.includes(pkg) 
+                                          ? 'bg-blue-600/20 border-blue-500/50 text-blue-200' 
+                                          : 'bg-gray-700/40 border-gray-600/50 text-gray-300'
+                                      }`}
+                                    >
+                                      <input 
+                                        type="checkbox" 
+                                        checked={pkgs.includes(pkg)} 
+                                        onChange={() => toggleInvitePackage(id, pkg)} 
+                                        disabled={!canManageInvites}
+                                        className="w-3 h-3 text-blue-500 bg-gray-700 border-gray-600 rounded"
+                                      />
                                       {pkg}
                                     </label>
                                   ))}
                                 </div>
                               </td>
-                              <td className="py-2 pr-3">
-                                <div className="flex gap-2">
+                              <td className="py-2.5 pr-3">
+                                <div className="flex gap-1.5">
                                   <button
                                     onClick={() => saveInvitePackages(id)}
-                                    className="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 disabled:bg-gray-400 w-16 flex justify-center"
+                                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors min-w-[60px] flex items-center justify-center"
                                     disabled={updatingPackageId === id}
                                   >
-                                    {updatingPackageId === id ? 'Saving' : 'Save'}
+                                    {updatingPackageId === id ? (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                                      </div>
+                                    ) : (
+                                      'Save'
+                                    )}
                                   </button>
-                                  <button onClick={() => handleRevokeInvite(id)} disabled={!canManageInvites} className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50">Revoke</button>
+                                  <button 
+                                    onClick={() => handleRevokeInvite(id)} 
+                                    disabled={!canManageInvites} 
+                                    className="px-2.5 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    Revoke
+                                  </button>
                                 </div>
                               </td>
                             </tr>

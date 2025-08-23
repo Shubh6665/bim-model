@@ -41,7 +41,7 @@ async function authorizeInviteManager(db: any, projectId: string, user: any, ema
   return await canManageAccess(db, proj, email, user);
 }
 
-// PATCH /api/projects/[projectId]/invites -> update an invite (packages/status) (owner only)
+// PATCH /api/projects/[projectId]/invites -> update an invite (packages/status/role)
 export async function PATCH(req: NextRequest, context: { params: Promise<{ projectId: string }> }) {
   try {
     const email = await getUserEmail();
@@ -56,12 +56,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
-    const { inviteId, packages, status } = body || {};
+    const { inviteId, packages, status, role } = body || {};
     if (!inviteId) return NextResponse.json({ error: 'inviteId is required' }, { status: 400 });
 
     const update: any = {};
     if (Array.isArray(packages)) update['invitee.packages'] = packages;
     if (status && ['pending', 'accepted', 'declined', 'expired'].includes(status)) update['status'] = status;
+    if (typeof role === 'string' && role.trim().length > 0) update['invitee.role'] = role;
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 
@@ -88,6 +89,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
       const createdBySelf = String(existing?.inviterUserId || '') === String(user._id);
       if (isSelfInvite || !createdBySelf) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    // Role change RBAC: only Platform Owner/Admin can appoint Project Admin
+    if (typeof role === 'string' && role.trim().length > 0) {
+      const normalized = role.replace(/\s+/g, '').toLowerCase();
+      const wantsPA = normalized === 'projectadmin' || normalized === 'projectadministrator';
+      if (wantsPA) {
+        const canAppointPA = await canMakeProjectAdmin(db, proj, email, user);
+        if (!canAppointPA) {
+          return NextResponse.json({ error: 'Only Platform Owner or approved Administrator can appoint a Project Administrator' }, { status: 403 });
+        }
       }
     }
 
