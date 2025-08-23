@@ -172,6 +172,58 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     }
   };
 
+  // Update only the discipline of the selected model
+  const handleUpdateModel = async () => {
+    if (!project || !removeModelId) return;
+    if (!canRemoveModel) {
+      setError('You do not have permission to edit models');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/models/${removeModelId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discipline: editDiscipline || 'other' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update model');
+
+      // refresh project
+      if (onProjectUpdated) {
+        try {
+          const resProj = await fetch(`/api/projects/${project.id}`);
+          const json = await resProj.json();
+          if (resProj.ok && json.project) {
+            onProjectUpdated({
+              id: json.project._id || project.id,
+              name: json.project.name,
+              lat: json.project.location?.lat,
+              lng: json.project.location?.lng,
+              urn: json.project.urn,
+              description: json.project.description,
+              code: json.project.code,
+              country: json.project.country,
+              municipality: json.project.municipality,
+              address: json.project.address,
+              cadastral: json.project.cadastral,
+              company: json.project.company,
+              clientName: json.project.clientName,
+              fileType: json.project.fileType,
+              models: Array.isArray(json.project.models) ? json.project.models : [],
+              access: json.project.access || { owner: true, role: 'Owner', packages: ['BIM','IoT','Database','AI','FM'] },
+            });
+          }
+        } catch {}
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to update model');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCancelProfile = () => {
     setEditedProfile({ ...profile });
     setIsEditingProfile(false);
@@ -450,6 +502,18 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   // Capitalize helper: first letter uppercase, rest lowercase
   const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s);
 
+  // Common discipline options for models
+  const disciplineOptions = [
+    'architecture',
+    'structure',
+    'mep',
+    'electrical',
+    'plumbing',
+    'hvac',
+    'civil',
+    'other',
+  ];
+
   const extToFileType = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
     if (!ext) return newModel.fileType || 'RVT';
@@ -586,6 +650,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [removeModelId, setRemoveModelId] = useState<string>("");
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
   const [showConfirmDeleteProject, setShowConfirmDeleteProject] = useState(false);
+  // Edit model (discipline)
+  const [editDiscipline, setEditDiscipline] = useState<string>("");
+
+  // Keep the editDiscipline in sync with the selected model
+  useEffect(() => {
+    const m = existingModels.find((mm) => mm.id === removeModelId);
+    setEditDiscipline(m?.discipline || '');
+  }, [removeModelId, existingModels]);
   
   // Debug project access
   useEffect(() => {
@@ -700,7 +772,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               <button onClick={() => setActiveTab("upload")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "upload" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Upload Model</button>
             )}
             {canRemoveModel && (
-              <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Remove a Model</button>
+              <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Edit/Remove Model</button>
             )}
           </div>
         </div>
@@ -1203,21 +1275,47 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
           {activeTab === "remove" && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-300 mb-2">Select Model to Remove</label>
-                <select 
-                  value={removeModelId} 
-                  onChange={(e) => setRemoveModelId(e.target.value)} 
-                  disabled={!canRemoveModel} 
-                  className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
-                >
-                  <option value="">-- Choose a model --</option>
-                  {(project.models || []).map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} ({capitalize((m.discipline || 'other') as string)})</option>
-                  ))}
-                </select>
+              {/* Model + Discipline in one row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm text-gray-300 mb-2">Select Model</label>
+                  <select 
+                    value={removeModelId} 
+                    onChange={(e) => setRemoveModelId(e.target.value)} 
+                    disabled={!canRemoveModel} 
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
+                  >
+                    <option value="">-- Choose a model --</option>
+                    {(project.models || []).map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({capitalize((m.discipline || 'other') as string)})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">Discipline</label>
+                  <select
+                    value={editDiscipline || ''}
+                    onChange={(e) => setEditDiscipline(e.target.value)}
+                    disabled={!canRemoveModel || !removeModelId}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
+                  >
+                    <option value="">-- Select discipline --</option>
+                    {disciplineOptions.map((opt) => (
+                      <option key={opt} value={opt}>{capitalize(opt)}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="flex justify-end">
+
+              {/* Save + Remove buttons in one row */}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={handleUpdateModel}
+                  disabled={saving || !removeModelId || !editDiscipline}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
                 <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || !canRemoveModel} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
