@@ -1,4 +1,5 @@
 import { LoginForm } from "@/app/components/login-form";
+import { Suspense } from "react";
 
 export function HeroSection() {
   return (
@@ -50,7 +51,9 @@ export function HeroSection() {
           {/* Right Side - Login Form Overlay */}
           <div className="flex justify-center lg:justify-end">
             <div className="w-full max-w-md">
-              <LoginForm />
+              <Suspense fallback={<div className="w-full max-w-md h-[540px] bg-white/70 rounded-2xl shadow-2xl" />}> 
+                <LoginForm />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -58,3 +61,4 @@ export function HeroSection() {
     </section>
   );
 }
+
