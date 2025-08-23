@@ -8,6 +8,7 @@ import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
 import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
+import FileViewer from "../components/file-viewer";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
 import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
 import { GoogleEarthMap } from "./components/google-earth-map";
@@ -77,6 +78,14 @@ function BIMDashboard() {
   const [canCreateProjectPerm, setCanCreateProjectPerm] = useState<boolean>(false);
   // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
+  // File viewer state
+  const [openFile, setOpenFile] = useState<{
+    id: string;
+    name: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+  } | null>(null);
   // Federated overlay: track which models are enabled for overlay
   const [enabledModelIds, setEnabledModelIds] = useState<Set<string>>(new Set());
   const lastProcessedProjectId = useRef<string | null>(null);
@@ -367,8 +376,22 @@ function BIMDashboard() {
   };
 
   // Handler for wireframe mode toggle
-  const handleWireframeModeChange = (wireframe: boolean) => {
-    setWireframeMode(wireframe);
+  const handleWireframeModeChange = (enabled: boolean) => {
+    setWireframeMode(enabled);
+  };
+
+  const handleFileOpen = (file: any) => {
+    setOpenFile({
+      id: file.id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      uploadedAt: file.uploadedAt
+    });
+  };
+
+  const handleFileClose = () => {
+    setOpenFile(null);
   };
 
   // Handler for sensor form submission
@@ -483,9 +506,10 @@ function BIMDashboard() {
       setTimeout(() => setNoAccessMsg(null), 3000);
       return;
     }
-    
-    // No auto-enabling of Architecture when switching panels
-    
+    // Close any open file if switching away from Database panel
+    if (panel !== 'database') {
+      setOpenFile(null);
+    }
     setActivePanel(panel);
   };
 
@@ -600,6 +624,13 @@ function BIMDashboard() {
                       onWireframeModeChange={handleWireframeModeChange}
                       sensorsVisible={sensorsVisible}
                     />
+                    {openFile && (
+                      <FileViewer
+                        file={openFile}
+                        projectId={selectedProject?.id || ''}
+                        onClose={handleFileClose}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -661,7 +692,17 @@ function BIMDashboard() {
                 selectedSensorIdFromViewer={viewerSelectedSensorId}
               />
             ) : activePanel === "database" ? (
-              <DatabasePanel projectId={selectedProject?.id} />
+              selectedProject ? (
+                <DatabasePanel
+                  projectId={selectedProject.id}
+                  onFileOpen={handleFileOpen}
+                  openFileId={openFile?.id || null}
+                />
+              ) : (
+                <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
+                  <p className="text-gray-400">Select a project to view files</p>
+                </div>
+              )
             ) : activePanel === "ai" || activePanel === "fm" ? (
               // Placeholder for other panels like AI or FM
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">

@@ -46,10 +46,12 @@ interface DatabaseFolder {
 }
 
 interface DatabasePanelProps {
-  projectId?: string;
+  projectId: string;
+  onFileOpen?: (file: DatabaseFile) => void;
+  openFileId?: string | null;
 }
 
-export function DatabasePanel({ projectId }: DatabasePanelProps) {
+export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePanelProps) {
   const [activeCommand, setActiveCommand] = useState<'manage' | 'new'>('manage');
   const [folders, setFolders] = useState<DatabaseFolder[]>([]);
   const [selectedItem, setSelectedItem] = useState<DatabaseFolder | DatabaseFile | null>(null);
@@ -78,6 +80,9 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
   const [creatingSubfolder, setCreatingSubfolder] = useState<{parentId: string, name: string} | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Sending overlay state (for ZIP/email send)
+  const [isSending, setIsSending] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState<string>('');
 
   // Load folders and files from API
   useEffect(() => {
@@ -201,6 +206,12 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
       fileInputRef.current.click();
     } else {
       console.error('[Upload] File input ref not found!');
+    }
+  };
+
+  const handleFileClick = (file: DatabaseFile) => {
+    if (onFileOpen) {
+      onFileOpen(file);
     }
   };
 
@@ -353,19 +364,27 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
     const { item, recipients, subject, message } = showSendZipModal;
     const isFile = 'type' in item;
     
-    if (!recipients || recipients.length === 0) {
-      showNotification('Please add at least one recipient', 'error');
+    const cleanedRecipients = Array.isArray(recipients)
+      ? recipients.map(r => (r || '').trim()).filter(r => r.length > 0)
+      : [];
+
+    if (cleanedRecipients.length === 0) {
+      showNotification('Please add at least one valid recipient email', 'error');
       return;
     }
     
     try {
+      // Show sending overlay
+      setIsSending(true);
+      setSendingMessage('Creating ZIP and sending email...');
+
       const response = await fetch(`/api/projects/${projectId}/files/share`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemId: item.id,
           itemType: isFile ? 'file' : 'folder',
-          recipients,
+          recipients: cleanedRecipients,
           subject: subject || `Shared ${isFile ? 'file' : 'folder'}: ${item.name}`,
           message: message || `Please find the attached ${isFile ? 'file' : 'folder'}.`,
           shareType: 'zip'
@@ -373,8 +392,9 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
       });
 
       if (response.ok) {
+        setSendingMessage('ZIP sent successfully!');
         setShowSendZipModal(null);
-        showNotification(`ZIP sent successfully to ${recipients.length} recipient(s)!`, 'success');
+        showNotification(`ZIP sent successfully to ${cleanedRecipients.length} recipient(s)!`, 'success');
       } else {
         const errorData = await response.json();
         showNotification(errorData.error || 'Failed to send ZIP', 'error');
@@ -382,6 +402,12 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
     } catch (error) {
       console.error('Error sending ZIP:', error);
       showNotification('Error sending ZIP', 'error');
+    } finally {
+      // Hide overlay after a short delay for UX feedback
+      setTimeout(() => {
+        setIsSending(false);
+        setSendingMessage('');
+      }, 600);
     }
   };
 
@@ -459,6 +485,14 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
     const isFile = 'type' in item;
 
     try {
+      const trimmed = (email || '').trim();
+      if (!trimmed) {
+        showNotification('Please enter a valid recipient email', 'error');
+        return;
+      }
+      setIsSending(true);
+      setSendingMessage('Sending email...');
+
       const response = await fetch(`/api/projects/${projectId}/files/share`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -466,16 +500,22 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
           type: isFile ? 'file' : 'folder',
           itemId: item.id,
           action: 'email',
-          email: email
+          email: trimmed
         })
       });
 
       if (response.ok) {
+        setSendingMessage('Email sent!');
         setShowEmailModal(null);
         showNotification('Email sent successfully!', 'success');
       }
     } catch (error) {
       console.error('Error sending email:', error);
+    } finally {
+      setTimeout(() => {
+        setIsSending(false);
+        setSendingMessage('');
+      }, 600);
     }
   };
 
@@ -651,7 +691,9 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
           <div 
             key={item.id}
             className={`group flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer ${
-              selectedFolderId === item.id ? 'bg-blue-700' : selectedItem?.id === item.id ? 'bg-gray-700' : ''
+              selectedFolderId === item.id ? 'bg-blue-700' : 
+              (isFile && openFileId === item.id) ? 'bg-green-700' :
+              selectedItem?.id === item.id ? 'bg-gray-700' : ''
             }`}
             onClick={() => {
               if (isFolder) {
@@ -660,6 +702,7 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
                 toggleFolderExpansion(folder.id);
               } else {
                 setSelectedItem(item);
+                handleFileClick(item as DatabaseFile);
               }
             }}
             onContextMenu={(e) => handleContextMenu(e, item)}
@@ -782,7 +825,7 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
 
   return (
     <div 
-      className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full"
+      className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full relative"
       onClick={handleOutsideClick}
     >
       {/* Header Commands */}
@@ -1319,6 +1362,16 @@ export function DatabasePanel({ projectId }: DatabasePanelProps) {
               <X className="w-5 h-5" />
             )}
             <span>{notification.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Sending Overlay */}
+      {isSending && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 bg-gray-900/90 border border-gray-700 rounded-xl px-6 py-5 shadow-2xl">
+            <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" aria-label="Loading" />
+            <div className="text-sm text-gray-200">{sendingMessage || 'Processing...'}</div>
           </div>
         </div>
       )}

@@ -19,8 +19,12 @@ export async function POST(
 
     // Handle ZIP email sharing
     if (shareType === 'zip') {
-      if (!recipients || recipients.length === 0) {
-        return NextResponse.json({ error: 'Recipients are required for ZIP sharing' }, { status: 400 });
+      // Normalize recipients: trim and remove empty entries
+      const cleanedRecipients: string[] = Array.isArray(recipients)
+        ? recipients.map((r: string) => (r || '').trim()).filter((r: string) => r.length > 0)
+        : [];
+      if (cleanedRecipients.length === 0) {
+        return NextResponse.json({ error: 'At least one valid recipient email is required for ZIP sharing' }, { status: 400 });
       }
 
       const collection = itemType === 'file' ? 'files' : 'folders';
@@ -120,10 +124,10 @@ export async function POST(
         }
 
         // Send email to all recipients with ZIP attachment
-        for (const recipient of recipients) {
-          if (recipient.trim()) {
+        for (const recipient of cleanedRecipients) {
+          if (recipient) {
             await sendEmail(
-              recipient.trim(),
+              recipient,
               subject || `Shared ${itemType}: ${item.name}`,
               `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -154,7 +158,7 @@ export async function POST(
 
         return NextResponse.json({ 
           success: true, 
-          message: `ZIP sent successfully to all recipients (${zipEntries.length} files included)` 
+          message: `ZIP prepared and sent to ${cleanedRecipients.length} recipient(s) (${zipEntries.length} file(s) included)` 
         });
       } catch (error) {
         console.error('Error creating and sending ZIP:', error);
