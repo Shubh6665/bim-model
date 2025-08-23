@@ -25,6 +25,9 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: serverConfig.GOOGLE_CLIENT_ID!,
       clientSecret: serverConfig.GOOGLE_CLIENT_SECRET!,
+      // Links Google sign-ins to existing Email-based accounts by verified email.
+      // This resolves OAuthAccountNotLinked when a user first used Email provider.
+      allowDangerousEmailAccountLinking: true,
     }),
     // Email/Magic Link provider to support any email domain
     EmailProvider({

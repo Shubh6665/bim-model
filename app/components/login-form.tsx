@@ -146,7 +146,7 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@company.com"
-          className="mt-1 mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3"
+          className="mt-1 mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black"
           required
         />
         {emailError && (

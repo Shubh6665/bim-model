@@ -3,7 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
-import { canCreateProject, getEffectiveRole, isPlatformOwnerEmail } from '@/app/lib/rbac';
+import { canCreateProject, getApprovedAdminCompanies, getEffectiveRole, isPlatformOwnerEmail } from '@/app/lib/rbac';
 import nodemailer from 'nodemailer';
 
 // Email notification for auto-created admin invites
@@ -167,6 +167,20 @@ export async function POST(req: NextRequest) {
     if (!name || isNaN(lat) || isNaN(lng) || (!hasLegacyUrn && !hasModelsArray)) {
       console.error('Missing required fields:', { name, urn, modelsCount: hasModelsArray ? models.length : 0, lat, lng });
       return NextResponse.json({ error: 'Missing required fields: require name, lat, lng, and either urn or models[]' }, { status: 400 });
+    }
+
+    // Enforce company match for non-platform owners: company must be one of approved admin companies (case-insensitive)
+    const isOwner = isPlatformOwnerEmail(email);
+    const companyTrimmed = (company || '').trim();
+    if (!isOwner) {
+      if (!companyTrimmed) {
+        return NextResponse.json({ error: 'Company is required for project creation.' }, { status: 400 });
+      }
+      const approved = getApprovedAdminCompanies(user).map((c) => c.toLowerCase());
+      const match = approved.includes(companyTrimmed.toLowerCase());
+      if (!match) {
+        return NextResponse.json({ error: 'Company does not match your approved administrator companies.', approvedCompanies: approved }, { status: 400 });
+      }
     }
 
     // Save project to DB (owner is the user creating it)

@@ -58,9 +58,11 @@ export async function PATCH(req: NextRequest) {
     const db = await getDb();
     const status = action === 'approve' ? 'approved' : 'rejected';
 
+    // Case-insensitive match on company when updating the array element
     const res = await db.collection('users').updateOne(
-      { email: targetEmail, 'adminCompanies.company': company },
-      { $set: { 'adminCompanies.$.status': status } }
+      { email: targetEmail },
+      { $set: { 'adminCompanies.$[elem].status': status } },
+      { arrayFilters: [ { 'elem.company': { $regex: `^${company}$`, $options: 'i' } } ] }
     );
 
     if (res.matchedCount === 0) {
