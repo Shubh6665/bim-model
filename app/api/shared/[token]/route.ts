@@ -4,11 +4,11 @@ import { ObjectId } from 'mongodb';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    const { token } = await params;
     const db = await getDb();
-    const { token } = params;
 
     // Find the share link
     const shareLink = await db.collection('shareLinks').findOne({

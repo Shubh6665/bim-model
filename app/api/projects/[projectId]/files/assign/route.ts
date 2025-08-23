@@ -8,9 +8,10 @@ import { sendEmail } from '@/app/lib/email';
 // POST /api/projects/[projectId]/files/assign - Assign file/folder to user
 export async function POST(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    const { projectId } = await params;
     const db = await getDb();
 
     const { type, itemId, email, permissions } = await request.json();
@@ -23,7 +24,7 @@ export async function POST(
     const collection = type === 'file' ? 'files' : 'folders';
     const item = await db.collection(collection).findOne({
       _id: new ObjectId(itemId),
-      projectId: new ObjectId(params.projectId)
+      projectId: new ObjectId(projectId)
     });
 
     if (!item) {
@@ -40,7 +41,7 @@ export async function POST(
     const assignment = {
       type,
       itemId: new ObjectId(itemId),
-      projectId: new ObjectId(params.projectId),
+      projectId: new ObjectId(projectId),
       assignedTo: email,
       assignedBy: 'public',
       permissions: permissions || ['read'], // Default to read-only
@@ -66,7 +67,7 @@ export async function POST(
               <p>Permissions: ${permissions?.join(', ') || 'Read'}</p>
             </div>
             
-            <a href="${process.env.APP_BASE_URL}/projects/${params.projectId}/database" 
+            <a href="${process.env.APP_BASE_URL}/projects/${projectId}/database" 
                style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
               View in Project
             </a>
@@ -87,9 +88,10 @@ export async function POST(
 // DELETE /api/projects/[projectId]/files/assign - Remove user access
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId:string }> }
 ) {
   try {
+    const { projectId } = await params;
     const db = await getDb();
 
     const { type, itemId, email } = await request.json();
@@ -102,7 +104,7 @@ export async function DELETE(
     const result = await db.collection('assignments').deleteOne({
       type,
       itemId: new ObjectId(itemId),
-      projectId: new ObjectId(params.projectId),
+      projectId: new ObjectId(projectId),
       assignedTo: email
     });
 

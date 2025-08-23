@@ -54,7 +54,7 @@ export async function POST(
     const folder = await db.collection('folders').findOne({ _id: new ObjectId(folderId) });
     const folderName = folder?.name || 'folder';
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${folderName}.zip"`,
