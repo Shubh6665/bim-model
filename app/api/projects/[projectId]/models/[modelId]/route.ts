@@ -54,7 +54,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
     );
 
     if (res.matchedCount !== 1) return NextResponse.json({ error: 'Model not found' }, { status: 404 });
-    if (res.modifiedCount !== 1) return NextResponse.json({ error: 'No changes applied' }, { status: 400 });
+    // If the values are identical (e.g., same URN/name), consider operation successful to avoid UX error.
+    if (res.modifiedCount !== 1) {
+      return NextResponse.json({ success: true, message: 'No changes applied' });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
