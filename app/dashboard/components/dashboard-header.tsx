@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder } from "lucide-react";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
+import { ProfileModal } from "./profile-modal";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -22,6 +23,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const [canManagePendingAdmins, setCanManagePendingAdmins] = useState<boolean>(false);
   const [pendingAdminsCount, setPendingAdminsCount] = useState<number>(0);
   const [canCreate, setCanCreate] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Probe capability and fetch count: Only Platform Owner can access /api/admins
   useEffect(() => {
@@ -78,6 +80,11 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         : "text-gray-300 hover:text-white hover:bg-gray-800"
     }`;
   };
+
+  // Compute role info for profile modal
+  const effectiveRole: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : 'General');
+  const roleLabel: string = effectiveRole === 'ProjectAdmin' ? 'Project Admin' : effectiveRole;
+  const isOwnerFlag: boolean = !!selectedProject?.access?.owner;
 
   return (
     <header className="bg-gray-900 border-b border-gray-700 px-4 py-2.5">
@@ -172,7 +179,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                   })()}
                 </div>
                 <div className="py-1">
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                  <button className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors" onClick={() => { setShowProfileModal(true); setShowProfileMenu(false); }}>
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </button>
@@ -238,6 +245,12 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
       {showPendingAdminsModal && (
         <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
       )}
+      <ProfileModal 
+        open={showProfileModal} 
+        onClose={() => setShowProfileModal(false)} 
+        email={user?.email}
+        roleInfo={{ roleLabel, isOwner: isOwnerFlag }}
+      />
     </header>
   );
 }

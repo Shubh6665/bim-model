@@ -13,9 +13,20 @@ export async function GET() {
     const db = await getDb();
     const user = await db.collection('users').findOne({ email });
 
+    // Normalize name/surname: if surname missing but name contains spaces, split into first + rest
+    let nameStr = String(user?.name || '');
+    let surnameStr = String(user?.surname || '');
+    if (!surnameStr && nameStr && nameStr.includes(' ')) {
+      const parts = nameStr.trim().split(/\s+/);
+      if (parts.length > 1) {
+        nameStr = parts.shift() as string;
+        surnameStr = parts.join(' ');
+      }
+    }
+
     const profile = {
-      name: user?.name || '',
-      surname: user?.surname || '',
+      name: nameStr,
+      surname: surnameStr,
       email,
       society: user?.society || '',
       telephone: user?.telephone || '',

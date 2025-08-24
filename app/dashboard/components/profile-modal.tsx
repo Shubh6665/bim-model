@@ -1,0 +1,243 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { X, User, Edit3, Save, XCircle } from "lucide-react";
+
+type RoleInfo = {
+  roleLabel: string;
+  isOwner: boolean;
+};
+
+interface ProfileModalProps {
+  open: boolean;
+  onClose: () => void;
+  email?: string;
+  roleInfo?: RoleInfo; // from selectedProject/access or platform owner
+}
+
+interface ProfileData {
+  name: string;
+  surname: string;
+  email: string;
+  society: string;
+  telephone: string;
+  avatarUrl: string;
+}
+
+export function ProfileModal({ open, onClose, email, roleInfo }: ProfileModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [edited, setEdited] = useState<ProfileData | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let aborted = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/users/me");
+        const json = await res.json();
+        if (aborted) return;
+        if (!res.ok) throw new Error(json?.error || "Failed to load profile");
+        const p = json?.profile as ProfileData;
+        setProfile(p);
+        setEdited(p);
+        setIsEditing(false);
+      } catch (e: any) {
+        if (aborted) return;
+        setError(e?.message || "Failed to load profile");
+      } finally {
+        if (!aborted) setLoading(false);
+      }
+    })();
+    return () => {
+      aborted = true;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  const roleBadge = (
+    <div className="mt-1 flex items-center gap-2">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border bg-blue-600/20 text-blue-200 border-blue-500/40">
+        {roleInfo?.roleLabel || "User"}
+      </span>
+      {roleInfo?.isOwner && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border bg-fuchsia-600/20 text-fuchsia-200 border-fuchsia-500/40">
+          Owner
+        </span>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[60]">
+      <div
+        className="absolute inset-0 backdrop-blur-sm bg-black/30"
+        onClick={onClose}
+      />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-gray-800 rounded-xl border border-gray-700 shadow-2xl">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <User className="w-5 h-5 text-blue-400" />
+              <h3 className="text-lg font-semibold text-white">Profile</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {!loading && profile && (
+                isEditing ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        if (!edited) return;
+                        // Optional client-side phone validation to match API
+                        if (edited.telephone && !/^\+?[0-9]{7,15}$/.test(edited.telephone)) {
+                          setError('Invalid telephone number. Use digits with optional leading +country code.');
+                          return;
+                        }
+                        setSaving(true);
+                        setError(null);
+                        try {
+                          const res = await fetch('/api/users/me', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              name: edited.name || '',
+                              surname: edited.surname || '',
+                              society: edited.society || '',
+                              telephone: edited.telephone || '',
+                              avatarUrl: edited.avatarUrl || ''
+                            })
+                          });
+                          const json = await res.json();
+                          if (!res.ok) throw new Error(json?.error || 'Failed to save profile');
+                          const p = json?.profile as ProfileData;
+                          setProfile(p);
+                          setEdited(p);
+                          setIsEditing(false);
+                        } catch (e: any) {
+                          setError(e?.message || 'Failed to save profile');
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-green-600 text-white hover:bg-green-500 disabled:opacity-60"
+                      disabled={saving}
+                      title="Save"
+                    >
+                      <Save className="w-4 h-4" /> Save
+                    </button>
+                    <button
+                      onClick={() => { setEdited(profile); setIsEditing(false); setError(null); }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-gray-700 text-gray-200 hover:bg-gray-600"
+                      title="Cancel"
+                    >
+                      <XCircle className="w-4 h-4" /> Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setIsEditing(true); setEdited(profile); setError(null); }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-500"
+                    title="Edit"
+                  >
+                    <Edit3 className="w-4 h-4" /> Edit
+                  </button>
+                )
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {loading && (
+              <div className="text-sm text-gray-400">Loading profile…</div>
+            )}
+            {error && (
+              <div className="mb-3 px-3 py-2 bg-red-900/30 border border-red-700/40 rounded text-red-200 text-sm">
+                {error}
+              </div>
+            )}
+            {profile && (
+              <div className="space-y-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg font-medium">
+                    {profile?.name?.[0]?.toUpperCase() || "U"}
+                  </div>
+                  <div>
+                    <div className="text-white font-medium text-base">
+                      {profile.name || "-"} {profile.surname || ""}
+                    </div>
+                    <div className="text-gray-400 text-sm">{profile.email || email}</div>
+                    {roleBadge}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Name</div>
+                    {isEditing ? (
+                      <input
+                        value={edited?.name || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, name: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.name || '-'}</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Surname</div>
+                    {isEditing ? (
+                      <input
+                        value={edited?.surname || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, surname: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.surname || '-'}</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Society</div>
+                    {isEditing ? (
+                      <input
+                        value={edited?.society || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, society: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.society || '-'}</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Telephone</div>
+                    {isEditing ? (
+                      <input
+                        value={edited?.telephone || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, telephone: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="+1234567890"
+                      />
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.telephone || '-'}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
