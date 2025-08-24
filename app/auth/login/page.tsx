@@ -1,14 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const sp = useSearchParams();
+  const router = useRouter();
+  const qpEmail = sp.get("email") || "";
+  const token = sp.get("token") || "";
+  const projectId = sp.get("projectId") || "";
+
+  const [email, setEmail] = useState(qpEmail);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-trigger Google for Gmail invited emails
+  const autoRef = useRef(false);
+  useEffect(() => {
+    if (autoRef.current) return;
+    const lower = (qpEmail || '').toLowerCase();
+    const isGmail = /@gmail\.com$|@googlemail\.com$/i.test(lower);
+    if (token && isGmail) {
+      autoRef.current = true;
+      const callbackUrl = `/invite/accept?token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`;
+      signIn("google", { callbackUrl, login_hint: qpEmail, prompt: 'select_account' } as any);
+    }
+  }, [token, qpEmail, projectId]);
 
   const onCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,6 +37,13 @@ export default function LoginPage() {
     try {
       const res = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/dashboard" });
       if (res?.ok) {
+        // If this login came from an invite, finalize acceptance before redirecting
+        if (token) {
+          try {
+            const acceptUrl = `/api/invites/accept?token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}`;
+            await fetch(acceptUrl);
+          } catch {}
+        }
         window.location.href = "/dashboard";
       } else {
         setError(res?.error || "Invalid email or password.");
@@ -34,7 +61,12 @@ export default function LoginPage() {
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 16 }}>Sign in</h1>
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          onClick={() => {
+            const callbackUrl = token
+              ? `/invite/accept?token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`
+              : "/dashboard";
+            signIn("google", { callbackUrl });
+          }}
           style={{ width: "100%", background: "#2563eb", color: "#fff", padding: "10px 16px", borderRadius: 8, border: 0, cursor: "pointer", fontWeight: 600 }}
         >
           Continue with Google

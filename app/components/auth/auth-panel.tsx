@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, Suspense } from 'react';
+import { useMemo, useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signIn, signOut } from 'next-auth/react';
 
@@ -11,6 +11,7 @@ function AuthPanelContent() {
   const initialMode = (sp.get('mode') || 'login') as 'login' | 'signup';
   const invitedEmail = sp.get('email') || '';
   const inviteToken = sp.get('token') || '';
+  const wrongSel = sp.get('wrong') === '1';
   const projectId = sp.get('projectId') || '';
 
   const [mode, setMode] = useState<'login'|'signup'>(initialMode);
@@ -31,6 +32,19 @@ function AuthPanelContent() {
   const [info, setInfo] = useState<string|null>(null);
 
   const isInviteFlow = useMemo(() => Boolean(inviteToken && invitedEmail), [inviteToken, invitedEmail]);
+
+  // Auto-trigger Google for Gmail invited accounts
+  const autoTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (autoTriggeredRef.current) return;
+    const lower = (invitedEmail || '').toLowerCase();
+    const isGmail = /@gmail\.com$|@googlemail\.com$/i.test(lower);
+    if (isInviteFlow && isGmail && inviteToken && !wrongSel) {
+      autoTriggeredRef.current = true;
+      const callbackUrl = `/invite/accept?token=${encodeURIComponent(inviteToken)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`;
+      signIn('google', { callbackUrl, login_hint: invitedEmail, prompt: 'select_account' } as any);
+    }
+  }, [isInviteFlow, invitedEmail, inviteToken, projectId, wrongSel]);
 
   useEffect(() => {
     if (invitedEmail) setEmail(invitedEmail);
@@ -154,10 +168,30 @@ function AuthPanelContent() {
         <div className="w-full">
           {/* Heading */}
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Sign into your account</h2>
+          {/* Invite Notice */}
+          {isInviteFlow && invitedEmail ? (
+            <div className={`mb-4 text-sm rounded-md border p-3 ${wrongSel ? 'bg-yellow-50 border-yellow-300 text-yellow-800' : 'bg-blue-50 border-blue-300 text-blue-800'}`}>
+              {wrongSel ? (
+                <>
+                  Please sign in with your invited Google account: <strong>{invitedEmail}</strong>.
+                  Select this email in the Google picker to continue.
+                </>
+              ) : (
+                <>
+                  You were invited as <strong>{invitedEmail}</strong>. Use Google sign-in to continue.
+                </>
+              )}
+            </div>
+          ) : null}
           {/* Google Button */}
           <button
             type="button"
-            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+            onClick={() => {
+              const callbackUrl = (isInviteFlow && inviteToken)
+                ? `/invite/accept?token=${encodeURIComponent(inviteToken)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`
+                : '/dashboard';
+              signIn('google', { callbackUrl });
+            }}
             className={`w-full flex items-center justify-center gap-3 h-12 bg-black text-white rounded-md font-semibold text-lg shadow transition-colors mb-8 mt-6 hover:bg-gray-900`}
           >
             <svg className="h-5 w-5" viewBox="0 0 48 48">

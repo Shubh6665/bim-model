@@ -35,17 +35,20 @@ function AcceptInviteContent() {
           const lower = (invitedEmail || '').toLowerCase();
           const isGmail = lower.endsWith('@gmail.com') || lower.endsWith('@googlemail.com');
           if (isGmail) {
-            await signIn("google", {
-              callbackUrl,
-              login_hint: invitedEmail,
-              prompt: "select_account",
-            } as any);
+            // Show auth panel with invited email and a retry option; avoid auto-trigger loop
+            router.replace(`/?mode=login&email=${encodeURIComponent(invitedEmail || '')}&token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}&wrong=1`);
           } else if (invitedEmail) {
-            // Trigger Email/Magic Link sign-in for non-Google emails
-            await signIn("email", {
-              email: invitedEmail,
-              callbackUrl,
-            } as any);
+            // Non-Google email: check if user exists → route to homepage auth panel with mode
+            try {
+              const existsRes = await fetch(`/api/users/exists?email=${encodeURIComponent(invitedEmail)}`);
+              const existsJson = await existsRes.json();
+              const userExists = !!existsJson?.exists;
+              const mode = userExists ? 'login' : 'signup';
+              router.replace(`/?mode=${mode}&email=${encodeURIComponent(invitedEmail)}&token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`);
+            } catch {
+              // Fallback to signup mode on homepage
+              router.replace(`/?mode=signup&email=${encodeURIComponent(invitedEmail)}&token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`);
+            }
           } else {
             // Fallback to generic login page
             await signIn(undefined, { callbackUrl } as any);
@@ -66,10 +69,16 @@ function AcceptInviteContent() {
               prompt: "select_account",
             } as any);
           } else if (invitedEmail) {
-            await signIn("email", {
-              email: invitedEmail,
-              callbackUrl,
-            } as any);
+            // Non-Google email: check if user exists → route to homepage auth panel with mode
+            try {
+              const existsRes = await fetch(`/api/users/exists?email=${encodeURIComponent(invitedEmail)}`);
+              const existsJson = await existsRes.json();
+              const userExists = !!existsJson?.exists;
+              const mode = userExists ? 'login' : 'signup';
+              router.replace(`/?mode=${mode}&email=${encodeURIComponent(invitedEmail)}&token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`);
+            } catch {
+              router.replace(`/?mode=signup&email=${encodeURIComponent(invitedEmail)}&token=${encodeURIComponent(token)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`);
+            }
           } else {
             await signIn(undefined, { callbackUrl } as any);
           }
