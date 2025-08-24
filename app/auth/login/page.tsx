@@ -2,29 +2,29 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onEmailSignIn = async (e: React.FormEvent) => {
+  const onCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSending(true);
+    setLoading(true);
     try {
-      const callbackUrl = "/dashboard";
-      const res = await signIn("email", { email, callbackUrl, redirect: false });
+      const res = await signIn("credentials", { email, password, redirect: false, callbackUrl: "/dashboard" });
       if (res?.ok) {
-        setSent(true);
+        window.location.href = "/dashboard";
       } else {
-        setError(res?.error || "Failed to send magic link. Please try again.");
+        setError(res?.error || "Invalid email or password.");
       }
     } catch (err: any) {
       setError(err?.message || "Something went wrong.");
     } finally {
-      setSending(false);
+      setLoading(false);
     }
   };
 
@@ -41,44 +41,47 @@ export default function LoginPage() {
         </button>
 
         <div style={{ height: 16 }} />
-
         <div style={{ opacity: 0.7, fontSize: 12, textAlign: "center" }}>or</div>
-
         <div style={{ height: 16 }} />
 
-        {sent ? (
-          <div style={{ background: "#064e3b", border: "1px solid #065f46", color: "#d1fae5", padding: 12, borderRadius: 8 }}>
-            We sent a magic link to <b>{email}</b>. Check your inbox.
-          </div>
-        ) : (
-          <form onSubmit={onEmailSignIn}>
-            <label htmlFor="email" style={{ display: "block", fontSize: 14, marginBottom: 6 }}>Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@company.com"
-              required
-              style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #374151", background: "#0f172a", color: "#e5e7eb" }}
-            />
-            <div style={{ height: 12 }} />
-            <button
-              type="submit"
-              disabled={sending}
-              style={{ width: "100%", background: sending ? "#4b5563" : "#10b981", color: "#0b0b0b", padding: "10px 16px", borderRadius: 8, border: 0, cursor: sending ? "default" : "pointer", fontWeight: 700 }}
-            >
-              {sending ? "Sending…" : "Send magic link"}
-            </button>
-          </form>
-        )}
+        <form onSubmit={onCredentialsSignIn}>
+          <label htmlFor="email" style={{ display: "block", fontSize: 14, marginBottom: 6 }}>Email</label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@company.com"
+            required
+            style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #374151", background: "#0f172a", color: "#e5e7eb" }}
+          />
+          <div style={{ height: 12 }} />
+          <label htmlFor="password" style={{ display: "block", fontSize: 14, marginBottom: 6 }}>Password</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #374151", background: "#0f172a", color: "#e5e7eb" }}
+          />
+          <div style={{ height: 12 }} />
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", background: loading ? "#4b5563" : "#10b981", color: "#0b0b0b", padding: "10px 16px", borderRadius: 8, border: 0, cursor: loading ? "default" : "pointer", fontWeight: 700 }}
+          >
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
 
         {error && (
           <div style={{ marginTop: 12, background: "#7f1d1d", border: "1px solid #991b1b", color: "#fee2e2", padding: 10, borderRadius: 8 }}>{error}</div>
         )}
 
-        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-          You can sign in with any email domain. If your email is Gmail, you can also use Google sign-in.
+        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.9 }}>
+          New here? <Link href="/auth/signup" style={{ color: "#93c5fd", textDecoration: "underline" }}>Create an account</Link>
         </div>
       </div>
     </div>

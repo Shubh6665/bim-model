@@ -1,4 +1,4 @@
-import { LoginForm } from "@/app/components/login-form";
+import AuthPanel from "@/app/components/auth/auth-panel";
 import { Suspense } from "react";
 
 export function HeroSection() {
@@ -52,7 +52,7 @@ export function HeroSection() {
           <div className="flex justify-center lg:justify-end">
             <div className="w-full max-w-md">
               <Suspense fallback={<div className="w-full max-w-md h-[540px] bg-white/70 rounded-2xl shadow-2xl" />}> 
-                <LoginForm />
+                <AuthPanel />
               </Suspense>
             </div>
           </div>

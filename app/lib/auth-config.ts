@@ -1,10 +1,12 @@
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
+import CredentialsProvider from "next-auth/providers/credentials";
 import type { NextAuthOptions } from "next-auth";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/app/lib/mongodb";
 import { getDb } from "@/app/services/mongodb";
 import { serverConfig } from "@/app/config";
+import bcrypt from "bcryptjs";
 
 // Fallback URL handling
 const getBaseUrl = () => {
@@ -41,6 +43,35 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.MAIL_FROM || "noreply@example.com",
       maxAge: 24 * 60 * 60, // tokens valid for 24h
+    }),
+    // Credentials provider for email/password sign in
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email", placeholder: "name@company.com" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+        try {
+          const client = await clientPromise;
+          const db = client.db();
+          const user = await db.collection("users").findOne({ email: credentials.email.toLowerCase() });
+          if (!user || !user.password) return null;
+          const ok = await bcrypt.compare(credentials.password, user.password);
+          if (!ok) return null;
+          // Return a minimal user object compatible with NextAuth
+          return {
+            id: String(user._id),
+            email: user.email,
+            name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || undefined,
+            image: user.image || undefined,
+          } as any;
+        } catch (e) {
+          console.error("Credentials authorize error:", e);
+          return null;
+        }
+      },
     }),
   ],
   callbacks: {
