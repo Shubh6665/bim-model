@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signIn, signOut } from 'next-auth/react';
 
-export default function AuthPanel() {
+function AuthPanelContent() {
   const sp = useSearchParams();
   const router = useRouter();
 
@@ -262,5 +262,17 @@ export default function AuthPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AuthPanel() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-0 flex flex-col items-center justify-center py-12 px-8 min-h-[540px]">
+        <div>Loading...</div>
+      </div>
+    }>
+      <AuthPanelContent />
+    </Suspense>
   );
 }

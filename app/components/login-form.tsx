@@ -1,16 +1,18 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useAuth } from "@/app/hooks/use-auth";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
-export function LoginForm() {
+function LoginFormContent() {
   const { login, isLoading } = useAuth();
-  const [clicked, setClicked] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [clicked, setClicked] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
@@ -220,5 +222,17 @@ export function LoginForm() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function LoginForm() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-0 flex flex-col items-center justify-center py-12 px-8 min-h-[540px]">
+        <div>Loading...</div>
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
   );
 }

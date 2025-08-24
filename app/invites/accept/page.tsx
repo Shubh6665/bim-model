@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, signOut } from 'next-auth/react';
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const token = sp.get('token') || '';
@@ -109,5 +109,17 @@ export default function AcceptInvitePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0b0b', color: '#eee' }}>
+        <div>Loading...</div>
+      </div>
+    }>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
