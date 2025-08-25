@@ -75,6 +75,55 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // Handle account linking for OAuth providers
+      if (account?.provider === 'google' && user?.email) {
+        try {
+          const client = await clientPromise;
+          const db = client.db();
+          
+          // Check if user already exists with this email
+          const existingUser = await db.collection('users').findOne({ 
+            email: user.email.toLowerCase() 
+          });
+          
+          if (existingUser) {
+            console.log(`Linking Google account to existing user: ${user.email}`);
+            
+            // Check if this Google account is already linked
+            const existingAccount = await db.collection('accounts').findOne({
+              provider: 'google',
+              providerAccountId: account.providerAccountId
+            });
+            
+            if (!existingAccount) {
+              // Create the account link manually
+              await db.collection('accounts').insertOne({
+                userId: existingUser._id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                id_token: account.id_token,
+                scope: account.scope,
+                token_type: account.token_type,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+              console.log(`Created account link for user: ${user.email}`);
+            }
+            
+            return true;
+          }
+        } catch (error) {
+          console.error('Error during account linking:', error);
+        }
+      }
+      
+      // Allow all other sign-ins
+      return true;
+    },
     async jwt({ token, user, account }) {
       // For OAuth (Google), keep access token if present
       if (account && user) {

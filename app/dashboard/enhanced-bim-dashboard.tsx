@@ -7,6 +7,7 @@ import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
 import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
+import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
 import FileViewer from "../components/file-viewer";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
 import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
@@ -704,9 +705,17 @@ function BIMDashboard() {
                 selectedSensorIdFromViewer={viewerSelectedSensorId}
               />
             ) : activePanel === "database" ? (
-              <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
-                <p className="text-gray-400">Database panel </p>
-              </div>
+              selectedProject ? (
+                <DatabasePanel
+                  projectId={selectedProject.id}
+                  onFileOpen={handleFileOpen}
+                  openFileId={openFile?.id || null}
+                />
+              ) : (
+                <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
+                  <p className="text-gray-400">Select a project to view files</p>
+                </div>
+              )
             ) : activePanel === "ai" || activePanel === "fm" ? (
               // Placeholder for other panels like AI or FM
               <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">

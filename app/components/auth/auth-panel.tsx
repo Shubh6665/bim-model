@@ -42,7 +42,12 @@ function AuthPanelContent() {
     if (isInviteFlow && isGmail && inviteToken && !wrongSel) {
       autoTriggeredRef.current = true;
       const callbackUrl = `/invite/accept?token=${encodeURIComponent(inviteToken)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`;
-      signIn('google', { callbackUrl, login_hint: invitedEmail, prompt: 'select_account' } as any);
+      (async () => {
+        try { sessionStorage.setItem('suppressAutoLogout', '1'); } catch {}
+        try { localStorage.setItem('auth_session_change', String(Date.now())); } catch {}
+        try { await signOut({ redirect: false }); } catch {}
+        await signIn('google', { callbackUrl, login_hint: invitedEmail, prompt: 'select_account' } as any);
+      })();
     }
   }, [isInviteFlow, invitedEmail, inviteToken, projectId, wrongSel]);
 
@@ -68,6 +73,12 @@ function AuthPanelContent() {
     setError(null);
     setLoading(true);
     try {
+      // Mark intentional navigation to avoid auto-logout during redirect
+      try { sessionStorage.setItem('suppressAutoLogout', '1'); } catch {}
+      // Notify other tabs to logout to avoid mixed sessions
+      try { localStorage.setItem('auth_session_change', String(Date.now())); } catch {}
+      // Always clear any previous session first to avoid provider conflicts
+      try { await signOut({ redirect: false }); } catch {}
       const res = await signIn('credentials', { email, password, redirect: false });
       if (res?.ok) {
         if (isInviteFlow) {
@@ -190,7 +201,13 @@ function AuthPanelContent() {
               const callbackUrl = (isInviteFlow && inviteToken)
                 ? `/invite/accept?token=${encodeURIComponent(inviteToken)}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ''}`
                 : '/dashboard';
-              signIn('google', { callbackUrl });
+              // Ensure logout of any previous session, then force account chooser
+              (async () => {
+                try { sessionStorage.setItem('suppressAutoLogout', '1'); } catch {}
+                try { localStorage.setItem('auth_session_change', String(Date.now())); } catch {}
+                try { await signOut({ redirect: false }); } catch {}
+                await signIn('google', { callbackUrl, prompt: 'select_account' } as any);
+              })();
             }}
             className={`w-full flex items-center justify-center gap-3 h-12 bg-black text-white rounded-md font-semibold text-lg shadow transition-colors mb-8 mt-6 hover:bg-gray-900`}
           >
