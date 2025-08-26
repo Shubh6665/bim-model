@@ -547,7 +547,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                   className="w-full mb-2 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
                   value={adminEmail}
                   onChange={e => setAdminEmail(e.target.value)}
-                  placeholder="admin@example.com"
+                  placeholder="projectadmin@example.com"
                 />
                 
               </div>
