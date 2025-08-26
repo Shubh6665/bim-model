@@ -268,7 +268,16 @@ function BIMDashboard() {
       isRVT: true,
       lat: project.lat,
       lng: project.lng,
-      urn: project.urn,
+      urn: (() => {
+        if (project.models && project.models.length > 0) {
+          const archModel = project.models.find(m => m.discipline === 'architecture' && m.urn);
+          if (archModel) return archModel.urn;
+
+          const anyModelWithUrn = project.models.find(m => m.urn);
+          if (anyModelWithUrn) return anyModelWithUrn.urn;
+        }
+        return project.urn; // Fallback to legacy project-level URN
+      })(),
       description: project.description,
     };
     setSelectedFile(file);
@@ -503,6 +512,41 @@ function BIMDashboard() {
     return granted.includes(pkg);
   };
 
+  const handleModelProcessed = async (modelId: string, urn: string) => {
+    if (!selectedProject) return;
+
+    try {
+      const res = await fetch(
+        `/api/projects/${selectedProject.id}/models/${modelId}/urn`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urn }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to update model URN", await res.text());
+        return;
+      }
+
+      // Update local state to reflect the change immediately
+      const updateProjectState = (project: Project) => {
+        if (project.id !== selectedProject.id) return project;
+        const updatedModels = project.models?.map((m) =>
+          m.id === modelId ? { ...m, urn } : m
+        );
+        return { ...project, models: updatedModels };
+      };
+
+      setProjects((prev) => prev.map(updateProjectState));
+      setSelectedProject((prev) => (prev ? updateProjectState(prev) : null));
+
+    } catch (error) {
+      console.error("Error updating URN:", error);
+    }
+  };
+
   const handlePanelChange = (panel: typeof activePanel) => {
     if (!panel) { setActivePanel(null); return; }
     if (!canAccessPanel(panel)) {
@@ -636,6 +680,7 @@ function BIMDashboard() {
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
                       sensorsVisible={sensorsVisible}
+                      onModelProcessed={handleModelProcessed}
                     />
                     {openFile && (
                       <FileViewer
