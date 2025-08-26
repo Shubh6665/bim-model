@@ -541,7 +541,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
               <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John" />
 
               <div className="mt-4">
-                <label className="block text-gray-300 mb-1">Administrator Email (optional)</label>
+                <label className="block text-gray-300 mb-1">Project Admin Email (optional)</label>
                 <input
                   type="email"
                   className="w-full mb-2 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white"
@@ -549,7 +549,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                   onChange={e => setAdminEmail(e.target.value)}
                   placeholder="admin@example.com"
                 />
-                <p className="text-xs text-gray-400">If provided, this user will be added as a <span className="text-amber-300">pending Administrator</span> for this company. Platform Owner must approve them.</p>
+                
               </div>
             </div>
           )}
