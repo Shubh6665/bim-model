@@ -547,6 +547,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         let viewerInstance: any = null;
         let dataVizSvc: DataVizService | null = null;
         let globalErrorHandler: ((event: ErrorEvent) => boolean) | null = null;
+        let rejectionHandler: ((event: PromiseRejectionEvent) => boolean) | null = null;
 
         const buildMatrixFromTransform = (t?: ProjectModel["transform"]) => {
             const THREE = (window as any).THREE;
@@ -740,6 +741,33 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
             // Add global error listener
             window.addEventListener('error', globalErrorHandler);
+            
+            // Also handle unhandled promise rejections which might contain viewer errors
+            rejectionHandler = (event: PromiseRejectionEvent) => {
+                const reason = event.reason;
+                const message = reason?.message || reason?.toString() || '';
+                
+                if (message.includes('hasModels') || 
+                    message.includes('getRequestTransition') || 
+                    message.includes('Cannot read properties of null')) {
+                    
+                    console.error('[ForgeViewer] Caught unhandled promise rejection:', message);
+                    telemetry('viewer_error', { 
+                        message, 
+                        source: 'unhandled_rejection',
+                        stack: reason?.stack 
+                    });
+                    
+                    setError(`Viewer initialization failed: ${message}`);
+                    initInFlightRef.current = false;
+                    
+                    event.preventDefault();
+                    return true;
+                }
+                return false;
+            };
+            
+            window.addEventListener('unhandledrejection', rejectionHandler);
 
             const options = {
                 env: "AutodeskProduction",
@@ -951,9 +979,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             initializeViewer();
         }
         return () => {
-            // Cleanup global error listener
+            // Cleanup global error listeners
             if (globalErrorHandler) {
                 window.removeEventListener('error', globalErrorHandler);
+            }
+            if (rejectionHandler) {
+                window.removeEventListener('unhandledrejection', rejectionHandler);
             }
             // Finish and cleanup the active viewer instance reliably via ref
             if (viewerRef.current) {
