@@ -43,9 +43,20 @@ export async function GET(
 
     const headers = new Headers();
     headers.set('Content-Type', contentType);
-    // Inline for browser preview when supported (pdf/images/text). Otherwise still okay; viewer will blob it.
-    headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
-    headers.set('Cache-Control', 'private, max-age=0, must-revalidate');
+    
+    // Determine if file should be displayed inline based on type
+    const inlineTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'text/plain', 'text/html'];
+    const shouldBeInline = inlineTypes.includes(contentType);
+    
+    headers.set('Content-Disposition', shouldBeInline 
+      ? `inline; filename="${encodeURIComponent(fileName)}"` 
+      : `attachment; filename="${encodeURIComponent(fileName)}"`);
+    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
+    
+    // Add debug logging
+    console.log(`[Download] File: ${fileName}, Type: ${contentType}, Inline: ${shouldBeInline}`);
 
     return new Response(stream as unknown as ReadableStream, {
       status: 200,

@@ -40,10 +40,20 @@ export async function GET(
     try {
       const fileBuffer = await fs.readFile(file.filePath);
       
+      // Check if this is a request for inline viewing (PDFs, images, etc.)
+      const url = new URL(request.url);
+      const inline = url.searchParams.get('inline') === 'true';
+      
+      // Determine if file should be displayed inline by default
+      const inlineTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'text/plain'];
+      const shouldBeInline = inline || inlineTypes.includes(file.mimeType || '');
+      
       return new NextResponse(new Uint8Array(fileBuffer), {
         headers: {
           'Content-Type': file.mimeType || 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${file.name}"`,
+          'Content-Disposition': shouldBeInline 
+            ? `inline; filename="${file.name}"` 
+            : `attachment; filename="${file.name}"`,
           'Content-Length': fileBuffer.length.toString(),
         },
       });

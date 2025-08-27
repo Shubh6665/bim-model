@@ -707,6 +707,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     initInFlightRef.current = false;
                     return;
                 }
+                // Visual tuning: improve contrast and line visibility on init
+                try {
+                    safeSetDisplayEdges(viewerInstance, true);
+                    if (viewerInstance.setGhosting) viewerInstance.setGhosting(false);
+                    if (viewerInstance.setBackgroundColor) {
+                        // Dark background for better DWG contrast
+                        viewerInstance.setBackgroundColor(18, 18, 18, 18, 18, 18);
+                    }
+                } catch {}
                 setViewer(viewerInstance);
                 viewerRef.current = viewerInstance;
                 const documentId = `urn:${primaryUrn}`;
@@ -738,6 +747,20 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
                                     async () => {
                                         setModelLoaded(true);
+                                        // Ensure visual settings after geometry load
+                                        try {
+                                            safeSetDisplayEdges(viewerInstance, true);
+                                            if (viewerInstance.setGhosting) viewerInstance.setGhosting(false);
+                                            if (viewerInstance.setBackgroundColor) {
+                                                viewerInstance.setBackgroundColor(18, 18, 18, 18, 18, 18);
+                                            }
+                                            // Fit model(s) to view for immediate clarity
+                                            if (typeof viewerInstance.fitToView === 'function') {
+                                                setTimeout(() => {
+                                                    try { viewerInstance.fitToView(); } catch {}
+                                                }, 0);
+                                            }
+                                        } catch {}
                                         // Load overlay models (federated) after primary geometry
                                         if (!overlayModelsLoaded) {
                                             try { await loadOverlayModels(); } catch {}
