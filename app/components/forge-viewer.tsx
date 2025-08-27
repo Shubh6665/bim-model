@@ -513,19 +513,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [isInitialized, urn, models, loadedUrn]);
 
-    // Initialize viewer and DataViz service
+    // Initialize viewer and DataViz service (run once per component mount or access token change)
     useEffect(() => {
         const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
         if (!viewerContainer.current || !accessToken || !primaryUrn) return;
-        // Prevent multiple initializations - once initialized, don't reinit for model toggles
-        if (initializationRef.current && loadedUrn) {
-            return;
-        }
-        if (initInFlightRef.current) {
-            return;
-        }
+        // Hard guard: if a viewer instance already exists, do NOT create another
+        if (viewerRef.current) return;
+        // Prevent multiple initializations
+        if (initializationRef.current || initInFlightRef.current) return;
         initializationRef.current = true;
         initInFlightRef.current = true;
+        // Set loadedUrn immediately to avoid re-entrancy before geometry event
+        if (!loadedUrn) setLoadedUrn(primaryUrn);
         // Reset viewerReady guard for this initialization cycle
         hasFiredViewerReadyRef.current = false;
 
@@ -779,6 +778,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                         // Skip DataViz initialization if not currently needed
                                         if (!needDataVizNow) {
                                             setIsInitialized(true); // model ready for other panels
+                                            // Clear in-flight flag only after geometry is loaded
+                                            initInFlightRef.current = false;
                                             return;
                                         }
 
@@ -865,11 +866,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             console.error('[ForgeViewer] Failed to initialize DataViz service due to toolController timeout:', err);
                                             setError('Failed to initialize IoT features.');
                                         }
+                                        // Clear in-flight flag after we finish geometry + optional DataViz
+                                        initInFlightRef.current = false;
                                     },
                                     { once: true }
                                 );
-                                // Clear in-flight flag once primary model and overlays have started loading
-                                setTimeout(() => { initInFlightRef.current = false; }, 0);
+                                // Do not clear in-flight here; wait for geometry event above
                             });
                         }
                     },
@@ -914,7 +916,51 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 }
             }
         };
-    }, [accessToken, urn, models, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible]);
+    }, [accessToken]);
+
+    // Reload primary model inside existing viewer when URN/models change (without creating a new viewer)
+    useEffect(() => {
+        const v = viewerRef.current;
+        const Autodesk = (window as any).Autodesk;
+        if (!v || !Autodesk || !Autodesk.Viewing) return;
+        const primaryUrn = models && models.length > 0 ? models[0].urn : urn;
+        if (!primaryUrn) return;
+        if (loadedUrn === primaryUrn) return; // already loaded
+
+        // Update flag to prevent concurrent reloads
+        initInFlightRef.current = true;
+        setLoadedUrn(primaryUrn);
+
+        const docId = `urn:${primaryUrn}`;
+        Autodesk.Viewing.Document.load(
+            docId,
+            (doc: any) => {
+                const geom = doc.getRoot().getDefaultGeometry();
+                if (!geom) { initInFlightRef.current = false; return; }
+                const opts: any = {
+                    keepCurrentModels: false,
+                    applyRefPoint: true,
+                    isAEC: true,
+                    applyScaling: 'm'
+                };
+                v.loadDocumentNode(doc, geom, opts).then(() => {
+                    // Unload any previous overlays and clear map; they will reconcile via other effect
+                    try {
+                        for (const mdl of overlayModelMapRef.current.values()) { try { v.unloadModel(mdl); } catch {} }
+                        overlayModelMapRef.current.clear();
+                        setOverlayModelsLoaded(false);
+                    } catch {}
+                    // Ensure view is fitted after load
+                    try { setTimeout(() => { try { v.fitToView(); } catch {} }, 0); } catch {}
+                }).finally(() => {
+                    initInFlightRef.current = false;
+                });
+            },
+            (_err: any) => {
+                initInFlightRef.current = false;
+            }
+        );
+    }, [urn, JSON.stringify(models?.map(m => ({ id: m.id, urn: m.urn }))) ]);
 
     // Late / on-demand DataViz initialization (e.g., BIM panel toggles sensorsVisible later)
     useEffect(() => {
