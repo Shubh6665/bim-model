@@ -4,10 +4,10 @@ import { getDb } from "../../../../../../services/mongodb";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { projectId: string; modelId: string } }
+  { params }: { params: Promise<{ projectId: string; modelId: string }> }
 ) {
   try {
-    const { projectId, modelId } = params;
+    const { projectId, modelId } = await params;
     const { urn } = await request.json();
 
     if (!projectId || !modelId || !urn) {
