@@ -117,6 +117,7 @@ export function ThreeDViewer({
           fileSize={
             parseInt(selectedFile!.size.replace(" MB", "")) * 1024 * 1024
           }
+          existingUrn={selectedFile!.urn} // Pass existing URN for validation
           onProcessingComplete={handleProcessingComplete}
           onClose={handleCloseProcessing}
         />

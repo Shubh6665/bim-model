@@ -248,11 +248,31 @@ function BIMDashboard() {
     }
   };
 
-  const handleProcessingComplete = (urn: string, file: ProjectFile) => {
+  const handleProcessingComplete = async (urn: string, file: ProjectFile) => {
+    // Update local state immediately
     setSelectedFile((prev) => (prev ? { ...prev, urn } : null));
     setProjects((prev) =>
       prev.map((p) => (p.id === file.id ? { ...p, urn } : p)),
     );
+
+    // Save URN to database for future use
+    if (selectedProject) {
+      try {
+        const response = await fetch(`/api/projects/${selectedProject.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urn }),
+        });
+        
+        if (response.ok) {
+          console.log('✅ URN saved to database for future fast loading');
+        } else {
+          console.warn('⚠️ Failed to save URN to database');
+        }
+      } catch (error) {
+        console.warn('⚠️ Error saving URN to database:', error);
+      }
+    }
   };
 
 
@@ -289,7 +309,7 @@ function BIMDashboard() {
       isRVT: true,
       lat: project.lat,
       lng: project.lng,
-      urn: project.urn,
+      urn: existingUrn, // Use the calculated URN from models or fallback to project URN
       description: project.description,
     };
     setSelectedFile(file);
