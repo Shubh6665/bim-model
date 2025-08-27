@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
 import { GridFSBucket, ObjectId } from 'mongodb';
 
+// Ensure Node.js runtime for GridFS and Buffer support
+export const runtime = 'nodejs';
+
 async function getForgeAccessToken(scopes: string) {
   const clientId = process.env.FORGE_CLIENT_ID;
   const clientSecret = process.env.FORGE_CLIENT_SECRET;
@@ -87,7 +90,8 @@ export async function GET(
     const putRes = await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/octet-stream' },
-      body: buffer,
+      // Use Uint8Array to satisfy Fetch BodyInit types across runtimes
+      body: new Uint8Array(buffer),
     });
     if (!putRes.ok) {
       const t = await putRes.text();

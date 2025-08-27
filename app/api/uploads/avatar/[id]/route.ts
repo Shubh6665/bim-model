@@ -20,7 +20,8 @@ export async function GET(
     }
     const contentType = doc.contentType || 'application/octet-stream';
     const data: Buffer = doc.data?.buffer ? Buffer.from(doc.data.buffer) : doc.data;
-    const res = new NextResponse(data, {
+    // Use Uint8Array for Fetch-compatible BodyInit
+    const res = new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
         'Content-Type': contentType,
