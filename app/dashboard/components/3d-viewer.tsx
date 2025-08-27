@@ -66,17 +66,22 @@ export function ThreeDViewer({
         return;
       }
 
-      if (selectedFile.urn) {
+      // Prefer an existing URN from file or cached from previous successful processing
+      const cacheKey = `urn_cache_${selectedFile.id}`;
+      const cachedUrn = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
+      const effectiveUrn = selectedFile.urn || cachedUrn || undefined;
+
+      if (effectiveUrn) {
         // Verify translation status for the URN
         setIsLoadingForge(true);
         try {
-          const res = await fetch(`/api/forge/status/${selectedFile.urn}`);
+          const res = await fetch(`/api/forge/status/${effectiveUrn}`);
           if (res.ok) {
             const data = await res.json();
             if (!cancelled && data.status === 'success') {
               const accessToken = await forgeAuthService.getAccessToken();
               if (!cancelled) {
-                setForgeData({ accessToken, urn: selectedFile.urn });
+                setForgeData({ accessToken, urn: effectiveUrn });
                 setShowRVTInterface(false);
               }
             } else {
@@ -128,6 +133,13 @@ export function ThreeDViewer({
       // Get access token for the viewer
       const accessToken = await forgeAuthService.getAccessToken();
       setForgeData({ accessToken, urn });
+      // Cache URN for this file id to skip pipeline on subsequent opens
+      try {
+        if (selectedFile?.id) {
+          const cacheKey = `urn_cache_${selectedFile.id}`;
+          window.localStorage.setItem(cacheKey, urn);
+        }
+      } catch {}
       // If the file is a model that was just processed, find the corresponding model
       // in the project's model list and update its URN.
       if (onModelProcessed && selectedFile && selectedFile.isRVT) {
@@ -176,6 +188,7 @@ export function ThreeDViewer({
       {/* Forge Viewer */}
       {shouldShowForgeViewer && (
         <ForgeViewer
+          key={forgeData!.urn}
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
           models={models}
