@@ -56,7 +56,8 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     let packages: string[] = [];
     const invite = await getInviteFor(db, projectId, email);
     if (invite && Array.isArray(invite?.invitee?.packages)) packages = invite.invitee.packages;
-    const access = { role, packages, owner: String(project.userId) === String(user._id) };
+    const displayRole = String(invite?.invitee?.role || '').trim() || role;
+    const access = { role, displayRole, packages, owner: String(project.userId) === String(user._id) };
     return NextResponse.json({ project: { ...project, access } });
   } catch (error: any) {
     console.error('Error fetching project:', error);

@@ -80,7 +80,9 @@ function SignupForm() {
         await fetch(`/api/invites/accept?token=${encodeURIComponent(inviteToken)}${projectId ? `&projectId=${encodeURIComponent(projectId!)}` : ""}`);
       }
 
-      window.location.href = "/dashboard";
+      // Suppress AutoLogoutGuard during intentional navigation and use client-side routing
+      try { sessionStorage.setItem('suppressAutoLogout', '1'); } catch {}
+      router.replace('/dashboard');
     } catch (e: any) {
       setError(e?.message || "Signup failed");
     } finally {

@@ -13,6 +13,7 @@ interface ProfileModalProps {
   onClose: () => void;
   email?: string;
   roleInfo?: RoleInfo; // from selectedProject/access or platform owner
+  projectId?: string; // when provided, load/save project-scoped profile
 }
 
 interface ProfileData {
@@ -24,7 +25,7 @@ interface ProfileData {
   avatarUrl: string;
 }
 
-export function ProfileModal({ open, onClose, email, roleInfo }: ProfileModalProps) {
+export function ProfileModal({ open, onClose, email, roleInfo, projectId }: ProfileModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -39,13 +40,23 @@ export function ProfileModal({ open, onClose, email, roleInfo }: ProfileModalPro
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/users/me");
+        const endpoint = projectId ? `/api/projects/${projectId}/profile` : "/api/users/me";
+        const res = await fetch(endpoint);
         const json = await res.json();
         if (aborted) return;
         if (!res.ok) throw new Error(json?.error || "Failed to load profile");
         const p = json?.profile as ProfileData;
-        setProfile(p);
-        setEdited(p);
+        // Ensure email is filled from prop when project-scoped
+        const normalized: ProfileData = {
+          name: p?.name || '',
+          surname: p?.surname || '',
+          email: p?.email || email || '',
+          society: p?.society || '',
+          telephone: p?.telephone || '',
+          avatarUrl: p?.avatarUrl || ''
+        };
+        setProfile(normalized);
+        setEdited(normalized);
         setIsEditing(false);
       } catch (e: any) {
         if (aborted) return;
@@ -57,7 +68,7 @@ export function ProfileModal({ open, onClose, email, roleInfo }: ProfileModalPro
     return () => {
       aborted = true;
     };
-  }, [open]);
+  }, [open, projectId]);
 
   if (!open) return null;
 
@@ -102,22 +113,33 @@ export function ProfileModal({ open, onClose, email, roleInfo }: ProfileModalPro
                         setSaving(true);
                         setError(null);
                         try {
-                          const res = await fetch('/api/users/me', {
-                            method: 'PUT',
+                          const endpoint = projectId ? `/api/projects/${projectId}/profile` : '/api/users/me';
+                          const method = projectId ? 'PUT' : 'PUT';
+                          const payload = {
+                            name: edited.name || '',
+                            surname: edited.surname || '',
+                            society: edited.society || '',
+                            telephone: edited.telephone || '',
+                            avatarUrl: edited.avatarUrl || ''
+                          };
+                          const res = await fetch(endpoint, {
+                            method,
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              name: edited.name || '',
-                              surname: edited.surname || '',
-                              society: edited.society || '',
-                              telephone: edited.telephone || '',
-                              avatarUrl: edited.avatarUrl || ''
-                            })
+                            body: JSON.stringify(payload)
                           });
                           const json = await res.json();
                           if (!res.ok) throw new Error(json?.error || 'Failed to save profile');
                           const p = json?.profile as ProfileData;
-                          setProfile(p);
-                          setEdited(p);
+                          const normalized: ProfileData = {
+                            name: p?.name || '',
+                            surname: p?.surname || '',
+                            email: p?.email || email || '',
+                            society: p?.society || '',
+                            telephone: p?.telephone || '',
+                            avatarUrl: p?.avatarUrl || ''
+                          };
+                          setProfile(normalized);
+                          setEdited(normalized);
                           setIsEditing(false);
                         } catch (e: any) {
                           setError(e?.message || 'Failed to save profile');

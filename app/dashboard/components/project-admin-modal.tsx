@@ -731,7 +731,10 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       // Close modal and notify parent
       onClose();
       // Optionally refresh projects list or redirect
-      window.location.reload(); // Simple approach - could be improved with proper state management
+      // Suppress AutoLogoutGuard during intentional navigation to avoid forcing logout on pagehide
+      try { sessionStorage.setItem('suppressAutoLogout', '1'); } catch {}
+      // Simple approach - reload the page; could be improved with router-based state refresh
+      window.location.reload();
     } catch (e: any) {
       setError(e.message || "Failed to delete project");
     } finally {
@@ -764,7 +767,6 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         <div className="px-5 pt-3">
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button onClick={() => setActiveTab("info")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "info" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Project Information</button>
-            <button onClick={() => setActiveTab("profile")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "profile" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Profile</button>
             {canManage && (
               <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Manage Access</button>
             )}
@@ -781,7 +783,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         {error && (
           <div className="mx-5 mt-2 px-3 py-2 bg-red-900/30 border border-red-700/40 rounded text-red-200 text-sm">{error}</div>
         )}
-        {activeTab === 'profile' && profileNotice && (
+        {false && profileNotice && (
           <div className="mx-5 mt-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded text-yellow-200 text-sm flex items-start justify-between gap-3">
             <span>{profileNotice}</span>
             <button
@@ -795,7 +797,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
         {/* Content */}
         <div className="p-5 space-y-6 flex-1 overflow-y-auto">
-          {activeTab === "profile" && (
+          {false && (
             <div className="space-y-4">
               {profileLoading ? (
                 <div className="text-sm text-gray-400">Loading profile…</div>

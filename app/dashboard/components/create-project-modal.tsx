@@ -134,8 +134,6 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   const [cadastral, setCadastral] = useState("");
   // Client/Manager
   const [company, setCompany] = useState("");
-  const [companyValid, setCompanyValid] = useState<boolean | null>(null);
-  const [companyMsg, setCompanyMsg] = useState<string>("");
   const [surname, setSurname] = useState("");
   const [name, setName] = useState("");
   // Optional single Administrator Email (for pending admin invitation)
@@ -178,56 +176,11 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   // Step validation - Project Name, Project Code, and at least one Model are required
   const canNext = () => {
     if (step === 0) return !!projectName && !!projectCode;
-    if (step === 2) return !!company && companyValid === true; // Require valid company
     if (step === 3) return models.length > 0; // At least one model required
-    return true; // Other steps are optional
+    return true; // Other steps are optional, including company
   };
 
-  // Validate company against approved admin companies (debounced)
-  useEffect(() => {
-    setCompanyMsg("");
-    setCompanyValid(null);
-    const value = (company || "").trim();
-    if (!value) return;
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/projects/validate-company?company=${encodeURIComponent(value)}`,
-          { signal: controller.signal }
-        );
-        const data = await res.json();
-        if (!res.ok) {
-          setCompanyValid(false);
-          setCompanyMsg(data?.error || "Validation failed");
-          return;
-        }
-        if (data.isOwner) {
-          setCompanyValid(true);
-          setCompanyMsg("");
-          return;
-        }
-        if (data.match) {
-          setCompanyValid(true);
-          setCompanyMsg("");
-        } else {
-          setCompanyValid(false);
-          const hint = Array.isArray(data.approvedCompanies) && data.approvedCompanies.length
-            ? `Not matched. Approved: ${data.approvedCompanies.join(', ')}`
-            : "Not matched with your approved companies";
-          setCompanyMsg(hint);
-        }
-      } catch (e: any) {
-        if (e?.name !== 'AbortError') {
-          setCompanyValid(false);
-          setCompanyMsg("Network error while validating company");
-        }
-      }
-    }, 300);
-    return () => {
-      controller.abort();
-      clearTimeout(t);
-    };
-  }, [company]);
+  // Company validation removed; company is optional and unrestricted.
   
   // Handle skip for current step
   const handleSkip = () => {
@@ -524,17 +477,14 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                   Skip for now
                 </button>
               </div>
-              <label className="block text-gray-300 mb-1">Company Name</label>
+              <label className="block text-gray-300 mb-1">Company Name (optional)</label>
               <input
                 type="text"
-                className={`w-full px-3 py-2 rounded bg-gray-800 border text-white ${companyValid === false ? 'border-red-600' : 'border-gray-700'} mb-1`}
+                className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white mb-1"
                 value={company}
                 onChange={e => setCompany(e.target.value)}
                 placeholder="e.g. ACME Construction"
               />
-              {company && companyValid === false && (
-                <p className="text-xs text-red-400 mb-2">{companyMsg || 'Not matched'}</p>
-              )}
               <label className="block text-gray-300 mb-1">Surname</label>
               <input type="text" className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={surname} onChange={e => setSurname(e.target.value)} placeholder="e.g. Smith" />
               <label className="block text-gray-300 mb-1">Name</label>

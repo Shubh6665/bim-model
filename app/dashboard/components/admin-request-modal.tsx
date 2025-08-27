@@ -25,10 +25,6 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    if (!company.trim()) {
-      setError("Company name is required");
-      return;
-    }
     try {
       setSubmitting(true);
       const res = await fetch("/api/admins/requests", {
@@ -40,8 +36,9 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
       if (!res.ok) {
         throw new Error(json?.error || "Failed to submit request");
       }
+      const companyText = json.company ? ` for company "${json.company}"` : '';
       setSuccess(
-        `Request submitted for company "${json.company}". Status: ${json.status}. A Platform Owner will review and approve.`
+        `Request submitted${companyText}. Status: ${json.status}. A Platform Owner will review and approve.`
       );
       setCompany("");
     } catch (err: any) {
@@ -79,7 +76,6 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
               onChange={(e) => setCompany(e.target.value)}
               className="w-full h-11 px-3 rounded-md bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
               placeholder="e.g., Acme Infra Pvt Ltd"
-              required
             />
           </div>
           <div>

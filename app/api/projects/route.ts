@@ -109,7 +109,8 @@ export async function GET(req: NextRequest) {
         // Compute role
         // Note: getEffectiveRole may use invite role internally for PA; we still pass packages separately
         const role = await getEffectiveRole(db, p, email, user);
-        byId.set(key, { ...p, access: { role, packages, owner: !!isOwner } });
+        const displayRole = String(inv?.invitee?.role || '').trim() || role;
+        byId.set(key, { ...p, access: { role, displayRole, packages, owner: !!isOwner } });
       }
     }
     const union = Array.from(byId.values());
@@ -169,19 +170,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: require name, lat, lng, and either urn or models[]' }, { status: 400 });
     }
 
-    // Enforce company match for non-platform owners: company must be one of approved admin companies (case-insensitive)
-    const isOwner = isPlatformOwnerEmail(email);
-    const companyTrimmed = (company || '').trim();
-    if (!isOwner) {
-      if (!companyTrimmed) {
-        return NextResponse.json({ error: 'Company is required for project creation.' }, { status: 400 });
-      }
-      const approved = getApprovedAdminCompanies(user).map((c) => c.toLowerCase());
-      const match = approved.includes(companyTrimmed.toLowerCase());
-      if (!match) {
-        return NextResponse.json({ error: 'Company does not match your approved administrator companies.', approvedCompanies: approved }, { status: 400 });
-      }
-    }
+    // Company is optional. No enforcement or matching against approved admin companies.
 
     // Save project to DB (owner is the user creating it)
     const project = {

@@ -13,17 +13,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const company: string | undefined = (body?.company || '').trim();
+    const companyRaw: string = (body?.company || '').trim();
     const email: string = (body?.email || sessionEmail).trim();
 
-    if (!company) {
-      return NextResponse.json({ error: 'company is required' }, { status: 400 });
-    }
+    // Normalize empty company to a placeholder so it appears in pending list and can be approved
+    const normalizedCompany = companyRaw || '(unspecified)';
 
     const db = await getDb();
-    await ensurePendingAdminForCompanyByEmail(db, email, company);
+    await ensurePendingAdminForCompanyByEmail(db, email, normalizedCompany);
 
-    return NextResponse.json({ success: true, email, company, status: 'pending' });
+    return NextResponse.json({ success: true, email, company: normalizedCompany, status: 'pending' });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Unexpected error' }, { status: 500 });
   }

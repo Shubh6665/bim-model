@@ -34,9 +34,14 @@ export function getApprovedAdminCompanies(user: any): string[] {
 }
 
 export function isApprovedAdministratorForCompany(user: any, company?: string | null): boolean {
-  if (!user || !company) return false;
+  if (!user) return false;
   const approvedCompanies = getApprovedAdminCompanies(user);
-  return approvedCompanies.map((c) => c.toLowerCase()).includes(String(company).toLowerCase());
+  const normList = approvedCompanies.map((c) => String(c).trim().toLowerCase());
+  // Global admin applies even if company is missing
+  if (normList.includes('(unspecified)')) return true;
+  if (!company) return false;
+  const normCompany = String(company).trim().toLowerCase();
+  return normList.includes(normCompany);
 }
 
 export async function getAcceptedInvite(db: any, projectId: string, email: string) {
@@ -168,9 +173,12 @@ export async function getEffectiveRole(db: any, project: any, email: string, use
   if (isApprovedAdministratorForCompany(user, project?.company)) return 'Administrator';
   // If they have pending admin for this company
   const pend = (Array.isArray(user?.adminCompanies) ? user.adminCompanies : []) as AdminCompanyEntry[];
-  if (project?.company && pend.some((e) => e.company?.toLowerCase() === String(project.company).toLowerCase() && e.status === 'pending')) {
-    return 'AdministratorPending';
-  }
+  const normProjCompany = String(project?.company || '').trim().toLowerCase();
+  const hasPendingForProjectOrGlobal = pend.some((e) => {
+    const c = String(e?.company || '').trim().toLowerCase();
+    return e?.status === 'pending' && (c === normProjCompany || c === '(unspecified)');
+  });
+  if (hasPendingForProjectOrGlobal) return 'AdministratorPending';
   const isPA = project?._id ? await isProjectAdmin(db, String(project._id), email) : false;
   return isPA ? 'ProjectAdmin' : 'User';
 }

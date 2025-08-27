@@ -13,7 +13,8 @@ export function OwnerPendingAdminsModal({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admins');
+      // Disable cache and add a cache-busting query param to always get fresh data
+      const res = await fetch(`/api/admins?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load pending admins');
       setEntries(Array.isArray(data.pending) ? data.pending : []);
@@ -37,7 +38,10 @@ export function OwnerPendingAdminsModal({ onClose }: { onClose: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Action failed');
-      await load();
+      // Optimistically remove the processed entry to avoid flicker
+      setEntries((prev) => prev.filter((e) => !(e.email === email && e.company === company)));
+      // Then refresh from server (non-blocking)
+      load();
     } catch (e: any) {
       setError(e.message);
     } finally {

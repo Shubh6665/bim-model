@@ -9,30 +9,8 @@ export default function AutoLogoutGuard() {
     const endpoint = "/api/auth/force-logout";
     let sent = false;
 
-    const logoutWithBeacon = () => {
-      if (sent) return;
-      // Skip during intentional auth redirects
-      try {
-        if (sessionStorage.getItem("suppressAutoLogout") === "1") return;
-      } catch {}
-      try {
-        const data = new Blob([JSON.stringify({ reason: "unload" })], { type: "application/json" });
-        // Try beacon first (works reliably on unload)
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon(endpoint, data);
-        } else {
-          // Fallback best-effort async request
-          fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "unload" }) }).catch(() => {});
-        }
-        sent = true;
-      } catch {
-        // ignore
-      }
-    };
-
-    // On pagehide (fires once per navigation/close; better than beforeunload+unload)
-    const onPageHide = () => logoutWithBeacon();
-    window.addEventListener("pagehide", onPageHide);
+    // IMPORTANT: Do NOT auto-logout on refresh or normal navigation.
+    // We only handle cross-tab session changes below.
 
     // Clear suppression shortly after mount to re-enable auto-logout
     const clearTimer = window.setTimeout(() => {
@@ -54,7 +32,6 @@ export default function AutoLogoutGuard() {
     window.addEventListener("storage", onStorage);
 
     return () => {
-      window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("storage", onStorage);
       window.clearTimeout(clearTimer);
     };

@@ -22,7 +22,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const [showPendingAdminsModal, setShowPendingAdminsModal] = useState(false);
   const [canManagePendingAdmins, setCanManagePendingAdmins] = useState<boolean>(false);
   const [pendingAdminsCount, setPendingAdminsCount] = useState<number>(0);
-  const [canCreate, setCanCreate] = useState<boolean>(false);
+  const [canCreate, setCanCreate] = useState<boolean>(!!platformOwner);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Probe capability and fetch count: Only Platform Owner can access /api/admins
@@ -50,12 +50,17 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
     return () => { aborted = true; };
   }, [showProfileMenu]);
 
-  // Probe if user can create project
+  // Probe if user can create project (Administrator or PlatformOwner)
+  // Run proactively on mount and when user/platformOwner changes, not only when menu opens
   useEffect(() => {
-    if (!showProfileMenu) return;
     let aborted = false;
     (async () => {
       try {
+        // Platform owner always can create
+        if (platformOwner) {
+          setCanCreate(true);
+          return;
+        }
         const r = await fetch('/api/projects/can-create');
         if (aborted) return;
         if (r.ok) {
@@ -70,7 +75,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
       }
     })();
     return () => { aborted = true; };
-  }, [showProfileMenu]);
+  }, [user?.email, platformOwner]);
 
   // Helper function for button styles
   const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
@@ -82,8 +87,14 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   };
 
   // Compute role info for profile modal
-  const effectiveRole: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : 'General');
-  const roleLabel: string = effectiveRole === 'ProjectAdmin' ? 'Project Admin' : effectiveRole;
+  // If a project is selected, use its access.role. Otherwise:
+  // - PlatformOwner => PlatformOwner
+  // - If canCreate is true (approved Administrator, possibly global '(unspecified)') => Administrator
+  // - Else General
+  const effectiveRole: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : (canCreate ? 'Administrator' : 'General'));
+  const baseRoleLabel: string = effectiveRole === 'ProjectAdmin' ? 'Project Admin' : effectiveRole;
+  const projectDisplayRole: string | undefined = selectedProject?.access?.displayRole;
+  const roleLabel: string = projectDisplayRole && selectedProject ? projectDisplayRole : baseRoleLabel;
   const isOwnerFlag: boolean = !!selectedProject?.access?.owner;
 
   return (
@@ -150,8 +161,12 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                   <p className="text-xs text-gray-400">{user?.email || "-"}</p>
                   {/* RBAC Role badges (project-scoped or global PlatformOwner) */}
                   {(() => {
-                    // If no project selected and platformOwner=true, show PlatformOwner as global badge
-                    const role: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : 'General');
+                    // If no project selected:
+                    // - PlatformOwner => PlatformOwner
+                    // - Approved Administrator (canCreate) => Administrator
+                    // - Else General
+                    const role: string = selectedProject?.access?.role || (platformOwner ? 'PlatformOwner' : (canCreate ? 'Administrator' : 'General'));
+                    const displayRoleRaw: string | undefined = selectedProject?.access?.displayRole;
                     const isOwner: boolean = !!selectedProject?.access?.owner;
                     // Color mapping for known roles
                     const colorMap: Record<string, string> = {
@@ -162,7 +177,9 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                       'General': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
                     };
                     const roleCls = colorMap[role] || 'bg-gray-600/20 text-gray-300 border-gray-500/40';
-                    const displayRole = role === 'ProjectAdmin' ? 'Project Admin' : role;
+                    // If a project-specific displayRole exists (e.g., BIM Manager), prefer it for label.
+                    const displayRoleBase = role === 'ProjectAdmin' ? 'Project Admin' : role;
+                    const displayRole = (displayRoleRaw && displayRoleRaw.trim().length > 0) ? displayRoleRaw : displayRoleBase;
                     const ownerCls = 'bg-fuchsia-600/20 text-fuchsia-300 border-fuchsia-500/40';
                     return (
                       <div className="mt-2 flex items-center gap-2">
@@ -250,6 +267,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         onClose={() => setShowProfileModal(false)} 
         email={user?.email}
         roleInfo={{ roleLabel, isOwner: isOwnerFlag }}
+        projectId={selectedProject?._id || selectedProject?.id}
       />
     </header>
   );
