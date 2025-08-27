@@ -22,18 +22,148 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
   const [error, setError] = useState<string>('');
   const [blobRef, setBlobRef] = useState<Blob | null>(null);
 
-  // DWG/DXF via Forge Viewer
+  // DWG/DXF
   const [forgeUrn, setForgeUrn] = useState<string>('');
   const [forgeToken, setForgeToken] = useState<string>('');
   const [forgeLoading, setForgeLoading] = useState<boolean>(false);
   const [forgeError, setForgeError] = useState<string>('');
 
-  // Excel preview (SheetJS)
+  // Excel
   const [excelHtml, setExcelHtml] = useState<string>('');
   const [excelSheets, setExcelSheets] = useState<string[]>([]);
   const [activeSheet, setActiveSheet] = useState<string>('');
   const [excelLoading, setExcelLoading] = useState<boolean>(false);
   const [excelError, setExcelError] = useState<string>('');
+
+  // Word
+  const [wordHtml, setWordHtml] = useState<string>('');
+  const [wordLoading, setWordLoading] = useState<boolean>(false);
+  const [wordError, setWordError] = useState<string>('');
+
+  const getFileExtension = (filename: string) => {
+    return filename.split('.').pop()?.toLowerCase() || '';
+  };
+
+  const buildTableHtml = (rows: any[][]) => {
+    const escape = (v: any) =>
+      String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    const header = rows[0] || [];
+    const body = rows.slice(1);
+    const ths = header
+      .map((h) => `<th class="px-3 py-2 border border-gray-300 bg-gray-100 sticky top-0 z-10 text-left text-gray-800 text-sm">${escape(h)}</th>`)
+      .join('');
+    const trs = body
+      .map((r) =>
+        `<tr class="odd:bg-white even:bg-gray-50">${r
+          .map((c) => `<td class="px-3 py-2 border border-gray-200 text-sm text-gray-800">${escape(c)}</td>`)
+          .join('')}</tr>`
+      )
+      .join('');
+    return `<table class="min-w-full border-collapse"><thead class="shadow-sm"><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  };
+
+  const parseWord = async (arrayBuffer: ArrayBuffer) => {
+    setWordLoading(true);
+    setWordError('');
+    setWordHtml('');
+    try {
+      if (arrayBuffer.byteLength === 0) throw new Error('Word file is empty.');
+      const mammoth = await import('mammoth');
+      const result = await (mammoth as any).convertToHtml({ arrayBuffer });
+      setWordHtml(result.value);
+      if (result.messages && result.messages.length > 0) {
+        console.warn('Word conversion warnings:', result.messages);
+      }
+    } catch (e: any) {
+      console.error('Word parsing failed:', e);
+      setWordError(e?.message || 'Failed to parse Word document');
+    } finally {
+      setWordLoading(false);
+    }
+  };
+
+  const parseExcel = async (arrayBuffer: ArrayBuffer) => {
+    setExcelLoading(true);
+    setExcelError('');
+    setExcelHtml('');
+    setExcelSheets([]);
+    setActiveSheet('');
+    try {
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('Excel file is empty and cannot be previewed.');
+      }
+      const XLSXMod = await import('xlsx');
+      const XLSX: any = (XLSXMod as any).default || XLSXMod;
+      let workbook;
+      try {
+        workbook = XLSX.read(arrayBuffer, {
+          type: 'array', cellDates: true, cellNF: false, cellText: false,
+          codepage: 65001, raw: false, dateNF: 'yyyy-mm-dd',
+          cellStyles: true, sheetStubs: false, defval: ''
+        });
+      } catch (readError: any) {
+        console.error("XLSX.read failed:", readError);
+        throw new Error("File is not a valid Excel document or is corrupted.");
+      }
+      const names: string[] = workbook.SheetNames || [];
+      if (names.length === 0) throw new Error('No sheets found in Excel file');
+      setExcelSheets(names);
+      const first = names[0];
+      setActiveSheet(first || '');
+      const ws = first ? workbook.Sheets[first] : null;
+      if (!ws) throw new Error('Could not load the first sheet.');
+      const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
+      const filteredRows = rows.filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+      if (filteredRows.length === 0) throw new Error('Sheet appears to be empty');
+      const html = buildTableHtml(filteredRows);
+      setExcelHtml(html);
+    } catch (e: any) {
+      console.error('Excel parse failed:', e);
+      setExcelError(e?.message || 'Failed to parse Excel file');
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
+  const loadFile = async () => {
+    if (!file) return;
+
+    // Reset all state
+    setBlobRef(null);
+    setForgeUrn(''); setForgeToken(''); setForgeError(''); setForgeLoading(false);
+    setExcelHtml(''); setExcelSheets([]); setActiveSheet(''); setExcelError(''); setExcelLoading(false);
+    setWordHtml(''); setWordError(''); setWordLoading(false);
+    setFileUrl('');
+    setLoading(true);
+    setError('');
+
+    try {
+      const cacheBuster = Date.now();
+      const response = await fetch(`/api/projects/${projectId}/files/${file.id}/download?t=${cacheBuster}`);
+      if (!response.ok) throw new Error('Failed to download file');
+
+      const blob = await response.blob();
+      setBlobRef(blob);
+      setFileUrl(URL.createObjectURL(blob));
+
+      const extension = getFileExtension(file.name);
+      if (extension === 'xlsx' || extension === 'xls') {
+        const buffer = await blob.arrayBuffer();
+        await parseExcel(buffer);
+      } else if (extension === 'docx') {
+        const buffer = await blob.arrayBuffer();
+        await parseWord(buffer);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error loading file');
+      console.error('File load error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (file) {
@@ -41,48 +171,8 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
     }
   }, [file]);
 
-  const loadFile = async () => {
-    if (!file) return;
-    
-    // Reset state for new file
-    setBlobRef(null);
-    setForgeUrn('');
-    setForgeToken('');
-    setForgeError('');
-    setForgeLoading(false);
-    setExcelHtml('');
-    setExcelSheets([]);
-    setActiveSheet('');
-    setExcelError('');
-    setExcelLoading(false);
-    setFileUrl(''); // Crucial: Reset URL to prevent using stale blob link
-
-    setLoading(true);
-    setError('');
-    
-    try {
-      // Add cache-busting parameter to force fresh request
-      const cacheBuster = Date.now();
-      const response = await fetch(`/api/projects/${projectId}/files/${file.id}/download?t=${cacheBuster}`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        setBlobRef(blob);
-        setFileUrl(url);
-      } else {
-        setError('Failed to load file');
-      }
-    } catch (err) {
-      setError('Error loading file');
-      console.error('File load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const downloadFile = async () => {
     if (!file || !fileUrl) return;
-    
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = file.name;
@@ -91,29 +181,9 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
     document.body.removeChild(link);
   };
 
-  const getFileExtension = (filename: string) => {
-    return filename.split('.').pop()?.toLowerCase() || '';
-  };
-
-  // Build an absolute URL for external viewers (Office/ShareCAD)
-  const buildAbsoluteFileUrl = () => {
-    if (!file) return '';
-    try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      // Use the streaming GridFS endpoint to serve inline content
-      const path = `/api/projects/${projectId}/files/${file.id}/download`;
-      return origin ? `${origin}${path}` : path;
-    } catch {
-      return '';
-    }
-  };
-
   const renderFileContent = () => {
     if (!file) return null;
-    
     const extension = getFileExtension(file.name);
-    
-    const absoluteUrl = buildAbsoluteFileUrl();
 
     switch (extension) {
       case 'pdf':
@@ -127,7 +197,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
             style={{ background: 'white' }}
           />
         );
-      
+
       case 'jpg':
       case 'jpeg':
       case 'png':
@@ -144,7 +214,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
             />
           </div>
         );
-      
+
       case 'txt':
       case 'md':
       case 'json':
@@ -157,7 +227,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
             title={file.name}
           />
         );
-      
+
       case 'dwg':
       case 'dxf':
         // Autodesk Forge Viewer integration using cached/transient URN
@@ -233,117 +303,82 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
             </div>
           </div>
         );
-      
+
       case 'docx':
       case 'doc':
-        // Use Microsoft Office Online viewer
-        return absoluteUrl ? (
-          <iframe
-            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteUrl)}`}
-            className="w-full h-full border-0 bg-white"
-            title={`Word Viewer - ${file.name}`}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full bg-gray-50">
-            <FileText className="w-16 h-16 text-blue-600 mb-4" />
-            <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
-            <p className="text-sm text-gray-500 mb-4">Word Document</p>
-            <button
-              onClick={downloadFile}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Download to View
-            </button>
+        // Parsing is now handled in `loadFile` to prevent race conditions.
+        if (wordLoading) {
+          return (
+            <div className="absolute inset-0 flex items-center justify-center bg-white">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                <p className="text-gray-600">Converting Word document…</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (wordError || extension === 'doc') {
+          return (
+            <div className="flex flex-col items-center justify-center h-full bg-gray-50">
+              <FileText className="w-16 h-16 text-blue-600 mb-4" />
+              <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
+              <p className="text-sm text-gray-500 mb-4">
+                {extension === 'doc' ? 'Legacy Word Document (.doc)' : 'Microsoft Word Document'}
+              </p>
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600 mb-2">
+                  {extension === 'doc'
+                    ? 'Legacy .doc files require download to view properly.'
+                    : wordError || 'Word document preview not available.'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Click download to open with your local Word application.
+                </p>
+              </div>
+              <button
+                onClick={downloadFile}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download & Open
+              </button>
+            </div>
+          );
+        }
+
+        if (wordHtml) {
+          return (
+            <div className="w-full h-full flex flex-col bg-white min-h-0">
+              <div className="flex-1 overflow-auto min-h-0">
+                <div className="p-6 max-w-4xl mx-auto">
+                  <div
+                    className="prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: wordHtml }}
+                    style={{
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      lineHeight: '1.6',
+                      color: '#374151'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <p className="text-gray-600">Loading Word document…</p>
+            </div>
           </div>
         );
-      
+
       case 'xlsx':
       case 'xls':
         // Local render using SheetJS
-        const buildTableHtml = (rows: any[][]) => {
-          const escape = (v: any) =>
-            String(v ?? '')
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;');
-          const header = rows[0] || [];
-          const body = rows.slice(1);
-          const ths = header
-            .map((h) => `<th class=\"px-3 py-2 border border-gray-300 bg-gray-100 sticky top-0 z-10 text-left text-gray-800 text-sm\">${escape(h)}</th>`) 
-            .join('');
-          const trs = body
-            .map((r, i) =>
-              `<tr class=\"odd:bg-white even:bg-gray-50\">${r
-                .map((c) => `<td class=\"px-3 py-2 border border-gray-200 text-sm text-gray-800\">${escape(c)}</td>`) 
-                .join('')}</tr>`
-            )
-            .join('');
-          return `<table class=\"min-w-full border-collapse\"><thead class=\"shadow-sm\"><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
-        };
-
-        if (!excelHtml && !excelLoading && !excelError && blobRef) {
-          setExcelLoading(true);
-          // Add delay to ensure blob is fully ready
-          setTimeout(async () => {
-            try {
-              const XLSXMod = await import('xlsx');
-              const XLSX: any = (XLSXMod as any).default || XLSXMod;
-              
-              // Wait for blob to be fully ready
-              await new Promise(resolve => setTimeout(resolve, 100));
-              const arrayBuffer = await blobRef.arrayBuffer();
-              
-              // Enhanced parsing options for better compatibility
-              const workbook = XLSX.read(arrayBuffer, {
-                type: 'array',
-                cellDates: true,
-                cellNF: false,
-                cellText: false,
-                codepage: 65001,
-                raw: false,
-                dateNF: 'yyyy-mm-dd',
-                cellStyles: true,
-                sheetStubs: false,
-                defval: ''
-              });
-              
-              const names: string[] = workbook.SheetNames || [];
-              if (names.length === 0) throw new Error('No sheets found in Excel file');
-              
-              setExcelSheets(names);
-              const first = names[0];
-              setActiveSheet(first || '');
-              const ws = first ? workbook.Sheets[first] : null;
-              if (!ws) throw new Error('No sheet found');
-              
-              // Enhanced row parsing with better empty cell handling
-              const rows: any[][] = XLSX.utils.sheet_to_json(ws, { 
-                header: 1, 
-                blankrows: false,
-                defval: '',
-                raw: false,
-                dateNF: 'yyyy-mm-dd'
-              });
-              
-              // Filter out completely empty rows
-              const filteredRows = rows.filter(row => 
-                row.some(cell => cell !== null && cell !== undefined && cell !== '')
-              );
-              
-              if (filteredRows.length === 0) throw new Error('Sheet appears to be empty');
-              
-              const html = buildTableHtml(filteredRows);
-              setExcelHtml(html);
-            } catch (e: any) {
-              console.error('Excel parse failed:', e);
-              setExcelError(e?.message || 'Failed to parse Excel file');
-            } finally {
-              setExcelLoading(false);
-            }
-          }, 200);
-        }
-
         if (excelLoading) {
           return (
             <div className="absolute inset-0 flex items-center justify-center bg-white">
@@ -382,46 +417,18 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
                     <button
                       key={s}
                       onClick={async () => {
+                        if (!blobRef) return;
                         try {
                           setExcelLoading(true);
+                          const ab = await blobRef.arrayBuffer();
                           const XLSXMod = await import('xlsx');
                           const XLSX: any = (XLSXMod as any).default || XLSXMod;
-                          
-                          // Wait for blob stability
-                          await new Promise(resolve => setTimeout(resolve, 50));
-                          const ab = await (blobRef as Blob).arrayBuffer();
-                          
-                          const wb = XLSX.read(ab, { 
-                            type: 'array', 
-                            cellDates: true, 
-                            cellNF: false,
-                            cellText: false,
-                            codepage: 65001, 
-                            raw: false,
-                            dateNF: 'yyyy-mm-dd',
-                            cellStyles: true,
-                            sheetStubs: false,
-                            defval: ''
-                          });
-                          
+                          const wb = XLSX.read(ab, { type: 'array' });
                           const ws = wb.Sheets[s];
                           if (!ws) throw new Error(`Sheet "${s}" not found`);
-                          
-                          const rows: any[][] = XLSX.utils.sheet_to_json(ws, { 
-                            header: 1, 
-                            blankrows: false,
-                            defval: '',
-                            raw: false,
-                            dateNF: 'yyyy-mm-dd'
-                          });
-                          
-                          // Filter out completely empty rows
-                          const filteredRows = rows.filter(row => 
-                            row.some(cell => cell !== null && cell !== undefined && cell !== '')
-                          );
-                          
+                          const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+                          const filteredRows = rows.filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''));
                           if (filteredRows.length === 0) throw new Error(`Sheet "${s}" appears to be empty`);
-                          
                           setExcelHtml(buildTableHtml(filteredRows));
                           setActiveSheet(s);
                         } catch (e: any) {
