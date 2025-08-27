@@ -18,6 +18,9 @@ interface RVTForgeInterfaceProps {
   fileSize: number;
   onProcessingComplete: (urn: string) => void;
   onClose: () => void;
+  // New: support showing translation status for an already-uploaded model
+  mode?: 'upload' | 'status';
+  existingUrn?: string; // required when mode === 'status'
 }
 
 export function RVTForgeInterface({
@@ -25,6 +28,8 @@ export function RVTForgeInterface({
   fileSize,
   onProcessingComplete,
   onClose,
+  mode = 'upload',
+  existingUrn,
 }: RVTForgeInterfaceProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState<'upload' | 'translate' | 'complete'>('upload');
@@ -58,88 +63,107 @@ export function RVTForgeInterface({
     setIsProcessing(true);
     setError(null);
     setProgress(0);
-    setCurrentStep('upload');
+    setCurrentStep(mode === 'status' ? 'translate' : 'upload');
 
     try {
-      // Step 1: Upload file to Forge via signed URL (Vercel-safe, large files)
-      setProgress(10);
-      console.log('📤 Starting file upload (signed URL flow)...');
+      let urn: string | undefined = existingUrn;
+      if (mode === 'upload') {
+        // Step 1: Upload file to Forge via signed URL (Vercel-safe, large files)
+        setProgress(10);
+        console.log('📤 Starting file upload (signed URL flow)...');
 
-      // Demo file from public folder (replace with actual file selection in production)
-      const response = await fetch('/SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt');
-      const fileBlob = await response.blob();
-      const file = new File([fileBlob], fileName, { type: 'application/octet-stream' });
+        // Demo file from public folder (replace with actual file selection in production)
+        const response = await fetch('/SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt');
+        const fileBlob = await response.blob();
+        const file = new File([fileBlob], fileName, { type: 'application/octet-stream' });
 
-      // INIT → get signed URL + uploadKey
-      const initRes = await fetch('/api/forge/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ init: true, fileName: file.name }),
-      });
-      const initData = await parseJsonSafe(initRes);
-      if (!initRes.ok) {
-        console.error('❌ INIT error:', initData);
-        const msg = initData?.error || initData?.text || `Init failed (${initRes.status})`;
-        throw new Error(msg);
-      }
-      const uploadUrl: string = initData.uploadUrl;
-      const uploadKey: string = initData.uploadKey;
+        // INIT → get signed URL + uploadKey
+        const initRes = await fetch('/api/forge/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ init: true, fileName: file.name }),
+        });
+        const initData = await parseJsonSafe(initRes);
+        if (!initRes.ok) {
+          console.error('❌ INIT error:', initData);
+          const msg = initData?.error || initData?.text || `Init failed (${initRes.status})`;
+          throw new Error(msg);
+        }
+        const uploadUrl: string = initData.uploadUrl;
+        const uploadKey: string = initData.uploadKey;
 
-      // PUT → upload file directly to Autodesk S3 using signed URL
-      const arrayBuffer = await file.arrayBuffer();
-      const putRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: arrayBuffer,
-      });
-      if (!putRes.ok) {
-        const putText = await putRes.text();
-        console.error('❌ S3 PUT error:', putText);
-        throw new Error(`S3 upload failed (${putRes.status}): ${putText}`);
-      }
+        // PUT → upload file directly to Autodesk S3 using signed URL
+        const arrayBuffer = await file.arrayBuffer();
+        const putRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: arrayBuffer,
+        });
+        if (!putRes.ok) {
+          const putText = await putRes.text();
+          console.error('❌ S3 PUT error:', putText);
+          throw new Error(`S3 upload failed (${putRes.status}): ${putText}`);
+        }
 
-      // COMPLETE → finalize upload, get objectId and urn
-      const completeRes = await fetch('/api/forge/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ complete: true, fileName: file.name, uploadKey }),
-      });
-      const completeData = await parseJsonSafe(completeRes);
-      if (!completeRes.ok) {
-        console.error('❌ COMPLETE error:', completeData);
-        const msg = completeData?.error || completeData?.text || `Complete failed (${completeRes.status})`;
-        throw new Error(msg);
-      }
-      const urn: string = completeData.urn;
-      console.log('✅ File uploaded, URN:', urn);
-      
-      setProgress(30);
-      setCurrentStep('translate');
+        // COMPLETE → finalize upload, get objectId and urn
+        const completeRes = await fetch('/api/forge/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ complete: true, fileName: file.name, uploadKey }),
+        });
+        const completeData = await parseJsonSafe(completeRes);
+        if (!completeRes.ok) {
+          console.error('❌ COMPLETE error:', completeData);
+          const msg = completeData?.error || completeData?.text || `Complete failed (${completeRes.status})`;
+          throw new Error(msg);
+        }
+        urn = completeData.urn as string;
+        console.log('✅ File uploaded, URN:', urn);
+        
+        setProgress(30);
+        setCurrentStep('translate');
 
-      // Step 2: Start translation
-      console.log('🔄 Starting translation...');
-      const translateResponse = await fetch('/api/forge/translate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ urn }),
-      });
-      
-      if (!translateResponse.ok) {
-        const errorData = await translateResponse.json();
-        console.error('❌ Translate response error:', errorData);
-        throw new Error(errorData.error || `Translation failed to start with status ${translateResponse.status}`);
-      }
-      
-      const translateData = await translateResponse.json();
-      console.log('✅ Translation started:', translateData);
-      
-      setProgress(50);
+        // Step 2: Start translation
+        console.log('🔄 Starting translation...');
+        const translateResponse = await fetch('/api/forge/translate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ urn }),
+        });
+        
+        if (!translateResponse.ok) {
+          const errorData = await translateResponse.json();
+          console.error('❌ Translate response error:', errorData);
+          throw new Error(errorData.error || `Translation failed to start with status ${translateResponse.status}`);
+        }
+        
+        const translateData = await translateResponse.json();
+        console.log('✅ Translation started:', translateData);
+        
+        setProgress(50);
 
-      // If conflict, just start polling status
-      if (translateData.conflict) {
-        console.log('⚠️ Translation already in progress, polling status...');
+        // If conflict, just start polling status
+        if (translateData.conflict) {
+          console.log('⚠️ Translation already in progress, polling status...');
+        }
+      } else {
+        // Status-only mode for an existing URN on deployed: ensure translation is started
+        if (!existingUrn) throw new Error('Missing URN for status mode');
+        urn = existingUrn;
+        setProgress(50);
+        setCurrentStep('translate');
+        try {
+          await fetch('/api/forge/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urn }),
+          });
+        } catch (e) {
+          // Even if translate start fails, continue to poll; job may already exist
+          console.warn('Translate start failed; proceeding to poll status');
+        }
       }
 
       // Step 3: Poll for translation status
@@ -167,7 +191,7 @@ export function RVTForgeInterface({
           
           // Notify parent component
           setTimeout(() => {
-            onProcessingComplete(urn);
+            onProcessingComplete(urn!);
           }, 1000);
           return;
         } else if (statusData.status === 'failed') {

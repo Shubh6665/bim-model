@@ -56,33 +56,67 @@ export function ThreeDViewer({
   } | null>(null);
   const [isLoadingForge, setIsLoadingForge] = useState(false);
 
-  // Check if selected file is RVT or has existing URN
+  // Check if selected file is RVT or has existing URN. If URN exists, verify manifest.
   useEffect(() => {
-    if (selectedFile?.urn) {
-      // File already has URN, load directly
-      setShowRVTInterface(false);
-      setIsLoadingForge(true);
+    let cancelled = false;
+    const checkAndLoad = async () => {
+      if (!selectedFile) {
+        setShowRVTInterface(false);
+        setForgeData(null);
+        return;
+      }
 
-      forgeAuthService
-        .getAccessToken()
-        .then((accessToken) => {
-          setForgeData({ accessToken, urn: selectedFile.urn! });
-        })
-        .catch((error) => {
-          console.error("Failed to get access token for viewer:", error);
-        })
-        .finally(() => {
-          setIsLoadingForge(false);
-        });
-    } else if (selectedFile?.isRVT) {
-      // File needs processing
-      setShowRVTInterface(true);
-      setForgeData(null);
-    } else {
-      // No file selected or unsupported file type
-      setShowRVTInterface(false);
-      setForgeData(null);
-    }
+      if (selectedFile.urn) {
+        // Verify translation status for the URN
+        setIsLoadingForge(true);
+        try {
+          const res = await fetch(`/api/forge/status/${selectedFile.urn}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (!cancelled && data.status === 'success') {
+              const accessToken = await forgeAuthService.getAccessToken();
+              if (!cancelled) {
+                setForgeData({ accessToken, urn: selectedFile.urn });
+                setShowRVTInterface(false);
+              }
+            } else {
+              // Manifest not ready; show status UI
+              if (!cancelled) {
+                setForgeData(null);
+                setShowRVTInterface(true);
+              }
+            }
+          } else {
+            // If status check fails, fallback to showing status UI
+            if (!cancelled) {
+              setForgeData(null);
+              setShowRVTInterface(true);
+            }
+          }
+        } catch (e) {
+          if (!cancelled) {
+            console.warn('Status check failed, showing processing UI');
+            setForgeData(null);
+            setShowRVTInterface(true);
+          }
+        } finally {
+          if (!cancelled) setIsLoadingForge(false);
+        }
+      } else if (selectedFile.isRVT) {
+        // File needs processing from scratch
+        setShowRVTInterface(true);
+        setForgeData(null);
+      } else {
+        // Unsupported file type for this viewer
+        setShowRVTInterface(false);
+        setForgeData(null);
+      }
+    };
+
+    checkAndLoad();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedFile]);
 
   const handleProcessingComplete = async (urn: string) => {
@@ -134,6 +168,8 @@ export function ThreeDViewer({
           }
           onProcessingComplete={handleProcessingComplete}
           onClose={handleCloseProcessing}
+          mode={selectedFile!.urn ? 'status' : 'upload'}
+          existingUrn={selectedFile!.urn}
         />
       )}
 
