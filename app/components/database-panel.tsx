@@ -83,6 +83,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   // Sending overlay state (for ZIP/email send)
   const [isSending, setIsSending] = useState(false);
   const [sendingMessage, setSendingMessage] = useState<string>('');
+  // Panel ref for outside-click detection
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Load folders and files from API
   useEffect(() => {
@@ -175,22 +177,33 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     e.preventDefault();
     e.stopPropagation();
 
-    const menuWidth = 200;
-    const menuHeight = 300;
+    const menuWidth = 220;
+    // Use dynamic max height so menu never exceeds viewport and becomes scrollable
+    const maxMenuHeight = Math.min(380, window.innerHeight - 20);
 
-    let x = e.clientX;
-    let y = e.clientY;
+    // Ensure the right-clicked item becomes selected/highlighted
+    if ('type' in item) {
+      setSelectedItem(item);
+      // keep selectedFolderId as-is for files
+    } else {
+      setSelectedFolderId(item.id);
+      setSelectedItem(item);
+    }
+
+    let x = Math.max(10, e.clientX);
+    let y = Math.max(10, e.clientY);
 
     if (x + menuWidth > window.innerWidth) {
-      x = window.innerWidth - menuWidth - 10;
+      x = Math.max(10, window.innerWidth - menuWidth - 10);
     }
-    if (y + menuHeight > window.innerHeight) {
-      y = window.innerHeight - menuHeight - 10;
+    // Prefer opening below cursor; if it would overflow, position upwards within viewport
+    if (y + maxMenuHeight > window.innerHeight - 10) {
+      y = Math.max(10, window.innerHeight - maxMenuHeight - 10);
     }
 
     setContextMenu({
-      x: x,
-      y: y,
+      x,
+      y,
       item,
       type: 'type' in item ? 'file' : 'folder'
     });
@@ -302,10 +315,21 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     setSelectedItem(findItemById(folderId));
   };
 
-  const handleOutsideClick = () => {
-    setSelectedFolderId(null);
-    setSelectedItem(null);
-  };
+  // Global outside-click detector to clear selection/context menu
+  useEffect(() => {
+    const onDocMouseDown = (ev: MouseEvent) => {
+      const root = panelRef.current;
+      if (!root) return;
+      const target = ev.target as Node | null;
+      if (target && !root.contains(target)) {
+        setSelectedFolderId(null);
+        setSelectedItem(null);
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
 
   const startCreateSubfolder = (parentId: string) => {
     setCreatingSubfolder({ parentId, name: '' });
@@ -826,7 +850,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   return (
     <div 
       className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full relative"
-      onClick={handleOutsideClick}
+      ref={panelRef}
     >
       {/* Header Commands */}
       <div className="p-4 border-b border-gray-800">
@@ -925,7 +949,12 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
           <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
           <div
             className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
+            style={{ 
+              left: contextMenu.x, 
+              top: contextMenu.y,
+              maxHeight: 'min(380px, calc(100vh - 20px))',
+              overflowY: 'auto'
+            }}
           >
             {contextMenu.type === 'folder' ? (
               // Folder context menu
