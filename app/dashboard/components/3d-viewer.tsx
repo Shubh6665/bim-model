@@ -56,72 +56,33 @@ export function ThreeDViewer({
   } | null>(null);
   const [isLoadingForge, setIsLoadingForge] = useState(false);
 
-  // Check if selected file is RVT or has existing URN. If URN exists, verify manifest.
+  // Check if selected file is RVT or has existing URN
   useEffect(() => {
-    let cancelled = false;
-    const checkAndLoad = async () => {
-      if (!selectedFile) {
-        setShowRVTInterface(false);
-        setForgeData(null);
-        return;
-      }
+    if (selectedFile?.urn) {
+      // File already has URN, load directly
+      setShowRVTInterface(false);
+      setIsLoadingForge(true);
 
-      // Prefer an existing URN from file or cached from previous successful processing
-      const cacheKey = `urn_cache_${selectedFile.id}`;
-      const cachedUrn = typeof window !== 'undefined' ? window.localStorage.getItem(cacheKey) : null;
-      const effectiveUrn = selectedFile.urn || cachedUrn || undefined;
-
-      if (effectiveUrn) {
-        // Verify translation status for the URN
-        setIsLoadingForge(true);
-        try {
-          const res = await fetch(`/api/forge/status/${effectiveUrn}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (!cancelled && data.status === 'success') {
-              const accessToken = await forgeAuthService.getAccessToken();
-              if (!cancelled) {
-                setForgeData({ accessToken, urn: effectiveUrn });
-                setShowRVTInterface(false);
-              }
-            } else {
-              // Manifest not ready; show status UI
-              if (!cancelled) {
-                setForgeData(null);
-                setShowRVTInterface(true);
-              }
-            }
-          } else {
-            // If status check fails, fallback to showing status UI
-            if (!cancelled) {
-              setForgeData(null);
-              setShowRVTInterface(true);
-            }
-          }
-        } catch (e) {
-          if (!cancelled) {
-            console.warn('Status check failed, showing processing UI');
-            setForgeData(null);
-            setShowRVTInterface(true);
-          }
-        } finally {
-          if (!cancelled) setIsLoadingForge(false);
-        }
-      } else if (selectedFile.isRVT) {
-        // File needs processing from scratch
-        setShowRVTInterface(true);
-        setForgeData(null);
-      } else {
-        // Unsupported file type for this viewer
-        setShowRVTInterface(false);
-        setForgeData(null);
-      }
-    };
-
-    checkAndLoad();
-    return () => {
-      cancelled = true;
-    };
+      forgeAuthService
+        .getAccessToken()
+        .then((accessToken) => {
+          setForgeData({ accessToken, urn: selectedFile.urn! });
+        })
+        .catch((error) => {
+          console.error("Failed to get access token for viewer:", error);
+        })
+        .finally(() => {
+          setIsLoadingForge(false);
+        });
+    } else if (selectedFile?.isRVT) {
+      // File needs processing
+      setShowRVTInterface(true);
+      setForgeData(null);
+    } else {
+      // No file selected or unsupported file type
+      setShowRVTInterface(false);
+      setForgeData(null);
+    }
   }, [selectedFile]);
 
   const handleProcessingComplete = async (urn: string) => {
@@ -133,13 +94,6 @@ export function ThreeDViewer({
       // Get access token for the viewer
       const accessToken = await forgeAuthService.getAccessToken();
       setForgeData({ accessToken, urn });
-      // Cache URN for this file id to skip pipeline on subsequent opens
-      try {
-        if (selectedFile?.id) {
-          const cacheKey = `urn_cache_${selectedFile.id}`;
-          window.localStorage.setItem(cacheKey, urn);
-        }
-      } catch {}
       // If the file is a model that was just processed, find the corresponding model
       // in the project's model list and update its URN.
       if (onModelProcessed && selectedFile && selectedFile.isRVT) {
@@ -180,15 +134,12 @@ export function ThreeDViewer({
           }
           onProcessingComplete={handleProcessingComplete}
           onClose={handleCloseProcessing}
-          mode={selectedFile!.urn ? 'status' : 'upload'}
-          existingUrn={selectedFile!.urn}
         />
       )}
 
       {/* Forge Viewer */}
       {shouldShowForgeViewer && (
         <ForgeViewer
-          key={forgeData!.urn}
           accessToken={forgeData!.accessToken}
           urn={forgeData!.urn}
           models={models}

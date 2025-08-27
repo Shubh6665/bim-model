@@ -255,10 +255,31 @@ function BIMDashboard() {
     );
   };
 
+
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setCurrentProject(project.id); // Set project in sensor context
     setShowOnlySelectedOnMap(false);
+    
+    // Check if project has any processed models with URNs
+    let existingUrn: string | undefined = undefined;
+    if (project.models && project.models.length > 0) {
+      const archModel = project.models.find(m => m.discipline === 'architecture' && m.urn);
+      if (archModel) {
+        existingUrn = archModel.urn;
+      } else {
+        const anyModelWithUrn = project.models.find(m => m.urn);
+        if (anyModelWithUrn) {
+          existingUrn = anyModelWithUrn.urn;
+        }
+      }
+    }
+    
+    // Fallback to legacy project-level URN
+    if (!existingUrn) {
+      existingUrn = project.urn;
+    }
+    
     const file: ProjectFile = {
       id: project.id,
       name: project.name + ".rvt",
@@ -268,16 +289,7 @@ function BIMDashboard() {
       isRVT: true,
       lat: project.lat,
       lng: project.lng,
-      urn: (() => {
-        if (project.models && project.models.length > 0) {
-          const archModel = project.models.find(m => m.discipline === 'architecture' && m.urn);
-          if (archModel) return archModel.urn;
-
-          const anyModelWithUrn = project.models.find(m => m.urn);
-          if (anyModelWithUrn) return anyModelWithUrn.urn;
-        }
-        return project.urn; // Fallback to legacy project-level URN
-      })(),
+      urn: existingUrn, // Only set URN if it exists, otherwise undefined to trigger processing
       description: project.description,
     };
     setSelectedFile(file);
@@ -513,6 +525,8 @@ function BIMDashboard() {
   };
 
   const handleModelProcessed = async (modelId: string, urn: string) => {
+    console.log('🎯 Model processed:', modelId, 'URN:', urn);
+    
     if (!selectedProject) return;
 
     try {
@@ -541,6 +555,9 @@ function BIMDashboard() {
 
       setProjects((prev) => prev.map(updateProjectState));
       setSelectedProject((prev) => (prev ? updateProjectState(prev) : null));
+      
+      // Update the selected file with the URN for immediate use
+      setSelectedFile(prev => prev ? { ...prev, urn } : null);
 
     } catch (error) {
       console.error("Error updating URN:", error);

@@ -132,6 +132,10 @@ export function EnhancedProjectPanel({
   const [newProjectLng, setNewProjectLng] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string | null>(null);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processingUrn, setProcessingUrn] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
 
@@ -143,7 +147,20 @@ export function EnhancedProjectPanel({
   // and show the project information view.
 
 
-  // Note: Processing completion is handled by ThreeDViewer via onModelProcessed.
+  const handleProcessingComplete = (urn: string, fileId: string) => {
+    setFiles(prev => prev.map(file => 
+      file.id === fileId 
+        ? { ...file, urn } 
+        : file
+    ));
+    
+    if (onProcessingComplete) {
+      const processedFile = files.find(f => f.id === fileId);
+      if (processedFile) {
+        onProcessingComplete(urn, processedFile);
+      }
+    }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -202,9 +219,24 @@ export function EnhancedProjectPanel({
   };
 
   const handleFileClick = (file: ProjectFile) => {
-    // Simply select the file. If it's an RVT without a URN, the ThreeDViewer
-    // will render the RVTForgeInterface to perform real upload/translation/polling.
     onFileSelect(file);
+    if (file.isRVT && !file.urn) {
+      setIsProcessing(true);
+      setProcessingStep("Uploading file...");
+      setProcessingError(null);
+      setProcessingUrn(null);
+
+      setTimeout(() => {
+        setProcessingStep("Processing model...");
+        setTimeout(() => {
+          const mockUrn = `urn:adsk.objects:os.object:${Date.now()}`;
+          setProcessingUrn(mockUrn);
+          setProcessingStep("Model processed successfully!");
+          handleProcessingComplete(mockUrn, file.id);
+          setIsProcessing(false);
+        }, 2000);
+      }, 1000);
+    }
   };
 
   const getFileIcon = (file: ProjectFile) => {
