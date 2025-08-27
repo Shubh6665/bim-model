@@ -546,6 +546,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         let viewerInstance: any = null;
         let dataVizSvc: DataVizService | null = null;
+        let globalErrorHandler: ((event: ErrorEvent) => boolean) | null = null;
 
         const buildMatrixFromTransform = (t?: ProjectModel["transform"]) => {
             const THREE = (window as any).THREE;
@@ -706,6 +707,39 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 setError("Forge Viewer SDK not loaded");
                 return;
             }
+
+            // Global error handler to catch uncaught viewer errors
+            globalErrorHandler = (event: ErrorEvent) => {
+                const message = event.message || '';
+                const filename = event.filename || '';
+                
+                // Check if this is a viewer-related error
+                if (message.includes('hasModels') || 
+                    message.includes('getRequestTransition') || 
+                    filename.includes('Viewer3D.js') ||
+                    filename.includes('viewer3d') ||
+                    message.includes('Cannot read properties of null')) {
+                    
+                    console.error('[ForgeViewer] Caught uncaught viewer error:', message);
+                    telemetry('viewer_error', { 
+                        message, 
+                        filename, 
+                        source: 'uncaught_error',
+                        stack: event.error?.stack 
+                    });
+                    
+                    setError(`Viewer initialization failed: ${message}`);
+                    initInFlightRef.current = false;
+                    
+                    // Prevent default error handling to avoid console spam
+                    event.preventDefault();
+                    return true;
+                }
+                return false;
+            };
+
+            // Add global error listener
+            window.addEventListener('error', globalErrorHandler);
 
             const options = {
                 env: "AutodeskProduction",
@@ -917,6 +951,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             initializeViewer();
         }
         return () => {
+            // Cleanup global error listener
+            if (globalErrorHandler) {
+                window.removeEventListener('error', globalErrorHandler);
+            }
             // Finish and cleanup the active viewer instance reliably via ref
             if (viewerRef.current) {
                 try {
