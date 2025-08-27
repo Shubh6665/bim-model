@@ -289,7 +289,7 @@ function BIMDashboard() {
       isRVT: true,
       lat: project.lat,
       lng: project.lng,
-      urn: existingUrn, // Only set URN if it exists, otherwise undefined to trigger processing
+      urn: project.urn,
       description: project.description,
     };
     setSelectedFile(file);
@@ -523,47 +523,6 @@ function BIMDashboard() {
     const granted = selectedProject?.access?.packages || [];
     return granted.includes(pkg);
   };
-
-  const handleModelProcessed = async (modelId: string, urn: string) => {
-    console.log('🎯 Model processed:', modelId, 'URN:', urn);
-    
-    if (!selectedProject) return;
-
-    try {
-      const res = await fetch(
-        `/api/projects/${selectedProject.id}/models/${modelId}/urn`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urn }),
-        }
-      );
-
-      if (!res.ok) {
-        console.error("Failed to update model URN", await res.text());
-        return;
-      }
-
-      // Update local state to reflect the change immediately
-      const updateProjectState = (project: Project) => {
-        if (project.id !== selectedProject.id) return project;
-        const updatedModels = project.models?.map((m) =>
-          m.id === modelId ? { ...m, urn } : m
-        );
-        return { ...project, models: updatedModels };
-      };
-
-      setProjects((prev) => prev.map(updateProjectState));
-      setSelectedProject((prev) => (prev ? updateProjectState(prev) : null));
-      
-      // Update the selected file with the URN for immediate use
-      setSelectedFile(prev => prev ? { ...prev, urn } : null);
-
-    } catch (error) {
-      console.error("Error updating URN:", error);
-    }
-  };
-
   const handlePanelChange = (panel: typeof activePanel) => {
     if (!panel) { setActivePanel(null); return; }
     if (!canAccessPanel(panel)) {
@@ -697,7 +656,6 @@ function BIMDashboard() {
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
                       sensorsVisible={sensorsVisible}
-                      onModelProcessed={handleModelProcessed}
                     />
                     {openFile && (
                       <FileViewer

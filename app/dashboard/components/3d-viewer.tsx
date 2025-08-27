@@ -31,7 +31,6 @@ interface ThreeDViewerProps {
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
   sensorsVisible?: boolean;
-  onModelProcessed?: (modelId: string, urn: string) => void;
 }
 
 export function ThreeDViewer({
@@ -47,7 +46,6 @@ export function ThreeDViewer({
   wireframeMode,
   onWireframeModeChange,
   sensorsVisible,
-  onModelProcessed,
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -94,19 +92,6 @@ export function ThreeDViewer({
       // Get access token for the viewer
       const accessToken = await forgeAuthService.getAccessToken();
       setForgeData({ accessToken, urn });
-      // If the file is a model that was just processed, find the corresponding model
-      // in the project's model list and update its URN.
-      if (onModelProcessed && selectedFile && selectedFile.isRVT) {
-        // Find the first model that doesn't have a URN yet, as it's the one being processed.
-        const modelToUpdate = models?.find((m) => !m.urn);
-        if (modelToUpdate) {
-          onModelProcessed(modelToUpdate.id, urn);
-        } else {
-          console.warn(
-            "Could not find a model to update with the new URN. Please check project data."
-          );
-        }
-      }
     } catch (error) {
       console.error("Failed to get access token for viewer:", error);
     } finally {
