@@ -63,6 +63,22 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const primaryModelIdRef = useRef<string | null>(null);
     // Prevent duplicate DataViz initialization attempts
     const dataVizInitInFlightRef = useRef(false);
+    // Force re-initialization when user clicks Retry
+    const [retryNonce, setRetryNonce] = useState(0);
+
+    // Lightweight telemetry helper (console + optional POST to /api/telemetry if available)
+    const telemetry = async (event: string, payload: any = {}) => {
+        try {
+            // Always log to console for local visibility
+            console.log(`[telemetry] ${event}`, payload);
+            // Best-effort POST (non-blocking). Ignore failures.
+            fetch("/api/telemetry", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ event, payload, ts: Date.now() })
+            }).catch(() => {});
+        } catch {}
+    };
 
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
@@ -746,6 +762,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
                                     async () => {
                                         setModelLoaded(true);
+                                        telemetry('viewer_geometry_loaded', { urn: primaryUrn });
                                         // Ensure visual settings after geometry load
                                         try {
                                             safeSetDisplayEdges(viewerInstance, true);
@@ -861,10 +878,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             // First, wait for the tool controller to be safely available
                                             await waitForToolController(viewerInstance);
                                             // Then, proceed with DataViz initialization
-                                            await initializeDataVizWithRetry();
+                                            const ok = await initializeDataVizWithRetry();
+                                            telemetry('dataviz_init_attempted', { ok });
                                         } catch (err) {
                                             console.error('[ForgeViewer] Failed to initialize DataViz service due to toolController timeout:', err);
                                             setError('Failed to initialize IoT features.');
+                                            telemetry('dataviz_init_failed', { reason: 'toolController_timeout' });
                                         }
                                         // Clear in-flight flag after we finish geometry + optional DataViz
                                         initInFlightRef.current = false;
@@ -878,6 +897,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     (error: any) => {
                         setError("Failed to load document: " + error.message);
                         initInFlightRef.current = false;
+                        telemetry('viewer_document_load_failed', { message: error?.message });
                     }
                 );
             });
@@ -916,7 +936,47 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 }
             }
         };
-    }, [accessToken]);
+    }, [accessToken, urn, models, onSensorClick, loadedUrn, onViewerReady, activePanel, sensorsVisible, retryNonce]);
+
+    // Telemetry for unexpected errors set via setError
+    useEffect(() => {
+        if (error) {
+            telemetry('viewer_error', { message: error });
+        }
+    }, [error]);
+
+    // Retry handler: cleanly dispose and reinitialize viewer
+    const handleRetry = async () => {
+        telemetry('viewer_retry_clicked', {});
+        try {
+            setIsLoading(true);
+            setError(null);
+            // Cleanup viewer if present
+            if (viewerRef.current) {
+                try {
+                    const v = viewerRef.current;
+                    for (const mdl of overlayModelMapRef.current.values()) {
+                        try { v.unloadModel(mdl); } catch {}
+                    }
+                    overlayModelMapRef.current.clear();
+                } catch {}
+                try { viewerRef.current.finish(); } catch {}
+                viewerRef.current = null;
+            }
+            // Reset state/refs
+            setViewer(null);
+            setDataVizService(null);
+            setIsDataVizReady(false);
+            setIsInitialized(false);
+            setModelLoaded(false);
+            setOverlayModelsLoaded(false);
+            initializationRef.current = false;
+            initInFlightRef.current = false;
+            hasFiredViewerReadyRef.current = false;
+            // Bump nonce to trigger init effect
+            setRetryNonce((n) => n + 1);
+        } catch {}
+    };
 
     // Reload primary model inside existing viewer when URN/models change (without creating a new viewer)
     useEffect(() => {
@@ -1468,9 +1528,45 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     if (error) {
         return (
-            <div className="forge-viewer-error">
-                <h3>Error</h3>
-                <p>{error}</p>
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        background: '#7f1d1d',
+                        color: '#fee2e2',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        zIndex: 20,
+                        borderBottom: '1px solid #fca5a5',
+                    }}
+                >
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ fontSize: 14 }}>Viewer error</strong>
+                        <span style={{ fontSize: 12 }}>{error}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            onClick={handleRetry}
+                            style={{ padding: '8px 12px', background: '#1f2937', color: '#fff', border: '1px solid #374151', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                            Retry Viewer
+                        </button>
+                        <button
+                            onClick={() => { telemetry('viewer_reload_clicked', {}); if (typeof window !== 'undefined') window.location.reload(); }}
+                            style={{ padding: '8px 12px', background: '#111827', color: '#9ca3af', border: '1px solid #374151', borderRadius: 6, cursor: 'pointer' }}
+                        >
+                            Reload Page
+                        </button>
+                    </div>
+                </div>
+                {/* Reserve viewer container space even on error for consistent layout */}
+                <div style={{ width: '100%', height: '100vh', background: '#111827' }} />
             </div>
         );
     }
