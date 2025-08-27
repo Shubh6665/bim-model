@@ -687,8 +687,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         const initializeViewer = () => {
             const Autodesk = (window as any).Autodesk;
+            // Ensure SDK and container are available before initializing
             if (!Autodesk || !Autodesk.Viewing) {
                 setError("Forge Viewer SDK not loaded");
+                return;
+            }
+            if (!viewerContainer.current) {
+                console.warn('[ForgeViewer] Viewer container is not available at initialization time.');
                 return;
             }
 
@@ -700,6 +705,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             };
 
             Autodesk.Viewing.Initializer(options, () => {
+                // Double-check container still exists when initializer callback fires
+                if (!viewerContainer.current) {
+                    console.warn('[ForgeViewer] Viewer container missing during Initializer callback. Aborting init.');
+                    initInFlightRef.current = false;
+                    return;
+                }
                 viewerInstance = new Autodesk.Viewing.GuiViewer3D(viewerContainer.current);
                 const startedCode = viewerInstance.start();
                 if (startedCode > 0) {
@@ -722,6 +733,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 Autodesk.Viewing.Document.load(
                     documentId,
                     (doc: any) => {
+                        // Guard against rare race where viewer/container becomes unavailable
+                        if (!viewerRef.current || !viewerContainer.current) {
+                            console.warn('[ForgeViewer] Viewer not available when document loaded. Skipping.');
+                            initInFlightRef.current = false;
+                            return;
+                        }
                         const viewables = doc.getRoot().getDefaultGeometry();
                         if (viewables) {
                             // Apply enhanced loading options for primary model too
