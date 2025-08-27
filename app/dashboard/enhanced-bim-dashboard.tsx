@@ -283,14 +283,20 @@ function BIMDashboard() {
     
     // Check if project has any processed models with URNs
     let existingUrn: string | undefined = undefined;
+    console.log('🔍 [URN Cache] Checking project for existing URNs:', project.id);
+    console.log('🔍 [URN Cache] Project models:', project.models);
+    console.log('🔍 [URN Cache] Project-level URN:', project.urn);
+    
     if (project.models && project.models.length > 0) {
       const archModel = project.models.find(m => m.discipline === 'architecture' && m.urn);
       if (archModel) {
         existingUrn = archModel.urn;
+        console.log('✅ [URN Cache] Found architecture model URN:', existingUrn);
       } else {
         const anyModelWithUrn = project.models.find(m => m.urn);
         if (anyModelWithUrn) {
           existingUrn = anyModelWithUrn.urn;
+          console.log('✅ [URN Cache] Found model URN:', existingUrn);
         }
       }
     }
@@ -298,6 +304,11 @@ function BIMDashboard() {
     // Fallback to legacy project-level URN
     if (!existingUrn) {
       existingUrn = project.urn;
+      if (existingUrn) {
+        console.log('✅ [URN Cache] Using project-level URN:', existingUrn);
+      } else {
+        console.log('⚠️ [URN Cache] No URN found, will need to process');
+      }
     }
     
     const file: ProjectFile = {

@@ -56,28 +56,36 @@ export function ThreeDViewer({
 
   // Check if selected file is RVT or has existing URN
   useEffect(() => {
+    console.log('🔍 [3D Viewer] File changed:', selectedFile);
+    console.log('🔍 [3D Viewer] File URN:', selectedFile?.urn);
+    console.log('🔍 [3D Viewer] Is RVT:', selectedFile?.isRVT);
+    
     if (selectedFile?.urn) {
       // File already has URN, load directly
+      console.log('✅ [3D Viewer] Using existing URN, loading directly');
       setShowRVTInterface(false);
       setIsLoadingForge(true);
 
       forgeAuthService
         .getAccessToken()
         .then((accessToken) => {
+          console.log('✅ [3D Viewer] Got access token, setting forge data');
           setForgeData({ accessToken, urn: selectedFile.urn! });
         })
         .catch((error) => {
-          console.error("Failed to get access token for viewer:", error);
+          console.error("❌ [3D Viewer] Failed to get access token for viewer:", error);
         })
         .finally(() => {
           setIsLoadingForge(false);
         });
     } else if (selectedFile?.isRVT) {
       // File needs processing
+      console.log('⚠️ [3D Viewer] No URN found, showing RVT interface for processing');
       setShowRVTInterface(true);
       setForgeData(null);
     } else {
       // No file selected or unsupported file type
+      console.log('🔍 [3D Viewer] No file selected or unsupported type');
       setShowRVTInterface(false);
       setForgeData(null);
     }
