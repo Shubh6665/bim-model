@@ -17,6 +17,7 @@ import { modelCache, type CachedModel } from "@/app/services/model-cache-service
 interface RVTForgeInterfaceProps {
   fileName: string;
   fileSize: number;
+  existingUrn?: string; // Add support for existing URN
   onProcessingComplete: (urn: string) => void;
   onClose: () => void;
 }
@@ -24,6 +25,7 @@ interface RVTForgeInterfaceProps {
 export function RVTForgeInterface({
   fileName,
   fileSize,
+  existingUrn,
   onProcessingComplete,
   onClose,
 }: RVTForgeInterfaceProps) {
@@ -52,10 +54,52 @@ export function RVTForgeInterface({
     }
   };
 
-  // Auto-start processing when component mounts
+  // Validate existing URN to ensure it's still accessible
+  const validateExistingUrn = async (urn: string) => {
+    console.log('🔍 Validating existing URN:', urn);
+    setIsProcessing(true);
+    setError(null);
+    setProgress(50);
+    setCurrentStep('translate');
+
+    try {
+      // Check if the URN is still valid by checking its status
+      const statusResponse = await fetch(`/api/forge/status/${urn}`);
+      
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        
+        if (statusData.status === 'success') {
+          console.log('✅ Existing URN is valid, using cached model');
+          setProgress(100);
+          setCurrentStep('complete');
+          
+          // Use the existing URN immediately
+          setTimeout(() => {
+            onProcessingComplete(urn);
+          }, 500);
+          return;
+        }
+      }
+      
+      // If validation fails, start fresh processing
+      console.log('⚠️ Existing URN is invalid, starting fresh processing');
+      handleStartProcessing();
+      
+    } catch (error) {
+      console.log('⚠️ URN validation failed, starting fresh processing');
+      handleStartProcessing();
+    }
+  };
+
+  // Check for existing URN and validate it, or start processing
   useEffect(() => {
-    handleStartProcessing();
-  }, []);
+    if (existingUrn) {
+      validateExistingUrn(existingUrn);
+    } else {
+      handleStartProcessing();
+    }
+  }, [existingUrn]);
 
   const handleStartProcessing = async () => {
     setIsProcessing(true);
