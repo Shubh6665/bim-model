@@ -12,6 +12,7 @@ import {
   Globe,
 } from "lucide-react";
 import { forgeAuthService } from "@/app/services/forge-service";
+import { modelCache, type CachedModel } from "@/app/services/model-cache-service";
 
 interface RVTForgeInterfaceProps {
   fileName: string;
@@ -30,6 +31,8 @@ export function RVTForgeInterface({
   const [currentStep, setCurrentStep] = useState<'upload' | 'translate' | 'complete'>('upload');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<null | 'client-hit' | 'server-hit' | 'miss'>(null);
+  const [cacheUrn, setCacheUrn] = useState<string | null>(null);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -61,14 +64,67 @@ export function RVTForgeInterface({
     setCurrentStep('upload');
 
     try {
-      // Step 1: Upload file to Forge via signed URL (Vercel-safe, large files)
+      // Step 0: Prepare file and compute hash
       setProgress(10);
-      console.log('📤 Starting file upload (signed URL flow)...');
+      console.log('🔍 Checking cache for optimized loading...');
 
       // Demo file from public folder (replace with actual file selection in production)
       const response = await fetch('/SAM0001-ADD-SA1067001-ZZ-M3-S-S00001.rvt');
       const fileBlob = await response.blob();
       const file = new File([fileBlob], fileName, { type: 'application/octet-stream' });
+      const arrayBuffer0 = await file.arrayBuffer();
+      const fileHash = await modelCache.sha256(arrayBuffer0);
+
+      // Client cache check (IndexedDB)
+      const local = await modelCache.getByHash(fileHash);
+      if (local?.status === 'success' && local.urn) {
+        console.log('⚡ Client cache hit. Loading instantly.');
+        setCacheStatus('client-hit');
+        setCacheUrn(local.urn);
+        await modelCache.touchHit(fileHash);
+        // Touch server cache (best-effort)
+        fetch('/api/forge/cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'touch', fileHash }) }).catch(()=>{});
+        setProgress(100);
+        setCurrentStep('complete');
+        setTimeout(() => onProcessingComplete(local.urn), 200);
+        return;
+      }
+
+      // Server cache check (Mongo)
+      const checkRes = await fetch('/api/forge/cache', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check', fileHash })
+      });
+      if (checkRes.ok) {
+        const checkJson = await checkRes.json();
+        if (checkJson.hit && checkJson.model?.urn && checkJson.model?.status === 'success') {
+          console.log('⚡ Server cache hit. Loading instantly.');
+          setCacheStatus('server-hit');
+          setCacheUrn(checkJson.model.urn);
+          // Persist to client cache for next time
+          const entry: CachedModel = {
+            fileHash,
+            fileName,
+            size: file.size,
+            urn: checkJson.model.urn,
+            status: 'success',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            lastAccessAt: Date.now(),
+            cacheHits: 1,
+          };
+          await modelCache.upsert(entry);
+          await modelCache.prune();
+          setProgress(100);
+          setCurrentStep('complete');
+          setTimeout(() => onProcessingComplete(checkJson.model.urn as string), 200);
+          return;
+        }
+      }
+
+      setCacheStatus('miss');
+      // Step 1: Upload file to Forge via signed URL (Vercel-safe, large files)
+      console.log('📤 Starting file upload (signed URL flow)...');
 
       // INIT → get signed URL + uploadKey
       const initRes = await fetch('/api/forge/upload', {
@@ -86,7 +142,7 @@ export function RVTForgeInterface({
       const uploadKey: string = initData.uploadKey;
 
       // PUT → upload file directly to Autodesk S3 using signed URL
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = arrayBuffer0; // reuse buffer used for hash
       const putRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/octet-stream' },
@@ -112,6 +168,8 @@ export function RVTForgeInterface({
       }
       const urn: string = completeData.urn;
       console.log('✅ File uploaded, URN:', urn);
+      // Record pending in server cache
+      fetch('/api/forge/cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'record', fileHash, fileName, size: file.size, urn, status: 'pending' }) }).catch(()=>{});
       
       setProgress(30);
       setCurrentStep('translate');
@@ -164,6 +222,21 @@ export function RVTForgeInterface({
           setProgress(100);
           setCurrentStep('complete');
           console.log('🎉 Translation completed successfully!');
+          // Record success in caches
+          const successEntry: CachedModel = {
+            fileHash,
+            fileName,
+            size: file.size,
+            urn,
+            status: 'success',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            lastAccessAt: Date.now(),
+            cacheHits: 1,
+          };
+          await modelCache.upsert(successEntry);
+          await modelCache.prune();
+          fetch('/api/forge/cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'record', fileHash, fileName, size: file.size, urn, status: 'success' }) }).catch(()=>{});
           
           // Notify parent component
           setTimeout(() => {
@@ -271,6 +344,19 @@ export function RVTForgeInterface({
                 <span className="text-sm font-medium text-white">
                   {getStepDescription()}
                 </span>
+                {cacheStatus && (
+                  <div className="mt-1 text-xs">
+                    {cacheStatus === 'client-hit' && (
+                      <span className="px-2 py-0.5 rounded bg-green-600/20 text-green-300 border border-green-600/40">Instant load from browser cache</span>
+                    )}
+                    {cacheStatus === 'server-hit' && (
+                      <span className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-600/40">Instant load from server cache</span>
+                    )}
+                    {cacheStatus === 'miss' && (
+                      <span className="px-2 py-0.5 rounded bg-gray-600/30 text-gray-300 border border-gray-500/40">No cache available, processing...</span>
+                    )}
+                  </div>
+                )}
                 <div className="text-xs text-gray-400 mt-1">
                   Step {currentStep === 'upload' ? '1' : currentStep === 'translate' ? '2' : '3'} of 3
                 </div>

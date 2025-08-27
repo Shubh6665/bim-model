@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/app/services/mongodb';
 
 async function getAccessToken() {
   const clientId = process.env.FORGE_CLIENT_ID;
@@ -27,13 +28,38 @@ export async function POST(req: NextRequest) {
 
     const accessToken = await getAccessToken();
 
-    // Start translation job
+    // 1) Check manifest first to avoid redundant work (server-side cache via Autodesk)
+    const manifestRes = await fetch(
+      `https://developer.api.autodesk.com/modelderivative/v2/designdata/${urn}/manifest`,
+      {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+    if (manifestRes.ok) {
+      const manifest = await manifestRes.json();
+      const status = manifest.status || 'pending';
+      const progress = manifest.progress || '0%';
+      if (status === 'success' && (progress === '100%' || progress === 'complete')) {
+        // Record to Mongo cache (best-effort)
+        try {
+          const db = await getDb();
+          await db.collection('forge_models').updateOne(
+            { urn },
+            { $set: { urn, status: 'success', updatedAt: Date.now() }, $setOnInsert: { createdAt: Date.now(), cacheHits: 0 } },
+            { upsert: true }
+          );
+        } catch {}
+        return NextResponse.json({ success: true, urn, result: 'cached' });
+      }
+    }
+
+    // 2) Start translation job (no force), allows Autodesk cache to be used
     const translationResponse = await fetch('https://developer.api.autodesk.com/modelderivative/v2/designdata/job', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'x-ads-force': 'true', // Force translation even if already translated
       },
       body: JSON.stringify({
         input: {
@@ -66,6 +92,16 @@ export async function POST(req: NextRequest) {
 
     const translationData = await translationResponse.json();
     console.log('Translation started:', translationData);
+
+    // Record pending status in Mongo (best-effort)
+    try {
+      const db = await getDb();
+      await db.collection('forge_models').updateOne(
+        { urn },
+        { $set: { urn, status: 'pending', updatedAt: Date.now() }, $setOnInsert: { createdAt: Date.now(), cacheHits: 0 } },
+        { upsert: true }
+      );
+    } catch {}
 
     return NextResponse.json({
       success: true,

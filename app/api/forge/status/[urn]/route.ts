@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/app/services/mongodb';
 
 async function getAccessToken() {
   const clientId = process.env.FORGE_CLIENT_ID;
@@ -62,6 +63,15 @@ export async function GET(
     const status = statusData.status || 'pending';
 
     if (status === 'success' && (progress === '100%' || progress === 'complete')) {
+      // Record success in Mongo (best-effort)
+      try {
+        const db = await getDb();
+        await db.collection('forge_models').updateOne(
+          { urn },
+          { $set: { urn, status: 'success', updatedAt: Date.now() }, $setOnInsert: { createdAt: Date.now(), cacheHits: 0 } },
+          { upsert: true }
+        );
+      } catch {}
       return NextResponse.json({
         status: 'success',
         urn: urn,
@@ -69,6 +79,14 @@ export async function GET(
         message: 'Translation completed successfully'
       });
     } else if (status === 'failed') {
+      try {
+        const db = await getDb();
+        await db.collection('forge_models').updateOne(
+          { urn },
+          { $set: { urn, status: 'failed', updatedAt: Date.now(), manifest: statusData } },
+          { upsert: true }
+        );
+      } catch {}
       return NextResponse.json({
         status: 'failed',
         urn: urn,
@@ -77,6 +95,14 @@ export async function GET(
         details: statusData
       });
     } else {
+      try {
+        const db = await getDb();
+        await db.collection('forge_models').updateOne(
+          { urn },
+          { $set: { urn, status: 'pending', updatedAt: Date.now() } },
+          { upsert: true }
+        );
+      } catch {}
       return NextResponse.json({
         status: 'pending',
         urn: urn,
