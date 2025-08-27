@@ -53,7 +53,7 @@ export function RVTForgeInterface({
 
   // Validate existing URN to ensure it's still accessible
   const validateExistingUrn = async (urn: string) => {
-    console.log('🔍 Validating existing URN:', urn);
+    console.log('🔍 [URN Validation] Starting validation for URN:', urn);
     setIsProcessing(true);
     setError(null);
     setProgress(50);
@@ -61,13 +61,17 @@ export function RVTForgeInterface({
 
     try {
       // Check if the URN is still valid by checking its status
+      console.log('🔍 [URN Validation] Checking status at:', `/api/forge/status/${urn}`);
       const statusResponse = await fetch(`/api/forge/status/${urn}`);
+      
+      console.log('🔍 [URN Validation] Status response:', statusResponse.status, statusResponse.ok);
       
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
+        console.log('🔍 [URN Validation] Status data:', statusData);
         
         if (statusData.status === 'success') {
-          console.log('✅ Existing URN is valid, using cached model');
+          console.log('✅ [URN Validation] URN is valid, using cached model');
           setProgress(100);
           setCurrentStep('complete');
           
@@ -76,15 +80,20 @@ export function RVTForgeInterface({
             onProcessingComplete(urn);
           }, 500);
           return;
+        } else {
+          console.log('⚠️ [URN Validation] URN status not success:', statusData.status);
         }
+      } else {
+        console.log('⚠️ [URN Validation] Status check failed:', statusResponse.status);
       }
       
       // If validation fails, start fresh processing
-      console.log('⚠️ Existing URN is invalid, starting fresh processing');
+      console.log('⚠️ [URN Validation] Validation failed, starting fresh processing');
       handleStartProcessing();
       
     } catch (error) {
-      console.log('⚠️ URN validation failed, starting fresh processing');
+      console.log('❌ [URN Validation] Validation error:', error);
+      console.log('⚠️ [URN Validation] Starting fresh processing due to error');
       handleStartProcessing();
     }
   };
