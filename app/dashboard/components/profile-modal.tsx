@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { X, User, Edit3, Save, XCircle } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { X, User, Edit3, Save, XCircle, ImagePlus, Trash2, Loader2 } from "lucide-react";
 
 type RoleInfo = {
   roleLabel: string;
@@ -32,6 +32,8 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [edited, setEdited] = useState<ProfileData | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -192,8 +194,67 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
             {profile && (
               <div className="space-y-5">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg font-medium">
-                    {profile?.name?.[0]?.toUpperCase() || "U"}
+                  <div className="relative">
+                    { (() => {
+                        const displayUrl = edited ? edited.avatarUrl : profile.avatarUrl;
+                        return displayUrl ? (
+                          <img
+                            src={displayUrl}
+                            alt="Avatar"
+                            className="w-12 h-12 rounded-full object-cover border border-gray-600"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg font-medium">
+                            {profile?.name?.[0]?.toUpperCase() || "U"}
+                          </div>
+                        );
+                      })() }
+                    {isEditing && (
+                      <div className="absolute -bottom-2 -right-2 flex gap-1">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-1.5 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200"
+                          title="Change photo"
+                          disabled={uploadingAvatar}
+                        >
+                          {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                        </button>
+                        {(edited?.avatarUrl || profile.avatarUrl) && (
+                          <button
+                            onClick={() => setEdited(prev => prev ? { ...prev, avatarUrl: '' } : prev)}
+                            className="p-1.5 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200"
+                            title="Remove photo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setUploadingAvatar(true);
+                              const fd = new FormData();
+                              fd.append('file', file);
+                              const res = await fetch('/api/uploads/avatar', { method: 'POST', body: fd });
+                              const json = await res.json();
+                              if (!res.ok) throw new Error(json?.error || 'Upload failed');
+                              const url = json?.url as string;
+                              setEdited(prev => prev ? { ...prev, avatarUrl: url } : prev);
+                            } catch (e: any) {
+                              setError(e?.message || 'Failed to upload avatar');
+                            } finally {
+                              setUploadingAvatar(false);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="text-white font-medium text-base">

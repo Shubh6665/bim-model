@@ -133,17 +133,15 @@ export async function PUT(
     const body = await req.json();
     const db = await getDb();
     
-    // Check if user has access to this project
-    const project = await db.collection('projects').findOne({ 
-      _id: new ObjectId(projectId),
-      $or: [
-        { 'access.owner': email },
-        { 'access.users': { $elemMatch: { email } } }
-      ]
-    });
-
+    // Verify project exists and caller has at least read access (can update their own profile)
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     if (!project) {
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+    const user = await getSessionUser(db, email);
+    const allowed = await canReadProject(db, projectId, user, email);
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Validate telephone format
