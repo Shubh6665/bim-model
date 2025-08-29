@@ -14,9 +14,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { company } = await req.json();
-    if (!company || typeof company !== 'string') {
-      return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
+    if (!company || typeof company !== 'string' || company.trim().length === 0) {
+      return NextResponse.json({ error: 'Valid company name is required' }, { status: 400 });
     }
+
+    // Sanitize company name
+    const sanitizedCompany = company.trim().substring(0, 100); // Limit length
 
     // Platform Owner cannot request admin access (they already have full access)
     if (isPlatformOwnerEmail(session.user.email)) {
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Check if user already has pending or approved admin for this company
     const existingAdminEntries = Array.isArray(user.adminCompanies) ? user.adminCompanies : [];
-    const normalizedCompany = company.trim().toLowerCase();
+    const normalizedCompany = sanitizedCompany.toLowerCase();
     const existingEntry = existingAdminEntries.find((entry: any) => 
       String(entry.company || '').trim().toLowerCase() === normalizedCompany
     );
@@ -45,12 +48,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Rate limiting: Check for recent requests (last 24 hours)
+    const recentRequests = existingAdminEntries.filter((entry: any) => {
+      const entryDate = entry.requestedAt || new Date(0);
+      const timeDiff = Date.now() - new Date(entryDate).getTime();
+      return timeDiff < 24 * 60 * 60 * 1000; // 24 hours
+    });
+
+    if (recentRequests.length >= 3) {
+      return NextResponse.json({ error: 'Too many requests. Please wait 24 hours before requesting again.' }, { status: 429 });
+    }
+
     // Add pending admin request
-    await ensurePendingAdminForCompany(db, user, company);
+    await ensurePendingAdminForCompany(db, user, sanitizedCompany);
 
     return NextResponse.json({ 
       message: 'Administrator access request submitted successfully. Please wait for Platform Owner approval.',
-      company,
+      company: sanitizedCompany,
       status: 'pending'
     });
 

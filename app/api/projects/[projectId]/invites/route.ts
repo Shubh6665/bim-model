@@ -3,7 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
-import { canMakeProjectAdmin, canManageAccess, isApprovedAdministratorForCompany, isPlatformOwnerEmail } from '@/app/lib/rbac';
+import { canMakeProjectAdmin, canManageAccess, isApprovedAdministratorForCompany, isPlatformOwnerEmail, isProjectAdmin } from '@/app/lib/rbac';
 import nodemailer from 'nodemailer';
 
 async function getUserEmail(): Promise<string | null> {
@@ -18,19 +18,6 @@ async function getSessionUser(db: any, email: string) {
 async function isOwner(db: any, projectId: string, user: any) {
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   return project && String(project.userId) === String(user?._id);
-}
-
-async function isProjectAdmin(db: any, projectId: string, email: string) {
-  const accepted = await db.collection('invites').findOne({
-    projectId: new ObjectId(projectId),
-    status: 'accepted',
-    'invitee.email': email,
-    $or: [
-      { 'invitee.role': 'ProjectAdmin' },
-      { 'invitee.role': 'Project Admin' }
-    ]
-  });
-  return !!accepted;
 }
 
 async function authorizeInviteManager(db: any, projectId: string, user: any, email: string) {

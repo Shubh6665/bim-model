@@ -104,16 +104,30 @@ export function getRolePermissions(role: EffectiveRole): {
   canManageModels: boolean;
   canDeleteModels: boolean;
   canViewOnly: boolean;
+  canCreateProject: boolean;
+  canDeleteProject: boolean;
 } {
   switch (role) {
     case 'PlatformOwner':
+      return {
+        canEdit: true,
+        canInvite: true,
+        canManageModels: true,
+        canDeleteModels: true,
+        canViewOnly: false,
+        canCreateProject: true,
+        canDeleteProject: true
+      };
+    
     case 'Administrator':
       return {
         canEdit: true,
         canInvite: true,
         canManageModels: true,
         canDeleteModels: true,
-        canViewOnly: false
+        canViewOnly: false,
+        canCreateProject: true,
+        canDeleteProject: true  // Only for own projects
       };
     
     case 'ProjectAdmin':
@@ -122,7 +136,9 @@ export function getRolePermissions(role: EffectiveRole): {
         canInvite: true,
         canManageModels: true,
         canDeleteModels: true,
-        canViewOnly: false
+        canViewOnly: false,
+        canCreateProject: true,
+        canDeleteProject: false  // Cannot delete projects
       };
     
     case 'BIMManager':
@@ -131,21 +147,35 @@ export function getRolePermissions(role: EffectiveRole): {
         canInvite: false,
         canManageModels: true,
         canDeleteModels: false,
-        canViewOnly: false
+        canViewOnly: false,
+        canCreateProject: false,
+        canDeleteProject: false
       };
     
     case 'BIMSpecialist':
     case 'BIMCoordinator':
-    case 'Designer':
       return {
         canEdit: false,
         canInvite: false,
         canManageModels: false,
         canDeleteModels: false,
-        canViewOnly: true
+        canViewOnly: true,
+        canCreateProject: false,
+        canDeleteProject: false
       };
     
+    case 'Designer':
     case 'FacilityManager':
+      return {
+        canEdit: false,
+        canInvite: false,
+        canManageModels: false,
+        canDeleteModels: false,
+        canViewOnly: true,
+        canCreateProject: false,
+        canDeleteProject: false
+      };
+    
     case 'MaintenanceTeam':
     case 'Planner':
       return {
@@ -153,7 +183,9 @@ export function getRolePermissions(role: EffectiveRole): {
         canInvite: false,
         canManageModels: false,
         canDeleteModels: false,
-        canViewOnly: true
+        canViewOnly: true,
+        canCreateProject: false,
+        canDeleteProject: false
       };
     
     case 'Contractor':
@@ -165,7 +197,9 @@ export function getRolePermissions(role: EffectiveRole): {
         canInvite: false,
         canManageModels: false,
         canDeleteModels: false,
-        canViewOnly: true
+        canViewOnly: true,
+        canCreateProject: false,
+        canDeleteProject: false
       };
   }
 }
@@ -202,10 +236,12 @@ export function getPlatformRole(user: any, email: string): 'Platform Owner' | 'A
 export async function canDeleteProject(db: any, project: any, email: string, user: any): Promise<boolean> {
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
-  // Administrator for this project's company can delete
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
-  // Project Administrators CANNOT delete projects
-  return false;
+  
+  // Only Administrator who OWNS this project can delete it
+  const isProjectOwner = String(project.userId) === String(user._id);
+  const isCompanyAdmin = isApprovedAdministratorForCompany(user, project.company);
+  
+  return isProjectOwner && isCompanyAdmin;
 }
 
 export async function canUpdateProject(db: any, project: any, email: string, user: any): Promise<boolean> {
@@ -324,15 +360,21 @@ export async function getEffectiveRole(db: any, project: any, email: string, use
   // For project context
   if (project) {
     // Check if user owns this project AND is Administrator
-    if (isApprovedAdministratorForCompany(user, project.company) && 
-        String(project.userId) === String(user._id)) {
+    const isProjectOwner = String(project.userId) === String(user._id);
+    const isCompanyAdmin = isApprovedAdministratorForCompany(user, project.company);
+    
+    if (isProjectOwner && isCompanyAdmin) {
       return 'Administrator'; // Full admin access in own project
     }
     
     // Check project-specific invite role
-    const invite = await getAcceptedInvite(db, String(project._id), email);
-    if (invite) {
-      return mapProjectRoleToEffective(invite.invitee.role);
+    try {
+      const invite = await getAcceptedInvite(db, String(project._id), email);
+      if (invite && invite.invitee && invite.invitee.role) {
+        return mapProjectRoleToEffective(invite.invitee.role);
+      }
+    } catch (error) {
+      console.error('[getEffectiveRole] Error getting invite:', error);
     }
   }
   
