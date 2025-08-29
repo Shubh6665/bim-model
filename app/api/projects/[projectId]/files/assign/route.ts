@@ -5,6 +5,41 @@ import { sendEmail } from '@/app/lib/email';
 
 // Note: Access control disabled intentionally for open database access.
 
+// GET /api/projects/[projectId]/files/assign?type=file|folder&itemId=...
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { projectId } = await params;
+    const db = await getDb();
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const itemId = searchParams.get('itemId');
+
+    if (!type || !itemId) {
+      return NextResponse.json({ error: 'type and itemId are required' }, { status: 400 });
+    }
+
+    const assignments = await db
+      .collection('assignments')
+      .find({
+        type,
+        itemId: new ObjectId(itemId),
+        projectId: new ObjectId(projectId),
+        status: 'active'
+      })
+      .project({ assignedTo: 1, permissions: 1, createdAt: 1, _id: 0 })
+      .toArray();
+
+    return NextResponse.json({ assignees: assignments });
+  } catch (error) {
+    console.error('Error listing assignments:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // POST /api/projects/[projectId]/files/assign - Assign file/folder to user
 export async function POST(
   request: NextRequest,

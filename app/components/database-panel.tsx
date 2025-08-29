@@ -65,6 +65,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   const [showRenameModal, setShowRenameModal] = useState<{item: DatabaseFolder | DatabaseFile, newName: string} | null>(null);
   const [showEmailModal, setShowEmailModal] = useState<{item: DatabaseFolder | DatabaseFile, email: string} | null>(null);
   const [showUserAssignModal, setShowUserAssignModal] = useState<{item: DatabaseFolder | DatabaseFile, email: string, mode?: 'assign' | 'remove'} | null>(null);
+  const [assignees, setAssignees] = useState<{ assignedTo: string; permissions?: string[]; createdAt?: string }[] | null>(null);
+  const [assigneesLoading, setAssigneesLoading] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignResult, setAssignResult] = useState<{ email: string; status: 'assigned' | 'error'; message?: string } | null>(null);
   const [moveState, setMoveState] = useState<{ item: DatabaseFolder | DatabaseFile, targetFolderId?: string | null } | null>(null);
   const [showFileUpload, setShowFileUpload] = useState<string | null>(null);
   const [showShareLinkModal, setShowShareLinkModal] = useState<{item: DatabaseFolder | DatabaseFile, shareUrl: string} | null>(null);
@@ -92,6 +96,40 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       loadFoldersAndFiles();
     }
   }, [projectId]);
+
+  // Load assignees when the modal opens or the selected item changes (not on each keystroke)
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      if (!showUserAssignModal || !projectId) return;
+      const itemId = (showUserAssignModal.item as any)?.id;
+      if (!itemId) return;
+      setAssigneesLoading(true);
+      try {
+        const isFile = 'type' in showUserAssignModal.item;
+        const res = await fetch(`/api/projects/${projectId}/files/assign?type=${isFile ? 'file' : 'folder'}&itemId=${itemId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAssignees(data.assignees || []);
+        } else {
+          setAssignees([]);
+        }
+      } catch (e) {
+        console.error('Error fetching assignees:', e);
+        setAssignees([]);
+      } finally {
+        setAssigneesLoading(false);
+      }
+    };
+    fetchAssignees();
+  }, [projectId, showUserAssignModal?.mode, (showUserAssignModal?.item as any)?.id]);
+
+  // Reset assign result/loading when modal changes
+  useEffect(() => {
+    if (showUserAssignModal) {
+      setAssignResult(null);
+      setAssignLoading(false);
+    }
+  }, [showUserAssignModal]);
 
   const loadFoldersAndFiles = async () => {
     try {
@@ -585,6 +623,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     const isFile = 'type' in item;
 
     try {
+      if (mode !== 'remove') {
+        setAssignLoading(true);
+        setAssignResult(null);
+      }
       const response = await fetch(`/api/projects/${projectId}/files/assign`, {
         method: mode === 'remove' ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -596,11 +638,56 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       });
 
       if (response.ok) {
-        setShowUserAssignModal(null);
+        if (mode === 'remove') {
+          setShowUserAssignModal(null);
+        } else {
+          // Append to assignees list (avoid duplicates) and clear input
+          setAssignees(prev => {
+            const list = prev || [];
+            if (!list.find(a => a.assignedTo === email)) {
+              return [{ assignedTo: email }, ...list];
+            }
+            return list;
+          });
+          setShowUserAssignModal(prev => (prev ? { ...prev, email: '' } : prev));
+        }
         showNotification(`User ${mode === 'remove' ? 'removed' : 'assigned'} successfully!`, 'success');
       }
     } catch (error) {
       console.error('Error with user assignment:', error);
+      if (mode !== 'remove') {
+        setAssignResult({ email: showUserAssignModal.email, status: 'error', message: 'Failed to assign' });
+      }
+    }
+    finally {
+      if (mode !== 'remove') setAssignLoading(false);
+    }
+  };
+
+  const handleRemoveAssignee = async (email: string) => {
+    if (!showUserAssignModal || !projectId) return;
+    const { item } = showUserAssignModal;
+    const isFile = 'type' in item;
+    try {
+      const response = await fetch(`/api/projects/${projectId}/files/assign`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: isFile ? 'file' : 'folder',
+          itemId: item.id,
+          email
+        })
+      });
+      if (response.ok) {
+        setAssignees(prev => (prev || []).filter(a => a.assignedTo !== email));
+        showNotification('Access removed successfully!', 'success');
+      } else {
+        const err = await response.json().catch(() => ({}));
+        showNotification(err.error || 'Failed to remove access', 'error');
+      }
+    } catch (e) {
+      console.error('Error removing assignee:', e);
+      showNotification('Error removing access', 'error');
     }
   };
 
@@ -1209,24 +1296,90 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* User Assignment Modal */}
       {showUserAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg w-96">
             <h3 className="text-lg font-semibold text-white mb-4">
               {showUserAssignModal.mode === 'remove' ? 'Remove User Access' : 'Assign to User'}
             </h3>
-            <input
-              type="email"
-              value={showUserAssignModal.email}
-              onChange={(e) => setShowUserAssignModal(prev => prev ? { ...prev, email: e.target.value } : null)}
-              placeholder="Enter user email"
-              className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
-              autoFocus
-            />
+            {showUserAssignModal.mode !== 'remove' && (
+              <input
+                type="email"
+                value={showUserAssignModal.email}
+                onChange={(e) => setShowUserAssignModal(prev => prev ? { ...prev, email: e.target.value } : null)}
+                placeholder="Enter user email"
+                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+                autoFocus
+              />
+            )}
+            {/* In Assign mode, show list of currently shared users (no status text) */}
+            {showUserAssignModal.mode !== 'remove' && (
+              assigneesLoading ? (
+                <div className="mt-3 text-sm text-gray-400">Loading shared users...</div>
+              ) : (
+                <div className="mt-4">
+                  <div className="text-sm font-medium text-gray-300 mb-2">Assigned users</div>
+                  {assignees && assignees.length > 0 ? (
+                    <div className="max-h-40 overflow-auto border border-gray-700 rounded divide-y divide-gray-700">
+                      {assignees.map((a, idx) => (
+                        <div key={idx} className="flex items-center justify-between px-3 py-2">
+                          <div className="text-sm text-gray-200">{a.assignedTo}</div>
+                          <span className="text-xs text-green-400">Assigned</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No users have access yet.</div>
+                  )}
+                </div>
+              )
+            )}
+            {/* Shared with list — only in Remove mode */}
+            {showUserAssignModal.mode === 'remove' && (
+              assigneesLoading ? (
+                <div className="mt-3 text-sm text-gray-400">Loading shared users...</div>
+              ) : (
+                <div className="mt-4">
+                  <div className="text-sm font-medium text-gray-300 mb-2">Shared with</div>
+                  {assignees && assignees.length > 0 ? (
+                    <div className="space-y-2 max-h-40 overflow-auto">
+                      {assignees.map((a, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-gray-700/60 border border-gray-600 rounded px-3 py-2">
+                          <div>
+                            <div className="text-sm text-gray-200">{a.assignedTo}</div>
+                            {a.permissions && <div className="text-xs text-gray-400">Perm: {a.permissions.join(', ')}</div>}
+                          </div>
+                          <button
+                            onClick={() => handleRemoveAssignee(a.assignedTo)}
+                            className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No users have access yet.</div>
+                  )}
+                </div>
+              )
+            )}
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowUserAssignModal(null)} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
-              <button onClick={handleAssignUser} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
-                {showUserAssignModal.mode === 'remove' ? 'Remove' : 'Assign'}
-              </button>
+              <button onClick={() => { setShowUserAssignModal(null); }} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
+              {showUserAssignModal.mode !== 'remove' && (
+                <button
+                  onClick={handleAssignUser}
+                  disabled={assignLoading}
+                  className={`px-4 py-2 rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2`}
+                >
+                  {assignLoading && (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                  )}
+                  {assignLoading ? 'Assigning...' : 'Assign'}
+                </button>
+              )}
             </div>
           </div>
         </div>
