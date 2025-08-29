@@ -81,6 +81,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     subject: string;
     message: string;
   } | null>(null);
+  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ item: DatabaseFolder | DatabaseFile } | null>(null);
   const [showPropertiesModal, setShowPropertiesModal] = useState<null | { type: 'file' | 'folder'; item: any }>(null);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
@@ -387,9 +388,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   };
 
   const handleFileClick = (file: DatabaseFile) => {
-    if (onFileOpen) {
-      onFileOpen(file);
-    }
+    // Delegate file open to parent; parent will decide how to render (PDF vs others)
+    if (onFileOpen) onFileOpen(file);
   };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1873,6 +1873,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
           </div>
         </div>
       )}
+
+      
 
       {/* Hidden file input */}
       <input

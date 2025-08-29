@@ -9,6 +9,7 @@ import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import
 import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
 import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
 import FileViewer from "../components/file-viewer";
+import dynamic from "next/dynamic";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
 import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
 import { GoogleEarthMap } from "./components/google-earth-map";
@@ -53,6 +54,9 @@ interface Project {
   models?: ProjectModel[];
   access?: { role?: string; packages?: string[]; owner?: boolean };
 }
+
+// PdfViewer is heavy and uses pdfjs; disable SSR to avoid server-side canvas issues
+const PdfViewer = dynamic(() => import("../components/pdf-viewer"), { ssr: false });
 
 function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
@@ -658,11 +662,24 @@ function BIMDashboard() {
                       sensorsVisible={sensorsVisible}
                     />
                     {openFile && (
-                      <FileViewer
-                        file={openFile}
-                        projectId={selectedProject?.id || ''}
-                        onClose={handleFileClose}
-                      />
+                      /\.pdf$/i.test(openFile.name) ? (
+                        <div className="absolute inset-0 bg-gray-900 z-10 flex flex-col">
+                          <div className="flex-1 min-h-0">
+                            <PdfViewer
+                              projectId={selectedProject?.id || ''}
+                              fileId={openFile.id}
+                              fileName={openFile.name}
+                              onClose={handleFileClose}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <FileViewer
+                          file={openFile}
+                          projectId={selectedProject?.id || ''}
+                          onClose={handleFileClose}
+                        />
+                      )
                     )}
                   </div>
                 )}
