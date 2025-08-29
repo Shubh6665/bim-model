@@ -46,7 +46,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
   const [loading, setLoading] = useState(true);
   const [undoStack, setUndoStack] = useState<PdfAnnotation[][]>([]);
   const [redoStack, setRedoStack] = useState<PdfAnnotation[][]>([]);
-  const [showCommentInput, setShowCommentInput] = useState<{pageIndex: number, quads: Quad[], position: {x: number, y: number}} | null>(null);
+  const [showCommentInput, setShowCommentInput] = useState<{pageIndex: number, quads: Quad[], position: {x: number, y: number}, annotationId?: string} | null>(null);
   const [commentText, setCommentText] = useState('');
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
@@ -54,19 +54,29 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
   
   // Use the fileId path route for streaming into the viewer
   const fileUrl = useMemo(() => `/api/projects/${projectId}/files/${fileId}/download`, [projectId, fileId]);
-  // Provide a direct download URL (query-based) for the Download action
-  const downloadUrl = useMemo(() => `/api/projects/${projectId}/files/download?fileId=${fileId}`, [projectId, fileId]);
+  // Use annotated download URL for download action
+  const downloadUrl = useMemo(() => `/api/projects/${projectId}/files/${fileId}/download-annotated`, [projectId, fileId]);
 
   const loadAnnotations = async () => {
     try {
-      const response = await fetch(`/api/projects/${projectId}/files/${fileId}/annotations`);
+      const url = `/api/projects/${projectId}/files/${fileId}/annotations`;
+      console.log(`📍 Loading annotations from: ${url}`);
+      
+      const response = await fetch(url);
+      console.log(`📥 Load response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log(`📦 Load response data:`, data);
         const annotationsArray = Array.isArray(data) ? data : (data.annotations || []);
+        console.log(`🔄 Setting annotations:`, annotationsArray);
         setAnnotations(annotationsArray);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to load annotations:', response.status, errorText);
       }
     } catch (error) {
-      console.error('Load annotations error', error);
+      console.error('❌ Load annotations error', error);
     } finally {
       setLoading(false);
     }
@@ -85,6 +95,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
 
   const createAnnotation = async (pageIndex: number, quads: Quad[], type: AnnotationType, comment?: string) => {
     console.log(`🚀 Creating annotation: Page ${pageIndex}, Type: ${type}`);
+    console.log(`📊 Project ID: ${projectId}, File ID: ${fileId}`);
     
     // Validate quads
     const validQuads = quads.filter(q => 
@@ -109,31 +120,65 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
       authorEmail: 'user@example.com' 
     };
 
+    console.log(`📤 Sending annotation data:`, data);
+
     try {
-      const response = await fetch(`/api/projects/${projectId}/files/${fileId}/annotations`, {
+      const url = `/api/projects/${projectId}/files/${fileId}/annotations`;
+      console.log(`📍 POST URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
 
+      console.log(`📥 Response status: ${response.status}`);
+
       if (response.ok) {
-        const newAnnotation = await response.json();
-        console.log(`✅ Annotation created successfully`);
+        const payload = await response.json();
+        console.log(`📦 Response payload:`, payload);
+        const newAnnotation = payload?.annotation || payload; // API returns { annotation }, fallback for safety
+        console.log(`✅ Annotation created successfully:`, newAnnotation);
         // Remove temporary annotation and add real one
         setAnnotations(prev => {
           const withoutTemp = prev.filter(a => !a._id?.startsWith('temp-'));
-          return [...withoutTemp, newAnnotation];
+          const newState = newAnnotation ? [...withoutTemp, newAnnotation] : withoutTemp;
+          console.log(`🔄 Updated annotations state:`, newState);
+          return newState;
         });
         // Force immediate refresh
         setRefreshKey(prev => prev + 1);
       } else {
         const errorText = await response.text();
-        console.error('Failed to create annotation:', response.status, errorText);
+        console.error('❌ Failed to create annotation:', response.status, errorText);
       }
     } catch (error) {
-      console.error('Error creating annotation:', error);
+      console.error('❌ Error creating annotation:', error);
     }
   };
+
+  // Check if quads overlap with existing annotations
+  const checkOverlap = useCallback((newQuads: Quad[], pageIndex: number, type: AnnotationType) => {
+    const pageAnnotations = annotations.filter(a => a.pageIndex === pageIndex && a.type === type);
+    
+    for (const annotation of pageAnnotations) {
+      for (const existingQuad of annotation.quads || []) {
+        for (const newQuad of newQuads) {
+          // Check if rectangles overlap
+          const overlapX = Math.max(0, Math.min(existingQuad.x + existingQuad.width, newQuad.x + newQuad.width) - Math.max(existingQuad.x, newQuad.x));
+          const overlapY = Math.max(0, Math.min(existingQuad.y + existingQuad.height, newQuad.y + newQuad.height) - Math.max(existingQuad.y, newQuad.y));
+          const overlapArea = overlapX * overlapY;
+          const newQuadArea = newQuad.width * newQuad.height;
+          
+          // If more than 50% of new quad overlaps with existing, consider it duplicate
+          if (overlapArea / newQuadArea > 0.5) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, [annotations]);
 
   // Optimized text selection handler for real-time annotations
   const handleTextSelection = useCallback(() => {
@@ -145,7 +190,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
     }
 
     const selectedText = selection.toString().trim();
-    if (!selectedText || selectedText.length < 2) {
+    if (!selectedText || selectedText.length < 1) {
       return;
     }
 
@@ -174,7 +219,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
     
     // Convert rects to quads more efficiently
     const quads = rects
-      .filter(rect => rect.width > 1 && rect.height > 1)
+      .filter(rect => rect.width > 0.5 && rect.height > 0.5)
       .map(rect => ({
         x: Math.max(0, Math.min(1, (rect.left - pageRect.left) / pageRect.width)),
         y: Math.max(0, Math.min(1, (rect.top - pageRect.top) / pageRect.height)),
@@ -185,12 +230,17 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
 
     if (quads.length === 0) return;
 
-    console.log(`🎯 Quick ${activeTool} on page ${pageIndex}: "${selectedText.substring(0, 30)}..."`);
-    
-    // Clear any existing timeout
-    if (annotationTimeoutRef.current) {
-      clearTimeout(annotationTimeoutRef.current);
+    // Check for overlaps before creating annotation
+    if (activeTool !== 'comment' && checkOverlap(quads, pageIndex, activeTool)) {
+      console.log(`⚠️ Skipping duplicate ${activeTool} on page ${pageIndex}`);
+      // Clear selection and return
+      setTimeout(() => {
+        window.getSelection()?.removeAllRanges();
+      }, 100);
+      return;
     }
+
+    console.log(`🎯 Quick ${activeTool} on page ${pageIndex}: "${selectedText.substring(0, 30)}..."`);
     
     // Handle different annotation types
     if (activeTool === 'comment') {
@@ -201,39 +251,20 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
         quads,
         position: { x: firstRect.left + firstRect.width / 2, y: firstRect.top }
       });
+      // Don't clear selection for comments
     } else {
-      // Immediate visual feedback - add temp annotation for highlight/underline
-      const tempId = `temp-${Date.now()}-${Math.random()}`;
-      const tempAnnotation: PdfAnnotation = {
-        _id: tempId,
-        pageIndex,
-        type: activeTool,
-        quads,
-        comment: '',
-        authorEmail: 'user@example.com'
-      };
-
       // Take undo snapshot before applying the visual change
       saveToUndoStack();
 
-      // Add immediately for instant feedback
-      setAnnotations(prev => [...prev, tempAnnotation]);
-      setRefreshKey(prev => prev + 1);
-
-      // Debounce the save operation
-      annotationTimeoutRef.current = setTimeout(() => {
-        createAnnotation(pageIndex, quads, activeTool).then(() => {
-          // Remove temp annotation after real one is saved
-          setAnnotations(prev => prev.filter(a => a._id !== tempId));
-        });
-      }, 100); // Very short debounce for responsiveness
+      // Create annotation immediately - no temp annotation needed
+      createAnnotation(pageIndex, quads, activeTool);
+      
+      // Clear selection only after annotation is created
+      setTimeout(() => {
+        window.getSelection()?.removeAllRanges();
+      }, 100);
     }
-    
-    // Clear selection immediately for better UX
-    setTimeout(() => {
-      window.getSelection()?.removeAllRanges();
-    }, 50);
-  }, [activeTool, createAnnotation]);
+  }, [activeTool, createAnnotation, saveToUndoStack, checkOverlap]);
 
   // Undo/Redo functions
   const handleUndo = useCallback(async () => {
@@ -261,22 +292,60 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
   }, [redoStack, annotations]);
 
   // Handle comment submission
+  const updateAnnotation = async (annotationId: string, comment: string) => {
+    try {
+      const url = `/api/projects/${projectId}/files/${fileId}/annotations`;
+      const data = { id: annotationId, comment };
+      console.log(`📍 PUT URL: ${url}`);
+      console.log(`📤 Update data:`, data);
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      console.log(`📥 Update response status: ${response.status}`);
+      
+      if (response.ok) {
+        const payload = await response.json();
+        console.log(`📦 Update response payload:`, payload);
+        const updatedAnnotation = payload?.annotation || payload;
+        setAnnotations(prev => 
+          prev.map(a => a._id === annotationId ? updatedAnnotation : a)
+        );
+        setRefreshKey(k => k + 1);
+        console.log('✅ Annotation updated successfully');
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to update annotation:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ Error updating annotation:', error);
+    }
+  };
+
   const handleCommentSubmit = useCallback(async () => {
     if (!showCommentInput || !commentText.trim()) return;
-    
-    // Take undo snapshot before creating a real comment annotation
+
     saveToUndoStack();
 
-    await createAnnotation(
-      showCommentInput.pageIndex,
-      showCommentInput.quads,
-      'comment',
-      commentText.trim()
-    );
+    // If an annotationId is present, we're updating an existing annotation's comment
+    if (showCommentInput.annotationId) {
+      await updateAnnotation(showCommentInput.annotationId, commentText.trim());
+    } else {
+      // Otherwise, create a new annotation of type 'comment'
+      await createAnnotation(
+        showCommentInput.pageIndex,
+        showCommentInput.quads,
+        'comment',
+        commentText.trim()
+      );
+    }
     
     setShowCommentInput(null);
     setCommentText('');
-  }, [showCommentInput, commentText, createAnnotation, saveToUndoStack]);
+  }, [showCommentInput, commentText, createAnnotation, updateAnnotation, saveToUndoStack]);
 
   // Toggle comment expansion
   const toggleCommentExpansion = useCallback((annotationId: string) => {
@@ -334,33 +403,44 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
   // Optimized event listeners for better performance
   useEffect(() => {
     let isSelecting = false;
+    let selectionTimeout: NodeJS.Timeout | null = null;
     
-    const handleMouseDown = () => {
-      isSelecting = true;
-    };
-    
-    const handleMouseUp = () => {
-      if (isSelecting && activeTool) {
-        setTimeout(handleTextSelection, 10);
-      }
-      isSelecting = false;
-    };
-    
-    const handleSelectionChange = () => {
-      // Only handle if we're actively selecting and have a tool
-      if (isSelecting && activeTool) {
-        handleTextSelection();
+    const handleMouseDown = (e: MouseEvent) => {
+      // Only track if clicking inside PDF viewer area
+      const target = e.target as Element;
+      if (target.closest('.rpv-core__page-layer')) {
+        isSelecting = true;
       }
     };
+    
+    const handleMouseUp = (e: MouseEvent) => {
+      if (isSelecting && activeTool) {
+        // Clear any existing timeout
+        if (selectionTimeout) {
+          clearTimeout(selectionTimeout);
+        }
+        
+        // Delay to allow selection to complete
+        selectionTimeout = setTimeout(() => {
+          handleTextSelection();
+          isSelecting = false;
+        }, 50);
+      } else {
+        isSelecting = false;
+      }
+    };
+    
+    // Remove problematic selectionchange listener that interferes with text selection
     
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('selectionchange', handleSelectionChange);
     
     return () => {
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('selectionchange', handleSelectionChange);
+      if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+      }
       if (annotationTimeoutRef.current) {
         clearTimeout(annotationTimeoutRef.current);
       }
@@ -442,6 +522,15 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
                       transition: annotation._id?.startsWith('temp-') ? 'none' : 'all 0.2s ease',
                     }}
                     title={annotation.comment || 'Highlight'}
+                    onClick={() => {
+                      setShowCommentInput({
+                        pageIndex: annotation.pageIndex,
+                        quads: annotation.quads,
+                        position: { x: quad.x * 100, y: quad.y * 100 },
+                        annotationId: annotation._id
+                      });
+                      setCommentText(annotation.comment || '');
+                    }}
                   />
                 );
               } else if (annotation.type === 'underline') {
@@ -457,6 +546,15 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
                       transition: annotation._id?.startsWith('temp-') ? 'none' : 'all 0.2s ease',
                     }}
                     title={annotation.comment || 'Underline'}
+                    onClick={() => {
+                      setShowCommentInput({
+                        pageIndex: annotation.pageIndex,
+                        quads: annotation.quads,
+                        position: { x: quad.x * 100, y: quad.y * 100 },
+                        annotationId: annotation._id
+                      });
+                      setCommentText(annotation.comment || '');
+                    }}
                   />
                 );
               } else if (annotation.type === 'comment') {
@@ -607,7 +705,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
             target="_blank"
             rel="noreferrer"
             className="p-2 rounded bg-green-600 text-white hover:bg-green-700"
-            title="Download"
+            title="Download Annotated PDF"
           >
             <DownloadIcon className="w-4 h-4" />
           </a>
