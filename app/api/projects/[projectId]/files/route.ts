@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
 import { ObjectId, GridFSBucket } from 'mongodb';
 import { Readable } from 'stream';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-config';
 
 // Note: Access control disabled intentionally for open database access.
 
@@ -84,6 +86,10 @@ export async function POST(
     else if (['.xls', '.xlsx'].includes(fileExtension)) fileType = 'excel';
     else if (fileExtension === '.dwg') fileType = 'dwg';
 
+    // resolve current user email if logged in
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email || 'public';
+
     // Create file record
     const fileRecord = {
       name: file.name,
@@ -94,8 +100,9 @@ export async function POST(
       fileId: uploadStream.id,
       mimeType: file.type,
       createdAt: new Date(),
-      createdBy: 'public',
-      updatedAt: new Date()
+      createdBy: email,
+      updatedAt: new Date(),
+      updatedBy: email
     };
 
     const result = await db.collection('files').insertOne(fileRecord);
@@ -133,7 +140,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Nothing to update. Provide name or moveToFolderId' }, { status: 400 });
     }
 
-    const $set: any = { updatedAt: new Date() };
+    // resolve current user email if logged in
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email || 'public';
+
+    const $set: any = { updatedAt: new Date(), updatedBy: email };
     if (typeof name === 'string') {
       $set.name = name.trim();
     }

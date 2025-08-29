@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/app/services/mongodb';
 import { ObjectId } from 'mongodb';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/lib/auth-config';
 
 // Note: Access control disabled intentionally for open database access.
 
@@ -45,13 +47,18 @@ export async function POST(
       return NextResponse.json({ error: 'Folder name is required' }, { status: 400 });
     }
 
+    // resolve current user email if logged in
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email || 'public';
+
     const folder = {
       name: name.trim(),
       projectId: new ObjectId(projectId),
       parentId: parentId ? new ObjectId(parentId) : null,
       createdAt: new Date(),
-      createdBy: 'public',
-      updatedAt: new Date()
+      createdBy: email,
+      updatedAt: new Date(),
+      updatedBy: email
     };
 
     const result = await db.collection('folders').insertOne(folder);
@@ -86,7 +93,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Nothing to update. Provide name or parentId' }, { status: 400 });
     }
 
-    const $set: any = { updatedAt: new Date() };
+    // resolve current user email if logged in
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email || 'public';
+
+    const $set: any = { updatedAt: new Date(), updatedBy: email };
     if (typeof name === 'string') {
       $set.name = name.trim();
     }

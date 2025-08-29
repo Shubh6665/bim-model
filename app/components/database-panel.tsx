@@ -26,7 +26,8 @@ import {
   UserPlus,
   UserMinus,
   Edit,
-  FilePlus
+  FilePlus,
+  Info
 } from 'lucide-react';
 
 interface DatabaseFile {
@@ -79,8 +80,23 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     subject: string;
     message: string;
   } | null>(null);
-  const [zipRecipients, setZipRecipients] = useState<string[] | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ item: DatabaseFolder | DatabaseFile } | null>(null);
+  const [showPropertiesModal, setShowPropertiesModal] = useState<null | { type: 'file' | 'folder'; item: any }>(null);
+  const [propertiesLoading, setPropertiesLoading] = useState(false);
+  const [propertiesData, setPropertiesData] = useState<null | {
+    name: string;
+    sizeBytes?: number;
+    sizeFormatted?: string;
+    uploadedBy?: string;
+    uploadedByName?: string;
+    createdAt?: string;
+    modifiedBy?: string;
+    modifiedByName?: string;
+    modifiedAt?: string;
+    type: 'file' | 'folder';
+  }>(null);
   const [zipRecipientsLoading, setZipRecipientsLoading] = useState<boolean>(false);
+  const [zipRecipients, setZipRecipients] = useState<string[] | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [inlineRename, setInlineRename] = useState<{itemId: string, newName: string} | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -90,8 +106,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   // Sending overlay state (for ZIP/email send)
   const [isSending, setIsSending] = useState(false);
   const [sendingMessage, setSendingMessage] = useState<string>('');
-  // Delete confirmation modal
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ item: DatabaseFolder | DatabaseFile } | null>(null);
+  
   // Panel ref for outside-click detection
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -123,6 +138,35 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       showNotification('Error duplicating file', 'error');
     }
   };
+
+  // Load properties (file/folder)
+  const loadProperties = async (type: 'file' | 'folder', id: string) => {
+    if (!projectId) return;
+    setPropertiesLoading(true);
+    setPropertiesData(null);
+    try {
+      const url = `/api/projects/${projectId}/properties?type=${type}&itemId=${id}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setPropertiesData(data);
+    } catch (e: any) {
+      console.error('Load properties failed:', e);
+      showNotification('Failed to load properties', 'error');
+    } finally {
+      setPropertiesLoading(false);
+    }
+  };
+
+  // Auto-load properties when the modal opens
+  useEffect(() => {
+    if (showPropertiesModal && (showPropertiesModal.item?.id)) {
+      const type = showPropertiesModal.type;
+      const id = showPropertiesModal.item.id as string;
+      loadProperties(type, id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPropertiesModal?.item?.id, showPropertiesModal?.type]);
 
   // Load assignees when the modal opens or the selected item changes (not on each keystroke)
   useEffect(() => {
@@ -1061,6 +1105,88 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
         </div>
       )}
 
+      {/* Properties Modal */}
+      {showPropertiesModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl w-[32rem] shadow-2xl border border-gray-700">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="p-2 bg-gray-700 rounded-lg shrink-0 mt-1">
+                  <Info className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xl font-semibold text-white truncate" title={(propertiesData?.name || showPropertiesModal.item?.name) || 'Item'}>
+                    {propertiesData?.name || showPropertiesModal.item?.name}
+                  </h3>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                    <span className="capitalize px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600">{showPropertiesModal.type}</span>
+                    {propertiesData?.sizeFormatted && (
+                      <span className="px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600">{propertiesData.sizeFormatted}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setShowPropertiesModal(null)} className="text-gray-300 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {propertiesLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" aria-label="Loading" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <div className="text-xs text-gray-400">Name</div>
+                  <div className="text-sm text-gray-200 truncate" title={propertiesData?.name || showPropertiesModal.item?.name}>
+                    {propertiesData?.name || showPropertiesModal.item?.name}
+                  </div>
+                </div>
+                {propertiesData?.uploadedByName || propertiesData?.uploadedBy ? (
+                  <div>
+                    <div className="text-xs text-gray-400">Uploaded By</div>
+                    <div className="text-sm text-gray-200">
+                      {propertiesData?.uploadedByName || propertiesData?.uploadedBy}
+                    </div>
+                  </div>
+                ) : null}
+                {propertiesData?.createdAt ? (
+                  <div>
+                    <div className="text-xs text-gray-400">Created</div>
+                    <div className="text-sm text-gray-200">{new Date(propertiesData.createdAt).toLocaleString()}</div>
+                  </div>
+                ) : null}
+                {propertiesData?.modifiedByName || propertiesData?.modifiedBy ? (
+                  <div>
+                    <div className="text-xs text-gray-400">Modified By</div>
+                    <div className="text-sm text-gray-200">{propertiesData?.modifiedByName || propertiesData?.modifiedBy}</div>
+                  </div>
+                ) : null}
+                {propertiesData?.modifiedAt ? (
+                  <div>
+                    <div className="text-xs text-gray-400">Modified</div>
+                    <div className="text-sm text-gray-200">{new Date(propertiesData.modifiedAt).toLocaleString()}</div>
+                  </div>
+                ) : null}
+                {!propertiesLoading && !propertiesData && (
+                  <div className="col-span-2 text-sm text-gray-400">No properties available.</div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button 
+                onClick={() => setShowPropertiesModal(null)} 
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* New Folder Creation */}
       {activeCommand === 'new' && (
         <div className="flex-1 p-4 overflow-auto relative">
@@ -1211,6 +1337,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Folder
                 </button>
+                <button
+                  onClick={() => {
+                    setShowPropertiesModal({ type: 'folder', item: contextMenu.item });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Info className="w-4 h-4 mr-2" />
+                  Properties
+                </button>
               </>
             ) : (
               // File context menu
@@ -1291,6 +1427,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete File
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPropertiesModal({ type: 'file', item: contextMenu.item });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Info className="w-4 h-4 mr-2" />
+                  Properties
                 </button>
               </>
             )}
