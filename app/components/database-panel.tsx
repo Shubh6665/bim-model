@@ -62,6 +62,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     y: number;
     item: DatabaseFolder | DatabaseFile;
     type: 'folder' | 'file';
+    maxHeight?: number; // unified max height used for positioning and rendering
   } | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [showRenameModal, setShowRenameModal] = useState<{item: DatabaseFolder | DatabaseFile, newName: string} | null>(null);
@@ -138,6 +139,27 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       showNotification('Error duplicating file', 'error');
     }
   };
+
+  // Keep context menu visible on window resize by clamping position and height
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleResize = () => {
+      const menuWidth = 220;
+      const intendedMaxHeight = Math.min(520, window.innerHeight - 20);
+      const clampedX = Math.max(10, Math.min(contextMenu.x, window.innerWidth - menuWidth - 10));
+      const clampedY = Math.max(10, Math.min(contextMenu.y, window.innerHeight - intendedMaxHeight - 10));
+      const needsUpdate =
+        clampedX !== contextMenu.x ||
+        clampedY !== contextMenu.y ||
+        (contextMenu.maxHeight ?? intendedMaxHeight) !== intendedMaxHeight;
+      if (needsUpdate) {
+        setContextMenu(prev => (prev ? { ...prev, x: clampedX, y: clampedY, maxHeight: intendedMaxHeight } : prev));
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [contextMenu]);
 
   // Load properties (file/folder)
   const loadProperties = async (type: 'file' | 'folder', id: string) => {
@@ -319,8 +341,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     e.stopPropagation();
 
     const menuWidth = 220;
-    // Use dynamic max height so menu never exceeds viewport and becomes scrollable
-    const maxMenuHeight = Math.min(380, window.innerHeight - 20);
+    // Use unified dynamic max height so menu never exceeds viewport and becomes scrollable
+    const intendedMaxHeight = Math.min(520, window.innerHeight - 20);
 
     // Ensure the right-clicked item becomes selected/highlighted
     if ('type' in item) {
@@ -337,16 +359,17 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     if (x + menuWidth > window.innerWidth) {
       x = Math.max(10, window.innerWidth - menuWidth - 10);
     }
-    // Prefer opening below cursor; if it would overflow, position upwards within viewport
-    if (y + maxMenuHeight > window.innerHeight - 10) {
-      y = Math.max(10, window.innerHeight - maxMenuHeight - 10);
+    // Prefer opening below cursor; if it would overflow, anchor it upward within viewport using intendedMaxHeight
+    if (y + intendedMaxHeight > window.innerHeight - 10) {
+      y = Math.max(10, window.innerHeight - intendedMaxHeight - 10);
     }
 
     setContextMenu({
       x,
       y,
       item,
-      type: 'type' in item ? 'file' : 'folder'
+      type: 'type' in item ? 'file' : 'folder',
+      maxHeight: intendedMaxHeight
     });
   };
 
@@ -1224,7 +1247,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             style={{ 
               left: contextMenu.x, 
               top: contextMenu.y,
-              maxHeight: 'min(520px, calc(100vh - 20px))',
+              maxHeight: contextMenu.maxHeight ? `${contextMenu.maxHeight}px` : 'min(520px, calc(100vh - 20px))',
               overflowY: 'auto'
             }}
           >
