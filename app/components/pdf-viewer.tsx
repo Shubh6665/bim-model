@@ -647,22 +647,17 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
 
   return (
     <div className="flex flex-col w-full h-full">
-      <div className="flex items-center justify-between px-3 py-2 bg-gray-900 border-b border-gray-800">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileText className="w-4 h-4 text-gray-300" />
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
+        <div className="flex items-center gap-3 min-w-0">
+          <FileText className="w-5 h-5 text-blue-400" />
           <div className="text-white text-sm font-medium truncate">{fileName || 'Document'}</div>
-          {activeTool && (
-            <div className="px-2 py-1 bg-blue-600 text-white text-xs rounded">
-              {toolLabel[activeTool]} Mode
-            </div>
-          )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {/* Undo/Redo buttons */}
           <button
             onClick={handleUndo}
             disabled={undoStack.length === 0}
-            className={`p-2 rounded hover:bg-gray-700 text-gray-200 ${undoStack.length === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-800'}`}
+            className={`p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors ${undoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
             title="Undo (Ctrl+Z)"
           >
             <Undo className="w-4 h-4" />
@@ -670,26 +665,28 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
           <button
             onClick={handleRedo}
             disabled={redoStack.length === 0}
-            className={`p-2 rounded hover:bg-gray-700 text-gray-200 ${redoStack.length === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-800'}`}
+            className={`p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors ${redoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
             title="Redo (Ctrl+Y)"
           >
             <Redo className="w-4 h-4" />
           </button>
           
-          <div className="w-px h-6 bg-gray-600 mx-1"></div>
+          <div className="w-px h-5 bg-gray-600 mx-2"></div>
           
           {/* Annotation Tools */}
           {(['highlight', 'underline', 'comment'] as AnnotationType[]).map((t) => {
             const isActive = activeTool === t;
-            const common = 'p-2 rounded hover:bg-gray-700 text-gray-200 transition-colors';
-            const activeCls = isActive ? 'bg-blue-600 text-white hover:bg-blue-600' : 'bg-gray-800';
             const onClick = () => setActiveTool(prev => (prev === t ? null : t));
             return (
               <button 
                 key={t} 
                 onClick={onClick} 
                 title={`${toolLabel[t]} (Ctrl+${t.charAt(0).toUpperCase()})`} 
-                className={`${common} ${activeCls}`}
+                className={`p-2 rounded-md transition-colors ${
+                  isActive 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
               >
                 {t === 'highlight' && <Highlighter className="w-4 h-4" />}
                 {t === 'underline' && <UnderlineIcon className="w-4 h-4" />}
@@ -698,18 +695,22 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
             );
           })}
           
-          <div className="w-px h-6 bg-gray-600 mx-1"></div>
+          <div className="w-px h-5 bg-gray-600 mx-2"></div>
           
           <a
             href={downloadUrl}
             target="_blank"
             rel="noreferrer"
-            className="p-2 rounded bg-green-600 text-white hover:bg-green-700"
+            className="p-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors"
             title="Download Annotated PDF"
           >
             <DownloadIcon className="w-4 h-4" />
           </a>
-          <button onClick={onClose} className="p-2 rounded bg-red-600 text-white hover:bg-red-700" title="Close">
+          <button 
+            onClick={onClose} 
+            className="p-2 rounded-md text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" 
+            title="Close"
+          >
             <CloseIcon className="w-4 h-4" />
           </button>
         </div>
