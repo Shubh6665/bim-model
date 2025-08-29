@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder } from "lucide-react";
+import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, UserPlus } from "lucide-react";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 import { ProfileModal } from "./profile-modal";
+import { AdminRequestModal } from "./admin-request-modal";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -24,6 +25,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const [pendingAdminsCount, setPendingAdminsCount] = useState<number>(0);
   const [canCreate, setCanCreate] = useState<boolean>(!!platformOwner);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAdminRequestModal, setShowAdminRequestModal] = useState(false);
 
   // Probe capability and fetch count: Only Platform Owner can access /api/admins
   useEffect(() => {
@@ -232,6 +234,18 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <Info className="w-4 h-4" />
                     <span>Project Info</span>
                   </button>
+                  
+                  {/* Request Admin Access - show for non-Platform Owner and non-Administrator users */}
+                  {user && !platformOwner && !canCreate && (
+                    <button 
+                      className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                      onClick={() => { setShowAdminRequestModal(true); setShowProfileMenu(false); }}
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Request Admin Access</span>
+                    </button>
+                  )}
+                  
                   <div className="border-t border-gray-700 my-1"></div>
                   {user && canCreate && (
                     <button 
@@ -262,6 +276,10 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
       {showPendingAdminsModal && (
         <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
       )}
+      <AdminRequestModal 
+        show={showAdminRequestModal} 
+        onClose={() => setShowAdminRequestModal(false)} 
+      />
       <ProfileModal 
         open={showProfileModal} 
         onClose={() => setShowProfileModal(false)} 

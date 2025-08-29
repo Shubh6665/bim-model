@@ -3,7 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
-import { canCreateProject, getApprovedAdminCompanies, getEffectiveRole, isPlatformOwnerEmail } from '@/app/lib/rbac';
+import { canCreateProject, getApprovedAdminCompanies, getEffectiveRole, getDisplayRoleName, getRolePermissions, isPlatformOwnerEmail } from '@/app/lib/rbac';
 import nodemailer from 'nodemailer';
 
 // Email notification for auto-created admin invites
@@ -107,10 +107,19 @@ export async function GET(req: NextRequest) {
         const inv = inviteByProject.get(key);
         const packages = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
         // Compute role
-        // Note: getEffectiveRole may use invite role internally for PA; we still pass packages separately
         const role = await getEffectiveRole(db, p, email, user);
-        const displayRole = String(inv?.invitee?.role || '').trim() || role;
-        byId.set(key, { ...p, access: { role, displayRole, packages, owner: !!isOwner } });
+        const permissions = getRolePermissions(role);
+        const displayRole = inv?.invitee?.role || getDisplayRoleName(role);
+        byId.set(key, { 
+          ...p, 
+          access: { 
+            role, 
+            displayRole, 
+            packages, 
+            permissions,
+            owner: !!isOwner 
+          } 
+        });
       }
     }
     const union = Array.from(byId.values());

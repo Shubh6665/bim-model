@@ -91,8 +91,112 @@ export async function canCreateProject(db: any, email: string, user: any): Promi
   if (isPlatformOwnerEmail(email)) return true;
   // Only approved Administrators can create projects
   if (getApprovedAdminCompanies(user).length > 0) return true;
-  // Project Administrators and General users cannot create projects
-  return false;
+  
+  // NEW: Project Administrators can also create projects
+  const isAnyPA = await isAnyProjectAdmin(db, email);
+  return isAnyPA;
+}
+
+// Helper function to get role-based permissions
+export function getRolePermissions(role: EffectiveRole): {
+  canEdit: boolean;
+  canInvite: boolean;
+  canManageModels: boolean;
+  canDeleteModels: boolean;
+  canViewOnly: boolean;
+} {
+  switch (role) {
+    case 'PlatformOwner':
+    case 'Administrator':
+      return {
+        canEdit: true,
+        canInvite: true,
+        canManageModels: true,
+        canDeleteModels: true,
+        canViewOnly: false
+      };
+    
+    case 'ProjectAdmin':
+      return {
+        canEdit: true,
+        canInvite: true,
+        canManageModels: true,
+        canDeleteModels: true,
+        canViewOnly: false
+      };
+    
+    case 'BIMManager':
+      return {
+        canEdit: true,
+        canInvite: false,
+        canManageModels: true,
+        canDeleteModels: false,
+        canViewOnly: false
+      };
+    
+    case 'BIMSpecialist':
+    case 'BIMCoordinator':
+    case 'Designer':
+      return {
+        canEdit: false,
+        canInvite: false,
+        canManageModels: false,
+        canDeleteModels: false,
+        canViewOnly: true
+      };
+    
+    case 'FacilityManager':
+    case 'MaintenanceTeam':
+    case 'Planner':
+      return {
+        canEdit: false,
+        canInvite: false,
+        canManageModels: false,
+        canDeleteModels: false,
+        canViewOnly: true
+      };
+    
+    case 'Contractor':
+    case 'Other':
+    case 'User':
+    default:
+      return {
+        canEdit: false,
+        canInvite: false,
+        canManageModels: false,
+        canDeleteModels: false,
+        canViewOnly: true
+      };
+  }
+}
+
+// Helper function to map EffectiveRole back to display string
+export function getDisplayRoleName(role: EffectiveRole): string {
+  const roleMap: Record<EffectiveRole, string> = {
+    'PlatformOwner': 'Platform Owner',
+    'Administrator': 'Administrator',
+    'ProjectAdmin': 'Project Admin',
+    'BIMSpecialist': 'BIM Specialist',
+    'BIMCoordinator': 'BIM Coordinator',
+    'BIMManager': 'BIM Manager',
+    'Contractor': 'Contractor',
+    'Designer': 'Designer',
+    'FacilityManager': 'Facility Manager',
+    'MaintenanceTeam': 'Maintenance Team',
+    'Planner': 'Planner',
+    'Other': 'Other',
+    'User': 'General',
+    'AdministratorPending': 'Administrator (Pending)'
+  };
+  
+  return roleMap[role] || 'General';
+}
+
+// Helper function to get platform-level role (for dashboard display)
+export function getPlatformRole(user: any, email: string): 'Platform Owner' | 'Administrator' | 'General User' {
+  if (isPlatformOwnerEmail(email)) return 'Platform Owner';
+  if (getApprovedAdminCompanies(user).length > 0) return 'Administrator';
+  return 'General User';
 }
 
 export async function canDeleteProject(db: any, project: any, email: string, user: any): Promise<boolean> {
@@ -165,12 +269,76 @@ export async function ensurePendingAdminForCompanyByEmail(db: any, email: string
   await db.collection('users').insertOne(newUser);
 }
 
-export type EffectiveRole = 'PlatformOwner' | 'Administrator' | 'ProjectAdmin' | 'User' | 'AdministratorPending';
+export type EffectiveRole = 
+  | 'PlatformOwner' 
+  | 'Administrator' 
+  | 'ProjectAdmin' 
+  | 'BIMSpecialist'
+  | 'BIMCoordinator'
+  | 'BIMManager'
+  | 'Contractor'
+  | 'Designer'
+  | 'FacilityManager'
+  | 'MaintenanceTeam'
+  | 'Planner'
+  | 'Other'
+  | 'User' 
+  | 'AdministratorPending';
+
+// Helper function to map project role strings to EffectiveRole enum
+function mapProjectRoleToEffective(roleString: string): EffectiveRole {
+  const normalized = String(roleString || '').replace(/\s+/g, '').toLowerCase();
+  
+  switch (normalized) {
+    case 'projectadmin':
+    case 'projectadministrator':
+      return 'ProjectAdmin';
+    case 'bimspecialist':
+      return 'BIMSpecialist';
+    case 'bimcoordinator':
+      return 'BIMCoordinator';
+    case 'bimmanager':
+      return 'BIMManager';
+    case 'contractor':
+      return 'Contractor';
+    case 'designer':
+      return 'Designer';
+    case 'facilitymanager':
+      return 'FacilityManager';
+    case 'maintenanceteam':
+      return 'MaintenanceTeam';
+    case 'planner':
+      return 'Planner';
+    case 'other':
+      return 'Other';
+    case 'general':
+    default:
+      return 'User';
+  }
+}
 
 export async function getEffectiveRole(db: any, project: any, email: string, user: any): Promise<EffectiveRole> {
   if (!email || !user) return 'User';
   if (isPlatformOwnerEmail(email)) return 'PlatformOwner';
+  
+  // For project context
+  if (project) {
+    // Check if user owns this project AND is Administrator
+    if (isApprovedAdministratorForCompany(user, project.company) && 
+        String(project.userId) === String(user._id)) {
+      return 'Administrator'; // Full admin access in own project
+    }
+    
+    // Check project-specific invite role
+    const invite = await getAcceptedInvite(db, String(project._id), email);
+    if (invite) {
+      return mapProjectRoleToEffective(invite.invitee.role);
+    }
+  }
+  
+  // Platform level (no project context) - check if user is Administrator
   if (isApprovedAdministratorForCompany(user, project?.company)) return 'Administrator';
+  
   // If they have pending admin for this company
   const pend = (Array.isArray(user?.adminCompanies) ? user.adminCompanies : []) as AdminCompanyEntry[];
   const normProjCompany = String(project?.company || '').trim().toLowerCase();
@@ -179,6 +347,6 @@ export async function getEffectiveRole(db: any, project: any, email: string, use
     return e?.status === 'pending' && (c === normProjCompany || c === '(unspecified)');
   });
   if (hasPendingForProjectOrGlobal) return 'AdministratorPending';
-  const isPA = project?._id ? await isProjectAdmin(db, String(project._id), email) : false;
-  return isPA ? 'ProjectAdmin' : 'User';
+  
+  return 'User';
 }

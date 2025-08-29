@@ -20,7 +20,6 @@ import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
 import type { ProjectModel } from "@/app/types/projects";
 import { ProjectAdminModal } from "./components/project-admin-modal";
-import { AdminRequestModal } from "./components/admin-request-modal";
 
 interface ProjectFile {
   id: string;
@@ -81,7 +80,6 @@ function BIMDashboard() {
   const [showOnlySelectedOnMap, setShowOnlySelectedOnMap] = useState<boolean>(false); // Filter map to selected project after back
   const [noAccessMsg, setNoAccessMsg] = useState<string | null>(null);
   const [canCreateProjectPerm, setCanCreateProjectPerm] = useState<boolean>(false);
-  const [showAdminRequestModal, setShowAdminRequestModal] = useState<boolean>(false);
   // When a sensor is clicked in the 3D viewer, we store its ID here to filter IoT panel
   const [viewerSelectedSensorId, setViewerSelectedSensorId] = useState<string | null>(null);
   // File viewer state
@@ -358,9 +356,6 @@ function BIMDashboard() {
     setShowCreateModal(false);
   };
 
-  const handleOpenAdminRequestModal = () => setShowAdminRequestModal(true);
-  const handleCloseAdminRequestModal = () => setShowAdminRequestModal(false);
-
   // Handler for IoTPanel to trigger sensor placement
   const handleInsertSensor = (sensorType: string | null) => {
     setInsertMode(sensorType); // sensorType is null when not in insert mode
@@ -608,14 +603,6 @@ function BIMDashboard() {
                   + Create Project
                 </button>
               )}
-              {session?.user && !canCreateProjectPerm && (
-                <button
-                  className="mt-4 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg text-lg font-semibold shadow-lg transition-colors"
-                  onClick={handleOpenAdminRequestModal}
-                >
-                  Request Administrator Access
-                </button>
-              )}
             </div>
           </div>
         ) : (
@@ -831,12 +818,6 @@ function BIMDashboard() {
           onSubmit={handleSensorFormSubmit}
           onCancel={handleSensorFormCancel}
           loading={sensorLoading}
-        />
-
-        {/* Admin Request Modal */}
-        <AdminRequestModal
-          show={showAdminRequestModal}
-          onClose={handleCloseAdminRequestModal}
         />
       </div>
     </div>

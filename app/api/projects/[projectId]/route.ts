@@ -3,7 +3,7 @@ import { getDb } from '@/app/services/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { ObjectId } from 'mongodb';
-import { canDeleteProject, canUpdateProject, getEffectiveRole, isPlatformOwnerEmail, isApprovedAdministratorForCompany } from '@/app/lib/rbac';
+import { canDeleteProject, canUpdateProject, getEffectiveRole, getDisplayRoleName, getRolePermissions, isPlatformOwnerEmail, isApprovedAdministratorForCompany } from '@/app/lib/rbac';
 
 // Helper to get user email from session
 async function getUserEmail(): Promise<string | null> {
@@ -53,11 +53,21 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
 
     // Determine access using RBAC effective role
     const role = await getEffectiveRole(db, project, email, user);
+    const permissions = getRolePermissions(role);
     let packages: string[] = [];
     const invite = await getInviteFor(db, projectId, email);
     if (invite && Array.isArray(invite?.invitee?.packages)) packages = invite.invitee.packages;
-    const displayRole = String(invite?.invitee?.role || '').trim() || role;
-    const access = { role, displayRole, packages, owner: String(project.userId) === String(user._id) };
+    
+    // Display role: use invite role if exists, otherwise use effective role display name
+    const displayRole = invite?.invitee?.role || getDisplayRoleName(role);
+    
+    const access = { 
+      role, 
+      displayRole, 
+      packages, 
+      permissions,
+      owner: String(project.userId) === String(user._id) 
+    };
     return NextResponse.json({ project: { ...project, access } });
   } catch (error: any) {
     console.error('Error fetching project:', error);
