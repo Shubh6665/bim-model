@@ -89,6 +89,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   // Sending overlay state (for ZIP/email send)
   const [isSending, setIsSending] = useState(false);
   const [sendingMessage, setSendingMessage] = useState<string>('');
+  // Delete confirmation modal
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ item: DatabaseFolder | DatabaseFile } | null>(null);
   // Panel ref for outside-click detection
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -1123,6 +1125,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 </button>
                 <button
                   onClick={() => {
+                    startCreateSubfolder(contextMenu.item.id);
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Subfolder
+                </button>
+                <button
+                  onClick={() => {
                     handleCreateShareLink(contextMenu.item);
                     closeContextMenu();
                   }}
@@ -1168,23 +1180,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 </button>
                 <button
                   onClick={() => {
-                    handleDelete(contextMenu.item);
+                    setShowDeleteConfirm({ item: contextMenu.item });
                     closeContextMenu();
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Folder
-                </button>
-                <button
-                  onClick={() => {
-                    startCreateSubfolder(contextMenu.item.id);
-                    closeContextMenu();
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Subfolder
                 </button>
               </>
             ) : (
@@ -1252,7 +1254,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 </button>
                 <button
                   onClick={() => {
-                    handleDelete(contextMenu.item);
+                    setShowDeleteConfirm({ item: contextMenu.item });
                     closeContextMenu();
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
@@ -1264,6 +1266,45 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             )}
           </div>
         </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-xl w-[28rem] shadow-2xl border border-gray-700">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-red-600/20 rounded-lg">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Confirm Deletion</h3>
+            </div>
+            <p className="text-gray-300 text-sm mb-4">
+              Are you sure you want to delete '{'type' in showDeleteConfirm.item ? (showDeleteConfirm.item as any).name : showDeleteConfirm.item.name}'?
+            </p>
+            <div className="bg-gray-900/60 border border-gray-700 rounded p-3 text-xs text-gray-400 mb-4">
+              This action cannot be undone.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const item = showDeleteConfirm.item;
+                  setShowDeleteConfirm(null);
+                  await handleDelete(item);
+                  showNotification('Deleted successfully', 'success');
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rename Modal */}
