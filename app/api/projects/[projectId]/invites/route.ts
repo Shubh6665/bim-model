@@ -141,12 +141,28 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
     const allowed = await authorizeInviteManager(db, projectId, user, email);
     if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    // Determine scope: PlatformOwner/Admin see all; Project Admins see only invites they created (and never their own)
+    // Determine scope: ONLY Platform Owner and Project Creator/Administrator see all invites
+    // Project Admin should NOT see invites they didn't create
     const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+    const isPlatformOwner = isPlatformOwnerEmail(email);
+    const isProjectCreator = proj && String(proj.userId) === String(user._id);
+    const isCompanyAdmin = isApprovedAdministratorForCompany(user, proj?.company);
+    
+    // Only Platform Owner OR Project Creator who is also Company Admin can see all invites
+    const canSeeAllInvites = isPlatformOwner || (isProjectCreator && isCompanyAdmin);
+
+    console.log('[GET invites] Access check:', {
+      email,
+      isPlatformOwner,
+      isProjectCreator,
+      isCompanyAdmin,
+      canSeeAllInvites,
+      projectUserId: proj?.userId,
+      userObjectId: user._id
+    });
 
     const baseFilter: any = { projectId: new ObjectId(projectId) };
-    const listFilter: any = isOwner
+    const listFilter: any = canSeeAllInvites
       ? baseFilter
       : { ...baseFilter, inviterUserId: user._id, 'invitee.email': { $ne: email } };
 

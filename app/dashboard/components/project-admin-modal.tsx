@@ -306,7 +306,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const isAdministrator = effectiveRole === 'Administrator';
   const isProjectAdmin = effectiveRole === 'ProjectAdmin' || effectiveRole === 'Project Admin';
   const isUser = effectiveRole === 'User' || (!isPlatformOwner && !isAdministrator && !isProjectAdmin);
-  const isOwnerScope = isPlatformOwner || isAdministrator;
+  
+  // Only Platform Owner and Project Creator (Administrator who owns this project) can see all invites
+  // Project Admin (appointed) should NOT see all invites
+  const isProjectOwner = project?.access?.owner || false;
+  const canSeeAllInvites = isPlatformOwner || (isAdministrator && isProjectOwner);
+  const isOwnerScope = canSeeAllInvites;
   
   // RBAC Permissions according to requirements:
   // Create Project: Platform Owner, Administrator, Project Administrator
