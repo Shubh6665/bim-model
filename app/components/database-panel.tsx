@@ -1231,6 +1231,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             {contextMenu.type === 'folder' ? (
               // Folder context menu
               <>
+              <button
+                  onClick={() => {
+                    setShowPropertiesModal({ type: 'folder', item: contextMenu.item });
+                    closeContextMenu();
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <Info className="w-4 h-4 mr-2" />
+                  Properties
+                </button>
                 <button
                   onClick={() => {
                     handleFileUpload(contextMenu.item.id);
@@ -1337,9 +1347,14 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Folder
                 </button>
-                <button
+                
+              </>
+            ) : (
+              // File context menu
+              <>
+              <button
                   onClick={() => {
-                    setShowPropertiesModal({ type: 'folder', item: contextMenu.item });
+                    setShowPropertiesModal({ type: 'file', item: contextMenu.item });
                     closeContextMenu();
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
@@ -1347,10 +1362,6 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   <Info className="w-4 h-4 mr-2" />
                   Properties
                 </button>
-              </>
-            ) : (
-              // File context menu
-              <>
                 <button
                   onClick={() => { handleDownloadFile(contextMenu.item as DatabaseFile); closeContextMenu(); }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
@@ -1428,16 +1439,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete File
                 </button>
-                <button
-                  onClick={() => {
-                    setShowPropertiesModal({ type: 'file', item: contextMenu.item });
-                    closeContextMenu();
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
-                >
-                  <Info className="w-4 h-4 mr-2" />
-                  Properties
-                </button>
+                
               </>
             )}
           </div>
