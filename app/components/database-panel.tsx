@@ -1005,7 +1005,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       {/* Folder Tree */}
       {activeCommand === 'manage' && (
         <div className="flex-1 p-4 overflow-auto relative">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-gray-400 mb-3 tracking-wide">
             Folders & Files
           </h3>
           {moveState ? (
