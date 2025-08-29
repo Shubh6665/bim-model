@@ -78,6 +78,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     subject: string;
     message: string;
   } | null>(null);
+  const [zipRecipients, setZipRecipients] = useState<string[] | null>(null);
+  const [zipRecipientsLoading, setZipRecipientsLoading] = useState<boolean>(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [inlineRename, setInlineRename] = useState<{itemId: string, newName: string} | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -122,6 +124,38 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     };
     fetchAssignees();
   }, [projectId, showUserAssignModal?.mode, (showUserAssignModal?.item as any)?.id]);
+
+  // Fetch prior ZIP recipients for the item shown in the ZIP modal
+  const fetchZipRecipients = async () => {
+    if (!showSendZipModal || !projectId) return;
+    const { item } = showSendZipModal;
+    const isFile = 'type' in item;
+    setZipRecipientsLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files/share?shareType=zip&itemType=${isFile ? 'file' : 'folder'}&itemId=${item.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setZipRecipients(Array.isArray(data.recipients) ? data.recipients : []);
+      } else {
+        setZipRecipients([]);
+      }
+    } catch (e) {
+      console.error('Error fetching ZIP recipients:', e);
+      setZipRecipients([]);
+    } finally {
+      setZipRecipientsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showSendZipModal) {
+      fetchZipRecipients();
+    } else {
+      setZipRecipients(null);
+      setZipRecipientsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSendZipModal?.item?.id, !!showSendZipModal]);
 
   // Reset assign result/loading when modal changes
   useEffect(() => {
@@ -1487,6 +1521,45 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   >
                     + Add Recipient
                   </button>
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-400">Previous recipients</span>
+                      <button
+                        onClick={fetchZipRecipients}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                        title="Refresh"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    {zipRecipientsLoading ? (
+                      <div className="text-xs text-gray-400">Loading…</div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {(zipRecipients || []).length === 0 ? (
+                          <span className="text-xs text-gray-500">No history</span>
+                        ) : (
+                          (zipRecipients || []).map((r) => {
+                            const already = showSendZipModal.recipients.some(e => (e || '').trim().toLowerCase() === r.toLowerCase());
+                            return (
+                              <button
+                                key={r}
+                                onClick={() => {
+                                  if (already) return;
+                                  setShowSendZipModal(prev => prev ? { ...prev, recipients: [...prev.recipients, r] } : null);
+                                }}
+                                className={`text-xs px-2 py-1 rounded border ${already ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-default' : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'}`}
+                                disabled={already}
+                                title={already ? 'Already added' : 'Add'}
+                              >
+                                {r}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -1500,6 +1573,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   placeholder="Email subject"
                 />
               </div>
+              
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>

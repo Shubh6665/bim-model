@@ -156,6 +156,23 @@ export async function POST(
           }
         }
 
+        // Record ZIP share event and recipients for tracking
+        try {
+          await db.collection('zipShares').insertOne({
+            projectId: new ObjectId(projectId),
+            itemType,
+            itemId: new ObjectId(itemId),
+            itemName: item.name,
+            recipients: cleanedRecipients,
+            subject: subject || `Shared ${itemType}: ${item.name}`,
+            message: message || null,
+            fileCount: zipEntries.length,
+            createdAt: new Date()
+          });
+        } catch (logErr) {
+          console.warn('Failed to record zip share event:', logErr);
+        }
+
         return NextResponse.json({ 
           success: true, 
           message: `ZIP prepared and sent to ${cleanedRecipients.length} recipient(s) (${zipEntries.length} file(s) included)` 
@@ -254,6 +271,49 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Error sharing item:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// GET /api/projects/[projectId]/files/share?shareType=zip&itemType=file|folder&itemId=...
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const db = await getDb();
+    const { projectId } = await params;
+
+    const { searchParams } = new URL(request.url);
+    const shareType = searchParams.get('shareType');
+    const itemType = searchParams.get('itemType');
+    const itemId = searchParams.get('itemId');
+
+    if (shareType !== 'zip') {
+      return NextResponse.json({ error: 'Invalid or missing shareType' }, { status: 400 });
+    }
+    if (!itemType || !itemId) {
+      return NextResponse.json({ error: 'itemType and itemId are required' }, { status: 400 });
+    }
+
+    const records = await db
+      .collection('zipShares')
+      .find({
+        projectId: new ObjectId(projectId),
+        itemType,
+        itemId: new ObjectId(itemId)
+      })
+      .project({ recipients: 1, createdAt: 1, _id: 0 })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const allRecipients: string[] = Array.from(
+      new Set((records.flatMap(r => r.recipients || []) as string[]).map(r => (r || '').trim()).filter(Boolean))
+    );
+
+    return NextResponse.json({ recipients: allRecipients, history: records });
+  } catch (error) {
+    console.error('Error fetching ZIP recipients:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
