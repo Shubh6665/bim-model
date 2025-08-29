@@ -25,7 +25,8 @@ import {
   File,
   UserPlus,
   UserMinus,
-  Edit
+  Edit,
+  FilePlus
 } from 'lucide-react';
 
 interface DatabaseFile {
@@ -100,6 +101,28 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       loadFoldersAndFiles();
     }
   }, [projectId]);
+
+  // Duplicate file handler
+  const handleDuplicateFile = async (file: DatabaseFile) => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id })
+      });
+      if (res.ok) {
+        await loadFoldersAndFiles();
+        showNotification('File duplicated successfully!', 'success');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showNotification(err.error || 'Failed to duplicate file', 'error');
+      }
+    } catch (e) {
+      console.error('Duplicate file error:', e);
+      showNotification('Error duplicating file', 'error');
+    }
+  };
 
   // Load assignees when the modal opens or the selected item changes (not on each keystroke)
   useEffect(() => {
@@ -1075,7 +1098,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             style={{ 
               left: contextMenu.x, 
               top: contextMenu.y,
-              maxHeight: 'min(380px, calc(100vh - 20px))',
+              maxHeight: 'min(520px, calc(100vh - 20px))',
               overflowY: 'auto'
             }}
           >
@@ -1198,6 +1221,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download File
+                </button>
+                <button
+                  onClick={() => { handleDuplicateFile(contextMenu.item as DatabaseFile); closeContextMenu(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                >
+                  <FilePlus className="w-4 h-4 mr-2" />
+                  Duplicate File
                 </button>
                 <button
                   onClick={() => {
