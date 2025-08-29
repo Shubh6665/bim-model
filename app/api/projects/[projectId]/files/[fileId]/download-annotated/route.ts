@@ -128,7 +128,7 @@ export async function GET(
     
     console.log(`[Download Annotated] File: ${annotatedFileName}, Annotations: ${annotations.length}`);
 
-    return new Response(annotatedPdfBytes, {
+    return new Response(Buffer.from(annotatedPdfBytes), {
       status: 200,
       headers
     });
