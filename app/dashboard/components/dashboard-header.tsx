@@ -141,8 +141,8 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
           </button>
           <button 
             className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
-            onClick={onShowProjectInfo}
-            title={selectedProject ? `Project Info: ${selectedProject.name}` : "Project Information"}
+            onClick={() => onShowMyProjects && onShowMyProjects()}
+            title="My Projects"
           >
             <Home className="w-4 h-4" />
           </button>
