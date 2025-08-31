@@ -23,8 +23,8 @@ async function generateAnnotatedPDF(db: any, projectId: string, fileId: string, 
       return originalBuffer;
     }
 
-    // Load PDF with pdf-lib
-    const pdfDoc = await PDFDocument.load(originalBuffer);
+    // Load PDF with pdf-lib, ignoring encryption if present
+    const pdfDoc = await PDFDocument.load(originalBuffer, { ignoreEncryption: true });
     const pages = pdfDoc.getPages();
 
     // Add annotations to PDF
@@ -322,9 +322,16 @@ export async function POST(
 
     if (action === 'email') {
       // Send email with file/folder details
-      const downloadUrl = type === 'file' 
-        ? `${process.env.APP_BASE_URL}/api/projects/${projectId}/files/download?fileId=${itemId}`
-        : `${process.env.APP_BASE_URL}/projects/${projectId}/database?folderId=${itemId}`;
+      // For PDF files, use annotated download endpoint; for others use regular download
+      let downloadUrl;
+      if (type === 'file') {
+        const isPDF = item.mimeType === 'application/pdf' || item.name.toLowerCase().endsWith('.pdf');
+        downloadUrl = isPDF 
+          ? `${process.env.APP_BASE_URL}/api/projects/${projectId}/files/${itemId}/download-annotated`
+          : `${process.env.APP_BASE_URL}/api/projects/${projectId}/files/${itemId}/download`;
+      } else {
+        downloadUrl = `${process.env.APP_BASE_URL}/projects/${projectId}/database?folderId=${itemId}`;
+      }
 
       try {
         await sendEmail(

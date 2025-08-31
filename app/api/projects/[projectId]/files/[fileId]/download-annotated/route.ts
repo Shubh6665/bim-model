@@ -52,8 +52,8 @@ export async function GET(
     
     const pdfBuffer = Buffer.concat(chunks);
     
-    // Load PDF with pdf-lib
-    const pdfDoc = await PDFDocument.load(pdfBuffer);
+    // Load PDF with pdf-lib, ignoring encryption if present
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
     const pages = pdfDoc.getPages();
 
     // Add annotations to PDF
