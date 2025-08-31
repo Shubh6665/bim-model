@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, UserPlus } from "lucide-react";
+import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, UserPlus, Users } from "lucide-react";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 import { ProfileModal } from "./profile-modal";
 import { AdminRequestModal } from "./admin-request-modal";
+import { ManageAdministratorsModal } from "./manage-administrators-modal";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -21,6 +22,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const [notifications] = useState(3);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showPendingAdminsModal, setShowPendingAdminsModal] = useState(false);
+  const [showManageAdministratorsModal, setShowManageAdministratorsModal] = useState(false);
   const [canManagePendingAdmins, setCanManagePendingAdmins] = useState<boolean>(false);
   const [pendingAdminsCount, setPendingAdminsCount] = useState<number>(0);
   const [canCreate, setCanCreate] = useState<boolean>(!!platformOwner);
@@ -56,14 +58,14 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   // Run proactively on mount and when user/platformOwner changes, not only when menu opens
   useEffect(() => {
     let aborted = false;
-    (async () => {
+    const checkCanCreate = async () => {
       try {
         // Platform owner always can create
         if (platformOwner) {
           setCanCreate(true);
           return;
         }
-        const r = await fetch('/api/projects/can-create');
+        const r = await fetch(`/api/projects/can-create?t=${Date.now()}`, { cache: 'no-store' });
         if (aborted) return;
         if (r.ok) {
           const j = await r.json();
@@ -75,8 +77,52 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         if (aborted) return;
         setCanCreate(false);
       }
-    })();
+    };
+
+    checkCanCreate();
     return () => { aborted = true; };
+  }, [user?.email, platformOwner]);
+
+  // Listen for admin permission changes and refresh canCreate state
+  useEffect(() => {
+    const handleAdminPermissionsChanged = (event: CustomEvent) => {
+      // If the current user's admin access was removed, refresh their permissions
+      const { removedEmail } = event.detail;
+      if (user?.email && removedEmail && user.email.toLowerCase() === removedEmail.toLowerCase()) {
+        // Show immediate notification and refresh permissions
+        alert('Your administrator access has been removed. The page will refresh to update your permissions.');
+        
+        // Force a page refresh to get fresh session data
+        // This is necessary because JWT tokens cache user permissions
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        // For other users, just refresh the canCreate state
+        setTimeout(async () => {
+          try {
+            if (platformOwner) {
+              setCanCreate(true);
+              return;
+            }
+            const r = await fetch(`/api/projects/can-create?t=${Date.now()}`, { cache: 'no-store' });
+            if (r.ok) {
+              const j = await r.json();
+              setCanCreate(!!j?.canCreate);
+            } else {
+              setCanCreate(false);
+            }
+          } catch {
+            setCanCreate(false);
+          }
+        }, 500);
+      }
+    };
+
+    window.addEventListener('admin-permissions-changed', handleAdminPermissionsChanged as EventListener);
+    return () => {
+      window.removeEventListener('admin-permissions-changed', handleAdminPermissionsChanged as EventListener);
+    };
   }, [user?.email, platformOwner]);
 
   // Helper function for button styles
@@ -207,6 +253,17 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <span>My Projects</span>
                   </button>
                   
+                  {/* Manage Administrators - Platform Owner only */}
+                  {platformOwner && (
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                      onClick={() => { setShowManageAdministratorsModal(true); setShowProfileMenu(false); }}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Manage Administrators</span>
+                    </button>
+                  )}
+                  
                   {canManagePendingAdmins && (
                     <button
                       className="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
@@ -275,6 +332,9 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
       {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>}
       {showPendingAdminsModal && (
         <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
+      )}
+      {showManageAdministratorsModal && (
+        <ManageAdministratorsModal onClose={() => setShowManageAdministratorsModal(false)} />
       )}
       <AdminRequestModal 
         show={showAdminRequestModal} 

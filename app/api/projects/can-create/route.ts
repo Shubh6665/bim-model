@@ -24,7 +24,13 @@ export async function GET(req: NextRequest) {
       allowed
     });
     
-    return NextResponse.json({ canCreate: !!allowed });
+    // Add cache headers to prevent caching of this endpoint
+    const response = NextResponse.json({ canCreate: !!allowed });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
   } catch (err: any) {
     console.error('[can-create] Error:', err);
     return NextResponse.json({ canCreate: false, error: err?.message || 'Error' }, { status: 500 });
