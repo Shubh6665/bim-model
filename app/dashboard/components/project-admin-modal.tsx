@@ -1242,7 +1242,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                       if (f) {
                         // try to infer fileType for user visibility
                         const inferred = extToFileType(f.name);
-                        setNewModel((prev) => ({ ...prev, fileType: inferred }));
+                        setNewModel((prev) => ({ 
+                          ...prev, 
+                          fileType: inferred,
+                          // If the user does not enter a description, copy the file name directly
+                          name: prev.name.trim() === "" ? f.name : prev.name
+                        }));
                       }
                     }}
                     disabled={!canUploadOrReplace}
