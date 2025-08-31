@@ -440,6 +440,23 @@ export function EnhancedProjectPanel({
                   )}
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
                     <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{project.fileType || 'Unknown'}</span>
+                    {project.access?.role && (
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                        project.access.role === 'PlatformOwner' || project.access.owner
+                          ? 'bg-purple-600 text-white'
+                          : project.access.role === 'Administrator'
+                          ? 'bg-orange-600 text-white'
+                          : project.access.role === 'ProjectAdmin' || project.access.role === 'Project Admin'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-green-600 text-white'
+                      }`}>
+                        {project.access.role === 'ProjectAdmin' 
+                          ? 'Project Admin' 
+                          : project.access.role === 'PlatformOwner'
+                          ? 'Platform Owner'
+                          : project.access.role}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
