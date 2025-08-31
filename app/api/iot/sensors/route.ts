@@ -3,6 +3,7 @@ import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/auth-config";
+import { isPlatformOwnerEmail, isApprovedAdministratorForCompany } from "@/app/lib/rbac";
 
 interface SensorData {
   id?: string;
@@ -31,12 +32,26 @@ async function getUserEmail() {
 
 async function hasProjectAccess(projectId: string, requiredPackage: 'IoT', userEmail: string) {
   const db = await getDb();
-  // owner check
+  
+  // Platform owner check - platform owners have access to everything
+  if (isPlatformOwnerEmail(userEmail)) return true;
+  
+  // Get user
   const user = await db.collection('users').findOne({ email: userEmail });
   if (!user) return false;
+  
+  // Get project to check company admin access
+  const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+  if (!project) return false;
+  
+  // Company admin check
+  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  
+  // Owner check
   const ownerProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });
   if (ownerProject) return true;
-  // invited with package
+  
+  // Invited with package check
   const invite = await db.collection('invites').findOne({
     projectId: new ObjectId(projectId),
     'invitee.email': userEmail,
