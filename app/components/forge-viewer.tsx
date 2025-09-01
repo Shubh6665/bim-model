@@ -75,115 +75,130 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Helper to completely disable/enable an entire model using visibilityManager
     const setModelVisible = (model: any, visible: boolean) => {
+        const modelId = model?.getModelId?.() || model?.id || 'unknown';
+        console.group(`🔧 [setModelVisible] Setting visibility to ${visible} for model: ${modelId}`);
         try {
-            console.log(`🔧 [setModelVisible] Called with visible=${visible}`);
-            
             if (!model || !viewer?.impl?.visibilityManager) {
-                console.warn('   ⚠️  Model or visibilityManager not available');
+                console.warn('   ⚠️  Model or visibilityManager not available. Aborting.');
+                console.groupEnd();
                 return;
             }
             
             const visibilityManager = viewer.impl.visibilityManager;
             
             if (!model.getObjectTree) {
-                console.warn('   ⚠️  Model has no getObjectTree method');
-                return;
+                console.warn('   ⚠️  Model has no getObjectTree method. Some visibility operations may fail.');
             }
             
-            // Try multiple approaches to completely hide the model
             if (!visible) {
-                console.log('🔧 [setModelVisible] Attempting to HIDE model completely');
+                console.log('   -> Attempting to HIDE model completely.');
                 
-                // Method 1: Hide using viewer.hide() with root node
+                // Method 1: Use viewer.hide() - robust for overlays
                 try {
-                    const rootId = model.getRootId();
-                    console.log(`🔧 [setModelVisible] Hiding root node: ${rootId}`);
-                    if (viewer.hide && rootId) {
-                        viewer.hide(rootId, model);
+                    console.log('   [Method 1] Calling viewer.hide(model)');
+                    viewer.hide(model);
+                } catch (e) {
+                    console.warn('   [Method 1] viewer.hide() failed:', e);
+                }
+
+                // Method 2: Direct model visibility setting
+                try {
+                    if (model.setVisible && typeof model.setVisible === 'function') {
+                        console.log('   [Method 2] Calling model.setVisible(false)');
+                        model.setVisible(false);
                     }
                 } catch (e) {
-                    console.warn('🔧 [setModelVisible] Root hide failed:', e);
+                    console.warn('   [Method 2] model.setVisible() failed:', e);
                 }
                 
-                // Method 2: Set model visibility to false at fragment level
+                // Method 3: Fragment-level hiding as backup
                 try {
                     if (model.getFragmentList) {
                         const fragList = model.getFragmentList();
                         const count = fragList.getCount?.() ?? 0;
-                        console.log(`🔧 [setModelVisible] Setting ${count} fragments invisible`);
+                        console.log(`   [Method 3] Setting ${count} fragments invisible`);
                         for (let i = 0; i < count; i++) {
                             fragList.setVisibility(i, false);
                         }
+                        if (fragList.updateAnimTransforms) fragList.updateAnimTransforms();
                     }
                 } catch (e) {
-                    console.warn('🔧 [setModelVisible] Fragment visibility failed:', e);
+                    console.warn('   [Method 3] Fragment visibility failed:', e);
                 }
+
             } else {
-                console.log('🔧 [setModelVisible] Attempting to SHOW model');
-                
-                // Method 1: Show using viewer.show() with root node
+                console.log('   -> Attempting to SHOW model.');
+
+                // Method 1: Use viewer.show() - robust for overlays
                 try {
-                    const rootId = model.getRootId();
-                    console.log(`🔧 [setModelVisible] Showing root node: ${rootId}`);
-                    if (viewer.show && rootId) {
-                        viewer.show(rootId, model);
+                    console.log('   [Method 1] Calling viewer.show(model)');
+                    viewer.show(model);
+                } catch (e) {
+                    console.warn('   [Method 1] viewer.show() failed:', e);
+                }
+
+                // Method 2: Direct model visibility setting
+                try {
+                    if (model.setVisible && typeof model.setVisible === 'function') {
+                        console.log('   [Method 2] Calling model.setVisible(true)');
+                        model.setVisible(true);
                     }
                 } catch (e) {
-                    console.warn('🔧 [setModelVisible] Root show failed:', e);
+                    console.warn('   [Method 2] model.setVisible() failed:', e);
                 }
                 
-                // Method 2: Set model visibility to true at fragment level
+                // Method 3: Fragment-level showing as backup
                 try {
                     if (model.getFragmentList) {
                         const fragList = model.getFragmentList();
                         const count = fragList.getCount?.() ?? 0;
-                        console.log(`🔧 [setModelVisible] Setting ${count} fragments visible`);
+                        console.log(`   [Method 3] Setting ${count} fragments visible`);
                         for (let i = 0; i < count; i++) {
                             fragList.setVisibility(i, true);
                         }
+                        if (fragList.updateAnimTransforms) fragList.updateAnimTransforms();
                     }
                 } catch (e) {
-                    console.warn('🔧 [setModelVisible] Fragment visibility failed:', e);
+                    console.warn('   [Method 3] Fragment visibility failed:', e);
+                }
+                
+                // Method 4: Force mesh loading for visible models
+                try {
+                    if (model.loader && model.loader.loadGeometry && visible) {
+                        console.log('   [Method 4] Forcing geometry loading for visible model');
+                        // Force load all geometry for this model
+                        const loader = model.loader;
+                        if (loader.loadAllGeometry) {
+                            loader.loadAllGeometry();
+                        } else if (loader.loadGeometry) {
+                            // Force load critical fragments
+                            const fragList = model.getFragmentList();
+                            if (fragList) {
+                                const count = Math.min(fragList.getCount?.() ?? 0, 10000); // Limit to avoid overload
+                                for (let i = 0; i < count; i += 100) { // Load every 100th fragment to start
+                                    try {
+                                        loader.loadGeometry(i);
+                                    } catch {}
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('   [Method 4] Geometry loading failed:', e);
                 }
             }
             
-            // Method 3: Use visibilityManager.setNodeOff for all nodes
-            model.getObjectTree((instanceTree: any) => {
-                if (!instanceTree) return;
-                
-                const allNodeIds: number[] = [];
-                const collectAllNodes = (nodeId: number) => {
-                    allNodeIds.push(nodeId);
-                    instanceTree.enumNodeChildren(nodeId, (childId: number) => {
-                        collectAllNodes(childId);
-                    });
-                };
-                
-                // Start from root and collect all nodes
-                const rootId = instanceTree.getRootId();
-                collectAllNodes(rootId);
-                
-                console.log(`🔧 [setModelVisible] Processing ${allNodeIds.length} nodes with visibilityManager`);
-                
-                // Use visibilityManager.setNodeOff to completely hide/show nodes
-                for (const nodeId of allNodeIds) {
-                    try {
-                        // setNodeOff(nodeId, true) = completely hidden, setNodeOff(nodeId, false) = visible
-                        visibilityManager.setNodeOff(nodeId, !visible, model);
-                    } catch (e) {
-                        // Ignore individual node errors
-                    }
-                }
-                
-                // Force viewer refresh
-                if (viewer.impl?.invalidate) {
-                    viewer.impl.invalidate(true);
-                }
-                
-                console.log(`   ✅ Model ${visible ? 'ENABLED' : 'DISABLED'} with ${allNodeIds.length} nodes`);
-            });
+            // Force viewer refresh and invalidation
+            if (viewer.impl?.invalidate) {
+                console.log('   -> Invalidating viewer state.');
+                viewer.impl.invalidate(true, true, true);
+            }
+            
+            console.log(`   ✅ Model ${visible ? 'ENABLED' : 'DISABLED'} - visibility operation completed.`);
         } catch (e) {
             console.error('   ❌ setModelVisible failed:', e);
+        } finally {
+            console.groupEnd();
         }
     };
 
@@ -236,55 +251,91 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
     // Apply model visibility according to enabledModelIds using complete disable/enable
     const applyModelVisibility = (v: any) => {
+        console.groupCollapsed(`🚀 [applyModelVisibility] Applying visibility rules at ${new Date().toLocaleTimeString()}`);
         try {
-            console.log('🚀 [applyModelVisibility] Starting model visibility control');
-            console.log('🚀 [applyModelVisibility] enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'none');
-            console.log('🚀 [applyModelVisibility] activePanel:', activePanel);
+            console.log('Received enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'none');
+            console.log('Viewer initialized:', isInitialized, 'Overlay models loaded:', overlayModelsLoaded);
             
-            if (!enabledModelIds || enabledModelIds.size === 0) {
-                console.log('🚀 [applyModelVisibility] No enabledModelIds provided, showing all models');
+            if (!enabledModelIds) {
+                console.log('No enabledModelIds set. No changes will be made.');
+                console.groupEnd();
                 return;
+            }
+
+            if (enabledModelIds.size === 0) {
+                console.log('enabledModelIds is empty. Hiding all models.');
             }
             
             // Handle primary model
             const primaryModel = v?.model;
             const truePrimaryId = primaryModelIdRef.current;
-            console.log('🚀 [applyModelVisibility] Primary model info:', {
-                hasModel: !!primaryModel,
-                truePrimaryId,
-                modelId: primaryModel?.getModelId?.(),
-                rootId: primaryModel?.getRootId?.()
-            });
+            console.log('Primary model info:', { hasModel: !!primaryModel, truePrimaryId, modelId: primaryModel?.getModelId?.() });
             
             if (primaryModel && truePrimaryId) {
                 const shouldShow = enabledModelIds.has(truePrimaryId);
-                console.log(`🚀 [applyModelVisibility] Primary model ${truePrimaryId}: ${shouldShow ? 'ENABLE' : 'DISABLE'}`);
+                console.log(`-> Processing Primary model '${truePrimaryId}': Should be ${shouldShow ? 'VISIBLE' : 'HIDDEN'}`);
                 setModelVisible(primaryModel, shouldShow);
+            } else {
+                console.log('-> No primary model to process or its ID is not tracked.');
             }
             
             // Handle overlay models
             const overlays = overlayModelMapRef.current;
-            console.log('🚀 [applyModelVisibility] Overlay models count:', overlays.size);
+            console.log(`Processing ${overlays.size} overlay models...`);
             
             if (overlays && overlays.size > 0) {
                 for (const [modelId, mdl] of overlays.entries()) {
                     const shouldShow = enabledModelIds.has(modelId as string);
-                    console.log(`🚀 [applyModelVisibility] Overlay model ${modelId}: ${shouldShow ? 'ENABLE' : 'DISABLE'}`);
-                    console.log('🚀 [applyModelVisibility] Overlay model details:', {
-                        modelId,
-                        hasModel: !!mdl,
-                        internalModelId: mdl?.getModelId?.(),
-                        rootId: mdl?.getRootId?.()
-                    });
+                    console.log(`-> Processing Overlay model '${modelId}': Should be ${shouldShow ? 'VISIBLE' : 'HIDDEN'}`);
                     setModelVisible(mdl, shouldShow);
                 }
             }
             
-            // Force viewer refresh
-            v.impl?.invalidate?.(true);
+            // Fix camera and rendering after visibility changes
+            setTimeout(() => {
+                try {
+                    console.log('🎥 [Camera Fix] Applying post-visibility camera and rendering fixes...');
+                    
+                    // Force viewer to recalculate bounds and fit to visible content
+                    if (v && typeof v.fitToView === 'function') {
+                        console.log('🎥 [Camera Fix] Calling fitToView() to focus on visible models');
+                        v.fitToView();
+                    }
+                    
+                    // Force a complete re-render
+                    if (v?.impl) {
+                        console.log('🎥 [Camera Fix] Forcing viewer invalidation and refresh');
+                        if (v.impl.invalidate) {
+                            v.impl.invalidate(true, true, true); // force refresh, clear caches, update transforms
+                        }
+                        if (v.impl.sceneUpdated) {
+                            v.impl.sceneUpdated(true);
+                        }
+                        // Force render
+                        if (v.impl.renderer && v.impl.renderer.needsRender) {
+                            v.impl.renderer.needsRender = true;
+                        }
+                    }
+                    
+                    // Ensure proper ghosting and display settings
+                    try {
+                        if (v.setGhosting) v.setGhosting(false);
+                        safeSetDisplayEdges(v, true);
+                    } catch (e) {
+                        console.warn('🎥 [Camera Fix] Display settings failed:', e);
+                    }
+                    
+                    console.log('🎥 [Camera Fix] Camera and rendering fixes completed');
+                } catch (e) {
+                    console.error('🎥 [Camera Fix] Failed:', e);
+                }
+            }, 100); // Small delay to let visibility changes settle
+            
             console.log('🚀 [applyModelVisibility] Model visibility control completed');
         } catch (e) {
             console.error('🚀 [applyModelVisibility] Failed:', e);
+        } finally {
+            console.groupEnd();
         }
     };
 
@@ -373,16 +424,17 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         const geom = doc.getRoot().getDefaultGeometry();
                         if (!geom) return resolve();
                         
-                        // Apply enhanced loading options for proper alignment
+                        // Apply enhanced loading options for independent model alignment
                         const opts: any = { 
                             keepCurrentModels: true,
                             applyRefPoint: true,  // Critical for BIM discipline alignment
                             isAEC: true,         // Enable AEC-specific alignment features
-                            applyScaling: 'm'    // Use meter scaling for consistency
+                            applyScaling: 'm',   // Use meter scaling for consistency
+                            preserveView: false, // Don't preserve view when loading overlays
+                            sharedPropertyDbPath: null // Prevent shared property dependencies
                         };
-                        let forcedGO = false;
                         
-                        // Force reconcile-loaded overlays to use the same globalOffset as primary
+                        // Use consistent globalOffset for coordinate system alignment
                         try {
                             const primary = viewerInstance?.model;
                             const pData = primary?.getData?.();
@@ -390,11 +442,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             if (THREE && pData?.globalOffset) {
                                 const go = pData.globalOffset;
                                 opts.globalOffset = new THREE.Vector3(go.x || 0, go.y || 0, go.z || 0);
-                                console.log(`🔧 [${id}] Reconcile - Using primary globalOffset for overlay load:`, opts.globalOffset);
-                                forcedGO = true;
+                                console.log(`🔧 [${id}] Reconcile - Using reference globalOffset for independent alignment:`, opts.globalOffset);
+                            } else if (THREE) {
+                                opts.globalOffset = new THREE.Vector3(0, 0, 0);
+                                console.log(`🔧 [${id}] Reconcile - Using origin globalOffset for independent positioning`);
                             }
                         } catch (e) {
-                            console.warn(`🔧 [${id}] Reconcile - Failed to set globalOffset from primary:`, e);
+                            console.warn(`🔧 [${id}] Reconcile - Failed to set reference globalOffset:`, e);
                         }
                         
                         const userTransform = buildMatrixFromTransform(m.transform || undefined);
@@ -408,80 +462,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             
                             // Enhanced alignment using proper globalOffset handling
                             try {
-                                const THREE = (window as any).THREE;
-                                const primaryModel = viewerInstance?.model;
-                                
-                                if (primaryModel && model && THREE) {
-                                    const primaryData = primaryModel.getData?.();
-                                    const overlayData = model.getData?.();
-                                    
-                                    console.log(`🔧 [${id}] Reconcile - Model data comparison:`);
-                                    console.log(`   Primary globalOffset:`, primaryData?.globalOffset);
-                                    console.log(`   Overlay globalOffset:`, overlayData?.globalOffset);
-                                    
-                                    if (primaryData?.globalOffset && overlayData?.globalOffset) {
-                                        const primaryOffset = primaryData.globalOffset;
-                                        const overlayOffset = overlayData.globalOffset;
-                                        
-                                        // Use the difference to align models properly
-                                        const dx = (overlayOffset.x || 0) - (primaryOffset.x || 0);
-                                        const dy = (overlayOffset.y || 0) - (primaryOffset.y || 0);
-                                        const dz = (overlayOffset.z || 0) - (primaryOffset.z || 0);
-                                        
-                                        console.log(` [${id}] Reconcile - Calculated alignment offset: dx=${dx}, dy=${dy}, dz=${dz}`);
-                                        
-                                        // If we already forced globalOffset at load time, allow only small residual translation correction
-                                        if (forcedGO) {
-                                            const maxResidual = 0.5; // meters
-                                            const needsSmallFix = (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(dz) > 1e-3)
-                                                && (Math.abs(dx) < maxResidual && Math.abs(dy) < maxResidual && Math.abs(dz) < maxResidual);
-                                            if (needsSmallFix) {
-                                                const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                                
-                                                // Compose with existing user transform if any
-                                                let finalTransform = alignMatrix;
-                                                if (userTransform) {
-                                                    finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
-                                                }
-                                                
-                                                if (typeof model.setPlacementTransform === 'function') {
-                                                    model.setPlacementTransform(finalTransform);
-                                                    console.log(` [${id}] Reconcile - Applied small residual correction:`, finalTransform.elements);
-                                                }
-                                            } else {
-                                                console.log(` [${id}] Reconcile - Skipping manual alignment (forced globalOffset)`);
-                                            }
-                                        } else {
-                                            // Only apply alignment if there's a significant offset difference
-                                            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
-                                                const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                                
-                                                // Compose with existing user transform if any
-                                                let finalTransform = alignMatrix;
-                                                if (userTransform) {
-                                                    finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
-                                                }
-                                                
-                                                if (typeof model.setPlacementTransform === 'function') {
-                                                    model.setPlacementTransform(finalTransform);
-                                                    console.log(`🔧 [${id}] Reconcile - Applied alignment transform:`, finalTransform.elements);
-                                                }
-                                            } else {
-                                                console.log(`🔧 [${id}] Reconcile - Models already aligned, no transform needed`);
-                                            }
-                                        }
-                                    }
-                                }
-                            } catch (e) {
-                                console.warn(`🔧 [${id}] Reconcile - Alignment failed:`, e);
-                            }
-                            
-                            // Set visibility based on current enabledModelIds immediately
-                            try {
+                                // Set visibility based on current enabledModelIds immediately
                                 const shouldShow = enabledModelIds ? enabledModelIds.has(id) : false;
+                                console.log(`🔧 [${id}] Reconcile - Setting visibility: ${shouldShow}`);
                                 setModelVisible(model, shouldShow);
                                 if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
-                            } catch {}
+                            } catch (e) {
+                                console.warn(`🔧 [${id}] Reconcile - Failed to set visibility:`, e);
+                            }
                             resolve();
                         }).catch((err: any) => {
                             console.error(`🔧 [${id}] Reconcile - Failed to load overlay model:`, err);
@@ -563,30 +551,43 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             const geom = doc.getRoot().getDefaultGeometry();
                             if (!geom) return resolve();
                             
-                            // Build proper loading options for discipline alignment
-                            const opts: any = { 
-                                keepCurrentModels: true,
-                                applyRefPoint: true,  // Critical for BIM discipline alignment
-                                isAEC: true,         // Enable AEC-specific alignment features
-                                applyScaling: 'm'    // Use meter scaling for consistency
-                            };
-                            let forcedGO = false;
-                            
-                            // If primary model is available, force overlays to use the same globalOffset
-                            try {
-                                const primary = viewerInstance?.model;
-                                const pData = primary?.getData?.();
-                                if (THREE && pData?.globalOffset) {
-                                    const go = pData.globalOffset;
-                                    opts.globalOffset = new THREE.Vector3(go.x || 0, go.y || 0, go.z || 0);
-                                    console.log(`🔧 [${m.id}] Using primary globalOffset for overlay load:`, opts.globalOffset);
-                                    forcedGO = true;
-                                }
-                            } catch (e) {
-                                console.warn(`🔧 [${m.id}] Failed to set globalOffset from primary:`, e);
-                            }
-                            
-                            // Apply user transform if provided
+            // Build proper loading options for independent discipline alignment
+            const opts: any = { 
+                keepCurrentModels: true,
+                applyRefPoint: true,  // Critical for BIM discipline alignment
+                isAEC: true,         // Enable AEC-specific alignment features
+                applyScaling: 'm',   // Use meter scaling for consistency
+                preserveView: false, // Don't preserve view when loading overlays
+                sharedPropertyDbPath: null // Prevent shared property dependencies
+            };
+            
+            // Store reference globalOffset for consistent coordinate system
+            let referenceGlobalOffset = null;
+            
+            // Get primary model's globalOffset for coordinate system reference
+            try {
+                const primary = viewerInstance?.model;
+                const pData = primary?.getData?.();
+                if (THREE && pData?.globalOffset) {
+                    const go = pData.globalOffset;
+                    referenceGlobalOffset = new THREE.Vector3(go.x || 0, go.y || 0, go.z || 0);
+                    // Apply the same globalOffset to ensure coordinate system consistency
+                    opts.globalOffset = referenceGlobalOffset.clone();
+                    console.log(`🔧 [${m.id}] Using reference globalOffset for independent alignment:`, opts.globalOffset);
+                } else {
+                    // If no primary reference, use origin to ensure independent positioning
+                    if (THREE) {
+                        opts.globalOffset = new THREE.Vector3(0, 0, 0);
+                        console.log(`🔧 [${m.id}] Using origin globalOffset for independent positioning`);
+                    }
+                }
+            } catch (e) {
+                console.warn(`🔧 [${m.id}] Failed to get reference globalOffset:`, e);
+                // Fallback to origin
+                if (THREE) {
+                    opts.globalOffset = new THREE.Vector3(0, 0, 0);
+                }
+            }                            // Apply user transform if provided
                             const userTransform = buildMatrixFromTransform(m.transform || undefined);
                             if (userTransform) {
                                 opts.placementTransform = userTransform;
@@ -594,79 +595,27 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             }
                             
                             viewerInstance.loadDocumentNode(doc, geom, opts).then((model: any) => {
-                                try { overlayModelMapRef.current.set(m.id, model); } catch {}
-                                
-                                // Enhanced alignment using proper globalOffset handling
-                                try {
-                                    const primaryModel = viewerInstance?.model;
-                                    if (primaryModel && model && THREE) {
-                                        const primaryData = primaryModel.getData?.();
-                                        const overlayData = model.getData?.();
-                                        
-                                        console.log(`🔧 [${m.id}] Model data comparison:`);
-                                        console.log(`   Primary globalOffset:`, primaryData?.globalOffset);
-                                        console.log(`   Overlay globalOffset:`, overlayData?.globalOffset);
-                                        
-                                        if (primaryData?.globalOffset && overlayData?.globalOffset) {
-                                            // Calculate proper alignment offset
-                                            const primaryOffset = primaryData.globalOffset;
-                                            const overlayOffset = overlayData.globalOffset;
-                                            
-                                            // Use the difference to align models properly
-                                            const dx = (overlayOffset.x || 0) - (primaryOffset.x || 0);
-                                            const dy = (overlayOffset.y || 0) - (primaryOffset.y || 0);
-                                            const dz = (overlayOffset.z || 0) - (primaryOffset.z || 0);
-                                            
-                                            console.log(`🔧 [${m.id}] Calculated alignment offset: dx=${dx}, dy=${dy}, dz=${dz}`);
-                                            
-                                            if (forcedGO) {
-                                                const maxResidual = 0.5; // meters
-                                                const needsSmallFix = (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(dz) > 1e-3)
-                                                    && (Math.abs(dx) < maxResidual && Math.abs(dy) < maxResidual && Math.abs(dz) < maxResidual);
-                                                if (needsSmallFix) {
-                                                    const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                                    let finalTransform = alignMatrix;
-                                                    if (userTransform) finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
-                                                    if (typeof model.setPlacementTransform === 'function') {
-                                                        model.setPlacementTransform(finalTransform);
-                                                        console.log(`🔧 [${m.id}] Applied small residual correction:`, finalTransform.elements);
-                                                    }
-                                                } else {
-                                                    console.log(`🔧 [${m.id}] Skipping manual alignment (forced globalOffset)`);
-                                                }
-                                            } else {
-                                                // Only apply alignment if there's a significant offset difference
-                                                if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
-                                                    const alignMatrix = new THREE.Matrix4().makeTranslation(dx, dy, dz);
-                                                    
-                                                    // Compose with existing user transform if any
-                                                    let finalTransform = alignMatrix;
-                                                    if (userTransform) {
-                                                        finalTransform = new THREE.Matrix4().multiplyMatrices(alignMatrix, userTransform);
-                                                    }
-                                                    
-                                                    if (typeof model.setPlacementTransform === 'function') {
-                                                        model.setPlacementTransform(finalTransform);
-                                                        console.log(`🔧 [${m.id}] Applied alignment transform:`, finalTransform.elements);
-                                                    }
-                                                } else {
-                                                    console.log(`🔧 [${m.id}] Models already aligned, no transform needed`);
-                                                }
-                                            }
-                                        } else {
-                                            console.log(`🔧 [${m.id}] Missing globalOffset data, using user transform only`);
-                                        }
-                                    }
+                                try { 
+                                    overlayModelMapRef.current.set(m.id, model); 
+                                    console.log(`🔧 [${m.id}] Overlay model loaded independently`);
                                 } catch (e) {
-                                    console.warn(`🔧 [${m.id}] Alignment failed:`, e);
+                                    console.warn(`🔧 [${m.id}] Failed to store overlay model:`, e);
                                 }
                                 
-                                // Set visibility based on current enabledModelIds immediately
+                                // Set initial visibility based on current enabledModelIds
                                 try {
                                     const shouldShow = enabledModelIds ? enabledModelIds.has(m.id) : false;
+                                    console.log(`🔧 [${m.id}] Setting initial visibility: ${shouldShow}`);
                                     setModelVisible(model, shouldShow);
-                                    if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
-                                } catch {}
+                                    
+                                    // Force viewer update to apply visibility changes
+                                    if (viewerInstance?.impl?.invalidate) {
+                                        viewerInstance.impl.invalidate(true);
+                                    }
+                                } catch (e) {
+                                    console.warn(`🔧 [${m.id}] Failed to set initial visibility:`, e);
+                                }
+                                
                                 resolve();
                             }).catch((err: any) => {
                                 console.error(`🔧 [${m.id}] Failed to load overlay model:`, err);
@@ -681,7 +630,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 });
             }
             setOverlayModelsLoaded(true);
-            console.log('🔧 [loadOverlayModels] Completed loading all overlay models');
+            console.log('🔧 [loadOverlayModels] Completed loading all independent overlay models');
         };
 
         const initializeViewer = () => {
@@ -717,35 +666,44 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 } catch {}
                 setViewer(viewerInstance);
                 viewerRef.current = viewerInstance;
-                const documentId = `urn:${primaryUrn}`;
-                Autodesk.Viewing.Document.load(
-                    documentId,
-                    (doc: any) => {
-                        const viewables = doc.getRoot().getDefaultGeometry();
-                        if (viewables) {
-                            // Apply enhanced loading options for primary model too
-                            const primaryOpts: any = {
-                                applyRefPoint: true,  // Critical for BIM discipline alignment
-                                isAEC: true,         // Enable AEC-specific alignment features
-                                applyScaling: 'm'    // Use meter scaling for consistency
-                            };
-                            
-                            console.log('🔧 [Primary Model] Loading with enhanced alignment options:', primaryOpts);
-                            
-                            viewerInstance.loadDocumentNode(doc, viewables, primaryOpts).then(() => {
-                                setIsLoading(false);
-                                // Capture the primary project model id once at initialization
-                                try {
-                                    if (!primaryModelIdRef.current) {
-                                        const initPrimaryId = (models && models.length > 0) ? models[0].id : null;
-                                        primaryModelIdRef.current = initPrimaryId || null;
-                                    }
-                                } catch {}
-                                // Wait for GEOMETRY_LOADED_EVENT before initializing DataViz
-                                viewerInstance.addEventListener(
-                                    Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
-                                    async () => {
-                                        setModelLoaded(true);
+                
+                // Check if primary model should be loaded
+                const primaryId = (models && models.length > 0) ? models[0].id : null;
+                const shouldLoadPrimary = !enabledModelIds || enabledModelIds.size === 0 || 
+                                        (primaryId && enabledModelIds.has(primaryId));
+                
+                console.log('🔧 [Primary Model] Should load primary?', shouldLoadPrimary, 'primaryId:', primaryId);
+                
+                if (shouldLoadPrimary) {
+                    const documentId = `urn:${primaryUrn}`;
+                    Autodesk.Viewing.Document.load(
+                        documentId,
+                        (doc: any) => {
+                            const viewables = doc.getRoot().getDefaultGeometry();
+                            if (viewables) {
+                                // Apply enhanced loading options for primary model too
+                                const primaryOpts: any = {
+                                    applyRefPoint: true,  // Critical for BIM discipline alignment
+                                    isAEC: true,         // Enable AEC-specific alignment features
+                                    applyScaling: 'm'    // Use meter scaling for consistency
+                                };
+                                
+                                console.log('🔧 [Primary Model] Loading with enhanced alignment options:', primaryOpts);
+                                
+                                viewerInstance.loadDocumentNode(doc, viewables, primaryOpts).then(() => {
+                                    setIsLoading(false);
+                                    // Capture the primary project model id once at initialization
+                                    try {
+                                        if (!primaryModelIdRef.current) {
+                                            const initPrimaryId = (models && models.length > 0) ? models[0].id : null;
+                                            primaryModelIdRef.current = initPrimaryId || null;
+                                        }
+                                    } catch {}
+                                    // Wait for GEOMETRY_LOADED_EVENT before initializing DataViz
+                                    viewerInstance.addEventListener(
+                                        Autodesk.Viewing.GEOMETRY_LOADED_EVENT,
+                                        async () => {
+                                            setModelLoaded(true);
                                         // Ensure visual settings after geometry load
                                         try {
                                             safeSetDisplayEdges(viewerInstance, true);
@@ -880,6 +838,44 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         initInFlightRef.current = false;
                     }
                 );
+                } else {
+                    // Primary model not enabled - just set up viewer and load overlay models
+                    console.log('🔧 [Primary Model] Skipping primary model load - not in enabled models');
+                    setIsLoading(false);
+                    setModelLoaded(true);
+                    
+                    // Capture the primary project model id reference anyway
+                    try {
+                        if (!primaryModelIdRef.current) {
+                            const initPrimaryId = (models && models.length > 0) ? models[0].id : null;
+                            primaryModelIdRef.current = initPrimaryId || null;
+                        }
+                    } catch {}
+                    
+                    // Load overlay models independently (use setTimeout to avoid async issues)
+                    if (!overlayModelsLoaded) {
+                        setTimeout(async () => {
+                            try { 
+                                await loadOverlayModels(); 
+                            } catch (err) {
+                                console.error('Failed to load overlay models:', err);
+                            }
+                        }, 0);
+                    }
+                    
+                    // Fire onViewerReady for panels
+                    if (!hasFiredViewerReadyRef.current && typeof onViewerReady === 'function') {
+                        try {
+                            onViewerReady(viewerInstance, null);
+                            hasFiredViewerReadyRef.current = true;
+                        } catch (e) {
+                            console.warn("[ForgeViewer] onViewerReady threw on overlay-only load:", e);
+                        }
+                    }
+                    
+                    setIsInitialized(true);
+                    initInFlightRef.current = false;
+                }
             });
         };
         // Load Forge Viewer SDK if not already loaded
@@ -1316,26 +1312,22 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     }, [activePanel, viewer, isInitialized, enabledModelIds]);
 
     // Handle model visibility based on enabledModelIds - complete disable/enable system
+    // Handle model visibility based on enabledModelIds - complete disable/enable system
     useEffect(() => {
-        if (!viewer || !isInitialized) {
-            console.log('[ForgeViewer] Model visibility: viewer not ready');
-            return;
-        }
-        
-        if (!enabledModelIds || enabledModelIds.size === 0) {
-            console.log('[ForgeViewer] Model visibility: no enabled models specified');
-            return;
-        }
+        console.groupCollapsed(`👁️ Visibility useEffect triggered at ${new Date().toLocaleTimeString()}`);
+        console.log('Viewer ready:', !!viewer, 'Initialized:', isInitialized);
+        console.log('enabledModelIds:', enabledModelIds ? Array.from(enabledModelIds) : 'undefined');
+        console.log('Dependencies:', { enabledModelIds, viewer, isInitialized, overlayModelsLoaded });
+        console.groupEnd();
 
-        console.log('[ForgeViewer] Model visibility effect running:');
-        console.log('  - enabledModelIds:', Array.from(enabledModelIds));
-        console.log('  - overlayModelsLoaded:', overlayModelsLoaded);
-        console.log('  - overlay models count:', overlayModelMapRef.current.size);
+        if (!viewer || !isInitialized) {
+            return;
+        }
 
         // Apply complete model visibility control
         applyModelVisibility(viewer);
         
-    }, [enabledModelIds, viewer, isInitialized, overlayModelsLoaded, models]);
+    }, [enabledModelIds, viewer, isInitialized, overlayModelsLoaded]);
 
         // Effect to handle sensor highlighting when selectedSensor changes
     useEffect(() => {
