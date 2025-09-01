@@ -15,9 +15,12 @@ import {
   MapPin,
   Globe,
   ArrowLeft,
+  UserPlus,
 } from "lucide-react";
 import { CreateProjectModal } from "./create-project-modal";
+import { AdminRequestModal } from "./admin-request-modal";
 import type { ProjectModel, Discipline } from "@/app/types/projects";
+import { useSession } from "next-auth/react";
 
 interface ProjectFile {
   id: string;
@@ -67,6 +70,9 @@ interface EnhancedProjectPanelProps {
   // Federated overlay controls
   enabledModelIds?: Set<string>;
   onToggleModel?: (modelId: string) => void;
+  // Admin access props
+  platformOwner?: boolean;
+  canCreate?: boolean;
 }
 
 export function EnhancedProjectPanel({
@@ -84,7 +90,10 @@ export function EnhancedProjectPanel({
   onReturnToMapView,
   enabledModelIds,
   onToggleModel,
+  platformOwner,
+  canCreate,
 }: EnhancedProjectPanelProps) {
+  const { data: session } = useSession();
 
   const [activeTab, setActiveTab] = useState<'projects' | 'models'>('projects');
   const [files, setFiles] = useState<ProjectFile[]>([
@@ -138,6 +147,7 @@ export function EnhancedProjectPanel({
   const [processingUrn, setProcessingUrn] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
+  const [showAdminRequestModal, setShowAdminRequestModal] = useState(false);
 
   // Format coordinates to fit nicely in the info card
   const formatCoord = (n: number | undefined | null) =>
@@ -389,6 +399,18 @@ export function EnhancedProjectPanel({
           ) : (
             // Models Section - Show project cards that open 3D models
             <div className="p-4 space-y-2">
+              {/* Request Admin Access Button - show for non-Platform Owner and non-Administrator users */}
+              {session?.user && !platformOwner && !canCreate && (
+                <div className="mb-3">
+                  <button 
+                    className="w-full flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 text-blue-300 hover:text-blue-200 rounded-lg text-sm transition-all duration-200 border border-blue-500/30 hover:border-blue-400/50 backdrop-blur-sm"
+                    onClick={() => setShowAdminRequestModal(true)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Request Admin Access</span>
+                  </button>
+                </div>
+              )}
             {filteredProjects.map((project: Project) => (
               <div
                 key={project.id}
@@ -521,6 +543,11 @@ export function EnhancedProjectPanel({
           apiKey={apiKey}
         />
       )}
+      
+      <AdminRequestModal 
+        show={showAdminRequestModal} 
+        onClose={() => setShowAdminRequestModal(false)} 
+      />
     </div>
   );
 }

@@ -292,16 +292,6 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <span>Project Info</span>
                   </button>
                   
-                  {/* Request Admin Access - show for non-Platform Owner and non-Administrator users */}
-                  {user && !platformOwner && !canCreate && (
-                    <button 
-                      className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
-                      onClick={() => { setShowAdminRequestModal(true); setShowProfileMenu(false); }}
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Request Admin Access</span>
-                    </button>
-                  )}
                   
                   <div className="border-t border-gray-700 my-1"></div>
                   {user && canCreate && (

@@ -766,6 +766,8 @@ function BIMDashboard() {
                     onReturnToMapView={handleReturnToMapView}
                     enabledModelIds={enabledModelIds}
                     onToggleModel={handleToggleModel}
+                    platformOwner={isPlatformOwner}
+                    canCreate={canCreateProjectPerm}
                   />
                 ) : (
                   <ModelHierarchyPanel 
