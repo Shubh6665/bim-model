@@ -332,12 +332,12 @@ function BIMDashboard() {
   };
 
   // Compute the list of models to render in the viewer, keep a deterministic order
-  const orderedEnabledModels: ProjectModel[] | undefined = React.useMemo(() => {
+  const orderedModels: ProjectModel[] | undefined = React.useMemo(() => {
     if (!selectedProject?.models) return undefined;
-    const order: Record<string, number> = { architecture: 0, structure: 1, mep: 2, electrical: 3, plumbing: 4, hvac: 5, other: 6 } as any;
-    const filtered = selectedProject.models.filter(m => enabledModelIds.has(m.id));
-    return filtered.sort((a, b) => (order[a.discipline || 'other'] ?? 99) - (order[b.discipline || 'other'] ?? 99));
-  }, [selectedProject?.models, enabledModelIds]);
+    // The viewer needs the full list of models to manage them.
+    // We should not filter them here. Visibility is controlled by `enabledModelIds`.
+    return selectedProject.models;
+  }, [selectedProject?.models]);
 
   // Derive if the current user is a Platform Owner (from any project access role)
   const isPlatformOwner = React.useMemo(() => {
@@ -636,7 +636,7 @@ function BIMDashboard() {
                   <div className="relative w-full h-full">
                     <ThreeDViewer
                       selectedFile={selectedFile}
-                      models={orderedEnabledModels}
+                      models={orderedModels}
                       enabledModelIds={enabledModelIds}
                       onViewerReady={handleViewerReady}
                       insertMode={insertMode}
