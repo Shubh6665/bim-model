@@ -33,6 +33,13 @@ export function getApprovedAdminCompanies(user: any): string[] {
   return entries.filter((e) => e?.status === 'approved').map((e) => (e.company || '').trim());
 }
 
+function getPendingAdminCompanies(user: any): string[] {
+  const entries: AdminCompanyEntry[] = Array.isArray(user?.adminCompanies)
+    ? user.adminCompanies
+    : [];
+  return entries.filter((e) => e?.status === 'pending').map((e) => (e.company || '').trim());
+}
+
 export function isApprovedAdministratorForCompany(user: any, company?: string | null): boolean {
   if (!user) return false;
   const approvedCompanies = getApprovedAdminCompanies(user);
@@ -85,12 +92,15 @@ export async function canCreateProject(db: any, email: string, user: any): Promi
     email,
     isPlatformOwner: isPlatformOwnerEmail(email),
     adminCompanies: getApprovedAdminCompanies(user),
-    adminCompaniesLength: getApprovedAdminCompanies(user).length
+    adminCompaniesLength: getApprovedAdminCompanies(user).length,
+    pendingAdminCompanies: getPendingAdminCompanies(user)
   });
   
   if (isPlatformOwnerEmail(email)) return true;
   // Only approved Administrators can create projects
   if (getApprovedAdminCompanies(user).length > 0) return true;
+  // Also allow if there's a pending Administrator request (global or any company)
+  if (getPendingAdminCompanies(user).length > 0) return true;
   
   // NEW: Project Administrators can also create projects
   const isAnyPA = await isAnyProjectAdmin(db, email);
@@ -229,7 +239,9 @@ export function getDisplayRoleName(role: EffectiveRole): string {
 // Helper function to get platform-level role (for dashboard display)
 export function getPlatformRole(user: any, email: string): 'Platform Owner' | 'Administrator' | 'General User' {
   if (isPlatformOwnerEmail(email)) return 'Platform Owner';
+  // Treat pending admin requests as Administrator for platform-level display
   if (getApprovedAdminCompanies(user).length > 0) return 'Administrator';
+  if (getPendingAdminCompanies(user).length > 0) return 'Administrator';
   return 'General User';
 }
 
@@ -237,17 +249,18 @@ export async function canDeleteProject(db: any, project: any, email: string, use
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
   
-  // Only Administrator who OWNS this project can delete it
+  // Only Administrator who OWNS this project can delete it (no company matching required)
   const isProjectOwner = String(project.userId) === String(user._id);
-  const isCompanyAdmin = isApprovedAdministratorForCompany(user, project.company);
+  const hasApprovedAdmin = getApprovedAdminCompanies(user).length > 0;
   
-  return isProjectOwner && isCompanyAdmin;
+  return isProjectOwner && hasApprovedAdmin;
 }
 
 export async function canUpdateProject(db: any, project: any, email: string, user: any): Promise<boolean> {
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  // Any approved Administrator can update projects (no company matching required)
+  if (getApprovedAdminCompanies(user).length > 0) return true;
   // ProjectAdmin within this project can update
   const isPA = await isProjectAdmin(db, String(project._id), email);
   return !!isPA;
@@ -261,7 +274,8 @@ export async function canModifyModels(db: any, project: any, email: string, user
 export async function canManageAccess(db: any, project: any, email: string, user: any): Promise<boolean> {
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  // Any approved Administrator can manage access (no company matching required)
+  if (getApprovedAdminCompanies(user).length > 0) return true;
   // ProjectAdmin within this project can manage access (except appointing other PAs)
   const isPA = await isProjectAdmin(db, String(project._id), email);
   return !!isPA;
@@ -274,7 +288,8 @@ export async function canInvite(db: any, project: any, email: string, user: any)
 export async function canMakeProjectAdmin(db: any, project: any, email: string, user: any): Promise<boolean> {
   if (!email || !user || !project) return false;
   if (isPlatformOwnerEmail(email)) return true;
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  // Any approved Administrator can make project admins (no company matching required)
+  if (getApprovedAdminCompanies(user).length > 0) return true;
   return false; // Project Admin cannot appoint other PAs
 }
 
@@ -359,12 +374,13 @@ export async function getEffectiveRole(db: any, project: any, email: string, use
   
   // For project context
   if (project) {
-    // Check if user owns this project AND is Administrator
+    // Check if user owns this project AND has any Administrator status (approved or pending)
     const isProjectOwner = String(project.userId) === String(user._id);
-    const isCompanyAdmin = isApprovedAdministratorForCompany(user, project.company);
+    const hasApprovedAdmin = getApprovedAdminCompanies(user).length > 0;
+    const hasPendingAdmin = getPendingAdminCompanies(user).length > 0;
     
-    if (isProjectOwner && isCompanyAdmin) {
-      return 'Administrator'; // Full admin access in own project
+    if (isProjectOwner && (hasApprovedAdmin || hasPendingAdmin)) {
+      return 'Administrator'; // Full admin access in own project - no company matching required
     }
     
     // Check project-specific invite role
@@ -378,17 +394,9 @@ export async function getEffectiveRole(db: any, project: any, email: string, use
     }
   }
   
-  // Platform level (no project context) - check if user is Administrator
-  if (isApprovedAdministratorForCompany(user, project?.company)) return 'Administrator';
-  
-  // If they have pending admin for this company
-  const pend = (Array.isArray(user?.adminCompanies) ? user.adminCompanies : []) as AdminCompanyEntry[];
-  const normProjCompany = String(project?.company || '').trim().toLowerCase();
-  const hasPendingForProjectOrGlobal = pend.some((e) => {
-    const c = String(e?.company || '').trim().toLowerCase();
-    return e?.status === 'pending' && (c === normProjCompany || c === '(unspecified)');
-  });
-  if (hasPendingForProjectOrGlobal) return 'AdministratorPending';
+  // Platform level (no project context) - check if user has any Administrator status
+  if (getApprovedAdminCompanies(user).length > 0) return 'Administrator';
+  if (getPendingAdminCompanies(user).length > 0) return 'AdministratorPending';
   
   return 'User';
 }

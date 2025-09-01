@@ -14,12 +14,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { company } = await req.json();
-    if (!company || typeof company !== 'string' || company.trim().length === 0) {
-      return NextResponse.json({ error: 'Valid company name is required' }, { status: 400 });
-    }
-
-    // Sanitize company name
-    const sanitizedCompany = company.trim().substring(0, 100); // Limit length
+    // Accept empty company; map to global '(unspecified)'
+    const rawCompany = typeof company === 'string' ? company : '';
+    const sanitizedCompany = (rawCompany.trim().length === 0
+      ? '(unspecified)'
+      : rawCompany.trim()
+    ).substring(0, 100); // Limit length
 
     // Platform Owner cannot request admin access (they already have full access)
     if (isPlatformOwnerEmail(session.user.email)) {
