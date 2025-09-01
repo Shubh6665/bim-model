@@ -40,12 +40,12 @@ async function hasProjectAccess(projectId: string, requiredPackage: 'IoT', userE
   const user = await db.collection('users').findOne({ email: userEmail });
   if (!user) return false;
   
-  // Get project to check company admin access
+  // Get project to check admin access
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   
-  // Company admin check
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  // Administrator check (no company matching required)
+  if (Array.isArray(user.adminCompanies) && user.adminCompanies.some((entry: any) => entry.status === 'approved')) return true;
   
   // Owner check
   const ownerProject = await db.collection('projects').findOne({ _id: new ObjectId(projectId), userId: user._id });

@@ -28,7 +28,8 @@ async function canReadProject(db: any, projectId: string, user: any, email: stri
   const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
   if (!project) return false;
   if (isPlatformOwnerEmail(email)) return true;
-  if (isApprovedAdministratorForCompany(user, project.company)) return true;
+  // Any approved Administrator can read projects (no company matching required)
+  if (Array.isArray(user.adminCompanies) && user.adminCompanies.some((entry: any) => entry.status === 'approved')) return true;
   if (String(project.userId) === String(user._id)) return true; // owner
   const invite = await getInviteFor(db, projectId, email);
   return !!invite; // any accepted invite grants read

@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ proje
 
     // For Project Admins, restrict editing to invites they created and never their own
     const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+    const isOwner = isPlatformOwnerEmail(email) || (Array.isArray(user.adminCompanies) && user.adminCompanies.some((entry: any) => entry.status === 'approved'));
     if (!isOwner) {
       const isSelfInvite = String(existing?.invitee?.email || '').toLowerCase() === email.toLowerCase();
       const createdBySelf = String(existing?.inviterUserId || '') === String(user._id);
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ project
     const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
     const isPlatformOwner = isPlatformOwnerEmail(email);
     const isProjectCreator = proj && String(proj.userId) === String(user._id);
-    const isCompanyAdmin = isApprovedAdministratorForCompany(user, proj?.company);
+    const isCompanyAdmin = Array.isArray(user.adminCompanies) && user.adminCompanies.some((entry: any) => entry.status === 'approved');
     
     // Only Platform Owner OR Project Creator who is also Company Admin can see all invites
     const canSeeAllInvites = isPlatformOwner || (isProjectCreator && isCompanyAdmin);
@@ -204,9 +204,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ proj
     const existing = await db.collection('invites').findOne(idOnlyFilter);
     if (!existing) return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
 
-    // Determine if requester is PlatformOwner/Admin of company
+    // Determine if requester is PlatformOwner/Admin
     const proj = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
-    const isOwner = isPlatformOwnerEmail(email) || isApprovedAdministratorForCompany(user, proj?.company);
+    const isOwner = isPlatformOwnerEmail(email) || (Array.isArray(user.adminCompanies) && user.adminCompanies.some((entry: any) => entry.status === 'approved'));
     if (!isOwner) {
       // Project Admin: may not revoke their own invite and may only act on invites they created
       const isSelfInvite = String(existing?.invitee?.email || '').toLowerCase() === email.toLowerCase();
