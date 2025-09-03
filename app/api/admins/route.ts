@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
         .project({ email: 1, adminCompanies: 1, name: 1 })
         .toArray();
 
-      // Expand into flattened list (email, company, status, name)
-      const approved: Array<{ email: string; company: string; status: 'approved'; name?: string }> = [];
+      // Expand into flattened list (email, company, status, name, approvedAt)
+      const approved: Array<{ email: string; company: string; status: 'approved'; name?: string; approvedAt?: string }> = [];
       for (const u of users) {
         // Skip platform owners - they cannot be removed as administrators
         if (isPlatformOwnerEmail(u.email)) continue;
@@ -47,7 +47,8 @@ export async function GET(req: NextRequest) {
               email: u.email, 
               company: entry.company, 
               status: 'approved',
-              name: u.name 
+              name: u.name,
+              approvedAt: entry?.approvedAt ? new Date(entry.approvedAt).toISOString() : undefined,
             });
           }
         }
@@ -152,9 +153,17 @@ export async function PATCH(req: NextRequest) {
       }
 
       // Update only the matching PENDING entry using exact stored company string
+      const now = new Date();
+      let update: any = { $set: { 'adminCompanies.$[elem].status': status } };
+      if (status === 'approved') {
+        update.$set['adminCompanies.$[elem].approvedAt'] = now;
+      } else {
+        update.$unset = { 'adminCompanies.$[elem].approvedAt': '' };
+      }
+
       let res = await db.collection('users').updateOne(
         { email: { $regex: `^${escapeRegExp(String(targetEmail))}$`, $options: 'i' } },
-        { $set: { 'adminCompanies.$[elem].status': status } },
+        update,
         { arrayFilters: [ { 'elem.company': companyKey, 'elem.status': { $regex: '^pending$', $options: 'i' } } ] }
       );
 
@@ -163,7 +172,7 @@ export async function PATCH(req: NextRequest) {
         const companyPattern = `^\\s*${escapeRegExp(String(companyKey).trim())}\\s*$`;
         res = await db.collection('users').updateOne(
           { email: { $regex: `^${escapeRegExp(String(targetEmail))}$`, $options: 'i' } },
-          { $set: { 'adminCompanies.$[elem].status': status } },
+          update,
           { arrayFilters: [ { 'elem.company': { $regex: companyPattern, $options: 'i' }, 'elem.status': { $regex: '^pending$', $options: 'i' } } ] }
         );
       }
