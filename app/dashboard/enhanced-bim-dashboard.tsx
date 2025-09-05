@@ -132,11 +132,30 @@ function BIMDashboard() {
           setWireframeMode(true); // Set back to wireframe
         }, 100);
       }, 600);
-    } else if (activePanel === "bim") {
-      // Entering BIM should default to solid; user can toggle as needed in BIM panel
+    } else if (activePanel === "bim" || activePanel === "database") {
+      // Entering BIM or Database should default to solid 3D mode for better viewing
       setWireframeMode(false);
+      
+      // For Database panel, also restore full model visibility like "Show All Objects"
+      if (activePanel === "database" && viewer && viewer.model) {
+        console.log('[Dashboard] Database panel activated - restoring full model visibility');
+        setTimeout(() => {
+          try {
+            // Call the viewer's showAll function to restore complete model visibility
+            if (typeof viewer.showAll === 'function') {
+              viewer.showAll();
+            }
+            // Also invalidate to ensure rendering is updated
+            if (viewer.impl && viewer.impl.invalidate) {
+              viewer.impl.invalidate(true);
+            }
+          } catch (error) {
+            console.warn('[Dashboard] Error restoring model visibility:', error);
+          }
+        }, 250);
+      }
     }
-  }, [activePanel]);
+  }, [activePanel, viewer]);
 
   // Fetch projects from MongoDB on mount
   useEffect(() => {

@@ -655,6 +655,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     initInFlightRef.current = false;
                     return;
                 }
+                
+                // Add error handler for missing texture resources
+                try {
+                    viewerInstance.addEventListener(Autodesk.Viewing.ERROR_EVENT, (event: any) => {
+                        // Suppress texture loading errors (404s) that don't affect model functionality
+                        if (event.errorCode === 'NETWORK_FAILURE' || 
+                            (event.message && event.message.includes('Failed to fetch resource')) ||
+                            (event.url && event.url.includes('.png'))) {
+                            console.warn('[ForgeViewer] Texture resource not found (suppressed):', event.url || event.message);
+                            return; // Don't show these errors to the user
+                        }
+                        console.error('[ForgeViewer] Viewer error:', event);
+                    });
+                } catch (e) {
+                    console.warn('[ForgeViewer] Could not add error handler:', e);
+                }
+                
                 // Visual tuning: improve contrast and line visibility on init
                 try {
                     safeSetDisplayEdges(viewerInstance, true);
@@ -889,6 +906,25 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             link.rel = "stylesheet";
             link.href = "https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css";
             document.head.appendChild(link);
+            
+            // Add global error handler to suppress texture loading errors
+            const originalConsoleError = console.error;
+            const errorHandler = (...args: any[]) => {
+                const message = args.join(' ');
+                // Suppress texture-related 404 errors
+                if (message.includes('Failed to fetch resource') && 
+                    message.includes('cdn.derivative.autodesk.com') &&
+                    (message.includes('.png') || message.includes('.jpg') || message.includes('.jpeg'))) {
+                    return; // Don't log these texture errors
+                }
+                originalConsoleError(...args);
+            };
+            console.error = errorHandler;
+            
+            // Cleanup error handler on unmount
+            return () => {
+                console.error = originalConsoleError;
+            };
         } else {
             initializeViewer();
         }
