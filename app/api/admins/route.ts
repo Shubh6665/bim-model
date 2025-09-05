@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
         .project({ email: 1, adminCompanies: 1, name: 1 })
         .toArray();
 
-      // Expand into flattened list (email, company, status, name, approvedAt)
-      const approved: Array<{ email: string; company: string; status: 'approved'; name?: string; approvedAt?: string }> = [];
+      // Expand into flattened list (email, company, status, name, approvedAt, expiresAt)
+      const approved: Array<{ email: string; company: string; status: 'approved'; name?: string; approvedAt?: string; expiresAt?: string }> = [];
       for (const u of users) {
         // Skip platform owners - they cannot be removed as administrators
         if (isPlatformOwnerEmail(u.email)) continue;
@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
               status: 'approved',
               name: u.name,
               approvedAt: entry?.approvedAt ? new Date(entry.approvedAt).toISOString() : undefined,
+              expiresAt: entry?.expiresAt ? new Date(entry.expiresAt).toISOString() : undefined,
             });
           }
         }
@@ -90,9 +91,9 @@ export async function PATCH(req: NextRequest) {
     if (!isPlatformOwnerEmail(email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
-    const { email: targetEmail, company, action } = body || {};
-    if (!targetEmail || !company || !['approve', 'reject', 'remove'].includes(action)) {
-      return NextResponse.json({ error: 'email, company and action (approve|reject|remove) are required' }, { status: 400 });
+    const { email: targetEmail, company, action, expiresAt } = body || {};
+    if (!targetEmail || !company || !['approve', 'reject', 'remove', 'set-expire'].includes(action)) {
+      return NextResponse.json({ error: 'email, company and action (approve|reject|remove/set-expire) are required' }, { status: 400 });
     }
 
     const db = await getDb();
@@ -115,7 +116,28 @@ export async function PATCH(req: NextRequest) {
     const companyKey = matchingEntry.company; // exact stored value
     const currentStatus = String(matchingEntry.status || '').toLowerCase();
 
-    if (action === 'remove') {
+    if (action === 'set-expire') {
+      // Set or clear expiration on an approved administrator entry
+      if (currentStatus !== 'approved') {
+        return NextResponse.json({ error: 'Can only set expiration for approved administrators' }, { status: 400 });
+      }
+
+      const update: any = expiresAt
+        ? { $set: { 'adminCompanies.$[elem].expiresAt': new Date(expiresAt) } }
+        : { $unset: { 'adminCompanies.$[elem].expiresAt': '' } };
+
+      const res = await db.collection('users').updateOne(
+        { email: { $regex: `^${escapeRegExp(String(targetEmail))}$`, $options: 'i' } },
+        update,
+        { arrayFilters: [ { 'elem.company': companyKey, 'elem.status': { $regex: '^approved$', $options: 'i' } } ] }
+      );
+
+      if (res.matchedCount === 0) {
+        return NextResponse.json({ error: 'Failed to update expiration' }, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true, email: targetEmail, company: companyKey, action: 'set-expire', expiresAt: expiresAt || null });
+    } else if (action === 'remove') {
       // Prevent removing platform owners
       if (isPlatformOwnerEmail(targetEmail)) {
         return NextResponse.json({ error: 'Cannot remove platform owner administrator access' }, { status: 400 });

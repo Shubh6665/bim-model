@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Calendar } from "lucide-react";
 
 interface AdministratorEntry {
   email: string;
@@ -8,6 +8,7 @@ interface AdministratorEntry {
   status: 'approved';
   name?: string;
   approvedAt?: string; // ISO string returned by API
+  expiresAt?: string;  // ISO string returned by API
 }
 
 export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) {
@@ -16,6 +17,14 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
   const [administrators, setAdministrators] = useState<AdministratorEntry[]>([]);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ email: string; company: string; name?: string } | null>(null);
+  const [editingExpireKey, setEditingExpireKey] = useState<string | null>(null);
+  const todayYMD = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
 
   // Draggable state
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -72,6 +81,31 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
   };
 
   useEffect(() => { load(); }, []);
+  // After administrators load, raise notifications for due/soon expirations
+  useEffect(() => {
+    if (!administrators || administrators.length === 0) return;
+    const today = new Date();
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    administrators.forEach(a => {
+      if (!a.expiresAt) return;
+      const exp = new Date(a.expiresAt);
+      const sameDay = exp.getFullYear() === today.getFullYear() && exp.getMonth() === today.getMonth() && exp.getDate() === today.getDate();
+      const isTomorrow = exp.getFullYear() === tomorrow.getFullYear() && exp.getMonth() === tomorrow.getMonth() && exp.getDate() === tomorrow.getDate();
+      if (sameDay) {
+        (window as any).postNotification?.({
+          type: 'generic',
+          title: 'Admin expiry reached',
+          message: `${a.name || a.email} (${a.company}) expiry is today.`
+        });
+      } else if (isTomorrow) {
+        (window as any).postNotification?.({
+          type: 'generic',
+          title: 'Admin expiry tomorrow',
+          message: `${a.name || a.email} (${a.company}) will expire tomorrow.`
+        });
+      }
+    });
+  }, [administrators]);
 
   const removeAdmin = async (email: string, company: string) => {
     setBusyKey(`${email}|${company}`);
@@ -114,12 +148,38 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
     return d.toLocaleDateString();
   };
 
-  const addYear = (iso?: string) => {
-    if (!iso) return '-';
+  const toInputDate = (iso?: string) => {
+    if (!iso) return '';
     const d = new Date(iso);
-    if (isNaN(d.getTime())) return '-';
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toLocaleDateString();
+    if (isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const setExpire = async (email: string, company: string, dateStr: string | null) => {
+    setBusyKey(`${email}|${company}|expire`);
+    setError(null);
+    try {
+      const res = await fetch('/api/admins', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, company, action: 'set-expire', expiresAt: dateStr })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to set expiration');
+      // update in place
+      setAdministrators(prev => prev.map(a =>
+        (a.email === email && a.company === company)
+          ? { ...a, expiresAt: dateStr || undefined }
+          : a
+      ));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   return (
@@ -164,7 +224,73 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                       <td className="py-3 text-gray-200">{admin.email}</td>
                       <td className="py-3 text-gray-200">{admin.company}</td>
                       <td className="py-3 text-gray-200">{fmt(admin.approvedAt)}</td>
-                      <td className="py-3 text-gray-200">{addYear(admin.approvedAt)}</td>
+                      <td className="py-3 text-gray-200">
+                        {editingExpireKey !== `${admin.email}|${admin.company}` ? (
+                          <div className="flex items-center gap-3">
+                            <span>{admin.expiresAt ? fmt(admin.expiresAt) : '-'}</span>
+                            <button
+                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              title="Change expire date"
+                              onClick={() => setEditingExpireKey(`${admin.email}|${admin.company}`)}
+                            >
+                              <Calendar className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              className="bg-gray-800 border border-gray-700 text-gray-200 rounded px-2 py-1 text-xs"
+                              defaultValue={toInputDate(admin.expiresAt) || ''}
+                              min={todayYMD()}
+                              onChange={(e) => {
+                                const v = e.target.value; // yyyy-mm-dd
+                                const iso = v ? new Date(v + 'T00:00:00Z').toISOString() : '';
+                                // Auto-save immediately when a date is picked
+                                setExpire(admin.email, admin.company, v ? iso : null);
+                                setEditingExpireKey(null);
+                              }}
+                              onBlur={(e) => {
+                                const v = e.currentTarget.value.trim();
+                                if (!v || v.includes('-')) return; // native format handled in onChange
+                                // accept dd/mm/yyyy
+                                const m = v.match(/^([0-3]?\d)\/([0-1]?\d)\/(\d{4})$/);
+                                if (!m) { return; }
+                                const dd = parseInt(m[1], 10);
+                                const mm = parseInt(m[2], 10);
+                                const yyyy = parseInt(m[3], 10);
+                                const candidate = new Date(yyyy, mm - 1, dd);
+                                const today = new Date();
+                                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                if (isNaN(candidate.getTime()) || candidate < startOfToday) {
+                                  setError('Please choose a date that is today or later.');
+                                  return;
+                                }
+                                const iso = new Date(Date.UTC(yyyy, mm - 1, dd)).toISOString();
+                                setExpire(admin.email, admin.company, iso);
+                                setEditingExpireKey(null);
+                              }}
+                              placeholder="dd/mm/yyyy"
+                            />
+                            <button
+                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              title="Close without changes"
+                              onClick={() => setEditingExpireKey(null)}
+                            >
+                              ✕
+                            </button>
+                            {admin.expiresAt && (
+                              <button
+                                className="text-xs text-gray-300 hover:text-white underline disabled:opacity-50"
+                                onClick={() => { setExpire(admin.email, admin.company, null); setEditingExpireKey(null); }}
+                                disabled={busyKey === `${admin.email}|${admin.company}|expire`}
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 text-right">
                         <button
                           className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white disabled:opacity-60 disabled:cursor-not-allowed"
