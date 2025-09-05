@@ -19,6 +19,8 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronDown,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Floor2DView } from "./floor-2d-view";
 import { FloorData } from "./floor-data-view";
@@ -95,6 +97,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [isHierarchyLoaded, setIsHierarchyLoaded] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   // In-memory index for the CURRENT model only (reset on model change)
   const [propertyIndexReady, setPropertyIndexReady] = useState(false);
   // Single-model legacy caches (kept for backward compatibility)
@@ -174,6 +177,11 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
     } catch (e) {
       console.warn('[BIMPanel] safeRestoreAllVisibility failed', e);
     }
+  };
+
+  const handleDeleteView = (viewId: string) => {
+    setSavedViews(prev => prev.filter(v => v.id !== viewId));
+    setPendingDeleteId(null);
   };
 
   const safeFitToView = (v: any, ids?: number[] | undefined) => {
@@ -1308,14 +1316,18 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
-                        {new Date(view.timestamp).toLocaleTimeString()}
-                      </span>
                       <button
                         onClick={() => handleRestoreView(view)}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors"
                       >
                         Restore View
+                      </button>
+                      <button
+                        onClick={() => setPendingDeleteId(view.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded transition-colors inline-flex items-center gap-1"
+                        title="Delete View"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete View
                       </button>
                     </div>
                   </div>
@@ -1682,6 +1694,44 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       <div className="flex-1 p-4 overflow-y-auto min-h-0">
         {renderCommandContent()}
       </div>
+
+      {/* Centered Delete Confirmation Modal */}
+      {pendingDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-full max-w-sm mx-4 p-4">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="shrink-0">
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div>
+                <h4 className="text-white font-semibold text-sm mb-1">Delete View</h4>
+                <p className="text-gray-300 text-sm">
+                  Are you sure you want to delete 
+                  {" "}
+                  <span className="font-medium text-white">{
+                    (savedViews.find(v => v.id === pendingDeleteId)?.name) || 'this view'
+                  }</span>
+                  {" "}view ?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setPendingDeleteId(null)}
+                className="px-3 py-1.5 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteView(pendingDeleteId)}
+                className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
