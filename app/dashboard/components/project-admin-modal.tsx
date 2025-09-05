@@ -1264,7 +1264,6 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                       <Upload className="w-4 h-4" /> Choose file
                     </span>
                   </label>
-                  <p className="text-xs text-gray-400 mt-1">Option B: Upload file to Forge, we will generate URN and start translation.</p>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">File Type</label>
