@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { User, Home, LogOut, Bell, Menu, ChevronDown, Info, Folder, UserPlus, Users } from "lucide-react";
+import { useNotifications } from "@/app/context/notification-context";
+import { NotificationsMenu } from "./notifications-menu";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 import { ProfileModal } from "./profile-modal";
 import { AdminRequestModal } from "./admin-request-modal";
@@ -19,7 +21,8 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, onCreateProject, selectedProject, onShowProjectInfo, onShowMyProjects, platformOwner }: DashboardHeaderProps) {
-  const [notifications] = useState(3);
+  const { unreadCount } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showPendingAdminsModal, setShowPendingAdminsModal] = useState(false);
   const [showManageAdministratorsModal, setShowManageAdministratorsModal] = useState(false);
@@ -169,12 +172,23 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
 
         {/* Right Section */}
         <div className="flex items-center gap-2">
-          <button className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors relative">
-            <Bell className="w-4 h-4" />
-            {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+          <div className="relative">
+            <button
+              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors relative"
+              onClick={() => setShowNotifications((v) => !v)}
+              aria-label="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-[10px] text-white rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <NotificationsMenu onClose={() => setShowNotifications(false)} />
             )}
-          </button>
+          </div>
           <button 
             className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
             onClick={() => onShowMyProjects && onShowMyProjects()}
@@ -320,6 +334,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         </div>
       </div>
       {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>}
+      {showNotifications && <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>}
       {showPendingAdminsModal && (
         <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
       )}

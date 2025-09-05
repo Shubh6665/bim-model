@@ -40,6 +40,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Helper to dispatch cross-app notifications
+  const dispatchNotif = (type: string, detail: any) => {
+    try {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch {}
+  };
+
   // Editable fields for Project Information
   const [edited, setEdited] = useState<Project | null>(project);
   // Editing toggle for Project Information tab
@@ -217,6 +224,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
           }
         } catch {}
       }
+
+      // Notify: model metadata modified
+      const mdl = existingModels.find((m) => m.id === removeModelId);
+      dispatchNotif('file-modified', {
+        projectName: project.name,
+        fileName: mdl?.name || 'Model',
+        message: `Model updated (discipline: ${editDiscipline || 'other'})`,
+      });
     } catch (e: any) {
       setError(e.message || 'Failed to update model');
     } finally {
@@ -405,6 +420,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       if (!res.ok) throw new Error(json.error || 'Failed to revoke invite');
       await loadInvites();
       setError(null);
+
+      // Notify: access removed
+      const removedEmail = json?.invite?.invitee?.email || '';
+      dispatchNotif('access-removed', {
+        projectName: project.name,
+        removedEmail,
+        message: removedEmail ? `Access removed for ${removedEmail}` : 'Access removed for a user',
+      });
     } catch (e: any) {
       setError(e.message || 'Failed to revoke invite');
     } finally {
@@ -429,6 +452,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
     setError(null);
     try {
       const inv = invitesList.find((i) => getInviteId(i) === String(inviteId));
+      const prevRole = String(inv?.invitee?.role || 'General');
       const packages = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
       const role = String(inv?.invitee?.role || 'General');
       const res = await fetch(`/api/projects/${project.id}/invites`, {
@@ -444,6 +468,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         prev.map((invite) => (getInviteId(invite) === inviteId ? json.invite : invite))
       );
       setError(null);
+
+      // Fire role-modified notification if role actually changed
+      if (prevRole !== role) {
+        dispatchNotif('role-modified', {
+          projectName: project.name,
+          message: `Role changed to ${role} for ${json?.invite?.invitee?.email || 'a user'}`,
+        });
+      }
     } catch (e: any) {
       setError(e.message || 'Failed to update packages');
     } finally {
@@ -484,6 +516,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
       });
       await loadInvites();
       setError(null);
+
+      // Notify: user-added (assignment to project)
+      dispatchNotif('user-added', {
+        projectName: project.name,
+        message: `Invited ${data?.invite?.invitee?.email || invite.email} as ${invite.role}`,
+      });
     } catch (e: any) {
       setError(e.message || "Failed to send invite");
     } finally {
@@ -597,6 +635,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to replace model");
+
+        // Notify: file modified (replacement)
+        dispatchNotif('file-modified', {
+          projectName: project.name,
+          fileName: newModel.name,
+          message: `Model replaced/updated (${finalFileType})`,
+        });
       } else {
         // add new
         const res = await fetch(`/api/projects/${project.id}/models`, {
@@ -611,6 +656,13 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to add model");
+
+        // Notify: file uploaded (new model)
+        dispatchNotif('file-uploaded', {
+          projectName: project.name,
+          fileName: newModel.name,
+          message: `New model uploaded (${finalFileType})`,
+        });
       }
       // refresh project in parent if desired
       if (onProjectUpdated) {
@@ -717,6 +769,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         } catch {}
       }
       setRemoveModelId("");
+
+      // Notify: model removed (treated as modification for now)
+      const mdl = existingModels.find((m) => m.id === removeModelId);
+      dispatchNotif('file-modified', {
+        projectName: project.name,
+        fileName: mdl?.name || 'Model',
+        message: `Model removed`,
+      });
     } catch (e: any) {
       setError(e.message || "Failed to remove model");
     } finally {

@@ -112,6 +112,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
   // Panel ref for outside-click detection
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Helper to dispatch global notifications
+  const dispatchNotif = (type: string, detail: any) => {
+    try {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch {}
+  };
+
   // Load folders and files from API
   useEffect(() => {
     if (projectId) {
@@ -131,6 +138,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       if (res.ok) {
         await loadFoldersAndFiles();
         showNotification('File duplicated successfully!', 'success');
+        dispatchNotif('file-modified', { projectId, fileName: file.name, message: 'File duplicated' });
       } else {
         const err = await res.json().catch(() => ({}));
         showNotification(err.error || 'Failed to duplicate file', 'error');
@@ -418,6 +426,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       if (response.ok) {
         await loadFoldersAndFiles();
         showNotification('File uploaded successfully!', 'success');
+        dispatchNotif('file-uploaded', { projectId, fileName: file.name });
       } else {
         const errorData = await response.json();
         console.error('[Upload] Server error:', errorData);
@@ -464,6 +473,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       if (response.ok) {
         await loadFoldersAndFiles();
         setInlineRename(null);
+        const name = ('type' in item) ? (item as DatabaseFile).name : (item as DatabaseFolder).name;
+        dispatchNotif('file-modified', { projectId, fileName: name, message: `Renamed to ${inlineRename.newName}` });
       }
     } catch (error) {
       console.error('Error renaming item:', error);
@@ -640,6 +651,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       if (response.ok) {
         await loadFoldersAndFiles();
         setShowRenameModal(null);
+        dispatchNotif('file-modified', { projectId, fileName: item.name, message: `Renamed to ${newName}` });
       }
     } catch (error) {
       console.error('Error renaming:', error);
@@ -660,6 +672,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       if (response.ok) {
         await loadFoldersAndFiles();
+        dispatchNotif('file-modified', { projectId, fileName: item.name, message: isFile ? 'File deleted' : 'Folder deleted' });
       }
     } catch (error) {
       console.error('Error deleting:', error);
@@ -778,6 +791,11 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
           setShowUserAssignModal(prev => (prev ? { ...prev, email: '' } : prev));
         }
         showNotification(`User ${mode === 'remove' ? 'removed' : 'assigned'} successfully!`, 'success');
+        if (mode === 'remove') {
+          dispatchNotif('access-removed', { projectId, removedEmail: email, message: `${isFile ? 'File' : 'Folder'} access removed for ${email}` });
+        } else {
+          dispatchNotif('user-added', { projectId, message: `${email} assigned to ${isFile ? 'file' : 'folder'} ${item.name}` });
+        }
       }
     } catch (error) {
       console.error('Error with user assignment:', error);
@@ -807,6 +825,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       if (response.ok) {
         setAssignees(prev => (prev || []).filter(a => a.assignedTo !== email));
         showNotification('Access removed successfully!', 'success');
+        dispatchNotif('access-removed', { projectId, removedEmail: email, message: `${isFile ? 'File' : 'Folder'} access removed for ${email}` });
       } else {
         const err = await response.json().catch(() => ({}));
         showNotification(err.error || 'Failed to remove access', 'error');
@@ -862,6 +881,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       }
       await loadFoldersAndFiles();
       setMoveState(null);
+      dispatchNotif('file-modified', { projectId, fileName: item.name, message: `${isFile ? 'File' : 'Folder'} moved` });
     } catch (e) {
       console.error(e);
     }

@@ -20,6 +20,7 @@ import { useSession } from "next-auth/react";
 import { CreateProjectModal } from "./components/create-project-modal";
 import type { ProjectModel } from "@/app/types/projects";
 import { ProjectAdminModal } from "./components/project-admin-modal";
+import { NotificationProvider } from "../context/notification-context";
 
 interface ProjectFile {
   id: string;
@@ -846,9 +847,12 @@ function BIMDashboard() {
 }
 
 export default function BIMDashboardWrapper() {
+  const { data: wrapperSession } = useSession();
   return (
-    <SensorProvider>
-      <BIMDashboard />
-    </SensorProvider>
+    <NotificationProvider userEmail={wrapperSession?.user?.email || null}>
+      <SensorProvider>
+        <BIMDashboard />
+      </SensorProvider>
+    </NotificationProvider>
   );
 }
