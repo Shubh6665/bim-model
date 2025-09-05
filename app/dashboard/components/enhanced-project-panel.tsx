@@ -470,10 +470,32 @@ export function EnhancedProjectPanel({
                     : 'border-gray-600 hover:border-gray-500'
                 }`}
               >
-                {/* File type icon and badge */}
+                {/* File preview (APS thumbnail if URN exists), otherwise fallback icon */}
                 <div className="flex flex-col items-center justify-center mr-2">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600">
-                    <span className="text-white text-sm font-bold uppercase">{project.fileType || '?'}</span>
+                  {(() => {
+                    const modelUrn = (project.models || []).find(m => !!m.urn)?.urn;
+                    const urn = modelUrn || project.urn;
+                    if (urn) {
+                      const thumbUrl = `/api/forge/thumbnail/${encodeURIComponent(urn)}`;
+                      return (
+                        <img
+                          src={thumbUrl}
+                          alt={project.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-gray-700 bg-gray-800"
+                          onError={(e) => {
+                            // graceful fallback to gradient box with file type
+                            const target = e.currentTarget as HTMLImageElement;
+                            target.style.display = 'none';
+                            const sib = target.nextElementSibling as HTMLDivElement | null;
+                            if (sib) sib.style.display = 'flex';
+                          }}
+                        />
+                      );
+                    }
+                    return null;
+                  })()}
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600" style={{ display: (project.urn || (project.models||[]).some(m=>m.urn)) ? 'none' as any : 'flex' }}>
+                    <span className="text-white text-sm font-bold uppercase">{(project.fileType || '?')}</span>
                   </div>
                   <span className="mt-1 text-[10px] text-gray-400">{project.code || ''}</span>
                 </div>
@@ -505,7 +527,17 @@ export function EnhancedProjectPanel({
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                    <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{project.fileType || 'Unknown'}</span>
+                    {(() => {
+                      const modelTypes = (project.models || [])
+                        .map((m) => (m.fileType || '').toUpperCase())
+                        .filter(Boolean);
+                      const displayType = modelTypes.length
+                        ? Array.from(new Set(modelTypes)).join(' / ')
+                        : (project.fileType ? String(project.fileType).toUpperCase() : '');
+                      return displayType ? (
+                        <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{displayType}</span>
+                      ) : null;
+                    })()}
                     {project.access?.role && (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
                         project.access.role === 'PlatformOwner' || project.access.owner
