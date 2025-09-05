@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Home, LogOut, Bell, Search, Menu, ChevronDown, Info, Folder, UserPlus, Users } from "lucide-react";
+import { User, Home, LogOut, Bell, Menu, ChevronDown, Info, Folder, UserPlus, Users } from "lucide-react";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 import { ProfileModal } from "./profile-modal";
 import { AdminRequestModal } from "./admin-request-modal";
@@ -165,17 +165,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
           </nav>
         </div>
 
-        {/* Center Section */}
-        <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
-          <div className="relative w-full">
-            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-            <input
-              type="text"
-              placeholder="Search projects, models..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-md py-1.5 pl-8 pr-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+        {/* Center Section removed: search is now only in 'My Projects' sidebar */}
 
         {/* Right Section */}
         <div className="flex items-center gap-2">

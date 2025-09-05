@@ -16,6 +16,7 @@ import {
   Globe,
   ArrowLeft,
   UserPlus,
+  Search,
 } from "lucide-react";
 import { CreateProjectModal } from "./create-project-modal";
 import { AdminRequestModal } from "./admin-request-modal";
@@ -148,6 +149,7 @@ export function EnhancedProjectPanel({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showProjectDetail, setShowProjectDetail] = useState(true);
   const [showAdminRequestModal, setShowAdminRequestModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Format coordinates to fit nicely in the info card
   const formatCoord = (n: number | undefined | null) =>
@@ -262,7 +264,33 @@ export function EnhancedProjectPanel({
     }
   };
 
-  const filteredProjects: Project[] = projects;
+  const filteredProjects: Project[] = React.useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    const q = searchQuery.toLowerCase();
+    return projects.filter((p) => {
+      const projectFields = [
+        p.name,
+        p.code,
+        p.country,
+        p.municipality,
+        p.fileType,
+        p.company,
+        p.clientName,
+        p.address,
+        p.cadastral,
+      ]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase())
+        .some((s) => s.includes(q));
+
+      const modelMatch = (p.models || []).some((m) => {
+        const parts = [m.name, m.fileType, m.discipline].filter(Boolean).map((s) => String(s).toLowerCase());
+        return parts.some((s) => s.includes(q));
+      });
+
+      return projectFields || modelMatch;
+    });
+  }, [projects, searchQuery]);
   const filteredFiles = files;
   const selectedProjectId: string | null = selectedProject ? selectedProject.id : null;
 
@@ -298,6 +326,22 @@ export function EnhancedProjectPanel({
               <File className="w-4 h-4 inline mr-1" />
               Models
             </button>
+          </div>
+        )}
+
+        {/* Search - visible only when no project is selected */}
+        {!selectedProject && (
+          <div className="mt-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects or models..."
+                className="w-full bg-gray-900 border border-gray-700 rounded-md py-1.5 pl-8 pr-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
         )}
 
