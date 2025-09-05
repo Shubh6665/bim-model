@@ -106,7 +106,9 @@ export async function GET(
       profile: {
         name: profile?.name || '',
         surname: profile?.surname || '',
+        title: profile?.title || '',
         society: profile?.society || '',
+        logoSociety: profile?.logoSociety || '',
         telephone: profile?.telephone || '',
         avatarUrl: profile?.avatarUrl || ''
       }
@@ -156,7 +158,9 @@ export async function PUT(
       email,
       name: body.name || '',
       surname: body.surname || '',
+      title: body.title || '',
       society: body.society || '',
+      logoSociety: body.logoSociety || '',
       telephone: body.telephone || '',
       avatarUrl: body.avatarUrl || '',
       updatedAt: new Date()
@@ -181,7 +185,9 @@ export async function PUT(
       profile: {
         name: savedProfile?.name || '',
         surname: savedProfile?.surname || '',
+        title: savedProfile?.title || '',
         society: savedProfile?.society || '',
+        logoSociety: savedProfile?.logoSociety || '',
         telephone: savedProfile?.telephone || '',
         avatarUrl: savedProfile?.avatarUrl || ''
       }

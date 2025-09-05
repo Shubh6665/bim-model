@@ -20,7 +20,9 @@ interface ProfileData {
   name: string;
   surname: string;
   email: string;
+  title?: string; // Profession title
   society: string;
+  logoSociety?: string; // Company logo URL
   telephone: string;
   avatarUrl: string;
 }
@@ -53,7 +55,9 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
           name: p?.name || '',
           surname: p?.surname || '',
           email: p?.email || email || '',
+          title: p?.title || '',
           society: p?.society || '',
+          logoSociety: p?.logoSociety || '',
           telephone: p?.telephone || '',
           avatarUrl: p?.avatarUrl || ''
         };
@@ -132,11 +136,28 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                     )}
                   </div>
                 </div>
-
+                {/* Title (profession) and Role */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Email (read-only)</div>
-                    <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.email || email}</div>
+                    <div className="text-sm text-gray-400 mb-2">Title</div>
+                    {isEditing ? (
+                      <select
+                        value={edited?.title || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, title: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select…</option>
+                        <option value="Engineer">Engineer</option>
+                        <option value="Architect">Architect</option>
+                        <option value="Surveyor">Surveyor</option>
+                        <option value="Manager">Manager</option>
+                        <option value="RUP">RUP</option>
+                        <option value="IT">IT</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.title || '-'}</div>
+                    )}
                   </div>
                   <div>
                     <div className="text-sm text-gray-400 mb-2">Role (read-only)</div>
@@ -144,6 +165,28 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                   </div>
                 </div>
 
+                {/* Email and Telephone */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-gray-400 mb-2">Email (read-only)</div>
+                    <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.email || email}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-400 mb-2">Telephone (+countrycode)</div>
+                    {isEditing ? (
+                      <input
+                        value={edited?.telephone || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, telephone: e.target.value } : prev)}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="+14151234567"
+                      />
+                    ) : (
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.telephone || '-'}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Society and Logo Society */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-sm text-gray-400 mb-2">Society</div>
@@ -158,16 +201,16 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                     )}
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Telephone (+countrycode)</div>
+                    <div className="text-sm text-gray-400 mb-2">Logo Society</div>
                     {isEditing ? (
                       <input
-                        value={edited?.telephone || ''}
-                        onChange={(e) => setEdited((prev) => prev ? { ...prev, telephone: e.target.value } : prev)}
+                        value={edited?.logoSociety || ''}
+                        onChange={(e) => setEdited((prev) => prev ? { ...prev, logoSociety: e.target.value } : prev)}
                         className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="+14151234567"
+                        placeholder="https://.../logo.png"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.telephone || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.logoSociety || '-'}</div>
                     )}
                   </div>
                 </div>
@@ -241,7 +284,9 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                               const payload = {
                                 name: edited.name || '',
                                 surname: edited.surname || '',
+                                title: edited.title || '',
                                 society: edited.society || '',
+                                logoSociety: edited.logoSociety || '',
                                 telephone: edited.telephone || '',
                                 avatarUrl: edited.avatarUrl || ''
                               };
@@ -257,7 +302,9 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                                 name: p?.name || '',
                                 surname: p?.surname || '',
                                 email: p?.email || email || '',
+                                title: p?.title || '',
                                 society: p?.society || '',
+                                logoSociety: p?.logoSociety || '',
                                 telephone: p?.telephone || '',
                                 avatarUrl: p?.avatarUrl || ''
                               };

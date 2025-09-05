@@ -28,7 +28,9 @@ export async function GET() {
       name: nameStr,
       surname: surnameStr,
       email,
+      title: user?.title || '',
       society: user?.society || '',
+      logoSociety: user?.logoSociety || '',
       telephone: user?.telephone || '',
       avatarUrl: user?.avatarUrl || '',
     };
@@ -48,7 +50,7 @@ export async function PUT(req: NextRequest) {
     if (!email) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const body = await req.json();
-    const { name = '', surname = '', society = '', telephone = '', avatarUrl = '' } = body || {};
+    const { name = '', surname = '', title = '', society = '', logoSociety = '', telephone = '', avatarUrl = '' } = body || {};
 
     if (telephone && !/^\+?[0-9]{7,15}$/.test(telephone)) {
       return NextResponse.json({ error: 'Invalid telephone number. Use digits with optional leading +country code.' }, { status: 400 });
@@ -63,7 +65,9 @@ export async function PUT(req: NextRequest) {
           email,
           name: String(name || ''),
           surname: String(surname || ''),
+          title: String(title || ''),
           society: String(society || ''),
+          logoSociety: String(logoSociety || ''),
           telephone: String(telephone || ''),
           avatarUrl: String(avatarUrl || ''),
           updatedAt: new Date(),
@@ -79,7 +83,9 @@ export async function PUT(req: NextRequest) {
       name: saved?.name || '',
       surname: saved?.surname || '',
       email,
+      title: saved?.title || '',
       society: saved?.society || '',
+      logoSociety: saved?.logoSociety || '',
       telephone: saved?.telephone || '',
       avatarUrl: saved?.avatarUrl || '',
     };
