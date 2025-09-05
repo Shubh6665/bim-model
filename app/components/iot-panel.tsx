@@ -469,13 +469,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
           </div>
         )}
       </div>
-
-      {/* Footer with BIM Logo */}
-      <div className="px-4 py-2 border-t border-gray-800 flex justify-center">
-        <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg px-6 py-1 flex items-center gap-3 shadow-lg">
-          <span className="text-white font-bold text-lg tracking-wider">BIM Pro</span>
-        </div>
-      </div>
+      
     </div>
   );
 }
