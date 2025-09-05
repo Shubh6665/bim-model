@@ -86,23 +86,38 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
     if (!administrators || administrators.length === 0) return;
     const today = new Date();
     const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const storagePrefix = 'admin-expiry.localdedupe.';
+    const hasLocal = (key: string) => {
+      try { return !!localStorage.getItem(storagePrefix + key); } catch { return false; }
+    };
+    const setLocal = (key: string) => {
+      try { localStorage.setItem(storagePrefix + key, String(Date.now())); } catch { /* ignore */ }
+    };
     administrators.forEach(a => {
       if (!a.expiresAt) return;
       const exp = new Date(a.expiresAt);
       const sameDay = exp.getFullYear() === today.getFullYear() && exp.getMonth() === today.getMonth() && exp.getDate() === today.getDate();
       const isTomorrow = exp.getFullYear() === tomorrow.getFullYear() && exp.getMonth() === tomorrow.getMonth() && exp.getDate() === tomorrow.getDate();
       if (sameDay) {
-        (window as any).postNotification?.({
-          type: 'generic',
-          title: 'Admin expiry reached',
-          message: `${a.name || a.email} (${a.company}) expiry is today.`
-        });
+        const key = `${a.email}|${a.company}|today`;
+        if (!hasLocal(key)) {
+          (window as any).postNotification?.({
+            type: 'generic',
+            title: 'Admin expiry reached',
+            message: `${a.name || a.email} (${a.company}) expiry is today.`
+          });
+          setLocal(key);
+        }
       } else if (isTomorrow) {
-        (window as any).postNotification?.({
-          type: 'generic',
-          title: 'Admin expiry tomorrow',
-          message: `${a.name || a.email} (${a.company}) will expire tomorrow.`
-        });
+        const key = `${a.email}|${a.company}|tomorrow`;
+        if (!hasLocal(key)) {
+          (window as any).postNotification?.({
+            type: 'generic',
+            title: 'Admin expiry tomorrow',
+            message: `${a.name || a.email} (${a.company}) will expire tomorrow.`
+          });
+          setLocal(key);
+        }
       }
     });
   }, [administrators]);
