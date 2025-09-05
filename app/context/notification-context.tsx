@@ -195,7 +195,7 @@ export function NotificationProvider({ children, userEmail }: { children: React.
     try {
       const seeded = localStorage.getItem(seedKey);
       if (!seeded) {
-        add({ type: 'generic', title: 'Welcome', message: 'Notifications are enabled. Click the bell to view.' });
+        add({ type: 'generic', title: 'Welcome', message: 'Welcome to BIM Viewer Platform.' });
         localStorage.setItem(seedKey, '1');
       }
     } catch {
