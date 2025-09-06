@@ -26,6 +26,75 @@ import { Floor2DView } from "./floor-2d-view";
 import { FloorData } from "./floor-data-view";
 import type { ProjectModel } from "@/app/types/projects";
 
+// Predefined categories based on the Excel file
+interface CategoryMapping {
+  categoria: string;
+  category: string;
+  classeIfc: string;
+}
+
+const PREDEFINED_CATEGORIES: CategoryMapping[] = [
+  { categoria: "Trave", category: "Beam", classeIfc: "IfcBeam" },
+  { categoria: "Elemento Generico", category: "Building Element Proxy", classeIfc: "IfcBuildingElementProxy" },
+  { categoria: "Colonna", category: "Column", classeIfc: "IfcColumn" },
+  { categoria: "Finitura", category: "Covering", classeIfc: "IfcCovering" },
+  { categoria: "Facciata Continua", category: "Curtain Wall", classeIfc: "IfcCurtainWall" },
+  { categoria: "Porta", category: "Door", classeIfc: "IfcDoor" },
+  { categoria: "Fondazione", category: "Footing", classeIfc: "IfcFooting" },
+  { categoria: "Elemento-Strutturale", category: "Member", classeIfc: "IfcMember" },
+  { categoria: "Apertura", category: "Opening Element", classeIfc: "IfcOpeningElement" },
+  { categoria: "Palificazione", category: "Pile", classeIfc: "IfcPile" },
+  { categoria: "Piante", category: "Plant", classeIfc: "IfcFurnishingElement" },
+  { categoria: "Piastra", category: "Plate", classeIfc: "IfcPlate" },
+  { categoria: "Corrente", category: "Railing", classeIfc: "IfcRailing" },
+  { categoria: "Rampa", category: "Ramp", classeIfc: "IfcRampFlight" },
+  { categoria: "Elemento Rinforzo", category: "Reinforcing Element", classeIfc: "IfcReinforcingElement" },
+  { categoria: "Tetto", category: "Roof", classeIfc: "IfcRoof" },
+  { categoria: "Solaio", category: "Slab", classeIfc: "IfcSlab" },
+  { categoria: "Rampa Scala", category: "StairFlight", classeIfc: "IfcStairFlight" },
+  { categoria: "Muro", category: "Wall", classeIfc: "IfcWall" },
+  { categoria: "Finestra", category: "Window", classeIfc: "IfcWindow" },
+  { categoria: "Elemento Camera Distribuzione", category: "Distribution Chamber Element", classeIfc: "IfcDistributionChamberElement" },
+  { categoria: "Elemento Controllo Distribuzione", category: "Distribution Control Element", classeIfc: "IfcDistributionControlElement" },
+  { categoria: "Elemento Flusso Distributivo", category: "Distribution Flow Element", classeIfc: "IfcDistributionFlowElement" },
+  { categoria: "Elemento Elettrico", category: "Electrical Element", classeIfc: "IfcElectricalElement" },
+  { categoria: "Apparecchio Conversione Energia", category: "Energy Conversion Device", classeIfc: "IfcEnergyConversionDevice" },
+  { categoria: "Controllo Flusso", category: "Flow Controller", classeIfc: "IfcFlowController" },
+  { categoria: "Raccordo", category: "Flow Fitting", classeIfc: "IfcFlowFitting" },
+  { categoria: "Apparecchio Movimentazione Fluidi", category: "Flow Moving Device", classeIfc: "IfcFlowMovingDevice" },
+  { categoria: "Segmento", category: "Flow Segment", classeIfc: "IfcFlowSegment" },
+  { categoria: "Apparecchio Immagazzinamento Fluidi", category: "Flow Storage Device", classeIfc: "IfcFlowStorageDevice" },
+  { categoria: "Terminale", category: "Flow Terminal", classeIfc: "IfcFlowTerminal" },
+  { categoria: "Dispositivo di trattamento del flusso", category: "Flow Treatment Device", classeIfc: "IfcFlowTreatmentDevice" },
+  { categoria: "Materiale Elettrico", category: "Equipment Element", classeIfc: "IfcEquipmentElement" },
+  { categoria: "Elemento Trasporto", category: "Trasport Element", classeIfc: "IfcTrasportElement" },
+  { categoria: "Macchine di cantiere", category: "IfcFurnishingElement", classeIfc: "IfcFurnishingElement" },
+  { categoria: "Arredi fissi e mobili", category: "IfcFurnishingElement", classeIfc: "IfcFurnishingElement" },
+  { categoria: "Terminale antincendio", category: "IfcFireSuppressionTerminal", classeIfc: "IfcFireSuppressionTerminal" }
+];
+
+// Extract unique categories for the dropdown
+const AVAILABLE_CATEGORIES = Array.from(
+  new Set([
+    ...PREDEFINED_CATEGORIES.map(item => item.categoria),
+    ...PREDEFINED_CATEGORIES.map(item => item.category),
+    ...PREDEFINED_CATEGORIES.map(item => item.classeIfc)
+  ])
+).sort();
+
+// Helper functions to get unique values for each category type
+const getUniqueItalianCategories = () => {
+  return Array.from(new Set(PREDEFINED_CATEGORIES.map(item => item.categoria))).sort();
+};
+
+const getUniqueEnglishCategories = () => {
+  return Array.from(new Set(PREDEFINED_CATEGORIES.map(item => item.category))).sort();
+};
+
+const getUniqueIfcClasses = () => {
+  return Array.from(new Set(PREDEFINED_CATEGORIES.map(item => item.classeIfc))).sort();
+};
+
 interface BIMPanelProps {
   onBackToProjects: () => void;
   onSave2DView?: (viewName: string) => void;
@@ -231,10 +300,17 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
         hasModel: !!viewer?.model,
         modelId: viewer?.model?.id || 'none'
       });
-      // Trigger category extraction if Filter panel is active AND model is loaded
-      if (activeCommand === 'filter-objects' && viewer?.model) {
-        console.log('[BIMPanel] Calling rebuildIndexAndCategories...');
-        await rebuildIndexAndCategories();
+      // Set predefined categories immediately when Filter panel is active
+      if (activeCommand === 'filter-objects') {
+        console.log('[BIMPanel] Setting predefined categories...');
+        setAvailableCategories(AVAILABLE_CATEGORIES);
+        setCategoriesLoading(false);
+        
+        // Still build property index if model is available for filtering functionality
+        if (viewer?.model) {
+          console.log('[BIMPanel] Building property index for filtering...');
+          await rebuildIndexAndCategories();
+        }
       }
     };
     preindex();
@@ -623,13 +699,16 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       }
     }
 
-    // Filter: only models whose mapped project id is enabled
+    // Filter: only models whose mapped project id is enabled.
+    // IMPORTANT: If a model cannot be mapped to a project id, include it by default
+    // to avoid accidentally hiding overlay/untracked models.
     const enabledModels = allModels.filter((m) => {
       const urn = getModelURN(m);
       const pmId = projectByUrn.get(urn);
       if (pmId) return enabledModelIds.has(pmId);
-      // Fallback: if we couldn't map, include only if all models are enabled (conservative)
-      return false;
+      // Unmapped model – include by default
+      console.debug('[Filter] Including unmapped model by default (no project id for URN):', urn, 'model.id:', m?.id);
+      return true;
     });
 
     console.log('[Filter] Active models filtered by enabledModelIds:', {
@@ -707,7 +786,9 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
           tree.enumNodeChildren(nodeId, (c: number) => { hasChild = true; return false; });
           let hasFrags = false;
           tree.enumNodeFragments(nodeId, () => { hasFrags = true; return true; });
-          if (!hasChild || hasFrags) allDbIds.push(nodeId);
+          // Only include nodes that have renderable fragments. Avoid indexing non-element leaf nodes
+          // (e.g., Levels, Views) that may have no fragments but no children either.
+          if (hasFrags) allDbIds.push(nodeId);
           if (depth > 0) {
             const rawName = tree.getNodeName(nodeId);
             const cleaned = (rawName || '').replace(/\s*\(\d+\)$/, '').replace(/\s*\[\d+\]$/, '').trim();
@@ -722,16 +803,33 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
         for (let i = 0; i < allDbIds.length; i += batchSize) {
           const batch = allDbIds.slice(i, i + batchSize);
           const results = await new Promise<any[]>((resolve, reject) => {
-            model.getBulkProperties(batch, { propFilter: ['Category'] }, (data: any[]) => resolve(data), reject);
+            // Get all relevant properties for better category matching
+            const propFilter = [
+              'Category',
+              'Element Category', 
+              'IFC Class',
+              'IfcClass',
+              'Type Name',
+              'Family',
+              'Family and Type',
+              'Name',
+              'System Type',
+              'Object Type',
+              'ObjectType'
+            ];
+            model.getBulkProperties(batch, { propFilter }, (data: any[]) => resolve(data), reject);
           });
           results.forEach((item) => {
             const map: Record<string, string> = {};
             (item.properties || []).forEach((p: any) => {
+              const propValue = String(p.displayValue ?? '');
+              map[p.displayName] = propValue;
+              
+              // Still collect categories for reference (though we won't use them for the dropdown)
               if (p.displayName === 'Category' && p.displayValue) {
-                const cleaned = String(p.displayValue).trim();
+                const cleaned = propValue.trim();
                 if (cleaned && !blocklist.has(cleaned)) categoriesForModel.add(cleaned);
               }
-              map[p.displayName] = String(p.displayValue ?? '');
             });
             if (typeof item.name === 'string') map['__nodeName'] = item.name;
             propsCache[item.dbId] = map;
@@ -752,11 +850,12 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       }
 
       setPropertyIndexReady(true);
-      const categoriesArr = Array.from(allCategoriesUnion).sort((a, b) => a.localeCompare(b));
-      setAvailableCategories(categoriesArr);
+      // Don't override predefined categories - keep the ones we set in useEffect
+      // const categoriesArr = Array.from(allCategoriesUnion).sort((a, b) => a.localeCompare(b));
+      // setAvailableCategories(categoriesArr);
       setCategoriesLoading(false);
 
-      console.log('[Filter] Extracted categories (multi-model aware):', categoriesArr);
+      console.log('[Filter] Property index built. Using predefined categories instead of extracted ones.');
       return true;
     } catch (e) {
       console.error('[Filter] Failed to build index/categories:', e);
@@ -776,29 +875,159 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
     const selected = (selectedCategory || '').trim();
     const selNorm = norm(selected);
     if (!selNorm) return true;
+
+    console.log('[Filter] Matching category:', selected, 'against props:', {
+      Category: props['Category'],
+      'Element Category': props['Element Category'],
+      'IFC Class': props['IFC Class'],
+      'IfcClass': props['IfcClass'],
+      'Type Name': props['Type Name'],
+      'Family': props['Family'],
+      'Name': props['Name'],
+      '__nodeName': props['__nodeName']
+    });
+
+    // Find matching predefined category mappings
+    const matchingMappings = PREDEFINED_CATEGORIES.filter(mapping => 
+      norm(mapping.categoria) === selNorm ||
+      norm(mapping.category) === selNorm ||
+      norm(mapping.classeIfc) === selNorm
+    );
+
+    if (matchingMappings.length > 0) {
+      // Mapping(s) found for the selected category; attempt to match against element properties.
+      
+      // Check if any of the mapped values match the element properties
+      for (const mapping of matchingMappings) {
+        // Check against various property fields with more flexible matching
+        for (const key of categoryFieldCandidates) {
+          const v = props[key];
+          if (v) {
+            const propValue = norm(String(v));
+            
+            // Exact matches
+            if (propValue === norm(mapping.categoria) ||
+                propValue === norm(mapping.category) ||
+                propValue === norm(mapping.classeIfc)) {
+              console.log('[Filter] Exact match found via mapping:', key, '=', v);
+              return true;
+            }
+            
+            // Partial matches for common patterns
+            if (propValue.includes(norm(mapping.categoria)) ||
+                propValue.includes(norm(mapping.category)) ||
+                (mapping.classeIfc.startsWith('Ifc') && propValue.includes(norm(mapping.classeIfc.substring(3))))) {
+              console.log('[Filter] Partial match found via mapping:', key, '=', v);
+              return true;
+            }
+          }
+        }
+        
+        // Additional checks for IFC classes with more flexibility
+        if (props['IFC Class'] || props['IfcClass']) {
+          const ifcClass = props['IFC Class'] || props['IfcClass'];
+          const ifcNorm = norm(ifcClass);
+          if (ifcNorm === norm(mapping.classeIfc) ||
+              ifcNorm.includes(norm(mapping.classeIfc)) ||
+              norm(mapping.classeIfc).includes(ifcNorm)) {
+            console.log('[Filter] IFC class match found:', ifcClass, 'matches', mapping.classeIfc);
+            return true;
+          }
+        }
+        
+        // Check node name for partial matches with more patterns
+        if (props['__nodeName']) {
+          const nodeName = norm(props['__nodeName']);
+          const categoryBase = norm(mapping.category);
+          const italianBase = norm(mapping.categoria);
+          const ifcBase = norm(mapping.classeIfc.replace(/^ifc/i, ''));
+          
+          if (nodeName.includes(categoryBase) ||
+              nodeName.includes(italianBase) ||
+              nodeName.includes(ifcBase) ||
+              categoryBase.includes(nodeName) ||
+              italianBase.includes(nodeName)) {
+            console.log('[Filter] Node name match found:', props['__nodeName'], 'matches category patterns');
+            return true;
+          }
+        }
+        
+        // Check all property values for any mention of the category
+        const allPropValues = Object.values(props).join(' ').toLowerCase();
+        if (allPropValues.includes(norm(mapping.category)) ||
+            allPropValues.includes(norm(mapping.categoria)) ||
+            allPropValues.includes(norm(mapping.classeIfc.replace(/^ifc/i, '')))) {
+          console.log('[Filter] Found match in combined property values');
+          return true;
+        }
+      }
+    }
+
+    // Fallback to original logic for backward compatibility
     // 1) Exact match against common category fields
     for (const key of categoryFieldCandidates) {
       const v = props[key];
-      if (v && norm(String(v)) === selNorm) return true;
+      if (v && norm(String(v)) === selNorm) {
+        console.log('[Filter] Direct match found:', key, '=', v);
+        return true;
+      }
     }
-    // 2) Keyword heuristic (singular/plural)
+    
+    // 2) Enhanced keyword heuristic (singular/plural and variations)
     const base = selNorm.replace(/s$/i, ''); // walls -> wall
-    const rx = new RegExp(`\\b${base}s?\\b`, 'i');
-    const haystack = [
-      props['Category'],
-      props['Element Category'],
-      props['IFC Class'],
-      props['IfcClass'],
-      props['System Type'],
-      props['Name'],
-      props['Family'],
-      props['Family and Type'],
-      props['Type Name'],
-      props['Object Type'],
-      props['ObjectType'],
-      props['__nodeName']
-    ].filter(Boolean).join(' | ');
-    return rx.test(haystack);
+    const variations = [
+      selNorm,
+      base,
+      base + 's',
+      // For IFC classes, also try without the "Ifc" prefix
+      selNorm.replace(/^ifc/i, ''),
+      // For Italian/English equivalents
+      ...(PREDEFINED_CATEGORIES
+        .filter(mapping => 
+          norm(mapping.categoria) === selNorm || 
+          norm(mapping.category) === selNorm || 
+          norm(mapping.classeIfc) === selNorm
+        )
+        .flatMap(mapping => [
+          norm(mapping.categoria),
+          norm(mapping.category),
+          norm(mapping.classeIfc),
+          norm(mapping.classeIfc.replace(/^ifc/i, ''))
+        ])
+      )
+    ];
+    
+    // Create regex pattern for all variations
+    const escapedVariations = variations
+      .filter(v => v && v.length > 1)
+      .map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    
+    if (escapedVariations.length > 0) {
+      const rx = new RegExp(`\\b(${escapedVariations.join('|')})s?\\b`, 'i');
+      const haystack = [
+        props['Category'],
+        props['Element Category'],
+        props['IFC Class'],
+        props['IfcClass'],
+        props['System Type'],
+        props['Name'],
+        props['Family'],
+        props['Family and Type'],
+        props['Type Name'],
+        props['Object Type'],
+        props['ObjectType'],
+        props['__nodeName']
+      ].filter(Boolean).join(' | ');
+      
+      const regexMatch = rx.test(haystack);
+      if (regexMatch) {
+        console.log('[Filter] Enhanced regex match found in haystack:', haystack, 'with pattern:', rx.source);
+        return true;
+      }
+    }
+    
+    console.log('[Filter] No matches found for category:', selected);
+    return false;
   };
 
   const matchText = (props: Record<string, string>, keyCandidates: string[], q: string) => {
@@ -855,8 +1084,11 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
     const catQ2 = filterCategory2; // optional second category (AND)
   // type filtering removed
 
+    console.log('[Filter] Applying filters:', { nameQ, catQ, catQ2 });
+
     // If nothing entered, show all
   if (!nameQ && !catQ && !catQ2) {
+      console.log('[Filter] No filters specified, showing all');
       // Clear isolate state and show all
       try {
         if (viewer.isolate) viewer.isolate([]);
@@ -872,25 +1104,48 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
     // Collect matches per model
     const perModelMatches: { model: any; ids: number[] }[] = [];
     const activeModels = getActiveModels();
+    console.log('[Filter] Active models:', activeModels.length);
+    
     if (activeModels.length === 0) return;
     for (const model of activeModels) {
       const dbIds = modelDbIdsRef.current.get(model.id) || [];
       const propsCache = modelPropsRef.current.get(model.id) || {};
       const localMatches: number[] = [];
+      
+      console.log(`[Filter] Processing model ${model.id} with ${dbIds.length} elements`);
+      
+      let checkedCount = 0;
+      let categoryMatches = 0;
+      let nameMatches = 0;
+      
       for (const dbId of dbIds) {
+        checkedCount++;
         const props = (propsCache as any)[dbId] || {};
+        
+        // Log first few elements for debugging
+        if (checkedCount <= 3) {
+          console.log(`[Filter] Element ${dbId} properties:`, props);
+        }
+        
         const catOk = catQ ? matchCategoryDynamic(props, catQ) : true;
+        if (catQ && catOk) categoryMatches++;
+        
         const cat2Ok = catQ2 ? matchCategoryDynamic(props, catQ2) : true;
         if (!catOk || !cat2Ok) continue;
         const nameOk = nameQ ? matchText(props, fieldsForName, nameQ) : true;
+        if (nameQ && nameOk) nameMatches++;
+        
         if (!nameOk) continue;
   // type filter removed
         localMatches.push(dbId);
       }
+      console.log(`[Filter] Model ${model.id} stats: checked=${checkedCount}, categoryMatches=${categoryMatches}, nameMatches=${nameMatches}, finalMatches=${localMatches.length}`);
       if (localMatches.length) perModelMatches.push({ model, ids: localMatches });
     }
 
     const matched = perModelMatches.reduce((sum, s) => sum + s.ids.length, 0);
+    console.log(`[Filter] Total matches found: ${matched}`);
+    
     if (matched === 0) {
       console.warn('[Filter] Property-index match returned 0. Trying search fallback...');
       let searchKeywords: string[] = [];
@@ -1395,6 +1650,8 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
               Filter Objects
             </h3>
 
+            
+
             {/* Category dropdown */}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Category / Type</label>
@@ -1410,9 +1667,33 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 <option value="">
                   {categoriesLoading && availableCategories.length === 0 ? 'Loading categories…' : 'Select category…'}
                 </option>
-                {availableCategories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                
+                {/* Italian Categories */}
+                <optgroup label="Categoria">
+                  {getUniqueItalianCategories().map((categoria) => (
+                    <option key={`it-${categoria}`} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </optgroup>
+                
+                {/* English Categories */}
+                <optgroup label="Category">
+                  {getUniqueEnglishCategories().map((category) => (
+                    <option key={`en-${category}`} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </optgroup>
+                
+                {/* IFC Classes */}
+                <optgroup label="Classe IFC">
+                  {getUniqueIfcClasses().map((classeIfc) => (
+                    <option key={`ifc-${classeIfc}`} value={classeIfc}>
+                      {classeIfc}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -1441,9 +1722,33 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm mb-1"
               >
                 <option value="">(Optional) Select another category…</option>
-                {availableCategories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                
+                {/* Italian Categories */}
+                <optgroup label="Categoria">
+                  {getUniqueItalianCategories().map((categoria) => (
+                    <option key={`it2-${categoria}`} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </optgroup>
+                
+                {/* English Categories */}
+                <optgroup label="Category">
+                  {getUniqueEnglishCategories().map((category) => (
+                    <option key={`en2-${category}`} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </optgroup>
+                
+                {/* IFC Classes */}
+                <optgroup label="Classe IFC">
+                  {getUniqueIfcClasses().map((classeIfc) => (
+                    <option key={`ifc2-${classeIfc}`} value={classeIfc}>
+                      {classeIfc}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
 
@@ -1465,6 +1770,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 Show All
               </button>
             </div>
+
 
             {/* Hierarchical list (Type -> Items) */}
             {filterCategory && Object.keys(groupedByType).length > 0 && (
