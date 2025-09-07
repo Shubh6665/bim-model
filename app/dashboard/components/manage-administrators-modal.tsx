@@ -64,6 +64,9 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
     window.removeEventListener('mouseup', onMouseUp);
   };
 
+  // Ref to the currently edited expiration input (only one can be open at a time)
+  const expireInputRef = useRef<HTMLInputElement | null>(null);
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -258,35 +261,50 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                               className="bg-gray-800 border border-gray-700 text-gray-200 rounded px-2 py-1 text-xs"
                               defaultValue={toInputDate(admin.expiresAt) || ''}
                               min={todayYMD()}
-                              onChange={(e) => {
-                                const v = e.target.value; // yyyy-mm-dd
-                                const iso = v ? new Date(v + 'T00:00:00Z').toISOString() : '';
-                                // Auto-save immediately when a date is picked
-                                setExpire(admin.email, admin.company, v ? iso : null);
-                                setEditingExpireKey(null);
-                              }}
-                              onBlur={(e) => {
-                                const v = e.currentTarget.value.trim();
-                                if (!v || v.includes('-')) return; // native format handled in onChange
-                                // accept dd/mm/yyyy
-                                const m = v.match(/^([0-3]?\d)\/([0-1]?\d)\/(\d{4})$/);
-                                if (!m) { return; }
-                                const dd = parseInt(m[1], 10);
-                                const mm = parseInt(m[2], 10);
-                                const yyyy = parseInt(m[3], 10);
-                                const candidate = new Date(yyyy, mm - 1, dd);
-                                const today = new Date();
-                                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                                if (isNaN(candidate.getTime()) || candidate < startOfToday) {
-                                  setError('Please choose a date that is today or later.');
-                                  return;
-                                }
-                                const iso = new Date(Date.UTC(yyyy, mm - 1, dd)).toISOString();
-                                setExpire(admin.email, admin.company, iso);
-                                setEditingExpireKey(null);
-                              }}
+                              pattern="\d{4}-\d{2}-\d{2}"
+                              title="Please enter a complete date in YYYY-MM-DD format or type DD/MM/YYYY and blur"
+                              onChange={() => { /* do not auto-save on change */ }}
+                              onBlur={() => { /* do not auto-save on blur; use ✓ button */ }}
+                              ref={expireInputRef}
                               placeholder="dd/mm/yyyy"
                             />
+                            <button
+                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              title="Save expiration"
+                              onClick={() => {
+                                const v = expireInputRef.current?.value?.trim() || '';
+                                if (!v) { setError('Please enter a date before saving.'); return; }
+                                // Case 1: native yyyy-mm-dd fully specified
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+                                  const d = new Date(v + 'T00:00:00Z');
+                                  if (isNaN(d.getTime())) { setError('Invalid date.'); return; }
+                                  const today = new Date();
+                                  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                  if (d < startOfToday) { setError('Please choose a date that is today or later.'); return; }
+                                  setExpire(admin.email, admin.company, d.toISOString());
+                                  setEditingExpireKey(null);
+                                  return;
+                                }
+                                // Case 2: dd/mm/yyyy fully specified
+                                const m = v.match(/^([0-3]?\d)\/([0-1]?\d)\/(\d{4})$/);
+                                if (m) {
+                                  const dd = parseInt(m[1], 10);
+                                  const mm = parseInt(m[2], 10);
+                                  const yyyy = parseInt(m[3], 10);
+                                  const candidate = new Date(yyyy, mm - 1, dd);
+                                  const today = new Date();
+                                  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                                  if (isNaN(candidate.getTime()) || candidate < startOfToday) { setError('Please choose a date that is today or later.'); return; }
+                                  const iso = new Date(Date.UTC(yyyy, mm - 1, dd)).toISOString();
+                                  setExpire(admin.email, admin.company, iso);
+                                  setEditingExpireKey(null);
+                                  return;
+                                }
+                                setError('Please enter date as YYYY-MM-DD or DD/MM/YYYY.');
+                              }}
+                            >
+                              ✓
+                            </button>
                             <button
                               className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
                               title="Close without changes"
@@ -294,15 +312,6 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                             >
                               ✕
                             </button>
-                            {admin.expiresAt && (
-                              <button
-                                className="text-xs text-gray-300 hover:text-white underline disabled:opacity-50"
-                                onClick={() => { setExpire(admin.email, admin.company, null); setEditingExpireKey(null); }}
-                                disabled={busyKey === `${admin.email}|${admin.company}|expire`}
-                              >
-                                Clear
-                              </button>
-                            )}
                           </div>
                         )}
                       </td>

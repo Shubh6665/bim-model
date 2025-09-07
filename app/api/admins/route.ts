@@ -122,6 +122,33 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Can only set expiration for approved administrators' }, { status: 400 });
       }
 
+      // Validate provided date if setting a value
+      if (expiresAt) {
+        // Accept ISO or yyyy-mm-dd. Reject if invalid or in the past. Force to start of day UTC
+        let d: Date | null = null;
+        if (typeof expiresAt === 'string') {
+          const trimmed = expiresAt.trim();
+          const ymd = trimmed.match(/^\d{4}-\d{2}-\d{2}$/);
+          if (ymd) {
+            d = new Date(trimmed + 'T00:00:00Z');
+          } else {
+            const tryIso = new Date(trimmed);
+            if (!isNaN(tryIso.getTime())) {
+              // normalize to 00:00:00 UTC of that date
+              d = new Date(Date.UTC(tryIso.getUTCFullYear(), tryIso.getUTCMonth(), tryIso.getUTCDate()));
+            }
+          }
+        }
+        if (!d || isNaN(d.getTime())) {
+          return NextResponse.json({ error: 'Invalid expiration date. Use yyyy-mm-dd or ISO format.' }, { status: 400 });
+        }
+        const today = new Date();
+        const startOfTodayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        if (d < startOfTodayUTC) {
+          return NextResponse.json({ error: 'Expiration cannot be in the past.' }, { status: 400 });
+        }
+      }
+
       const update: any = expiresAt
         ? { $set: { 'adminCompanies.$[elem].expiresAt': new Date(expiresAt) } }
         : { $unset: { 'adminCompanies.$[elem].expiresAt': '' } };
@@ -179,6 +206,9 @@ export async function PATCH(req: NextRequest) {
       let update: any = { $set: { 'adminCompanies.$[elem].status': status } };
       if (status === 'approved') {
         update.$set['adminCompanies.$[elem].approvedAt'] = now;
+        // Set default expiration to 1 year from approval date (start of day, same date next year)
+        const oneYearLater = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
+        update.$set['adminCompanies.$[elem].expiresAt'] = oneYearLater;
       } else {
         update.$unset = { 'adminCompanies.$[elem].approvedAt': '' };
       }
