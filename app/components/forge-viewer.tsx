@@ -463,7 +463,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             // Enhanced alignment using proper globalOffset handling
                             try {
                                 // Set visibility based on current enabledModelIds immediately
-                                const shouldShow = enabledModelIds ? enabledModelIds.has(id) : false;
+                                const shouldShow = (!enabledModelIds || enabledModelIds.size === 0)
+                                    ? true
+                                    : enabledModelIds.has(id);
                                 console.log(`🔧 [${id}] Reconcile - Setting visibility: ${shouldShow}`);
                                 setModelVisible(model, shouldShow);
                                 if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
@@ -604,7 +606,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                 
                                 // Set initial visibility based on current enabledModelIds
                                 try {
-                                    const shouldShow = enabledModelIds ? enabledModelIds.has(m.id) : false;
+                                    const shouldShow = (!enabledModelIds || enabledModelIds.size === 0)
+                                        ? true
+                                        : enabledModelIds.has(m.id);
                                     console.log(`🔧 [${m.id}] Setting initial visibility: ${shouldShow}`);
                                     setModelVisible(model, shouldShow);
                                     
@@ -976,6 +980,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     applyScaling: 'm'
                 };
                 v.loadDocumentNode(doc, geom, opts).then(() => {
+                    // Update primary model reference id so overlays exclude the correct primary after reload
+                    try {
+                        const newPrimaryId = (models && models.length > 0) ? models[0].id : null;
+                        primaryModelIdRef.current = newPrimaryId || null;
+                    } catch {}
                     // Unload any previous overlays and clear map; they will reconcile via other effect
                     try {
                         for (const mdl of overlayModelMapRef.current.values()) { try { v.unloadModel(mdl); } catch {} }
