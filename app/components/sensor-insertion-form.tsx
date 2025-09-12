@@ -11,6 +11,8 @@ export interface SensorFormData {
   room: string;
   link: string;
   type: string;
+  externalId: string;
+  devsn: string;
 }
 
 interface SensorInsertionFormProps {
@@ -38,6 +40,8 @@ export function SensorInsertionForm({
     room: "",
     link: "",
     type: sensorType,
+    externalId: "",
+    devsn: "",
   });
 
   const [errors, setErrors] = useState<Partial<SensorFormData>>({});
@@ -53,6 +57,8 @@ export function SensorInsertionForm({
         room: "",
         link: "",
         type: sensorType,
+        externalId: "",
+        devsn: "",
       });
       setErrors({});
     }
@@ -105,6 +111,8 @@ export function SensorInsertionForm({
       room: "",
       link: "",
       type: sensorType,
+      externalId: "",
+      devsn: "",
     });
     setErrors({});
     onCancel();
@@ -261,6 +269,38 @@ export function SensorInsertionForm({
               onChange={(e) => handleInputChange("link", e.target.value)}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter documentation or reference link (optional)"
+              disabled={loading}
+            />
+          </div>
+
+          {/* External ID Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              External ID
+              <span className="text-xs text-gray-400 ml-1">(for data merging)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.externalId}
+              onChange={(e) => handleInputChange("externalId", e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., 20286614 (sensors with same ID share data)"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Device Serial Number Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Device Serial (devsn)
+              <span className="text-xs text-gray-400 ml-1">(alternative grouping)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.devsn}
+              onChange={(e) => handleInputChange("devsn", e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g., DEV001 (fallback if no External ID)"
               disabled={loading}
             />
           </div>

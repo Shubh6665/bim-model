@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { DataVizService, SensorSprite } from "../services/dataviz-service";
-import type { ProjectModel } from "@/app/types/projects";
+import React, { useRef, useEffect, useState } from "react";
 import { useSensorContext } from "../context/sensor-context";
+import { DataVizService, SensorSprite } from "../services/dataviz-service";
+import "./forge-viewer.css";
+import type { ProjectModel } from "@/app/types/projects";
 
 interface ForgeViewerProps {
     accessToken: string;
@@ -65,13 +66,244 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const dataVizInitInFlightRef = useRef(false);
 
     // Use sensor context
-    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay } = useSensorContext();
+    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay, currentProjectId, updateSensorValues } = useSensorContext();
+    
+    // Real-time sensor updates
+    useEffect(() => {
+        if (!currentProjectId || activePanel !== 'iot') return;
+        
+        const updateRealtime = async () => {
+            try {
+                console.log(`[ForgeViewer] Fetching realtime updates for project ${currentProjectId}`);
+                const resp = await fetch(`/api/iot/realtime?projectId=${currentProjectId}`);
+                if (!resp.ok) {
+                    console.warn(`[ForgeViewer] Realtime update failed: ${resp.status}`);
+                    return;
+                }
+                const json = await resp.json();
+                console.log(`[ForgeViewer] Received realtime updates:`, json.updates?.length || 0, 'sensors');
+                
+                if (json.updates && updateSensorValues) {
+                    updateSensorValues(json.updates);
+                }
+            } catch (e) {
+                console.warn(`[ForgeViewer] Realtime update error:`, e);
+            }
+        };
+        
+        // Initial update
+        updateRealtime();
+        
+        // Update every 15 seconds
+        const interval = setInterval(updateRealtime, 15000);
+        return () => clearInterval(interval);
+    }, [currentProjectId, activePanel, updateSensorValues]);
     // Draggable overlay state
     const overlayRef = useRef<HTMLDivElement | null>(null);
     const [overlayPos, setOverlayPos] = useState<{ x: number; y: number } | null>(null);
     const dragOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
     const isDraggingRef = useRef(false);
     const wasDraggedRef = useRef(false);
+
+    // Graph overlay state
+    const [graphLoading, setGraphLoading] = useState(false);
+    const [graphError, setGraphError] = useState<string | null>(null);
+    const [graphTimestamps, setGraphTimestamps] = useState<Date[]>([]);
+    const [graphSeries, setGraphSeries] = useState<{ temp: number[]; rh: number[]; co2: number[]; pressure: number[] } | null>(null);
+    const [primaryKey, setPrimaryKey] = useState<'temp' | 'rh' | 'co2' | 'pressure'>('temp');
+
+    // Map sensor type to primary data channel
+    const getPrimaryChannel = (sensorType?: string): { key: 'temp'|'rh'|'co2'|'pressure', label: string, unit: string, color: string } => {
+        const t = (sensorType || '').toLowerCase();
+        if (t.includes('co2')) return { key: 'co2', label: 'CO2', unit: 'ppm', color: '#22c55e' };
+        if (t.includes('humid')) return { key: 'rh', label: 'Relative humidity', unit: '%RH', color: '#3b82f6' };
+        if (t.includes('press')) return { key: 'pressure', label: 'Barometric pressure', unit: 'hPa', color: '#f59e0b' };
+        // default temperature
+        return { key: 'temp', label: 'Temperature', unit: '°C', color: '#ef4444' };
+    };
+
+    // Helper to render a simple inline sparkline
+    const renderSparkline = (label: string, unit: string, values: number[] | undefined, color: string, timestamps?: Date[]) => {
+        if (!values || values.length === 0) return null;
+        const w = 420; // wider for clarity
+        const h = 180; // taller for clarity
+        const lpad = 46; // left padding for Y-axis labels
+        const rpad = 14;
+        const tpad = 12;
+        const bpad = 24; // bottom padding for time labels
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const span = max - min || 1;
+        const innerW = w - lpad - rpad;
+        const innerH = h - tpad - bpad;
+        const stepX = innerW / Math.max(1, values.length - 1);
+        const points: string = values
+            .map((v, i) => {
+                const x = lpad + i * stepX;
+                const y = tpad + innerH * (1 - (v - min) / span);
+                return `${x},${y}`;
+            })
+            .join(' ');
+        const latest = values[values.length - 1];
+        // Simple time labels: start, middle, end
+        const makeTime = (d?: Date) => d ? `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}` : '';
+        const t0 = timestamps && timestamps[0];
+        const tm = timestamps && timestamps[Math.floor((timestamps.length - 1)/2)];
+        const tn = timestamps && timestamps[timestamps.length - 1];
+        // Threshold-based latest text color
+        const lower = label.toLowerCase();
+        let latestColor = "#ffffff";
+        const valNum = typeof latest === 'number' ? latest : parseFloat(String(latest));
+        if (!isNaN(valNum)) {
+            if (lower.includes('temperature')) {
+                // yellow ≥ 28, red ≥ 30
+                latestColor = valNum >= 30 ? '#ef4444' : valNum >= 28 ? '#f59e0b' : '#ffffff';
+            } else if (lower.includes('co2')) {
+                // yellow ≥ 1000, red ≥ 1200
+                latestColor = valNum >= 1200 ? '#ef4444' : valNum >= 1000 ? '#f59e0b' : '#ffffff';
+            } else if (lower.includes('humidity')) {
+                // yellow for 60-70 or 25-30, red for <25 or >70
+                latestColor = (valNum > 70 || valNum < 25) ? '#ef4444' : (valNum >= 60 || valNum <= 30) ? '#f59e0b' : '#ffffff';
+            }
+        }
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div style={{ color: '#d1d5db', fontSize: 12 }}>{label}</div>
+                    <div style={{ color: latestColor, fontWeight: 800, fontSize: 14 }}>{latest}{unit ? ` ${unit}` : ''}</div>
+                </div>
+                <svg width={w} height={h} style={{ background: '#0b1220', border: '1px solid #1f2937', borderRadius: 8 }}>
+                    {/* Plot area border */}
+                    <rect x={lpad} y={tpad} width={innerW} height={innerH} rx={6} ry={6} fill="none" stroke="#111827" />
+                    {/* Horizontal gridlines + Y-axis labels (left) */}
+                    {Array.from({ length: 5 }).map((_, i) => {
+                        const y = tpad + i * (innerH / 4);
+                        const val = (max - (span / 4) * i).toFixed(0);
+                        return (
+                            <g key={i}>
+                                <line x1={lpad} y1={y} x2={lpad + innerW} y2={y} stroke="#1f2937" strokeWidth="1" />
+                                <text x={lpad - 6} y={y + 3} fill="#6b7280" fontSize="10" textAnchor="end">{val}</text>
+                            </g>
+                        );
+                    })}
+                    {/* Vertical gridlines */}
+                    {Array.from({ length: 5 }).map((_, i) => {
+                        const x = lpad + i * (innerW / 4);
+                        return <line key={`v${i}`} x1={x} y1={tpad} x2={x} y2={tpad + innerH} stroke="#0f172a" strokeWidth="1" />
+                    })}
+                    {/* Polyline */}
+                    <polyline fill="none" stroke={color} strokeWidth="2.5" points={points} />
+                    {/* Markers every ~6th point to avoid clutter */}
+                    {values.map((v, i) => {
+                        if (i % Math.max(1, Math.floor(values.length / 12)) !== 0) return null;
+                        const x = lpad + i * stepX;
+                        const y = tpad + innerH * (1 - (v - min) / span);
+                        const tt = timestamps && timestamps[i] ? `${makeTime(timestamps[i])} • ${v}${unit ? ` ${unit}` : ''}` : `${v}${unit ? ` ${unit}` : ''}`;
+                        return (
+                            <circle key={i} cx={x} cy={y} r={3} fill="#e5e7eb" stroke="#111827" strokeWidth="0.5">
+                                <title>{tt}</title>
+                            </circle>
+                        )
+                    })}
+                    {timestamps && timestamps.length > 1 && (
+                        <>
+                            {/* time labels */}
+                            <text x={lpad} y={h - 6} fill="#9ca3af" fontSize="11">{makeTime(t0)}</text>
+                            <text x={lpad + innerW / 2 - 16} y={h - 6} fill="#9ca3af" fontSize="11">{makeTime(tm)}</text>
+                            <text x={lpad + innerW - 34} y={h - 6} fill="#9ca3af" fontSize="11">{makeTime(tn)}</text>
+                        </>
+                    )}
+                </svg>
+            </div>
+        );
+    };
+
+    // Fetch samples when the graphs overlay opens
+    useEffect(() => {
+        const load = async () => {
+            if (!viewerOverlay || viewerOverlay.type !== 'graphs') return;
+            const sensorId = viewerOverlay.sensor?.id;
+            if (!sensorId) return;
+            try {
+                console.log(`[ForgeViewer] Loading graphs for sensor ${sensorId}`);
+                setGraphLoading(true);
+                setGraphError(null);
+                setGraphSeries(null);
+                // Default to last 6 hours window
+                const end = new Date();
+                const start = new Date(end.getTime() - 6 * 3600 * 1000);
+                const params = new URLSearchParams({
+                    start: start.toISOString(),
+                    end: end.toISOString(),
+                    resolution: '60',
+                });
+                if (currentProjectId) params.set('projectId', currentProjectId);
+                console.log(`[ForgeViewer] Fetching samples with params:`, params.toString());
+                const resp = await fetch(`/api/iot/samples?${params.toString()}`);
+                if (!resp.ok) {
+                    const txt = await resp.text().catch(() => '');
+                    throw new Error(`Samples request failed: ${resp.status} ${txt}`);
+                }
+                const json = await resp.json();
+                console.log(`[ForgeViewer] Received samples response:`, json);
+                const timestamps: string[] = json.timestamps || [];
+                const data = json.data || {};
+                const sdata = data[sensorId];
+                if (!sdata) {
+                    console.warn(`[ForgeViewer] No data found for sensor ${sensorId}. Available sensors:`, Object.keys(data));
+                    throw new Error('No data for selected sensor');
+                }
+                const primary = getPrimaryChannel(viewerOverlay.sensor?.type);
+                setPrimaryKey(primary.key);
+                console.log(`[ForgeViewer] Setting graph series for sensor ${sensorId}:`, sdata);
+                setGraphTimestamps(timestamps.map((t: string) => new Date(t)));
+                setGraphSeries({
+                    temp: sdata.temp || [],
+                    rh: sdata.rh || [],
+                    co2: sdata.co2 || [],
+                    pressure: sdata.pressure || [],
+                });
+            } catch (e: any) {
+                console.error(`[ForgeViewer] Error loading graphs:`, e);
+                setGraphError(e?.message || 'Failed to load samples');
+            } finally {
+                setGraphLoading(false);
+            }
+        };
+        load();
+        // Append realtime point every 5s when overlay is open
+        const appendRealtime = async () => {
+            try {
+                if (!currentProjectId || !viewerOverlay?.sensor?.id) return;
+                const resp = await fetch(`/api/iot/realtime?projectId=${currentProjectId}`);
+                if (!resp.ok) return;
+                const json = await resp.json();
+                const upd = (json.updates || []).find((u: any) => u.id === viewerOverlay.sensor.id);
+                if (!upd) return;
+                // Parse numeric from value string
+                const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+                const now = new Date(json.timestamp || Date.now());
+                setGraphTimestamps(prev => {
+                    const next = [...prev, now];
+                    // Keep last 120 points
+                    return next.slice(-120);
+                });
+                setGraphSeries(prev => {
+                    if (!prev) return prev;
+                    const meta = getPrimaryChannel(viewerOverlay.sensor?.type);
+                    const key = meta.key;
+                    const next = { ...prev } as any;
+                    next[key] = [...(next[key] || []), num].slice(-120);
+                    return next;
+                });
+            } catch (e) {
+                console.warn('[ForgeViewer] Failed to append realtime point', e);
+            }
+        };
+        const rtInterval = setInterval(appendRealtime, 5000);
+        return () => clearInterval(rtInterval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewerOverlay, currentProjectId]);
 
     // Helper to completely disable/enable an entire model using visibilityManager
     const setModelVisible = (model: any, visible: boolean) => {
@@ -808,6 +1040,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                     setDataVizService(dataVizSvc);
                                                     setIsDataVizReady(true);
                                                     setIsInitialized(true);
+                                                    
+                                                    // Heatmap feature removed
                                                     // Setup sensor click handler
                                                     dataVizSvc.setupSensorClickHandler((dbId: number) => {
                                                         const sensorId = dataVizSvc?.getSensorByDbId(dbId);
@@ -944,6 +1178,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         }
                         overlayModelMapRef.current.clear();
                     } catch {}
+                    
+                    // Heatmap feature removed - no extension to cleanup
                     viewerRef.current.finish();
                 } catch (e) {
                     console.warn('[ForgeViewer] Error finishing viewer:', e);
@@ -1019,6 +1255,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 if (!ok || cancelled) return;
                 setDataVizService(svc);
                 setIsDataVizReady(true);
+                
+                // Heatmap feature removed
                 // Setup sensor click handler
                 svc.setupSensorClickHandler((dbId: number) => {
                     const sensorId = svc.getSensorByDbId(dbId);
@@ -1496,21 +1734,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         const shouldShow = (activePanel === 'iot') || (activePanel === 'bim' && sensorsVisible);
         if (!shouldShow) {
             (async () => {
-                await dataVizService.clearAllSensors();
-                await dataVizService.updateDisplay();
-                console.log('[ForgeViewer] Cleared sensors due to panel change');
+                try {
+                    await dataVizService.clearAllSensors();
+                    await dataVizService.updateDisplay();
+                } catch (e) {
+                    console.warn('[ForgeViewer] Failed to clear sensors on panel switch', e);
+                }
             })();
         }
     }, [activePanel, sensorsVisible, dataVizService, isDataVizReady, viewer, isInitialized]);
-
-    if (error) {
-        return (
-            <div className="forge-viewer-error">
-                <h3>Error</h3>
-                <p>{error}</p>
-            </div>
-        );
-    }
 
     // Close overlay when clicking anywhere outside the viewer container
     useEffect(() => {
@@ -1640,14 +1872,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         position: "absolute",
                         ...(overlayPos
                             ? { left: overlayPos.x, top: overlayPos.y }
-                            : { bottom: 140, right: 50 }),
-                        minWidth: 260,
-                        maxWidth: 360,
-                        background: "rgba(17,24,39,0.95)",
+                            : { bottom: 120, right: 40 }),
+                        minWidth: 480,
+                        maxWidth: 560,
+                        background: "#111827",
                         border: "1px solid #374151",
-                        borderRadius: 8,
-                        color: "#e5e7eb",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                        borderRadius: 12,
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
                         zIndex: 1000,
                         padding: 12,
                         backdropFilter: "blur(6px)",
@@ -1723,10 +1954,34 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             </div>
                         </div>
                     )}
-                    {viewerOverlay.type !== 'info' && (
-                        <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                            Coming soon.
+                    {viewerOverlay.type === 'graphs' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {graphLoading && (
+                                <div style={{ color: '#9ca3af', fontSize: 12 }}>Loading charts…</div>
+                            )}
+                            {graphError && (
+                                <div style={{ color: '#f87171', fontSize: 12 }}>Error: {graphError}</div>
+                            )}
+                            {!graphLoading && !graphError && graphSeries && (
+                                <>
+                                    {(() => {
+                                        const meta = getPrimaryChannel(viewerOverlay.sensor?.type);
+                                        const vals = graphSeries[meta.key];
+                                        return (
+                                            <>
+                                                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>
+                                                    Real-time • Every 5s
+                                                </div>
+                                                {renderSparkline(meta.label, meta.unit, vals, meta.color, graphTimestamps)}
+                                            </>
+                                        );
+                                    })()}
+                                </>
+                            )}
                         </div>
+                    )}
+                    {viewerOverlay.type === 'statistics' && (
+                        <div style={{ color: '#9ca3af', fontSize: 12 }}>Coming soon.</div>
                     )}
                 </div>
             )}

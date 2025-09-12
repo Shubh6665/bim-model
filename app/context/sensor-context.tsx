@@ -75,6 +75,8 @@ interface SensorContextType {
     room: string;
     link: string;
     type: string;
+    externalId: string;
+    devsn: string;
   }) => Promise<Sensor | null>;
   removeSensor: (sensorId: string) => Promise<boolean>;
   updateSensor: (sensorId: string, updates: Partial<Sensor>) => Promise<boolean>;
@@ -85,6 +87,8 @@ interface SensorContextType {
   // Viewer overlay actions
   showViewerOverlay: (sensor: Sensor, type: 'info' | 'graphs' | 'statistics') => void;
   hideViewerOverlay: () => void;
+  // Real-time updates
+  updateSensorValues: (updates: Array<{ id: string; value: string; status: string; lastUpdate: string }>) => void;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -419,6 +423,27 @@ export function SensorProvider({ children }: SensorProviderProps) {
     }
   }, [pendingPosition, currentProjectId, hideSensorForm, exitPlacementMode]);
 
+  // Update sensor values in real-time
+  const updateSensorValues = useCallback((updates: Array<{ id: string; value: string; status: string; lastUpdate: string }>) => {
+    console.log(`[SensorContext] Updating ${updates.length} sensor values`);
+    setSensors(prev => {
+      const updated = [...prev];
+      for (const update of updates) {
+        const index = updated.findIndex(s => s.id === update.id);
+        if (index >= 0) {
+          updated[index] = {
+            ...updated[index],
+            value: update.value,
+            status: update.status as "Online" | "Offline" | "Warning",
+            lastUpdate: update.lastUpdate,
+          };
+          console.log(`[SensorContext] Updated sensor ${update.id}: ${update.value} (${update.status})`);
+        }
+      }
+      return updated;
+    });
+  }, []);
+
   const contextValue: SensorContextType = {
     sensors,
     selectedSensor,
@@ -453,6 +478,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
     // Overlay actions
     showViewerOverlay,
     hideViewerOverlay,
+    // Real-time updates
+    updateSensorValues,
   };
 
   return (

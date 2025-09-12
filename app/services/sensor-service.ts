@@ -1,9 +1,5 @@
 "use client";
 
-// Type declaration for THREE.js global
-declare global {
-  var THREE: any;
-}
 
 export interface Sensor {
   id: string;
