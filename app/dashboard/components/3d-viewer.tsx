@@ -84,7 +84,6 @@ export function ThreeDViewer({
   }, [selectedFile]);
 
   const handleProcessingComplete = async (urn: string) => {
-    console.log("Processing completed, URN:", urn);
     setShowRVTInterface(false);
     setIsLoadingForge(true);
 

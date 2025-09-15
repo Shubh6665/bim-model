@@ -648,12 +648,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 continue;
             }
             loadPromises.push(new Promise<void>((resolve) => {
-                console.log(`🔧 [${id}] Reconcile Load - Loading overlay model:`, m.urn);
+                console.log(`🔧 [${id}] Loading overlay model`);
                 
                 Autodesk.Viewing.Document.load(
                     `urn:${m.urn}`,
                     (doc: any) => {
-                        const geom = doc.getRoot().getDefaultGeometry();
+                        // Load master views to include room data
+                        const geom = doc.getRoot().getDefaultGeometry(true);
                         if (!geom) return resolve();
                         
                         // Apply enhanced loading options for independent model alignment
@@ -776,13 +777,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             
             for (let i = 1; i < models.length; i++) {
                 const m = models[i];
-                console.log(`🔧 [${m.id}] Loading overlay model:`, m.urn);
+                console.log(`🔧 [${m.id}] Loading overlay model`);
                 
                 await new Promise<void>((resolve) => {
                     Autodesk.Viewing.Document.load(
                         `urn:${m.urn}`,
                         (doc: any) => {
-                            const geom = doc.getRoot().getDefaultGeometry();
+                            // Load master views to include room data
+                            const geom = doc.getRoot().getDefaultGeometry(true);
                             if (!geom) return resolve();
                             
             // Build proper loading options for independent discipline alignment
@@ -928,11 +930,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 console.log('🔧 [Primary Model] Should load primary?', shouldLoadPrimary, 'primaryId:', primaryId);
                 
                 if (shouldLoadPrimary) {
+                    console.log('📄 Current Model URN:', primaryUrn);
                     const documentId = `urn:${primaryUrn}`;
                     Autodesk.Viewing.Document.load(
                         documentId,
                         (doc: any) => {
-                            const viewables = doc.getRoot().getDefaultGeometry();
+                            // Load master views to include room data
+                            const viewables = doc.getRoot().getDefaultGeometry(true);
                             if (viewables) {
                                 // Apply enhanced loading options for primary model too
                                 const primaryOpts: any = {
@@ -1207,7 +1211,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         Autodesk.Viewing.Document.load(
             docId,
             (doc: any) => {
-                const geom = doc.getRoot().getDefaultGeometry();
+                // Load master views to include room data
+                const geom = doc.getRoot().getDefaultGeometry(true);
                 if (!geom) { initInFlightRef.current = false; return; }
                 const opts: any = {
                     keepCurrentModels: false,

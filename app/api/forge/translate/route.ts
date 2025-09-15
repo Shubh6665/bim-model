@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2) Start translation job (no force), allows Autodesk cache to be used
+    // 2) Start translation job with generateMasterViews for rooms data
     const translationResponse = await fetch('https://developer.api.autodesk.com/modelderivative/v2/designdata/job', {
       method: 'POST',
       headers: {
@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
             {
               type: 'svf',
               views: ['2d', '3d'],
+              advanced: {
+                generateMasterViews: true
+              }
             },
           ],
         },

@@ -167,7 +167,6 @@ export function RVTForgeInterface({
         throw new Error(msg);
       }
       const urn: string = completeData.urn;
-      console.log('✅ File uploaded, URN:', urn);
       // Record pending in server cache
       fetch('/api/forge/cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'record', fileHash, fileName, size: file.size, urn, status: 'pending' }) }).catch(()=>{});
       
