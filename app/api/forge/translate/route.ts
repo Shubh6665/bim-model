@@ -21,7 +21,7 @@ async function getAccessToken() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { urn } = await req.json();
+    const { urn, force } = await req.json();
     if (!urn) {
       return NextResponse.json({ error: 'URN is required' }, { status: 400 });
     }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       const manifest = await manifestRes.json();
       const status = manifest.status || 'pending';
       const progress = manifest.progress || '0%';
-      if (status === 'success' && (progress === '100%' || progress === 'complete')) {
+      if (!force && status === 'success' && (progress === '100%' || progress === 'complete')) {
         // Record to Mongo cache (best-effort)
         try {
           const db = await getDb();
@@ -54,12 +54,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Optionally delete existing manifest if forcing re-translation
+    if (force) {
+      try {
+        await fetch(
+          `https://developer.api.autodesk.com/modelderivative/v2/designdata/${urn}/manifest`,
+          {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          }
+        );
+      } catch (e) {
+        // Best effort; proceed even if DELETE fails
+        console.warn('[translate] Manifest delete failed (proceeding):', e);
+      }
+    }
+
     // 2) Start translation job with generateMasterViews for rooms data
     const translationResponse = await fetch('https://developer.api.autodesk.com/modelderivative/v2/designdata/job', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        ...(force ? { 'x-ads-force': 'true' } : {})
       },
       body: JSON.stringify({
         input: {
@@ -68,7 +85,7 @@ export async function POST(req: NextRequest) {
         output: {
           formats: [
             {
-              type: 'svf',
+              type: 'svf2',
               views: ['2d', '3d'],
               advanced: {
                 generateMasterViews: true

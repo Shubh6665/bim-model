@@ -8,6 +8,7 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
+import { RoomMappingService } from '@/app/services/room-mapping';
 
 export interface Sensor {
   id: string;
@@ -19,6 +20,8 @@ export interface Sensor {
   batteryLevel: number;
   lastUpdate: string;
   room: string;
+  roomId?: number;
+  roomData?: any;
   color?: string;
   projectId?: string;
   modelPosition?: { x: number; y: number; z: number };
@@ -65,7 +68,7 @@ interface SensorContextType {
     room?: string,
   ) => Promise<Sensor | null>;
   // New form-based sensor placement
-  showSensorForm: (position: { x: number; y: number; z: number }) => void;
+  showSensorForm: (position: { x: number; y: number; z: number }, dbId?: number) => void;
   hideSensorForm: () => void;
   placeSensorWithDetails: (formData: {
     name: string;
@@ -89,6 +92,10 @@ interface SensorContextType {
   hideViewerOverlay: () => void;
   // Real-time updates
   updateSensorValues: (updates: Array<{ id: string; value: string; status: string; lastUpdate: string }>) => void;
+  // Room detection
+  setupRoomDetection: (viewer: any) => Promise<void>;
+  getRoomForPosition: (position: { x: number; y: number; z: number }) => any | null;
+  getRoomForDbId: (dbId: number) => Promise<any | null>;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -114,6 +121,12 @@ export function SensorProvider({ children }: SensorProviderProps) {
   // Form state
   const [showInsertionForm, setShowInsertionForm] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ x: number; y: number; z: number } | null>(null);
+  
+  // Official APS room mapping service
+  const [roomMapper, setRoomMapper] = useState<RoomMappingService | null>(null);
+  // Track clicked object dbId and viewer instance for hierarchy-based room detection
+  const [pendingDbId, setPendingDbId] = useState<number | null>(null);
+  const [viewerInstance, setViewerInstance] = useState<any>(null);
 
   // Load sensors from API (project-specific)
   const refreshSensors = useCallback(async () => {
@@ -202,6 +215,25 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setError(null);
     
     try {
+      // Detect room using room detector
+      let detectedRoom = room || "Unknown Room";
+      let roomInfo = null;
+      
+      if (roomMapper) {
+        console.log("🔍 [SensorContext] Detecting room for sensor position...");
+        roomInfo = roomMapper.findRoomAt(position);
+        
+        if (roomInfo) {
+          detectedRoom = roomInfo.roomName;
+          console.log(`✅ [SensorContext] Sensor linked to room: ${detectedRoom} (dbId: ${roomInfo.roomId})`);
+          console.log(`📍 [SensorContext] Room level:`, roomInfo.levelName);
+        } else {
+          console.warn("❌ [SensorContext] No room detected for sensor position");
+        }
+      } else {
+        console.warn("⚠️ [SensorContext] Room mapping not initialized");
+      }
+
       const sensorData = {
         name: `${placementSensorType} Sensor ${Date.now()}`,
         type: placementSensorType,
@@ -210,10 +242,19 @@ export function SensorProvider({ children }: SensorProviderProps) {
         position,
         batteryLevel: 100,
         lastUpdate: new Date().toISOString(),
-        room: room || "Unknown Room",
+        room: detectedRoom,
         color: SENSOR_TYPES.find(t => t.name === placementSensorType)?.color,
         projectId: currentProjectId || "unknown",
         modelPosition: position,
+        // Add room metadata if detected
+        ...(roomInfo && {
+          roomId: roomInfo.roomId,
+          roomData: {
+            name: roomInfo.roomName,
+            dbId: roomInfo.roomId,
+            properties: { levelName: roomInfo.levelName }
+          }
+        })
       };
 
       const response = await fetch('/api/iot/sensors', {
@@ -231,7 +272,18 @@ export function SensorProvider({ children }: SensorProviderProps) {
       const newSensor = await response.json();
       setSensors(prev => [...prev, newSensor]);
       exitPlacementMode();
-      console.log("Sensor placed successfully:", newSensor);
+      
+      // Enhanced console logging with room info
+      console.log("🎯 [SensorContext] Sensor placed successfully:", {
+        sensorId: newSensor.id,
+        sensorName: newSensor.name,
+        sensorType: newSensor.type,
+        position: position,
+        room: detectedRoom,
+        roomId: roomInfo?.roomId,
+  roomLevel: roomInfo?.levelName
+      });
+      
       return newSensor;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place sensor');
@@ -241,7 +293,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [placementSensorType, exitPlacementMode]);
+  }, [placementSensorType, exitPlacementMode, roomMapper, currentProjectId]);
 
   // Remove a sensor
   const removeSensor = useCallback(async (sensorId: string): Promise<boolean> => {
@@ -340,8 +392,9 @@ export function SensorProvider({ children }: SensorProviderProps) {
   }, [sensors, visibleSensorTypes, filteredSensorType]);
 
   // Form-related functions
-  const showSensorForm = useCallback((position: { x: number; y: number; z: number }) => {
+  const showSensorForm = useCallback((position: { x: number; y: number; z: number }, dbId?: number) => {
     setPendingPosition(position);
+    setPendingDbId((typeof dbId === 'number') ? dbId : null);
     setShowInsertionForm(true);
   }, []);
 
@@ -358,6 +411,74 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const hideViewerOverlay = useCallback(() => {
     setViewerOverlay(null);
   }, []);
+
+  // Room detection functions
+  const setupRoomDetection = useCallback(async (viewer: any) => {
+    console.log('🏠 [SensorContext] Initializing APS room mapping...');
+    try {
+      setViewerInstance(viewer);
+      const svc = roomMapper || new RoomMappingService(viewer);
+      await svc.init(viewer);
+      if (!roomMapper) setRoomMapper(svc);
+      console.log('✅ [SensorContext] Room mapping ready');
+    } catch (e) {
+      console.warn('[SensorContext] Room mapping initialization failed', e);
+    }
+  }, [roomMapper]);
+
+  const getRoomForPosition = useCallback((position: { x: number; y: number; z: number }) => {
+    if (!roomMapper) {
+      console.warn("Room mapping not initialized");
+      return null;
+    }
+    // 1) Try exact point
+    let info = roomMapper.findRoomAt(position);
+    if (info) return info;
+    // 2) Fallback slightly below (helps when clicking furniture surfaces)
+    const fallback = { x: position.x, y: position.y, z: position.z - 0.3 };
+    info = roomMapper.findRoomAt(fallback);
+    if (info) {
+      console.log('✅ [SensorContext] Fallback below point succeeded for room detection');
+    }
+    return info;
+  }, [roomMapper]);
+
+  // Walk up the instance tree from a dbId to find the enclosing Room element
+  const findRoomForDbId = useCallback(async (dbId: number): Promise<any | null> => {
+    try {
+      const v = viewerInstance;
+      const model = v?.model;
+      const tree = model?.getInstanceTree?.();
+      if (!v || !model || !tree) return null;
+
+      const isRoomCategoryMatch = (val: any) => {
+        const s = String(val || '').toLowerCase();
+        return s === 'revit rooms' || s === 'rooms' || s.includes('room');
+      };
+
+      let current = dbId;
+      for (let i = 0; i < 12 && current != null; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        const props: any = await new Promise((resolve) => model.getProperties(current, resolve));
+        const cat = props?.properties?.find((p: any) => p.displayName === 'Category')?.displayValue;
+        if (isRoomCategoryMatch(cat)) {
+          const name = props.properties.find((p: any) => p.displayName === 'Name')?.displayValue || 'Room';
+          // Prefer Level from Constraints if present; else use any Level property string
+          const levelName = (
+            props.properties.find((p: any) => p.displayName === 'Level' && p.displayCategory === 'Constraints')?.displayValue ||
+            props.properties.find((p: any) => p.displayName === 'Level')?.displayValue ||
+            undefined
+          );
+          return { roomId: props.dbId, roomName: String(name), levelName: levelName ? String(levelName) : undefined };
+        }
+        current = tree.getNodeParentId(current);
+      }
+      return null;
+    } catch (e) {
+      console.warn('[SensorContext] findRoomForDbId failed', e);
+      return null;
+    }
+  }, [viewerInstance]);
 
   const placeSensorWithDetails = useCallback(async (formData: {
     name: string;
@@ -377,6 +498,31 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setError(null);
     
     try {
+      // Detect room using robust strategy: 1) hierarchy via clicked dbId, 2) geometric with fallback
+      let detectedRoom = formData.room || "Unknown Room";
+      let roomInfo: any = null;
+
+      if (pendingDbId != null) {
+        roomInfo = await findRoomForDbId(pendingDbId);
+        if (roomInfo) {
+          detectedRoom = roomInfo.roomName;
+        }
+      }
+
+      if (!roomInfo && roomMapper) {
+        console.log("🔍 [SensorContext] Detecting room geometrically for sensor position...");
+        roomInfo = getRoomForPosition(pendingPosition);
+        if (roomInfo) {
+          detectedRoom = roomInfo.roomName;
+          console.log(`✅ [SensorContext] Sensor linked to room: ${detectedRoom} (dbId: ${roomInfo.roomId})`);
+          console.log(`📍 [SensorContext] Room level:`, roomInfo.levelName);
+        } else {
+          console.warn("❌ [SensorContext] No room detected for sensor position");
+        }
+      } else if (!roomInfo) {
+        console.warn("⚠️ [SensorContext] Room mapping not initialized");
+      }
+
       const sensorData = {
         name: formData.name,
         type: formData.type,
@@ -385,7 +531,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
         position: pendingPosition,
         batteryLevel: 100,
         lastUpdate: new Date().toISOString(),
-        room: formData.room,
+        room: detectedRoom, // Use detected room instead of form room
         color: SENSOR_TYPES.find(t => t.name === formData.type)?.color,
         projectId: currentProjectId || "unknown",
         modelPosition: pendingPosition,
@@ -394,6 +540,15 @@ export function SensorProvider({ children }: SensorProviderProps) {
         mark: formData.mark,
         model: formData.model,
         link: formData.link || undefined,
+        // Add room metadata if detected
+        ...(roomInfo && {
+          roomId: roomInfo.roomId,
+          roomData: {
+            name: roomInfo.roomName,
+            dbId: roomInfo.roomId,
+            properties: { levelName: roomInfo.levelName }
+          }
+        })
       };
 
       const response = await fetch('/api/iot/sensors', {
@@ -412,7 +567,18 @@ export function SensorProvider({ children }: SensorProviderProps) {
       setSensors(prev => [...prev, newSensor]);
       hideSensorForm();
       exitPlacementMode();
-      console.log("Sensor placed successfully:", newSensor);
+      
+      // Enhanced console logging with room info
+      console.log("🎯 [SensorContext] Sensor placed successfully:", {
+        sensorId: newSensor.id,
+        sensorName: newSensor.name,
+        sensorType: newSensor.type,
+        position: pendingPosition,
+        room: detectedRoom,
+        roomId: roomInfo?.roomId,
+  roomLevel: roomInfo?.levelName
+      });
+      
       return newSensor;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place sensor');
@@ -421,7 +587,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [pendingPosition, currentProjectId, hideSensorForm, exitPlacementMode]);
+  }, [pendingPosition, pendingDbId, currentProjectId, hideSensorForm, exitPlacementMode, roomMapper, getRoomForPosition, findRoomForDbId]);
 
   // Update sensor values in real-time
   const updateSensorValues = useCallback((updates: Array<{ id: string; value: string; status: string; lastUpdate: string }>) => {
@@ -443,6 +609,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
       return updated;
     });
   }, []);
+
+  // (moved room detection helpers above)
 
   const contextValue: SensorContextType = {
     sensors,
@@ -480,6 +648,10 @@ export function SensorProvider({ children }: SensorProviderProps) {
     hideViewerOverlay,
     // Real-time updates
     updateSensorValues,
+    // Room detection functions
+    setupRoomDetection,
+    getRoomForPosition,
+    getRoomForDbId: findRoomForDbId,
   };
 
   return (

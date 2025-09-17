@@ -15,6 +15,8 @@ interface SensorData {
   batteryLevel: number;
   lastUpdate: string;
   room: string;
+  roomId?: number;
+  roomData?: any;
   color?: string;
   projectId?: string;
   modelPosition?: { x: number; y: number; z: number };
@@ -96,6 +98,8 @@ export async function GET(request: Request) {
       batteryLevel: sensor.batteryLevel || 100,
       lastUpdate: sensor.lastUpdate || new Date().toISOString(),
       room: sensor.room || "Unknown Room",
+      roomId: sensor.roomId,
+      roomData: sensor.roomData,
       color: sensor.color,
       projectId: sensor.projectId,
       modelPosition: sensor.modelPosition || sensor.position,
@@ -152,6 +156,8 @@ export async function POST(request: Request) {
       batteryLevel: sensorData.batteryLevel || 100,
       lastUpdate: new Date().toISOString(),
       room: sensorData.room || "Unknown Room",
+      roomId: sensorData.roomId,
+      roomData: sensorData.roomData,
       color: sensorData.color,
       projectId: sensorData.projectId,
       modelPosition: sensorData.modelPosition || sensorData.position,
@@ -242,6 +248,8 @@ export async function PUT(request: Request) {
         batteryLevel: updatedSensor.batteryLevel,
         lastUpdate: updatedSensor.lastUpdate,
         room: updatedSensor.room,
+        roomId: updatedSensor.roomId,
+        roomData: updatedSensor.roomData,
         color: updatedSensor.color,
         projectId: updatedSensor.projectId,
         modelPosition: updatedSensor.modelPosition,

@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useSensorContext } from "../context/sensor-context";
 import { DataVizService, SensorSprite } from "../services/dataviz-service";
+import { HeatmapService } from "../services/heatmap-service";
 import "./forge-viewer.css";
 import type { ProjectModel } from "@/app/types/projects";
 
@@ -55,6 +56,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const initInFlightRef = useRef(false);
     const [loadedUrn, setLoadedUrn] = useState<string | null>(null);
     const [overlayModelsLoaded, setOverlayModelsLoaded] = useState(false);
+    const levelsExtRef = useRef<any>(null);
     // Guard to ensure we only invoke onViewerReady once per initialization
     const hasFiredViewerReadyRef = useRef(false);
     // Track loaded overlay models by project model id (excluding primary)
@@ -64,9 +66,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const primaryModelIdRef = useRef<string | null>(null);
     // Prevent duplicate DataViz initialization attempts
     const dataVizInitInFlightRef = useRef(false);
+    // Heatmap
+    const heatmapRef = useRef<HeatmapService | null>(null);
+    const [heatmapOn, setHeatmapOn] = useState(false);
+    const heatmapBtnRef = useRef<any>(null);
+    const [heatLegend, setHeatLegend] = useState<{ min: number; max: number; label: string; unit: string } | null>(null);
+    const [heatmapChannel, setHeatmapChannel] = useState<string | null>(null);
 
     // Use sensor context
-    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay, currentProjectId, updateSensorValues } = useSensorContext();
+    const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay, currentProjectId, updateSensorValues, setupRoomDetection, getRoomForDbId } = useSensorContext();
     
     // Real-time sensor updates
     useEffect(() => {
@@ -304,6 +312,65 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         return () => clearInterval(rtInterval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [viewerOverlay, currentProjectId]);
+
+    // Reactively update heatmap when sensors or panel/flag changes
+    useEffect(() => {
+        const run = async () => {
+            const viewerInstance = viewerRef.current;
+            const svc = heatmapRef.current;
+            if (!viewerInstance || !svc) return;
+            // Only render heatmap when enabled and on IoT or BIM panels (adjust as needed)
+            const shouldShow = heatmapOn && (activePanel === 'iot');
+            if (!shouldShow) {
+                svc.hideHeatmap();
+                setHeatLegend(null);
+                return;
+            }
+            // Prepare values from currently visible/filtered sensors
+            try {
+                // Use selected channel; fall back to all if not selected
+                const src = (sensors || []) as any[];
+                const byChannel = heatmapChannel ? src.filter(s => s.type === heatmapChannel) : src;
+                await svc.updateAndShowHeatmap(byChannel as any);
+                // Compute range for legend
+                const nums: number[] = [];
+                for (const s of byChannel) {
+                    const n = parseFloat(String((s as any).value ?? ''));
+                    if (!isNaN(n) && (s as any).roomId != null) nums.push(n);
+                }
+                if (nums.length) {
+                    const min = Math.min(...nums);
+                    const max = Math.max(...nums);
+                    const pickType = heatmapChannel || (byChannel[0]?.type as string);
+                    const meta = getPrimaryChannel(pickType);
+                    setHeatLegend({ min, max, label: meta.label, unit: meta.unit });
+                } else {
+                    setHeatLegend(null);
+                }
+            } catch (e) {
+                console.warn('[ForgeViewer] Heatmap update failed', e);
+            }
+        };
+        run();
+    }, [heatmapOn, activePanel, sensors, filteredSensorType, heatmapChannel]);
+
+    // Cleanup heatmap and button on unmount
+    useEffect(() => {
+        return () => {
+            try { heatmapRef.current?.hideHeatmap(); } catch {}
+            try {
+                const v = viewerRef.current;
+                const Autodesk = (window as any).Autodesk;
+                const ui = Autodesk?.Viewing?.UI;
+                if (v?.toolbar && ui && heatmapBtnRef.current) {
+                    const ctrl = v.toolbar.getControl('bim-custom-tools');
+                    if (ctrl) {
+                        ctrl.removeControl('toggle-heatmap-btn');
+                    }
+                }
+            } catch {}
+        };
+    }, []);
 
     // Helper to completely disable/enable an entire model using visibilityManager
     const setModelVisible = (model: any, visible: boolean) => {
@@ -571,11 +638,68 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
-    // Do NOT re-initialize the viewer on IoT panel switch; keep the same session to avoid flicker
+    // On IoT panel switch, load/show native AEC Levels toolbar and restore on exit
     useEffect(() => {
-        // No-op: maintaining current viewer/session across panel switches
-        // Ensures overlays remain and avoids DataViz re-init races
-    }, [activePanel]);
+        const v = viewerRef.current;
+        const Autodesk = (window as any).Autodesk;
+        if (!v || !Autodesk || !Autodesk.Viewing || !modelLoaded) return;
+
+        let cancelled = false;
+        const ensureLevelsVisible = async () => {
+            try {
+                const existing = (typeof v.getExtension === 'function') ? v.getExtension('Autodesk.AEC.LevelsExtension') : null;
+                const levelsExt = existing || await v.loadExtension('Autodesk.AEC.LevelsExtension');
+                if (cancelled || !levelsExt) return;
+                levelsExtRef.current = levelsExt;
+
+                // Try to show the native Levels panel
+                try {
+                    if (levelsExt.levelsPanel && typeof levelsExt.levelsPanel.setVisible === 'function') {
+                        levelsExt.levelsPanel.setVisible(true);
+                    }
+                } catch {}
+
+                // Fallback: click the native toolbar button if available
+                try {
+                    const btn = document.querySelector('[data-automation-id="toolbar-levelsExtensionTool"] button') as HTMLElement | null;
+                    if (btn) {
+                        btn.click();
+                    }
+                } catch {}
+
+                // Optional: log current floors
+                try {
+                    const floors = levelsExt?.floorSelector?.floorData || [];
+                    if (floors && floors.length) {
+                        console.log(`[ForgeViewer] Levels ready with ${floors.length} floors`);
+                    }
+                } catch {}
+            } catch (e) {
+                console.warn('[ForgeViewer] Failed to load/show Levels extension:', e);
+            }
+        };
+
+        const hideLevels = () => {
+            try {
+                const ext = levelsExtRef.current || (typeof v.getExtension === 'function' ? v.getExtension('Autodesk.AEC.LevelsExtension') : null);
+                if (ext) {
+                    // Restore full 3D view when leaving IoT
+                    try { ext.floorSelector?.restore3DView?.(); } catch {}
+                    // Also clear AEC FloorSelector cut planes to avoid lingering slice
+                    try { v?.setCutPlanes?.([], 'Autodesk.AEC.FloorSelector'); } catch {}
+                    try { ext.levelsPanel?.setVisible?.(false); } catch {}
+                }
+            } catch {}
+        };
+
+        if (activePanel === 'iot') {
+            ensureLevelsVisible();
+        } else {
+            hideLevels();
+        }
+
+        return () => { cancelled = true; };
+    }, [activePanel, modelLoaded]);
 
     // Dynamically reconcile overlay models without re-initializing primary
     useEffect(() => {
@@ -985,6 +1109,56 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                             try {
                                                 onViewerReady(viewerInstance, null);
                                                 hasFiredViewerReadyRef.current = true;
+                                                
+                                                // Setup room detection after viewer is ready
+                                                console.log("🏠 [ForgeViewer] Setting up room detection...");
+                                                await setupRoomDetection(viewerInstance);
+                                                console.log("✅ [ForgeViewer] Room detection setup completed");
+
+                                                // Create Heatmap toolbar button
+                                                try {
+                                                    const Autodesk = (window as any).Autodesk;
+                                                    const ui = Autodesk?.Viewing?.UI;
+                                                    if (viewerInstance?.toolbar && ui) {
+                                                        const ctrlId = 'bim-custom-tools';
+                                                        let ctrl = viewerInstance.toolbar.getControl(ctrlId);
+                                                        if (!ctrl) {
+                                                            ctrl = new ui.ControlGroup(ctrlId);
+                                                            viewerInstance.toolbar.addControl(ctrl);
+                                                        }
+                                                        const btnId = 'toggle-heatmap-btn';
+                                                        let btn = ctrl.getControl(btnId);
+                                                        if (!btn) {
+                                                            btn = new ui.Button(btnId);
+                                                            btn.setToolTip('Toggle Room Heatmap');
+                                                            btn.setIcon('adsk-icon-hotkey'); // use default icon; can be customized
+                                                            btn.onClick = async () => {
+                                                                const next = !heatmapOn;
+                                                                // Initialize channel on first toggle ON
+                                                                if (next) {
+                                                                    // Prefer current filtered type, else first available type with room-linked sensors
+                                                                    const availableTypes = Array.from(new Set((sensors || []).filter((s: any) => s?.roomId != null).map((s: any) => s.type))).filter(Boolean) as string[];
+                                                                    const initial = filteredSensorType || availableTypes[0] || null;
+                                                                    setHeatmapChannel(initial);
+                                                                }
+                                                                setHeatmapOn(next);
+                                                                
+                                                                // Update button appearance
+                                                                if (next) {
+                                                                    btn.container.style.backgroundColor = '#2563eb';
+                                                                    btn.container.style.color = '#ffffff';
+                                                                } else {
+                                                                    btn.container.style.backgroundColor = '';
+                                                                    btn.container.style.color = '';
+                                                                }
+                                                            };
+                                                            ctrl.addControl(btn);
+                                                            heatmapBtnRef.current = btn;
+                                                        }
+                                                    }
+                                                } catch (e) {
+                                                    console.warn('[ForgeViewer] Failed to create Heatmap toolbar button', e);
+                                                }
                                             } catch (e) {
                                                 console.warn("[ForgeViewer] onViewerReady threw on geometry load:", e);
                                             }
@@ -1044,6 +1218,11 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                     setDataVizService(dataVizSvc);
                                                     setIsDataVizReady(true);
                                                     setIsInitialized(true);
+                                                    try {
+                                                        // Ensure room mapping is re-initialized now that DataViz is ready
+                                                        await setupRoomDetection(viewerInstance);
+                                                        console.log('✅ [ForgeViewer] Room mapping ensured after DataViz ready');
+                                                    } catch {}
                                                     
                                                     // Heatmap feature removed
                                                     // Setup sensor click handler
@@ -1260,6 +1439,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 if (!ok || cancelled) return;
                 setDataVizService(svc);
                 setIsDataVizReady(true);
+                try {
+                    await setupRoomDetection(viewer);
+                    console.log('✅ [ForgeViewer] Room mapping ensured after late DataViz init');
+                } catch {}
                 
                 // Heatmap feature removed
                 // Setup sensor click handler
@@ -1286,6 +1469,14 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         return () => { cancelled = true; };
     }, [viewer, modelLoaded, activePanel, sensorsVisible, isDataVizReady, dataVizService, onSensorClick, onViewerReady]);
 
+    // Initialize HeatmapService after geometry is ready
+    useEffect(() => {
+        if (!viewerRef.current || !modelLoaded) return;
+        if (!heatmapRef.current) {
+            heatmapRef.current = new HeatmapService(viewerRef.current);
+        }
+    }, [modelLoaded]);
+
     // Handle click events for sensor placement
     const handleClick = async (event: MouseEvent) => {
         if (!insertMode || !viewer || !dataVizService || !isDataVizReady) {
@@ -1309,10 +1500,48 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
 
         const position = result.intersectPoint;
+        const clickedDbId = (result as any).dbId;
 
         try {
+            // Insert-mode diagnostic logging like selection diagnostics
+            try {
+                const mdl = (result as any).model || viewer.model;
+                if (mdl && clickedDbId != null) {
+                    const props: any = await new Promise((resolve) => mdl.getProperties(clickedDbId, resolve));
+                    const propsArr = props?.properties || [];
+                    const findVal = (name: string, category?: string) => {
+                        const p = propsArr.find((pp: any) => pp.displayName === name && (!category || pp.displayCategory === category))
+                                 || propsArr.find((pp: any) => pp.displayName === name);
+                        return p?.displayValue;
+                    };
+                    const name = findVal('Name') || '(Unnamed)';
+                    const category = findVal('Category') || '(Unknown)';
+                    const area = findVal('Area');
+                    const volume = findVal('Volume');
+                    const level = findVal('Level', 'Constraints') || findVal('Level');
+                    let roomInfo: any = null;
+                    if (typeof getRoomForDbId === 'function') {
+                        roomInfo = await getRoomForDbId(clickedDbId);
+                    }
+                    const isRoomSelf = String(category).toLowerCase().includes('room');
+                    console.groupCollapsed(`🧭 [Insert] Click Diagnostic • dbId=${clickedDbId}`);
+                    console.log('📍 Intersect Point:', { x: +position.x.toFixed(4), y: +position.y.toFixed(4), z: +position.z.toFixed(4) });
+                    console.log('🧩 Object:', { name, category, level, area, volume });
+                    if (isRoomSelf) {
+                        console.log('🏠 Room (self):', { roomName: name, roomId: clickedDbId, level });
+                    } else if (roomInfo) {
+                        console.log('🏠 Enclosing Room:', roomInfo);
+                    } else {
+                        console.log('🏠 Enclosing Room: not found');
+                    }
+                    console.log(`📦 All Properties (${propsArr.length}):`, propsArr);
+                    console.groupEnd();
+                }
+            } catch (e) {
+                console.warn('[ForgeViewer] Insert-mode diagnostic logging failed', e);
+            }
             // Show sensor insertion form instead of directly placing sensor
-            showSensorForm({ x: position.x, y: position.y, z: position.z });
+            showSensorForm({ x: position.x, y: position.y, z: position.z }, clickedDbId);
         } catch (error) {
             console.error("[ForgeViewer] Failed to place sensor:", error);
         }
@@ -1351,6 +1580,45 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         const container = viewerContainer.current;
         if (!container) return;
 
+        // Helper: log detailed diagnostics for clicked object
+        const logSelectionDiagnostics = async (dbId: number, point?: { x: number; y: number; z: number }, modelArg?: any) => {
+            try {
+                const mdl = modelArg || viewer.model;
+                if (!mdl) return;
+                const props: any = await new Promise((resolve) => mdl.getProperties(dbId, resolve));
+                const propsArr = props?.properties || [];
+                const findVal = (name: string, category?: string) => {
+                    const p = propsArr.find((pp: any) => pp.displayName === name && (!category || pp.displayCategory === category))
+                             || propsArr.find((pp: any) => pp.displayName === name);
+                    return p?.displayValue;
+                };
+                const name = findVal('Name') || '(Unnamed)';
+                const category = findVal('Category') || '(Unknown)';
+                const area = findVal('Area');
+                const volume = findVal('Volume');
+                const level = findVal('Level', 'Constraints') || findVal('Level');
+                let roomInfo: any = null;
+                if (typeof getRoomForDbId === 'function') {
+                    roomInfo = await getRoomForDbId(dbId);
+                }
+                const isRoomSelf = String(category).toLowerCase().includes('room');
+                console.groupCollapsed(`🧭 Selection Diagnostic • dbId=${dbId}`);
+                if (point) console.log('📍 Intersect Point:', { x: +point.x.toFixed(4), y: +point.y.toFixed(4), z: +point.z.toFixed(4) });
+                console.log('🧩 Object:', { name, category, level, area, volume });
+                if (isRoomSelf) {
+                    console.log('🏠 Room (self):', { roomName: name, roomId: dbId, level });
+                } else if (roomInfo) {
+                    console.log('🏠 Enclosing Room:', roomInfo);
+                } else {
+                    console.log('🏠 Enclosing Room: not found');
+                }
+                console.log(`📦 All Properties (${propsArr.length}):`, propsArr);
+                console.groupEnd();
+            } catch (e) {
+                console.warn('[ForgeViewer] logSelectionDiagnostics failed', e);
+            }
+        };
+
         const handleSensorPick = (event: MouseEvent) => {
             if (!viewer) return;
             // Compute click relative to canvas
@@ -1387,6 +1655,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             } else {
                 if (onEmptyClick) onEmptyClick();
             }
+
+            // Also run a standard hitTest to diagnose clicked BIM object
+            try {
+                const result = viewer.impl.hitTest(clickX, clickY, false);
+                if (result && (result as any).dbId) {
+                    const dbId = (result as any).dbId;
+                    const pt = (result as any).intersectPoint;
+                    logSelectionDiagnostics(dbId, pt, (result as any).model);
+                }
+            } catch {}
         };
 
         container.addEventListener('click', handleSensorPick);
@@ -2040,6 +2318,65 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     </button>
                 </div>
             )} */}
+
+            {/* Heatmaps Panel (IoT only) */}
+            {activePanel === 'iot' && heatmapOn && (
+                <div style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    background: 'rgba(15, 23, 42, 0.96)',
+                    border: '1px solid #1f2937',
+                    borderRadius: 12,
+                    padding: 14,
+                    width: 320,
+                    color: '#e5e7eb',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+                    zIndex: 9
+                }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: '#f3f4f6' }}>Heatmaps</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <div style={{ color: '#cbd5e1', fontSize: 13, minWidth: 70 }}>Channel</div>
+                        <select
+                            value={heatmapChannel || ''}
+                            onChange={(e) => setHeatmapChannel(e.target.value || null)}
+                            style={{
+                                flex: 1,
+                                background: '#0b1220',
+                                border: '1px solid #334155',
+                                color: '#e5e7eb',
+                                borderRadius: 8,
+                                padding: '8px 10px',
+                                outline: 'none'
+                            }}
+                        >
+                            {/* Build options from sensors that have roomId */}
+                            {Array.from(new Set((sensors || []).filter((s: any) => s?.roomId != null).map((s: any) => s.type))).map((t: any) => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {heatLegend ? (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>
+                                <span>{heatLegend.min.toFixed(2)}{heatLegend.unit}</span>
+                                <span>{((heatLegend.min + heatLegend.max)/2).toFixed(2)}{heatLegend.unit}</span>
+                                <span>{heatLegend.max.toFixed(2)}{heatLegend.unit}</span>
+                            </div>
+                            <div style={{
+                                width: '100%',
+                                height: 16,
+                                borderRadius: 6,
+                                background: 'linear-gradient(90deg, #2563eb 0%, #22d3ee 20%, #22c55e 40%, #f59e0b 70%, #ef4444 100%)',
+                                border: '1px solid #374151'
+                            }} />
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>Range • <span style={{ color: '#f9fafb' }}>{heatLegend.label}</span></div>
+                        </>
+                    ) : (
+                        <div style={{ fontSize: 12, color: '#9ca3af' }}>No room-linked sensor values in this channel.</div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
