@@ -17,6 +17,8 @@ export class RoomMappingService {
   private structureInfo: any | null;
   private levelRoomsMap: any | null;
   private initializing = false;
+  private roomCache: Map<number, RoomInfo> = new Map();
+  private spatialCache: Map<string, number | null> = new Map();
 
   constructor(viewer?: any) {
     this.viewer = viewer || null;
@@ -61,7 +63,6 @@ export class RoomMappingService {
       // getLevelRoomsMap reads room + level info generated from Revit master views
       this.levelRoomsMap = await this.structureInfo.getLevelRoomsMap();
       // Warm up internal structures by calling initialize with empty data
-      console.log("✅ [RoomMapping] LevelRoomsMap loaded");
     } catch (err) {
       console.error("[RoomMapping] Failed to initialize room mapping:", err);
       this.structureInfo = null;
@@ -69,6 +70,229 @@ export class RoomMappingService {
     } finally {
       this.initializing = false;
     }
+  }
+
+  // Enhanced bounding box calculation for any object
+  private getBoundingBox(dbId: number, model: any): any | null {
+    try {
+      const THREE = (window as any).THREE;
+      if (!THREE || !model) return null;
+      
+      const tree = model.getInstanceTree();
+      const frags = model.getFragmentList();
+      if (!tree || !frags) return null;
+      
+      let nodeBounds = new THREE.Box3();
+      let fragBounds = new THREE.Box3();
+      
+      tree.enumNodeFragments(dbId, (fragId: number) => {
+        frags.getWorldBounds(fragId, fragBounds);
+        nodeBounds.union(fragBounds);
+      }, true);
+      
+      return nodeBounds.isEmpty() ? null : nodeBounds;
+    } catch (err) {
+      console.warn(`[RoomMapping] getBoundingBox failed for dbId=${dbId}:`, err);
+      return null;
+    }
+  }
+
+  // Find room for object using enhanced spatial containment with multiple test points
+  async findRoomForObject(dbId: number): Promise<RoomInfo | null> {
+    if (!this.viewer || !this.model) return null;
+    
+    // Check cache first
+    const cacheKey = `obj-${dbId}`;
+    if (this.spatialCache.has(cacheKey)) {
+      const roomId = this.spatialCache.get(cacheKey);
+      return roomId ? this.roomCache.get(roomId) || null : null;
+    }
+    
+    try {
+      const THREE = (window as any).THREE;
+      if (!THREE) return null;
+      
+      // Get object's bounding box
+      const objectBounds = this.getBoundingBox(dbId, this.model);
+      if (!objectBounds) {
+        this.spatialCache.set(cacheKey, null);
+        return null;
+      }
+      
+      // Generate multiple test points for better accuracy
+      const testPoints = this.generateTestPoints(objectBounds, THREE);
+      
+      // Find all rooms in the model
+      const roomDbIds = await this.findAllRooms();
+      if (!roomDbIds || roomDbIds.length === 0) {
+        this.spatialCache.set(cacheKey, null);
+        return null;
+      }
+      
+      // Score each room based on containment and proximity
+      const roomScores: Array<{roomId: number, score: number, distance: number}> = [];
+      
+      for (const roomDbId of roomDbIds) {
+        const roomBounds = this.getBoundingBox(roomDbId, this.model);
+        if (!roomBounds) continue;
+        
+        const roomCenter = roomBounds.getCenter(new THREE.Vector3());
+        let containmentScore = 0;
+        let minDistance = Infinity;
+        
+        // Check each test point
+        for (const point of testPoints) {
+          const distance = point.distanceTo(roomCenter);
+          minDistance = Math.min(minDistance, distance);
+          
+          if (roomBounds.containsPoint(point)) {
+            containmentScore += 1;
+          }
+        }
+        
+        // Calculate composite score (prioritize containment, then proximity)
+        const score = containmentScore * 1000 + (1 / (minDistance + 1)) * 100;
+        
+        if (score > 0) {
+          roomScores.push({ roomId: roomDbId, score, distance: minDistance });
+        }
+      }
+      
+      // Sort by score (highest first) and get the best match
+      roomScores.sort((a, b) => b.score - a.score);
+      
+      if (roomScores.length > 0) {
+        const bestRoom = roomScores[0];
+        const roomInfo = await this.getRoomInfo(bestRoom.roomId);
+        
+        if (roomInfo) {
+          // Cache the result
+          this.spatialCache.set(cacheKey, bestRoom.roomId);
+          this.roomCache.set(bestRoom.roomId, roomInfo);
+          return roomInfo;
+        }
+      }
+      
+      // No room found
+      this.spatialCache.set(cacheKey, null);
+      return null;
+      
+    } catch (err) {
+      console.error(`[RoomMapping] findRoomForObject failed for dbId=${dbId}:`, err);
+      this.spatialCache.set(cacheKey, null);
+      return null;
+    }
+  }
+  
+  // Generate multiple test points from object bounds for better spatial analysis
+  private generateTestPoints(bounds: any, THREE: any): any[] {
+    const center = bounds.getCenter(new THREE.Vector3());
+    const min = bounds.min;
+    const max = bounds.max;
+    
+    // Generate 9 strategic test points:
+    // 1. Object center (primary)
+    // 2-5. Four corners at object's base level (z = min.z + 10% height)
+    // 6-9. Four corners at object's mid level (z = center.z)
+    
+    const baseZ = min.z + (max.z - min.z) * 0.1; // 10% from bottom
+    const midZ = center.z;
+    
+    return [
+      // Primary center point
+      center.clone(),
+      
+      // Base level corners
+      new THREE.Vector3(min.x, min.y, baseZ),
+      new THREE.Vector3(max.x, min.y, baseZ),
+      new THREE.Vector3(min.x, max.y, baseZ),
+      new THREE.Vector3(max.x, max.y, baseZ),
+      
+      // Mid level corners  
+      new THREE.Vector3(min.x, min.y, midZ),
+      new THREE.Vector3(max.x, min.y, midZ),
+      new THREE.Vector3(min.x, max.y, midZ),
+      new THREE.Vector3(max.x, max.y, midZ),
+    ];
+  }
+  
+  // Find all room dbIds in the model
+  private async findAllRooms(): Promise<number[]> {
+    return new Promise((resolve) => {
+      if (!this.viewer) {
+        resolve([]);
+        return;
+      }
+      
+      this.viewer.search(
+        'Revit Rooms',
+        (dbIds: number[]) => resolve(dbIds || []),
+        (error: any) => {
+          console.warn('[RoomMapping] Room search failed:', error);
+          resolve([]);
+        },
+        ['Category'],
+        { searchHidden: true }
+      );
+    });
+  }
+  
+  // Get room information for a specific dbId
+  private async getRoomInfo(dbId: number): Promise<RoomInfo | null> {
+    // Check cache first
+    if (this.roomCache.has(dbId)) {
+      return this.roomCache.get(dbId) || null;
+    }
+    
+    return new Promise((resolve) => {
+      if (!this.viewer) {
+        resolve(null);
+        return;
+      }
+      
+      this.viewer.getProperties(
+        dbId,
+        (result: any) => {
+          try {
+            const name = result.name || `Room ${dbId}`;
+            const level = result.properties?.find((p: any) => 
+              p.displayName === 'Level' || p.displayCategory === 'Constraints'
+            )?.displayValue || 'Unknown Level';
+            
+            const roomInfo: RoomInfo = {
+              roomId: dbId,
+              roomName: name,
+              levelName: level
+            };
+            
+            // Cache the result
+            this.roomCache.set(dbId, roomInfo);
+            resolve(roomInfo);
+          } catch (err) {
+            console.warn(`[RoomMapping] Failed to parse room info for dbId=${dbId}:`, err);
+            resolve(null);
+          }
+        },
+        (error: any) => {
+          console.warn(`[RoomMapping] getProperties failed for dbId=${dbId}:`, error);
+          resolve(null);
+        }
+      );
+    });
+  }
+
+  // Clear caches when model changes
+  clearCache(): void {
+    this.roomCache.clear();
+    this.spatialCache.clear();
+  }
+  
+  // Force clear cache and reinitialize (useful for testing new algorithms)
+  forceRefresh(): void {
+    this.clearCache();
+    this.structureInfo = null;
+    this.levelRoomsMap = null;
+    this.initializing = false;
   }
 
   // Find the room containing a world-space point using DataViz helper

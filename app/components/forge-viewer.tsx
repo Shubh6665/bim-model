@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useSensorContext } from "../context/sensor-context";
 import { DataVizService, SensorSprite } from "../services/dataviz-service";
 import { HeatmapService } from "../services/heatmap-service";
@@ -1543,16 +1543,17 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [modelLoaded]);
 
-    // Handle click events for sensor placement
-    const handleClick = async (event: MouseEvent) => {
-        if (!insertMode || !viewer || !dataVizService || !isDataVizReady) {
+    // Handle click events for sensor placement - ALWAYS open form for any valid click
+    const handleClick = useCallback(async (event: MouseEvent) => {
+        if (!insertMode || !viewer) {
             return;
         }
 
-        // Prevent default behavior
+        // Prevent default behavior and stop propagation to avoid DataViz interference
         event.preventDefault();
         event.stopPropagation();
 
+        console.log('🎯 [Insert] Click intercepted in capture phase');
         
         const rect = viewerContainer.current?.getBoundingClientRect();
         if (!rect) return;
@@ -1562,64 +1563,84 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         
         const result = viewer.impl.hitTest(x, y, false);
         if (!result || !result.intersectPoint) {
+            console.log('🎯 [Insert] No hit result - ignoring click');
             return;
         }
 
         const position = result.intersectPoint;
         const clickedDbId = (result as any).dbId;
 
-        try {
-            // Insert-mode diagnostic logging like selection diagnostics
-            try {
-                const mdl = (result as any).model || viewer.model;
-                if (mdl && clickedDbId != null) {
-                    const props: any = await new Promise((resolve) => mdl.getProperties(clickedDbId, resolve));
-                    const propsArr = props?.properties || [];
-                    const findVal = (name: string, category?: string) => {
-                        const p = propsArr.find((pp: any) => pp.displayName === name && (!category || pp.displayCategory === category))
-                                 || propsArr.find((pp: any) => pp.displayName === name);
-                        return p?.displayValue;
-                    };
-                    const name = findVal('Name') || '(Unnamed)';
-                    const category = findVal('Category') || '(Unknown)';
-                    const area = findVal('Area');
-                    const volume = findVal('Volume');
-                    const level = findVal('Level', 'Constraints') || findVal('Level');
-                    let roomInfo: any = null;
-                    if (typeof getRoomForDbId === 'function') {
-                        roomInfo = await getRoomForDbId(clickedDbId);
-                    }
-                    const isRoomSelf = String(category).toLowerCase().includes('room');
-                    console.groupCollapsed(`🧭 [Insert] Click Diagnostic • dbId=${clickedDbId}`);
-                    console.log('📍 Intersect Point:', { x: +position.x.toFixed(4), y: +position.y.toFixed(4), z: +position.z.toFixed(4) });
-                    console.log('🧩 Object:', { name, category, level, area, volume });
-                    if (isRoomSelf) {
-                        console.log('🏠 Room (self):', { roomName: name, roomId: clickedDbId, level });
-                    } else if (roomInfo) {
-                        console.log('🏠 Enclosing Room:', roomInfo);
-                    } else {
-                        console.log('🏠 Enclosing Room: not found');
-                    }
-                    console.log(`📦 All Properties (${propsArr.length}):`, propsArr);
-                    console.groupEnd();
-                }
-            } catch (e) {
-                console.warn('[ForgeViewer] Insert-mode diagnostic logging failed', e);
-            }
-            // Show sensor insertion form instead of directly placing sensor
-            showSensorForm({ x: position.x, y: position.y, z: position.z }, clickedDbId);
-        } catch (error) {
-            console.error("[ForgeViewer] Failed to place sensor:", error);
-        }
-    };
+        console.log(`🎯 [Insert] Valid click detected - position: (${position.x.toFixed(2)}, ${position.y.toFixed(2)}, ${position.z.toFixed(2)}), dbId: ${clickedDbId}`);
+        // Immediate feedback: print dbId first
+        console.log(`🖱️ [Click] dbId=${clickedDbId} (resolving room...)`);
 
-    // Setup click handler for sensor placement
+        try {
+            console.log('🔍 [Insert] Starting diagnostic logging...');
+            // Insert-mode diagnostic logging (enhanced for any object) - NON-BLOCKING
+            const diagnosticPromise = (async () => {
+                try {
+                    const mdl = (result as any).model || viewer.model;
+                    if (mdl && clickedDbId != null) {
+                        // Add timeout to prevent hanging
+                        const props: any = await Promise.race([
+                            new Promise((resolve) => mdl.getProperties(clickedDbId, resolve)),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Properties timeout')), 2000))
+                        ]);
+                        const propsArr = props?.properties || [];
+                        const findVal = (name: string, category?: string) => {
+                            const p = propsArr.find((pp: any) => pp.displayName === name && (!category || pp.displayCategory === category))
+                                     || propsArr.find((pp: any) => pp.displayName === name);
+                            return p?.displayValue;
+                        };
+                        const name = findVal('Name') || '(Unnamed)';
+                        const category = findVal('Category') || '(Unknown)';
+                        const area = findVal('Area');
+                        const volume = findVal('Volume');
+                        const level = findVal('Level', 'Constraints') || findVal('Level');
+                        let roomInfo: any = null;
+                        if (typeof getRoomForDbId === 'function') {
+                            roomInfo = await getRoomForDbId(clickedDbId);
+                        }
+                        const isRoomSelf = String(category).toLowerCase().includes('room');
+                        // Enhanced sensor placement logging with spatial context
+                        if (isRoomSelf) {
+                            console.log(`🎯 [Sensor Placement] dbId=${clickedDbId} → 🏠 PLACING IN ROOM: '${name}' (Level: ${level || 'Unknown'})`);
+                        } else if (roomInfo?.roomName && roomInfo?.roomId != null) {
+                            console.log(`🎯 [Sensor Placement] dbId=${clickedDbId} → 🏠 OBJECT IN ROOM: '${roomInfo.roomName}' (roomId=${roomInfo.roomId}) | Object: ${name} [${category}]`);
+                        } else {
+                            console.log(`🎯 [Sensor Placement] dbId=${clickedDbId} → 🚫 NO ROOM CONTEXT | Object: ${name} [${category || 'Unknown'}]`);
+                        }
+                        console.log(`📦 All Properties (${propsArr.length}):`, propsArr);
+                        console.groupEnd();
+                    }
+                } catch (e) {
+                    console.warn('[ForgeViewer] Insert-mode diagnostic logging failed (timeout or error)', e);
+                }
+            })();
+            
+            // Don't wait for diagnostic logging - continue immediately
+            
+            console.log('🔍 [Insert] Diagnostic logging completed, now calling showSensorForm...');
+            console.log('🔍 [Insert] showSensorForm function:', typeof showSensorForm);
+            console.log('🔍 [Insert] Position:', { x: position.x, y: position.y, z: position.z });
+            console.log('🔍 [Insert] ClickedDbId:', clickedDbId);
+            
+            // ALWAYS show sensor insertion form for any valid click in insert mode
+            console.log('📝 [Insert] Opening sensor form for placement');
+            showSensorForm({ x: position.x, y: position.y, z: position.z }, clickedDbId);
+            console.log('✅ [Insert] showSensorForm called successfully');
+        } catch (error) {
+            console.error("[ForgeViewer] Failed to handle sensor placement click:", error);
+        }
+    }, [insertMode, viewer, showSensorForm, getRoomForDbId]);
+
+    // Setup click handler for sensor placement - use capture phase to intercept before DataViz
     useEffect(() => {
         if (!viewer || !insertMode) {
             // Remove click handler when not in insert mode
             const container = viewerContainer.current;
             if (container) {
-                container.removeEventListener("click", handleClick);
+                container.removeEventListener("click", handleClick, true); // Remove with capture
                 container.style.cursor = "default";
             }
             return;
@@ -1627,17 +1648,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
 
         const container = viewerContainer.current;
         if (container) {
-            container.addEventListener("click", handleClick);
+            // Use capture phase (true) to intercept clicks before DataViz extension
+            container.addEventListener("click", handleClick, true);
             container.style.cursor = "crosshair";
+            console.log('🎯 [Insert Mode] Click handler attached with capture=true');
         }
 
         return () => {
             if (container) {
-                container.removeEventListener("click", handleClick);
+                container.removeEventListener("click", handleClick, true); // Remove with capture
                 container.style.cursor = "default";
             }
         };
-    }, [viewer, insertMode, dataVizService, isDataVizReady]);
+    }, [viewer, insertMode, handleClick]);
 
     // Additional: detect clicks near sensor sprites to trigger selection (non-invasive)
     useEffect(() => {
@@ -1668,6 +1691,88 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     roomInfo = await getRoomForDbId(dbId);
                 }
                 const isRoomSelf = String(category).toLowerCase().includes('room');
+                // Enhanced one-line summary for quick verification per click
+                if (isRoomSelf) {
+                    console.log(`🖱️ [Click] dbId=${dbId} → 🏠 ROOM ITSELF: '${name}' (Level: ${level || 'Unknown'})`);
+                } else if (roomInfo?.roomName && roomInfo?.roomId != null) {
+                    console.log(`🖱️ [Click] dbId=${dbId} → 🏠 INSIDE ROOM: '${roomInfo.roomName}' (roomId=${roomInfo.roomId}, Level: ${roomInfo.levelName || 'Unknown'})`);
+                } else {
+                    console.log(`🖱️ [Click] dbId=${dbId} → 🚫 NO ROOM DETECTED (${category || 'Unknown Category'})`);
+                }
+                
+                // COMPREHENSIVE PROPERTY DUMP - Show ALL available information
+                console.group(`📋 [FULL PROPERTIES] dbId=${dbId} - ${name} [${category}]`);
+                console.log('🏷️ Basic Info:', { 
+                    dbId, 
+                    name, 
+                    category, 
+                    level, 
+                    area: area ? `${area} sq units` : 'N/A',
+                    volume: volume ? `${volume} cu units` : 'N/A'
+                });
+                
+                // Group properties by category for better readability
+                const propsByCategory: { [key: string]: any[] } = {};
+                propsArr.forEach((prop: any) => {
+                    const cat = prop.displayCategory || 'Other';
+                    if (!propsByCategory[cat]) propsByCategory[cat] = [];
+                    propsByCategory[cat].push({
+                        name: prop.displayName,
+                        value: prop.displayValue,
+                        units: prop.units || '',
+                        type: prop.type || 'string'
+                    });
+                });
+                
+                // Log each category
+                Object.keys(propsByCategory).sort().forEach(catName => {
+                    console.groupCollapsed(`📁 ${catName} (${propsByCategory[catName].length} properties)`);
+                    propsByCategory[catName].forEach(prop => {
+                        const valueStr = prop.units ? `${prop.value} ${prop.units}` : prop.value;
+                        console.log(`   ${prop.name}: ${valueStr}`);
+                    });
+                    console.groupEnd();
+                });
+                
+                // Enhanced room relationship info with spatial analysis
+                if (isRoomSelf) {
+                    console.log('🏠 ROOM OBJECT (SELF):', { 
+                        roomName: name, 
+                        roomId: dbId, 
+                        level: level || 'Unknown Level',
+                        area: area ? `${area} sq units` : 'N/A',
+                        volume: volume ? `${volume} cu units` : 'N/A',
+                        spatialType: 'Room Element'
+                    });
+                } else if (roomInfo) {
+                    console.log('🏠 SPATIAL CONTAINMENT DETECTED:', {
+                        objectDbId: dbId,
+                        objectName: name,
+                        objectCategory: category,
+                        enclosingRoom: {
+                            roomId: roomInfo.roomId,
+                            roomName: roomInfo.roomName,
+                            levelName: roomInfo.levelName || 'Unknown Level'
+                        },
+                        detectionMethod: 'Bounding Box Containment',
+                        spatialRelationship: 'Object Inside Room'
+                    });
+                } else {
+                    console.log('🚫 NO ROOM RELATIONSHIP:', {
+                        objectDbId: dbId,
+                        objectName: name,
+                        objectCategory: category,
+                        spatialStatus: 'Not contained in any room',
+                        possibleReasons: [
+                            'Object is outside room boundaries',
+                            'Room detection not available',
+                            'Object is a structural element',
+                            'Spatial calculation failed'
+                        ]
+                    });
+                }
+                
+                console.groupEnd();
                 console.groupCollapsed(`🧭 Selection Diagnostic • dbId=${dbId}`);
                 if (point) console.log('📍 Intersect Point:', { x: +point.x.toFixed(4), y: +point.y.toFixed(4), z: +point.z.toFixed(4) });
                 console.log('🧩 Object:', { name, category, level, area, volume });
@@ -1721,23 +1826,109 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             } else {
                 if (onEmptyClick) onEmptyClick();
             }
-
             // Also run a standard hitTest to diagnose clicked BIM object
             try {
                 const result = viewer.impl.hitTest(clickX, clickY, false);
                 if (result && (result as any).dbId) {
                     const dbId = (result as any).dbId;
                     const pt = (result as any).intersectPoint;
+                    // Immediate feedback: print dbId first
+                    console.log(`🖱️ [Click] dbId=${dbId} (resolving room...)`);
+                    // Fast room lookup with timeout (no properties needed)
+                    (async () => {
+                        try {
+                            const roomInfo: any = await Promise.race([
+                                (typeof getRoomForDbId === 'function' ? getRoomForDbId(dbId) : Promise.resolve(null)),
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('room-timeout')), 1500))
+                            ]);
+                            if (roomInfo?.roomName && roomInfo?.roomId != null) {
+                                console.log(`🖱️ [Click] dbId=${dbId} → roomName='${roomInfo.roomName}', roomId=${roomInfo.roomId}`);
+                            } else {
+                                console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                            }
+                        } catch {
+                            // On timeout/error, still provide a none-line so user sees result
+                            console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                        }
+                    })();
+                    // Continue with full diagnostics (may be slower due to properties)
                     logSelectionDiagnostics(dbId, pt, (result as any).model);
                 }
             } catch {}
         };
 
-        container.addEventListener('click', handleSensorPick);
+        // Use capture phase to get the event before DataViz consumes it
+        container.addEventListener('click', handleSensorPick, true);
         return () => {
-            container.removeEventListener('click', handleSensorPick);
+            container.removeEventListener('click', handleSensorPick, true);
         };
-    }, [viewer, insertMode, activePanel, getFilteredSensors, onSensorClick, onEmptyClick]);
+    }, [viewer, insertMode, activePanel, getFilteredSensors, onSensorClick, onEmptyClick, getRoomForDbId]);
+
+    // Global selection listener: log enclosing room for any selected object
+    useEffect(() => {
+        const v = viewerRef.current;
+        const Autodesk = (window as any).Autodesk;
+        if (!v || !Autodesk || !Autodesk.Viewing) return;
+
+        const onAggSel = async (ev: any) => {
+            try {
+                const sels = ev?.selections || [];
+                if (!sels.length) {
+                    console.log('[Select] Selection cleared');
+                    return;
+                }
+                for (const s of sels) {
+                    const mdl = s.model || v.model;
+                    const dbIds: number[] = s.dbIdArray || [];
+                    // Immediate one-liners per dbId, independent of properties speed
+                    for (const dbId of dbIds) {
+                        console.log(`🖱️ [Click] dbId=${dbId} (resolving room...)`);
+                        (async () => {
+                            try {
+                                const roomInfo: any = await Promise.race([
+                                    (typeof getRoomForDbId === 'function' ? getRoomForDbId(dbId) : Promise.resolve(null)),
+                                    new Promise((_, reject) => setTimeout(() => reject(new Error('room-timeout')), 1500))
+                                ]);
+                                if (roomInfo?.roomName && roomInfo?.roomId != null) {
+                                    console.log(`🖱️ [Click] dbId=${dbId} → roomName='${roomInfo.roomName}', roomId=${roomInfo.roomId}`);
+                                } else {
+                                    console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                                }
+                            } catch {
+                                console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                            }
+                        })();
+                    }
+                    for (const dbId of dbIds) {
+                        let name: string | undefined = undefined;
+                        let category: string | undefined = undefined;
+                        try {
+                            const props: any = await new Promise((resolve) => mdl.getProperties(dbId, resolve));
+                            const arr = props?.properties || [];
+                            name = arr.find((p: any) => p.displayName === 'Name')?.displayValue;
+                            category = arr.find((p: any) => p.displayName === 'Category')?.displayValue;
+                        } catch {}
+                        let roomInfo: any = null;
+                        try {
+                            if (typeof getRoomForDbId === 'function') {
+                                roomInfo = await getRoomForDbId(dbId);
+                            }
+                        } catch {}
+                        if (roomInfo) {
+                            console.log(`🏠 [Select] Object dbId=${dbId}${name?` (${name})`:''}${category?` [${category}]`:''} → Room: ${roomInfo.roomName} (dbId: ${roomInfo.roomId})`);
+                        } else {
+                            console.log(`ℹ️ [Select] Object dbId=${dbId}${name?` (${name})`:''}${category?` [${category}]`:''} → No enclosing room`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[ForgeViewer] Selection logging failed', e);
+            }
+        };
+
+        v.addEventListener(Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT, onAggSel);
+        return () => v.removeEventListener(Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT, onAggSel);
+    }, [viewer, getRoomForDbId]);
 
     // Update sensors when they change or when activePanel changes - with debouncing to prevent excessive calls
     useEffect(() => {
@@ -1750,7 +1941,6 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         if (!shouldShowSensors || !isInitialized) {
             return;
         }
-        
         
         // Use longer delay to ensure DataViz service is fully ready for display
         const delay = 1000; // Increased delay to ensure model is fully loaded

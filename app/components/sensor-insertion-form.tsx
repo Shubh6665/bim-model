@@ -74,6 +74,11 @@ export function SensorInsertionForm({
         const info = await (getRoomForPending ? getRoomForPending() : Promise.resolve(null));
         const fallbackInfo = (!info && position && getRoomForPosition) ? getRoomForPosition(position) : null;
         const detected = (info?.roomName || fallbackInfo?.roomName) ? String(info?.roomName || fallbackInfo?.roomName) : "";
+        console.log('[Form] Room auto-detect:', {
+          fromPending: info?.roomName ?? null,
+          fromGeometric: fallbackInfo?.roomName ?? null,
+          chosen: detected || '(none)'
+        });
         if (!active) return;
         setFormData(prev => ({ ...prev, room: detected || prev.room }));
       } catch {
@@ -266,7 +271,7 @@ export function SensorInsertionForm({
               className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 errors.room ? "border-red-500" : "border-gray-600"
               }`}
-              placeholder="Enter room name (optional)"
+              placeholder="Room name"
               disabled={loading}
             />
             {errors.room && (

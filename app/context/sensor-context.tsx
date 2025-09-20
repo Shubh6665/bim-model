@@ -98,6 +98,8 @@ interface SensorContextType {
   getRoomForDbId: (dbId: number) => Promise<any | null>;
   // Helper for forms: best-effort room info for the current pending placement
   getRoomForPending: () => Promise<any | null>;
+  // Force refresh room mapping algorithm
+  refreshRoomMapping: () => void;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -395,6 +397,12 @@ export function SensorProvider({ children }: SensorProviderProps) {
 
   // Form-related functions
   const showSensorForm = useCallback((position: { x: number; y: number; z: number }, dbId?: number) => {
+    console.log('[SensorContext] showSensorForm() called', {
+      position: { x: +position.x.toFixed(3), y: +position.y.toFixed(3), z: +position.z.toFixed(3) },
+      dbId: typeof dbId === 'number' ? dbId : null,
+      isPlacementMode,
+      placementSensorType,
+    });
     setPendingPosition(position);
     setPendingDbId((typeof dbId === 'number') ? dbId : null);
     // Fresh unhighlight to avoid lingering selection/glow
@@ -403,9 +411,11 @@ export function SensorProvider({ children }: SensorProviderProps) {
       if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
     } catch {}
     setShowInsertionForm(true);
-  }, [viewerInstance]);
+    console.log('[SensorContext] Insertion form state -> open');
+  }, [viewerInstance, isPlacementMode, placementSensorType]);
 
   const hideSensorForm = useCallback(() => {
+    console.log('[SensorContext] hideSensorForm() called - closing insertion form');
     setShowInsertionForm(false);
     setPendingPosition(null);
   }, []);
@@ -433,6 +443,13 @@ export function SensorProvider({ children }: SensorProviderProps) {
     }
   }, [roomMapper]);
 
+  // Force refresh room mapping (useful when algorithm is updated)
+  const refreshRoomMapping = useCallback(() => {
+    if (roomMapper) {
+      roomMapper.forceRefresh();
+    }
+  }, [roomMapper]);
+
   const getRoomForPosition = useCallback((position: { x: number; y: number; z: number }) => {
     if (!roomMapper) {
       console.warn("Room mapping not initialized");
@@ -450,55 +467,74 @@ export function SensorProvider({ children }: SensorProviderProps) {
     return info;
   }, [roomMapper]);
 
-  // Walk up the instance tree from a dbId to find the enclosing Room element
+  // Enhanced room detection using spatial containment
   const findRoomForDbId = useCallback(async (dbId: number): Promise<any | null> => {
     try {
       const v = viewerInstance;
       const model = v?.model;
-      const tree = model?.getInstanceTree?.();
-      if (!v || !model || !tree) return null;
+      if (!v || !model) return null;
 
-      const isRoomCategoryMatch = (val: any) => {
-        const s = String(val || '').toLowerCase();
-        return s === 'revit rooms' || s === 'rooms' || s.includes('room');
-      };
-
-      let current = dbId;
-      for (let i = 0; i < 12 && current != null; i++) {
-        // eslint-disable-next-line no-await-in-loop
-        const props: any = await new Promise((resolve) => model.getProperties(current, resolve));
-        const cat = props?.properties?.find((p: any) => p.displayName === 'Category')?.displayValue;
-        if (isRoomCategoryMatch(cat)) {
-          const name = props.properties.find((p: any) => p.displayName === 'Name')?.displayValue || 'Room';
-          // Prefer Level from Constraints if present; else use any Level property string
-          const levelName = (
-            props.properties.find((p: any) => p.displayName === 'Level' && p.displayCategory === 'Constraints')?.displayValue ||
-            props.properties.find((p: any) => p.displayName === 'Level')?.displayValue ||
-            undefined
-          );
-          return { roomId: props.dbId, roomName: String(name), levelName: levelName ? String(levelName) : undefined };
-        }
-        current = tree.getNodeParentId(current);
+      // First check if the object itself is a room
+      const props = await new Promise<any>((resolve, reject) => {
+        v.getProperties(dbId, resolve, reject);
+      });
+      
+      const category = props?.properties?.find((p: any) => 
+        p.displayName === 'Category' || p.displayCategory === 'Identity Data'
+      )?.displayValue;
+      
+      if (String(category).toLowerCase().includes('room')) {
+        const name = props.name || `Room ${dbId}`;
+        const level = props.properties?.find((p: any) => 
+          p.displayName === 'Level' || p.displayCategory === 'Constraints'
+        )?.displayValue;
+        console.log(`🏠 [SensorContext] Object ${dbId} is a room itself: ${name}`);
+        return { roomId: dbId, roomName: name, levelName: level };
       }
+
+      // If not a room, use spatial containment to find enclosing room
+      if (roomMapper && typeof roomMapper.findRoomForObject === 'function') {
+        console.log(`🔍 [SensorContext] Checking spatial containment for object ${dbId}...`);
+        const roomInfo = await roomMapper.findRoomForObject(dbId);
+        if (roomInfo) {
+          console.log(`🏠 [SensorContext] Found enclosing room via spatial containment: ${roomInfo.roomName} (dbId: ${roomInfo.roomId})`);
+          return roomInfo;
+        } else {
+          console.log(`🚫 [SensorContext] No enclosing room found for object ${dbId}`);
+        }
+      }
+      
       return null;
     } catch (e) {
       console.warn('[SensorContext] findRoomForDbId failed', e);
       return null;
     }
-  }, [viewerInstance]);
+  }, [viewerInstance, roomMapper]);
 
-  // Best-effort room info for the currently pending placement (dbId preferred, else geometric)
+  // Enhanced room detection: try hierarchy first, then geometric, with flexible fallback
   const getRoomForPending = useCallback(async (): Promise<any | null> => {
     try {
       let info: any = null;
+      
+      // Strategy 1: Check if clicked object itself is a room or has room hierarchy
       if (pendingDbId != null) {
         info = await findRoomForDbId(pendingDbId);
-        if (info) return info;
+        if (info) {
+          console.log(`🏠 [SensorContext] Room detected via hierarchy: ${info.roomName} (dbId: ${info.roomId})`);
+          return info;
+        }
       }
+      
+      // Strategy 2: Geometric room detection at position
       if (pendingPosition && roomMapper) {
         info = getRoomForPosition(pendingPosition);
-        if (info) return info;
+        if (info) {
+          console.log(`🏠 [SensorContext] Room detected geometrically: ${info.roomName} (dbId: ${info.roomId})`);
+          return info;
+        }
       }
+      
+      console.log(`ℹ️ [SensorContext] No room detected - sensor can be placed on any object`);
       return null;
     } catch (e) {
       console.warn('[SensorContext] getRoomForPending failed', e);
@@ -524,42 +560,50 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setError(null);
     
     try {
-      // Respect user's room input. Only auto-detect if the room field is empty.
+      // Enhanced flexible sensor placement logic
       const userRoomText = (formData.room || '').trim();
-      let detectedRoom = userRoomText || "Unknown Room";
+      let finalRoom = "";
       let roomInfo: any = null;
 
-      if (!userRoomText) {
-        // Detect room using robust strategy: 1) hierarchy via clicked dbId, 2) geometric with fallback
+      if (userRoomText) {
+        // User manually entered room name - respect it completely
+        finalRoom = userRoomText;
+        console.log(`✍️ [SensorContext] Using user-provided room: "${finalRoom}"`);
+        
+        // Still try to get metadata for heatmap linking if possible
+        if (pendingDbId != null) {
+          roomInfo = await findRoomForDbId(pendingDbId);
+        }
+        if (!roomInfo && roomMapper) {
+          roomInfo = getRoomForPosition(pendingPosition);
+        }
+        if (roomInfo) {
+          console.log(`📎 [SensorContext] Room metadata attached for heatmap: dbId=${roomInfo.roomId}`);
+        }
+      } else {
+        // Auto-detect room if available, but allow sensor placement anywhere
         if (pendingDbId != null) {
           roomInfo = await findRoomForDbId(pendingDbId);
           if (roomInfo) {
-            detectedRoom = roomInfo.roomName;
+            finalRoom = roomInfo.roomName;
+            console.log(`🏠 [SensorContext] Auto-detected room via hierarchy: ${finalRoom} (dbId: ${roomInfo.roomId})`);
           }
         }
 
         if (!roomInfo && roomMapper) {
-          console.log("🔍 [SensorContext] Detecting room geometrically for sensor position...");
+          console.log("🔍 [SensorContext] Trying geometric room detection...");
           roomInfo = getRoomForPosition(pendingPosition);
           if (roomInfo) {
-            detectedRoom = roomInfo.roomName;
-            console.log(`✅ [SensorContext] Sensor linked to room: ${detectedRoom} (dbId: ${roomInfo.roomId})`);
-            console.log(`📍 [SensorContext] Room level:`, roomInfo.levelName);
-          } else {
-            console.warn("❌ [SensorContext] No room detected for sensor position");
+            finalRoom = roomInfo.roomName;
+            console.log(`🏠 [SensorContext] Auto-detected room geometrically: ${finalRoom} (dbId: ${roomInfo.roomId})`);
           }
-        } else if (!roomInfo) {
-          console.warn("⚠️ [SensorContext] Room mapping not initialized");
         }
-      } else {
-        // User provided a room name; keep it and optionally attach metadata if easily available
-        if (pendingDbId != null) {
-          roomInfo = await findRoomForDbId(pendingDbId);
+
+        if (!roomInfo) {
+          // No room detected - sensor can still be placed on any object
+          finalRoom = "Unassigned"; // Generic fallback
+          console.log(`🔧 [SensorContext] No room detected - placing sensor on object (bridge/equipment mode)`);
         }
-        if (!roomInfo && roomMapper) {
-          roomInfo = getRoomForPosition(pendingPosition);
-        }
-        console.log(`✍️  [SensorContext] Using user-provided room: "${detectedRoom}"${roomInfo ? ' (metadata attached)' : ''}`);
       }
 
       const sensorData = {
@@ -570,7 +614,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
         position: pendingPosition,
         batteryLevel: 100,
         lastUpdate: new Date().toISOString(),
-        room: detectedRoom, // Prefer user-entered room; else use detected
+        room: finalRoom, // User input OR auto-detected OR "Unassigned" for flexible placement
         color: SENSOR_TYPES.find(t => t.name === formData.type)?.color,
         projectId: currentProjectId || "unknown",
         modelPosition: pendingPosition,
@@ -607,15 +651,16 @@ export function SensorProvider({ children }: SensorProviderProps) {
       hideSensorForm();
       exitPlacementMode();
       
-      // Enhanced console logging with room info
+      // Enhanced console logging with flexible placement info
       console.log("🎯 [SensorContext] Sensor placed successfully:", {
         sensorId: newSensor.id,
         sensorName: newSensor.name,
         sensorType: newSensor.type,
         position: pendingPosition,
-        room: detectedRoom,
+        room: finalRoom,
         roomId: roomInfo?.roomId,
-  roomLevel: roomInfo?.levelName
+        roomLevel: roomInfo?.levelName,
+        placementMode: roomInfo ? 'room-linked' : 'object-attached'
       });
       
       return newSensor;
@@ -692,6 +737,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
     getRoomForPosition,
     getRoomForDbId: findRoomForDbId,
     getRoomForPending,
+    refreshRoomMapping,
   };
 
   return (
