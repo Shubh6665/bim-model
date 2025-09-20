@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { SENSOR_TYPES } from "@/app/context/sensor-context";
+import { SENSOR_TYPES, useSensorContext } from "@/app/context/sensor-context";
 
 export interface SensorFormData {
   name: string;
@@ -32,6 +32,7 @@ export function SensorInsertionForm({
   onCancel,
   loading = false,
 }: SensorInsertionFormProps) {
+  const { getRoomForPosition, getRoomForPending } = useSensorContext();
   const [formData, setFormData] = useState<SensorFormData>({
     name: "",
     code: "",
@@ -64,6 +65,24 @@ export function SensorInsertionForm({
     }
   }, [isOpen, sensorType]);
 
+  // Autofill room from pending placement (dbId preferred), fallback to geometric, allow user to edit
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    (async () => {
+      try {
+        const info = await (getRoomForPending ? getRoomForPending() : Promise.resolve(null));
+        const fallbackInfo = (!info && position && getRoomForPosition) ? getRoomForPosition(position) : null;
+        const detected = (info?.roomName || fallbackInfo?.roomName) ? String(info?.roomName || fallbackInfo?.roomName) : "";
+        if (!active) return;
+        setFormData(prev => ({ ...prev, room: detected || prev.room }));
+      } catch {
+        // ignore detection errors; leave room as-is
+      }
+    })();
+    return () => { active = false; };
+  }, [isOpen, position, getRoomForPending, getRoomForPosition]);
+
   const handleInputChange = (field: keyof SensorFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -86,9 +105,6 @@ export function SensorInsertionForm({
     }
     if (!formData.model.trim()) {
       newErrors.model = "Model is required";
-    }
-    if (!formData.room.trim()) {
-      newErrors.room = "Room is required";
     }
 
     setErrors(newErrors);
@@ -238,10 +254,10 @@ export function SensorInsertionForm({
             )}
           </div>
 
-          {/* Room Field */}
+          {/* Room Field (optional, auto-filled if available) */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              Room *
+              Room
             </label>
             <input
               type="text"
@@ -250,7 +266,7 @@ export function SensorInsertionForm({
               className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 errors.room ? "border-red-500" : "border-gray-600"
               }`}
-              placeholder="Enter room name"
+              placeholder="Enter room name (optional)"
               disabled={loading}
             />
             {errors.room && (

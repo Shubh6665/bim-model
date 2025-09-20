@@ -96,6 +96,8 @@ interface SensorContextType {
   setupRoomDetection: (viewer: any) => Promise<void>;
   getRoomForPosition: (position: { x: number; y: number; z: number }) => any | null;
   getRoomForDbId: (dbId: number) => Promise<any | null>;
+  // Helper for forms: best-effort room info for the current pending placement
+  getRoomForPending: () => Promise<any | null>;
 }
 
 const SensorContext = createContext<SensorContextType | undefined>(undefined);
@@ -395,8 +397,13 @@ export function SensorProvider({ children }: SensorProviderProps) {
   const showSensorForm = useCallback((position: { x: number; y: number; z: number }, dbId?: number) => {
     setPendingPosition(position);
     setPendingDbId((typeof dbId === 'number') ? dbId : null);
+    // Fresh unhighlight to avoid lingering selection/glow
+    try {
+      if (viewerInstance?.clearSelection) viewerInstance.clearSelection();
+      if (viewerInstance?.impl?.invalidate) viewerInstance.impl.invalidate(true);
+    } catch {}
     setShowInsertionForm(true);
-  }, []);
+  }, [viewerInstance]);
 
   const hideSensorForm = useCallback(() => {
     setShowInsertionForm(false);
@@ -480,6 +487,25 @@ export function SensorProvider({ children }: SensorProviderProps) {
     }
   }, [viewerInstance]);
 
+  // Best-effort room info for the currently pending placement (dbId preferred, else geometric)
+  const getRoomForPending = useCallback(async (): Promise<any | null> => {
+    try {
+      let info: any = null;
+      if (pendingDbId != null) {
+        info = await findRoomForDbId(pendingDbId);
+        if (info) return info;
+      }
+      if (pendingPosition && roomMapper) {
+        info = getRoomForPosition(pendingPosition);
+        if (info) return info;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[SensorContext] getRoomForPending failed', e);
+      return null;
+    }
+  }, [pendingDbId, pendingPosition, roomMapper, findRoomForDbId, getRoomForPosition]);
+
   const placeSensorWithDetails = useCallback(async (formData: {
     name: string;
     code: string;
@@ -498,29 +524,42 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setError(null);
     
     try {
-      // Detect room using robust strategy: 1) hierarchy via clicked dbId, 2) geometric with fallback
-      let detectedRoom = formData.room || "Unknown Room";
+      // Respect user's room input. Only auto-detect if the room field is empty.
+      const userRoomText = (formData.room || '').trim();
+      let detectedRoom = userRoomText || "Unknown Room";
       let roomInfo: any = null;
 
-      if (pendingDbId != null) {
-        roomInfo = await findRoomForDbId(pendingDbId);
-        if (roomInfo) {
-          detectedRoom = roomInfo.roomName;
+      if (!userRoomText) {
+        // Detect room using robust strategy: 1) hierarchy via clicked dbId, 2) geometric with fallback
+        if (pendingDbId != null) {
+          roomInfo = await findRoomForDbId(pendingDbId);
+          if (roomInfo) {
+            detectedRoom = roomInfo.roomName;
+          }
         }
-      }
 
-      if (!roomInfo && roomMapper) {
-        console.log("🔍 [SensorContext] Detecting room geometrically for sensor position...");
-        roomInfo = getRoomForPosition(pendingPosition);
-        if (roomInfo) {
-          detectedRoom = roomInfo.roomName;
-          console.log(`✅ [SensorContext] Sensor linked to room: ${detectedRoom} (dbId: ${roomInfo.roomId})`);
-          console.log(`📍 [SensorContext] Room level:`, roomInfo.levelName);
-        } else {
-          console.warn("❌ [SensorContext] No room detected for sensor position");
+        if (!roomInfo && roomMapper) {
+          console.log("🔍 [SensorContext] Detecting room geometrically for sensor position...");
+          roomInfo = getRoomForPosition(pendingPosition);
+          if (roomInfo) {
+            detectedRoom = roomInfo.roomName;
+            console.log(`✅ [SensorContext] Sensor linked to room: ${detectedRoom} (dbId: ${roomInfo.roomId})`);
+            console.log(`📍 [SensorContext] Room level:`, roomInfo.levelName);
+          } else {
+            console.warn("❌ [SensorContext] No room detected for sensor position");
+          }
+        } else if (!roomInfo) {
+          console.warn("⚠️ [SensorContext] Room mapping not initialized");
         }
-      } else if (!roomInfo) {
-        console.warn("⚠️ [SensorContext] Room mapping not initialized");
+      } else {
+        // User provided a room name; keep it and optionally attach metadata if easily available
+        if (pendingDbId != null) {
+          roomInfo = await findRoomForDbId(pendingDbId);
+        }
+        if (!roomInfo && roomMapper) {
+          roomInfo = getRoomForPosition(pendingPosition);
+        }
+        console.log(`✍️  [SensorContext] Using user-provided room: "${detectedRoom}"${roomInfo ? ' (metadata attached)' : ''}`);
       }
 
       const sensorData = {
@@ -531,7 +570,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
         position: pendingPosition,
         batteryLevel: 100,
         lastUpdate: new Date().toISOString(),
-        room: detectedRoom, // Use detected room instead of form room
+        room: detectedRoom, // Prefer user-entered room; else use detected
         color: SENSOR_TYPES.find(t => t.name === formData.type)?.color,
         projectId: currentProjectId || "unknown",
         modelPosition: pendingPosition,
@@ -652,6 +691,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
     setupRoomDetection,
     getRoomForPosition,
     getRoomForDbId: findRoomForDbId,
+    getRoomForPending,
   };
 
   return (
