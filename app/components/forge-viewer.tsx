@@ -69,6 +69,19 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Heatmap
     const heatmapRef = useRef<HeatmapService | null>(null);
     const [heatmapOn, setHeatmapOn] = useState(false);
+    // Keep latest state accessible from toolbar button handler
+    const heatmapOnRef = useRef(false);
+    useEffect(() => {
+        heatmapOnRef.current = heatmapOn;
+        // Keep toolbar button visual in sync if it already exists
+        try {
+            const btn = heatmapBtnRef.current as any;
+            if (btn?.container) {
+                if (heatmapOn) btn.container.classList.add('active');
+                else btn.container.classList.remove('active');
+            }
+        } catch {}
+    }, [heatmapOn]);
     const heatmapBtnRef = useRef<any>(null);
     const [heatLegend, setHeatLegend] = useState<{ min: number; max: number; label: string; unit: string } | null>(null);
     const [heatmapChannel, setHeatmapChannel] = useState<string | null>(null);
@@ -321,16 +334,20 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             if (!viewerInstance || !svc) return;
             // Only render heatmap when enabled and on IoT or BIM panels (adjust as needed)
             const shouldShow = heatmapOn && (activePanel === 'iot');
+            console.log(`[ForgeViewer] Heatmap effect: heatmapOn=${heatmapOn}, activePanel=${activePanel}, shouldShow=${shouldShow}`);
             if (!shouldShow) {
+                console.log(`[ForgeViewer] Hiding heatmap...`);
                 svc.hideHeatmap();
                 setHeatLegend(null);
                 return;
             }
             // Prepare values from currently visible/filtered sensors
             try {
+                console.log(`[ForgeViewer] Showing heatmap for channel: ${heatmapChannel}`);
                 // Use selected channel; fall back to all if not selected
                 const src = (sensors || []) as any[];
                 const byChannel = heatmapChannel ? src.filter(s => s.type === heatmapChannel) : src;
+                console.log(`[ForgeViewer] Heatmap sensors: ${byChannel.length} of ${src.length}`);
                 await svc.updateAndShowHeatmap(byChannel as any);
                 // Compute range for legend
                 const nums: number[] = [];
@@ -348,7 +365,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     setHeatLegend(null);
                 }
             } catch (e) {
-                console.warn('[ForgeViewer] Heatmap update failed', e);
+                console.error('[ForgeViewer] Heatmap update failed', e);
             }
         };
         run();
@@ -1120,6 +1137,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                     const Autodesk = (window as any).Autodesk;
                                                     const ui = Autodesk?.Viewing?.UI;
                                                     if (viewerInstance?.toolbar && ui) {
+                                                        // Use a dedicated custom control group so existing toolbar layout is not affected
                                                         const ctrlId = 'bim-custom-tools';
                                                         let ctrl = viewerInstance.toolbar.getControl(ctrlId);
                                                         if (!ctrl) {
@@ -1130,26 +1148,74 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                                         let btn = ctrl.getControl(btnId);
                                                         if (!btn) {
                                                             btn = new ui.Button(btnId);
+                                                            // Ensure DOM id is set for CSS targeting
+                                                            try { btn.container.id = btnId; } catch {}
                                                             btn.setToolTip('Toggle Room Heatmap');
-                                                            btn.setIcon('adsk-icon-hotkey'); // use default icon; can be customized
+                                                            // Create CSS-masked icon so color can be controlled via `color`
+                                                            const iconWrapper = btn.container.querySelector('.adsk-button-icon') as HTMLElement;
+                                                            if (iconWrapper) {
+                                                                iconWrapper.innerHTML = '';
+                                                                const iconEl = document.createElement('span');
+                                                                iconEl.className = 'heatmap-mask-icon';
+                                                                iconWrapper.appendChild(iconEl);
+                                                            }
+                                                            // Add hover and active states with CSS
+                                                            const addHeatmapButtonStyles = () => {
+                                                                const style = document.createElement('style');
+                                                                style.textContent = `
+                                                                    #toggle-heatmap-btn {
+                                                                        transition: color 0.2s ease, box-shadow 0.2s ease;
+                                                                        color: #ffffff; /* icon white by default */
+                                                                    }
+                                                                    /* Hover: draw blue outline inside without changing size */
+                                                                    #toggle-heatmap-btn:hover {
+                                                                        box-shadow: inset 0 0 0 2px #35b1ff !important;
+                                                                        color: #35b1ff; /* icon cyan on hover */
+                                                                    }
+                                                                    /* Active: only cyan icon, no outline/background changes */
+                                                                    #toggle-heatmap-btn.active {
+                                                                        box-shadow: none !important;
+                                                                        color: #35b1ff; /* icon cyan when active */
+                                                                    }
+                                                                    #toggle-heatmap-btn.active:hover {
+                                                                        box-shadow: none !important; /* keep no border on hover when active */
+                                                                    }
+                                                                    /* Mask-based icon uses the button color */
+                                                                    #toggle-heatmap-btn .heatmap-mask-icon {
+                                                                        display: inline-block;
+                                                                        width: 24px; /* match default viewer icon size */
+                                                                        height: 24px;
+                                                                        background-color: currentColor; /* takes from parent color */
+                                                                        -webkit-mask: url('/heatmap.png') center / contain no-repeat;
+                                                                        mask: url('/heatmap.png') center / contain no-repeat;
+                                                                    }
+                                                                `;
+                                                                document.head.appendChild(style);
+                                                            };
+                                                            addHeatmapButtonStyles();
+                                                            
                                                             btn.onClick = async () => {
-                                                                const next = !heatmapOn;
+                                                                const isActive = btn.container.classList.contains('active');
+                                                                const next = !isActive;
+                                                                console.log(`[ForgeViewer] Heatmap button clicked. isActive=${isActive} -> next=${next}`);
+                                                                
                                                                 // Initialize channel on first toggle ON
                                                                 if (next) {
                                                                     // Prefer current filtered type, else first available type with room-linked sensors
                                                                     const availableTypes = Array.from(new Set((sensors || []).filter((s: any) => s?.roomId != null).map((s: any) => s.type))).filter(Boolean) as string[];
                                                                     const initial = filteredSensorType || availableTypes[0] || null;
                                                                     setHeatmapChannel(initial);
+                                                                    console.log(`[ForgeViewer] Heatmap channel set to: ${initial}`);
                                                                 }
                                                                 setHeatmapOn(next);
                                                                 
                                                                 // Update button appearance
                                                                 if (next) {
-                                                                    btn.container.style.backgroundColor = '#2563eb';
-                                                                    btn.container.style.color = '#ffffff';
+                                                                    btn.container.classList.add('active');
+                                                                    console.log(`[ForgeViewer] Heatmap activated`);
                                                                 } else {
-                                                                    btn.container.style.backgroundColor = '';
-                                                                    btn.container.style.color = '';
+                                                                    btn.container.classList.remove('active');
+                                                                    console.log(`[ForgeViewer] Heatmap deactivated`);
                                                                 }
                                                             };
                                                             ctrl.addControl(btn);
