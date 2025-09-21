@@ -565,6 +565,156 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
+    // Helper: match an element's Level to the selected floor robustly
+    const levelMatchesFloor = (elemLevel: any, floor: { name: string; levelIndex: number }) => {
+        if (elemLevel == null) return false;
+        const el = String(elemLevel).trim();
+        const fname = String(floor.name || '').trim();
+        if (!el && !fname) return false;
+        // Direct match on name
+        if (fname && el === fname) return true;
+        // Numeric match on level index (common in some Revit exports where Level is '5')
+        if (el === String(floor.levelIndex)) return true;
+        // Loose match: 'Level 5' contains 5
+        if (/^level\s*\d+$/i.test(el)) {
+            const num = el.replace(/[^0-9.-]/g, '');
+            if (num && Number(num) === Number(floor.levelIndex)) return true;
+        }
+        return false;
+    };
+
+    // Helper: apply per-level isolation with category exclusions
+    const applyPerLevelIsolation = async (v: any, floor: { name: string; zMin: number; zMax: number; levelIndex: number }) => {
+        try {
+            if (!v) return;
+            console.group(`🧱 [PerLevelIsolation] Applying for '${floor.name}' [${floor.levelIndex}] z:[${floor.zMin.toFixed(2)}, ${floor.zMax.toFixed(2)}]`);
+
+            // Turn off section capping to avoid visual lid
+            try { v.prefs?.set?.('sectionCap', false); } catch {}
+
+            // Reset any previous isolation/hide so we start from a clean slate
+            try { v.isolate([]); } catch {}
+            try { v.showAll(); } catch {}
+
+            const models: any[] = (typeof v.getAllModels === 'function') ? (v.getAllModels() || []) : (v.model ? [v.model] : []);
+            const EXCLUDE_CATS = new Set<string>([
+                // Revit-specific names
+                'Revit Ceilings',  'Revit Rooms', 'Revit Spaces',
+                // Generic fallbacks
+                'Ceilings', 'Ceiling', 'Roofs', 'Roof', 'Rooms', 'Spaces', 'Topography'
+            ]);
+
+            // We'll exclude Floors that are NOT on the selected level, but keep the current level's floor
+            const FLOOR_CATS = new Set<string>(['Revit Floors', 'Floors']);
+
+            for (const model of models) {
+                const tree = model?.getInstanceTree?.();
+                if (!tree) continue;
+                const root = tree.getRootId?.() ?? 1;
+                const dbIds: number[] = [];
+                tree.enumNodeChildren(root, (id: number) => { dbIds.push(id); }, true);
+                if (!dbIds.length) continue;
+                // Helpers
+                const fragList = model?.getFragmentList?.();
+                const THREE = (window as any).THREE;
+                const bandPad = 0.05; // 5cm tolerance
+                const bandMin = floor.zMin - bandPad;
+                const bandMax = floor.zMax + bandPad;
+                const getNodeBbox = (nodeId: number) => {
+                    try {
+                        // Fast path (works on v7 for dbId)
+                        const bb = model.getBoundingBox(nodeId);
+                        if (bb && bb.min && bb.max) return bb;
+                    } catch {}
+                    // Fallback via fragments
+                    if (!fragList || !THREE) return null;
+                    const b = new THREE.Box3();
+                    let has = false;
+                    try {
+                        fragList.enumNodeFragments(nodeId, (fragId: number) => {
+                            const fb = new THREE.Box3();
+                            fragList.getWorldBounds(fragId, fb);
+                            if (!has) { b.copy(fb); has = true; } else { b.union(fb); }
+                        }, true);
+                    } catch {}
+                    return has ? b : null;
+                };
+
+                await new Promise<void>((resolve) => {
+                    try {
+                        model.getBulkProperties(dbIds, { propFilter: ['Level', 'Category'] }, (elems: any[]) => {
+                            const inLevel: number[] = [];
+                            const toHide: number[] = [];
+
+                            for (const e of elems) {
+                                const props = e.properties || [];
+                                const lvl = props.find((p: any) => p.displayName === 'Level')?.displayValue;
+                                const cat = props.find((p: any) => p.displayName === 'Category')?.displayValue || '';
+                                const catStr = String(cat);
+                                const byLevel = levelMatchesFloor(lvl, floor);
+                                const bb = getNodeBbox(e.dbId);
+                                const byBand = bb ? (bb.max.z >= bandMin && bb.min.z <= bandMax) : false;
+
+                                // Include rule: in z-band OR explicit Level match, but not in excluded categories
+                                if ((byBand || byLevel) && !EXCLUDE_CATS.has(catStr)) {
+                                    inLevel.push(e.dbId);
+                                }
+
+                                // Hide rule: exclude categories regardless of band
+                                if (EXCLUDE_CATS.has(catStr)) {
+                                    toHide.push(e.dbId);
+                                } else if (FLOOR_CATS.has(catStr)) {
+                                    // Floors from other levels act as ceilings
+                                    if (!byLevel) {
+                                        // If above band significantly, definitely hide
+                                        if (bb && bb.min.z > bandMax - bandPad) {
+                                            toHide.push(e.dbId);
+                                        } else if (!byBand) {
+                                            toHide.push(e.dbId);
+                                        }
+                                    }
+                                }
+                            }
+
+                            try { v.isolate(inLevel, model); } catch {}
+                            if (toHide.length) {
+                                try { v.hide(toHide, model); } catch {}
+                            }
+
+                            console.log(`   • Model ${model?.id ?? model?.getModelId?.()} → isolate=${inLevel.length}, hide=${toHide.length}`);
+                            resolve();
+                        }, (err: any) => {
+                            console.warn('[PerLevelIsolation] getBulkProperties failed', err);
+                            resolve();
+                        });
+                    } catch (err) {
+                        console.warn('[PerLevelIsolation] Bulk properties error', err);
+                        resolve();
+                    }
+                });
+            }
+
+            try { v.impl?.invalidate?.(true, true, true); } catch {}
+            console.groupEnd();
+        } catch (e) {
+            console.error('[PerLevelIsolation] Failed', e);
+        }
+    };
+
+    const clearPerLevelIsolation = (v: any) => {
+        try {
+            if (!v) return;
+            console.group('🧱 [PerLevelIsolation] Clearing');
+            try { v.isolate([]); } catch {}
+            try { v.showAll(); } catch {}
+            try { v.setCutPlanes?.([], 'Autodesk.AEC.FloorSelector'); } catch {}
+            try { v.impl?.invalidate?.(true, true, true); } catch {}
+            console.groupEnd();
+        } catch (e) {
+            console.warn('[PerLevelIsolation] Clear failed', e);
+        }
+    };
+
     // Apply model visibility according to enabledModelIds using complete disable/enable
     const applyModelVisibility = (v: any) => {
         console.groupCollapsed(`🚀 [applyModelVisibility] Applying visibility rules at ${new Date().toLocaleTimeString()}`);
@@ -655,67 +805,137 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     };
 
-    // On IoT panel switch, load/show native AEC Levels toolbar and restore on exit
+    // Helper: ensure AEC Levels extension is loaded and wired; optionally show the panel
+    const ensureLevelsWired = async (showPanel: boolean) => {
+        const v = viewerRef.current;
+        const Autodesk = (window as any).Autodesk;
+        if (!v || !Autodesk || !Autodesk.Viewing || !modelLoaded) return;
+        try {
+            const existing = (typeof v.getExtension === 'function') ? v.getExtension('Autodesk.AEC.LevelsExtension') : null;
+            const levelsExt = existing || await v.loadExtension('Autodesk.AEC.LevelsExtension');
+            if (!levelsExt) return;
+            levelsExtRef.current = levelsExt;
+
+            // Show/hide panel depending on context
+            try { levelsExt.levelsPanel?.setVisible?.(!!showPanel); } catch {}
+
+            // Optional: log floors
+            try {
+                const floors = levelsExt?.floorSelector?.floorData || [];
+                if (floors && floors.length) {
+                    console.log(`[ForgeViewer] Levels ready with ${floors.length} floors`);
+                }
+            } catch {}
+
+            // Attach handler once
+            try {
+                const fs = levelsExt?.floorSelector;
+                const EVT = 'Autodesk.AEC.FloorSelector.SELECTED_FLOOR_CHANGED';
+                const EVT2 = 'Autodesk.AEC.FloorSelector.FLOOR_ACTIVATED';
+                const handleIndex = (idx: number | undefined) => {
+                    try {
+                        const arr = levelsExt?.floorSelector?.floorData || [];
+                        if (typeof idx === 'number' && arr[idx]) {
+                            const fd = arr[idx];
+                            const floor = { name: fd.name || `Level ${idx}`, zMin: fd.zMin ?? 0, zMax: fd.zMax ?? 0, levelIndex: idx };
+                            applyPerLevelIsolation(v, floor);
+                        } else {
+                            clearPerLevelIsolation(v);
+                        }
+                    } catch (e) { console.warn('[ForgeViewer] handleIndex failed', e); }
+                };
+                const handler = ({ target, levelIndex }: any) => {
+                    try {
+                        if (typeof levelIndex === 'number') {
+                            handleIndex(levelIndex);
+                        } else {
+                            const idx = fs?.getActiveFloor?.();
+                            handleIndex(typeof idx === 'number' ? idx : undefined);
+                        }
+                    } catch (e) { console.warn('[ForgeViewer] Floor change handler failed', e); }
+                };
+                // avoid duplicates
+                try { fs?.removeEventListener?.(EVT, (levelsExt as any).__floorHandler); } catch {}
+                fs?.addEventListener?.(EVT, handler);
+                (levelsExt as any).__floorHandler = handler;
+
+                // Also listen to FLOOR_ACTIVATED (double-click activation in some builds)
+                try { fs?.removeEventListener?.(EVT2, (levelsExt as any).__floorHandler2); } catch {}
+                const handler2 = (ev: any) => {
+                    try {
+                        const idx = ev?.detail?.levelIndex;
+                        handleIndex(typeof idx === 'number' ? idx : fs?.getActiveFloor?.());
+                    } catch (e) { console.warn('[ForgeViewer] FLOOR_ACTIVATED handler failed', e); }
+                };
+                fs?.addEventListener?.(EVT2, handler2);
+                (levelsExt as any).__floorHandler2 = handler2;
+
+                // Monkey-patch selectFloor to always invoke our handler after native behavior
+                try {
+                    if (!(fs as any).__patchedSelect) {
+                        const orig = fs.selectFloor?.bind(fs);
+                        fs.selectFloor = (idx: number, highlight: boolean) => {
+                            try { orig?.(idx, highlight); } catch {}
+                            // Defer to let native state settle, then apply isolation
+                            setTimeout(() => handleIndex(idx), 0);
+                        };
+                        (fs as any).__patchedSelect = true;
+                    }
+                } catch (e) { console.warn('[ForgeViewer] Failed to patch selectFloor', e); }
+
+                // Debug helpers
+                try {
+                    (window as any).__PLI = {
+                        apply: (idx: number) => {
+                            const data = levelsExt?.floorSelector?.floorData || [];
+                            const fd = typeof idx === 'number' ? data[idx] : null;
+                            if (!fd) { console.warn('No floor at index', idx); return; }
+                            const f = { name: fd.name || `Level ${idx}`, zMin: fd.zMin ?? 0, zMax: fd.zMax ?? 0, levelIndex: idx };
+                            applyPerLevelIsolation(v, f);
+                        },
+                        clear: () => clearPerLevelIsolation(v),
+                        getFloors: () => (levelsExt?.floorSelector?.floorData || []).map((f: any, i: number) => ({ i, name: f?.name, zMin: f?.zMin, zMax: f?.zMax }))
+                    };
+                    console.log('🔧 [ForgeViewer] __PLI debug helpers available: __PLI.getFloors(), __PLI.apply(index), __PLI.clear()');
+                } catch {}
+            } catch (e) {
+                console.warn('[ForgeViewer] Failed to attach floor change handler', e);
+            }
+        } catch (e) {
+            console.warn('[ForgeViewer] Failed to load/wire Levels extension:', e);
+        }
+    };
+
+    // Always wire levels when model is ready (no panel by default)
+    useEffect(() => {
+        if (!modelLoaded) return;
+        ensureLevelsWired(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [modelLoaded]);
+
+    // On IoT panel switch, show/hide the panel and maintain wiring
     useEffect(() => {
         const v = viewerRef.current;
         const Autodesk = (window as any).Autodesk;
         if (!v || !Autodesk || !Autodesk.Viewing || !modelLoaded) return;
 
-        let cancelled = false;
-        const ensureLevelsVisible = async () => {
-            try {
-                const existing = (typeof v.getExtension === 'function') ? v.getExtension('Autodesk.AEC.LevelsExtension') : null;
-                const levelsExt = existing || await v.loadExtension('Autodesk.AEC.LevelsExtension');
-                if (cancelled || !levelsExt) return;
-                levelsExtRef.current = levelsExt;
-
-                // Try to show the native Levels panel
-                try {
-                    if (levelsExt.levelsPanel && typeof levelsExt.levelsPanel.setVisible === 'function') {
-                        levelsExt.levelsPanel.setVisible(true);
-                    }
-                } catch {}
-
-                // Fallback: click the native toolbar button if available
-                try {
-                    const btn = document.querySelector('[data-automation-id="toolbar-levelsExtensionTool"] button') as HTMLElement | null;
-                    if (btn) {
-                        btn.click();
-                    }
-                } catch {}
-
-                // Optional: log current floors
-                try {
-                    const floors = levelsExt?.floorSelector?.floorData || [];
-                    if (floors && floors.length) {
-                        console.log(`[ForgeViewer] Levels ready with ${floors.length} floors`);
-                    }
-                } catch {}
-            } catch (e) {
-                console.warn('[ForgeViewer] Failed to load/show Levels extension:', e);
-            }
-        };
-
         const hideLevels = () => {
             try {
                 const ext = levelsExtRef.current || (typeof v.getExtension === 'function' ? v.getExtension('Autodesk.AEC.LevelsExtension') : null);
                 if (ext) {
-                    // Restore full 3D view when leaving IoT
                     try { ext.floorSelector?.restore3DView?.(); } catch {}
-                    // Also clear AEC FloorSelector cut planes to avoid lingering slice
                     try { v?.setCutPlanes?.([], 'Autodesk.AEC.FloorSelector'); } catch {}
+                    try { clearPerLevelIsolation(v); } catch {}
                     try { ext.levelsPanel?.setVisible?.(false); } catch {}
                 }
             } catch {}
         };
 
         if (activePanel === 'iot') {
-            ensureLevelsVisible();
+            ensureLevelsWired(true);
         } else {
             hideLevels();
         }
-
-        return () => { cancelled = true; };
     }, [activePanel, modelLoaded]);
 
     // Dynamically reconcile overlay models without re-initializing primary

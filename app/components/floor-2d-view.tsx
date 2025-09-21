@@ -124,81 +124,25 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
       // Update filtered sensors
       updateFilteredSensors(floorDataView, selectedFloor);
       
-      // Additional native level selection trigger - try multiple methods to ensure it works
-      if (selectedFloor && viewer.loadedExtensions && viewer.loadedExtensions['Autodesk.AEC.LevelsExtension']) {
-        const levelsExt = viewer.loadedExtensions['Autodesk.AEC.LevelsExtension'];
-        
-        try {
-          // Method 1: Direct floor selector interaction
-          if (levelsExt.floorSelector) {
-            console.log(`🔧 Triggering native level ${selectedFloor.levelIndex} via floorSelector`);
-            
-            // Select the floor (highlights it)
-            levelsExt.floorSelector.selectFloor(selectedFloor.levelIndex, true);
-            
-            // Small delay then trigger the view change (simulates double-click)
-            setTimeout(() => {
-              try {
-                // Try different methods to activate the floor view
-                if (levelsExt.floorSelector.onFloorDoubleClick) {
-                  levelsExt.floorSelector.onFloorDoubleClick(selectedFloor.levelIndex);
-                  console.log(`✅ Triggered floor view via onFloorDoubleClick`);
-                } else if (levelsExt.floorSelector.activateFloorView) {
-                  levelsExt.floorSelector.activateFloorView(selectedFloor.levelIndex);
-                  console.log(`✅ Triggered floor view via activateFloorView`);
-                } else {
-                  // Fallback: dispatch custom event
-                  const event = new CustomEvent('floorViewActivated', {
-                    detail: { levelIndex: selectedFloor.levelIndex, floorData: selectedFloor }
-                  });
-                  levelsExt.floorSelector.dispatchEvent(event);
-                  console.log(`✅ Triggered floor view via custom event`);
-                }
-              } catch (error) {
-                console.warn('⚠️ Native floor view trigger failed, using manual method:', error);
-                // Manual fallback handled by selectFloor method
-              }
-            }, 100);
-          }
-          
-          // Method 2: Try to programmatically click the native level button
-          setTimeout(() => {
-            try {
-              const levelButtons = document.querySelectorAll('.adsk-button-icon[title*="Level"], .toolbar-vertical-group button[title*="Level"]');
-              const targetButton = Array.from(levelButtons).find(btn => 
-                btn.getAttribute('title')?.includes(selectedFloor.name) ||
-                btn.getAttribute('title')?.includes(`Level ${selectedFloor.levelIndex}`)
-              ) as HTMLElement;
-              
-              if (targetButton) {
-                console.log(`🖱️ Found and clicking native level button for ${selectedFloor.name}`);
-                targetButton.click();
-                
-                // Double-click to activate floor view
-                setTimeout(() => {
-                  const event = new MouseEvent('dblclick', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                  });
-                  targetButton.dispatchEvent(event);
-                  console.log(`✅ Double-clicked native level button`);
-                }, 50);
-              }
-            } catch (error) {
-              console.warn('⚠️ Could not find or click native level button:', error);
-            }
-          }, 200);
-          
-        } catch (error) {
-          console.warn('⚠️ Error with native levels extension interaction:', error);
-        }
-      }
+      // Rely on LevelsExtension.selectFloor + our __PLI isolation; skip fragile DOM/double-click hacks
       
       console.log(`✅ Floor selection completed: ${selectedFloor?.name || 'All Floors'}`);
       
       // Small delay to allow native extension to process
       await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Apply our robust per-level isolation if available
+      try {
+        const pli = (window as any).__PLI;
+        if (!floorId) {
+          // All floors -> clear isolation
+          pli?.clear?.();
+        } else if (selectedFloor) {
+          pli?.apply?.(selectedFloor.levelIndex);
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not call __PLI helpers from Floor2DView:', e);
+      }
       
     } catch (error) {
       console.error('❌ Error selecting floor:', error);
@@ -244,6 +188,9 @@ export function Floor2DView({ viewer, onFloorChanged, onSensorClicked }: Floor2D
         // Method 2: Clear our internal state
         setCurrentFloor(null);
         floorDataView?.selectFloor(null);
+
+        // Also clear isolation applied by our per-level handler
+        try { (window as any).__PLI?.clear?.(); } catch {}
         
       } catch (error) {
         console.error('Error in double-click 3D restoration:', error);
