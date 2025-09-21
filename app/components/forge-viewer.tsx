@@ -599,7 +599,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             const models: any[] = (typeof v.getAllModels === 'function') ? (v.getAllModels() || []) : (v.model ? [v.model] : []);
             const EXCLUDE_CATS = new Set<string>([
                 // Revit-specific names
-                'Revit Ceilings',  'Revit Rooms', 'Revit Spaces',
+                'Revit Ceilings',  'Revit Rooms','Piani', 'Revit Spaces', 'Soffitti' ,
                 // Generic fallbacks
                 'Ceilings', 'Ceiling', 'Roofs', 'Roof', 'Rooms', 'Spaces', 'Topography'
             ]);
