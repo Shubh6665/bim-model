@@ -71,6 +71,8 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const [heatmapOn, setHeatmapOn] = useState(false);
     // Keep latest state accessible from toolbar button handler
     const heatmapOnRef = useRef(false);
+    // Track when our per-level isolation logic is actively running, to suppress Properties panel
+    const perLevelIsolationActiveRef = useRef(false);
     useEffect(() => {
         heatmapOnRef.current = heatmapOn;
         // Keep toolbar button visual in sync if it already exists
@@ -588,6 +590,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         try {
             if (!v) return;
             console.group(`🧱 [PerLevelIsolation] Applying for '${floor.name}' [${floor.levelIndex}] z:[${floor.zMin.toFixed(2)}, ${floor.zMax.toFixed(2)}]`);
+            perLevelIsolationActiveRef.current = true;
 
             // Turn off section capping to avoid visual lid
             try { v.prefs?.set?.('sectionCap', false); } catch {}
@@ -599,7 +602,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             const models: any[] = (typeof v.getAllModels === 'function') ? (v.getAllModels() || []) : (v.model ? [v.model] : []);
             const EXCLUDE_CATS = new Set<string>([
                 // Revit-specific names
-                'Revit Ceilings',  'Revit Rooms','Piani', 'Revit Spaces', 'Soffitti' ,
+                'Revit Ceilings', 'Revit Mass Floor', 'Revit Rooms','Piani', 'Revit Spaces', 'Soffitti' ,
                 // Generic fallbacks
                 'Ceilings', 'Ceiling', 'Roofs', 'Roof', 'Rooms', 'Spaces', 'Topography'
             ]);
@@ -693,27 +696,54 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     }
                 });
             }
-
+            try { v.fitToView?.(); } catch {}
             try { v.impl?.invalidate?.(true, true, true); } catch {}
+            // Suppress Properties panel auto-open triggered by isolate
+            try { v.getPropertyPanel?.()?.setVisible(false); } catch {}
             console.groupEnd();
         } catch (e) {
             console.error('[PerLevelIsolation] Failed', e);
+        } finally {
+            perLevelIsolationActiveRef.current = false;
         }
     };
 
     const clearPerLevelIsolation = (v: any) => {
+    try {
+        if (!v) return;
+        console.group('🧱 [PerLevelIsolation] Clearing');
+        try { v.isolate([]); } catch {}
+        try { v.showAll(); } catch {}
+        try { v.setCutPlanes?.([], 'Autodesk.AEC.FloorSelector'); } catch {}
+        try { v.impl?.invalidate?.(true, true, true); } catch {}
+        try { v.getPropertyPanel?.()?.setVisible(false); } catch {}
+        console.groupEnd();
+    } catch (e) {
+        console.warn('[PerLevelIsolation] Clear failed', e);
+    }
+};
+
+    // Global isolation-changed listener
+    const isolationChangedHandler = () => {
         try {
-            if (!v) return;
-            console.group('🧱 [PerLevelIsolation] Clearing');
-            try { v.isolate([]); } catch {}
-            try { v.showAll(); } catch {}
-            try { v.setCutPlanes?.([], 'Autodesk.AEC.FloorSelector'); } catch {}
-            try { v.impl?.invalidate?.(true, true, true); } catch {}
-            console.groupEnd();
+            if (perLevelIsolationActiveRef.current) {
+                viewerRef.current.getPropertyPanel?.()?.setVisible(false);
+            }
         } catch (e) {
-            console.warn('[PerLevelIsolation] Clear failed', e);
+            console.warn('[PerLevelIsolation] Isolation changed handler failed', e);
         }
     };
+
+    // Subscribe to isolation-changed to keep Properties panel hidden during our level isolation
+    useEffect(() => {
+        const v = viewerRef.current;
+        const AV = (window as any)?.Autodesk?.Viewing;
+        if (!v || !AV) return;
+        v.addEventListener(AV.AGGREGATE_ISOLATION_CHANGED_EVENT, isolationChangedHandler);
+        return () => {
+            try { v.removeEventListener(AV.AGGREGATE_ISOLATION_CHANGED_EVENT, isolationChangedHandler); } catch {}
+        };
+    }, [modelLoaded]);
 
     // Apply model visibility according to enabledModelIds using complete disable/enable
     const applyModelVisibility = (v: any) => {
