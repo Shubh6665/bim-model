@@ -235,8 +235,12 @@ export class HeatmapService {
       // OFFICIAL APS DOCUMENTATION PATTERN - ONLY SENSOR ROOMS
       console.log(`[HeatmapService] Using official APS pattern for SENSOR ROOMS ONLY...`);
       
-      const DataVizCore = Autodesk.DataVisualization.Core;
-      const devices = [];
+      const DataVizCore = (window as any)?.Autodesk?.DataVisualization?.Core;
+      if (!DataVizCore) {
+        console.warn('[HeatmapService] DataVisualization.Core not available on window');
+        return;
+      }
+      const devices: any[] = [];
       
       // Step 1: Create devices ONLY for rooms that have sensors
       for (const sensor of validSensors) {
