@@ -24,6 +24,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   const centerColRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState<number>(800);
   const dateInputEl = useRef<HTMLInputElement | null>(null);
+  // Live stats for gauges (independent of selected date)
+  const [gaugeStats, setGaugeStats] = useState<{ tCur: number; hCur: number; tMin: number; tMax: number; hMin: number; hMax: number } | null>(null);
 
   const formatDate = (d: Date) => `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
   const dateInputValue = useMemo(() => {
@@ -32,6 +34,13 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const day = date.getDate().toString().padStart(2,'0');
     return `${y}-${m}-${day}`;
   }, [date]);
+  const todayYmd = useMemo(() => {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = (t.getMonth()+1).toString().padStart(2,'0');
+    const d = t.getDate().toString().padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }, [now]);
 
   const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare', forDate?: Date) => {
     try {
@@ -63,6 +72,73 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     setLoading(true);
     loadForSensor(sensor, setSeries, 'primary').finally(()=> setLoading(false));
   }, [sensor.id, date, projectId]);
+
+  // Initialize gauge stats from today's samples and realtime (independent of selected date)
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (!projectId) return;
+        const start = new Date(); start.setHours(0,0,0,0);
+        const end = new Date();
+        const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution: '96' });
+        params.set('projectId', String(projectId));
+        const resp = await fetch(`/api/iot/samples?${params.toString()}`);
+        if (!resp.ok) throw new Error('Failed to init gauge samples');
+        const json = await resp.json();
+        const map = json.data || {};
+        const rec = map[sensor.id] || map[String((sensor as any)._id)] || map[Object.keys(map).find(k=>k.includes(sensor.id)) || ''];
+        const tArr: number[] = rec?.temp || [];
+        const hArr: number[] = rec?.rh || [];
+        let tMin = tArr.length? Math.min(...tArr): 0;
+        let tMax = tArr.length? Math.max(...tArr): 0;
+        let hMin = hArr.length? Math.min(...hArr): 0;
+        let hMax = hArr.length? Math.max(...hArr): 0;
+        let tCur = tArr.length? tArr[tArr.length-1] : 0;
+        let hCur = hArr.length? hArr[hArr.length-1] : 0;
+        // Realtime for current point
+        const rt = await fetch(`/api/iot/realtime?projectId=${projectId}`);
+        if (rt.ok) {
+          const rj = await rt.json();
+          const upd = (rj.updates||[]).find((u:any)=> u.id===sensor.id);
+          if (upd) {
+            const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+            if (!isNaN(num)) {
+              tCur = num;
+              tMin = tArr.length? Math.min(tMin, num) : num;
+              tMax = tArr.length? Math.max(tMax, num) : num;
+            }
+          }
+        }
+        setGaugeStats({ tCur, hCur, tMin, tMax, hMin, hMax });
+      } catch (e) {
+        // ignore init errors
+      }
+    };
+    init();
+  }, [sensor.id, projectId]);
+
+  // Poll realtime periodically to update gauge current (independent of selected date)
+  useEffect(() => {
+    if (!projectId) return;
+    const id = setInterval(async () => {
+      try {
+        const rt = await fetch(`/api/iot/realtime?projectId=${projectId}`);
+        if (!rt.ok) return;
+        const rj = await rt.json();
+        const upd = (rj.updates||[]).find((u:any)=> u.id===sensor.id);
+        if (!upd) return;
+        const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+        if (isNaN(num)) return;
+        setGaugeStats(prev => {
+          if (!prev) return { tCur: num, hCur: 0, tMin: num, tMax: num, hMin: 0, hMax: 0 };
+          const tMin = Math.min(prev.tMin || num, num);
+          const tMax = Math.max(prev.tMax || num, num);
+          return { ...prev, tCur: num, tMin, tMax };
+        });
+      } catch {}
+    }, 10000);
+    return () => clearInterval(id);
+  }, [sensor.id, projectId]);
 
   // Periodically append realtime point so gauges (derived from series) and charts move
   useEffect(() => {
@@ -311,7 +387,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <span>{formatDate(date)}</span>
               <span className="inline-block w-4 h-4 text-gray-300">📅</span>
             </button>
-            <input ref={dateInputEl} type="date" className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setDate(d); }} />
+            <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
 
             {/* Time label (hh:mm) where the old calendar input used to be */}
             <div className="px-3 py-1.5 rounded-xl bg-transparent border border-transparent text-base text-gray-200 font-semibold">
@@ -336,24 +412,24 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Left column: Gauges + Min/Max */}
         <div className="col-span-12 md:col-span-3 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Gauge label="Temp Current" value={stats?.tCur} min={0} max={50} unit="°C" gradient="gtemp" dangerZones={[{from:30,to:50,color:'#dc2626'}]} />
+            <Gauge label="Temp Current" value={gaugeStats?.tCur ?? stats?.tCur} min={0} max={50} unit="°C" gradient="gtemp" dangerZones={[{from:30,to:50,color:'#dc2626'}]} />
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[150px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-2">Hum. Current</div>
-              <div className="text-4xl font-extrabold text-gray-100">{stats? stats.hCur.toFixed(0)+'%':'--'}</div>
+              <div className="text-4xl font-extrabold text-gray-100">{(gaugeStats?.hCur ?? stats?.hCur)?.toFixed ? (gaugeStats?.hCur ?? stats?.hCur)!.toFixed(0)+'%' : '--'}</div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Gauge small label="Temp Min" value={stats?.tMin} min={0} max={50} unit="°C" gradient="gtempMin" />
-            <Gauge small label="Temp Max" value={stats?.tMax} min={0} max={50} unit="°C" gradient="gtempMax" />
+            <Gauge small label="Temp Min" value={gaugeStats?.tMin ?? stats?.tMin} min={0} max={50} unit="°C" gradient="gtempMin" />
+            <Gauge small label="Temp Max" value={gaugeStats?.tMax ?? stats?.tMax} min={0} max={50} unit="°C" gradient="gtempMax" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[120px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Min</div>
-              <div className="text-3xl font-semibold text-gray-100">{stats? stats.hMin.toFixed(0)+'%':'--'}</div>
+              <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMin ?? stats?.hMin)?.toFixed ? (gaugeStats?.hMin ?? stats?.hMin)!.toFixed(0)+'%' : '--'}</div>
             </div>
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[120px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Max</div>
-              <div className="text-3xl font-semibold text-gray-100">{stats? stats.hMax.toFixed(0)+'%':'--'}</div>
+              <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMax ?? stats?.hMax)?.toFixed ? (gaugeStats?.hMax ?? stats?.hMax)!.toFixed(0)+'%' : '--'}</div>
             </div>
           </div>
         </div>
@@ -409,8 +485,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 <input
                   type="date"
                   className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1"
+                  max={todayYmd}
                   value={dateInputValue}
-                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setDate(d); }}
+                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }}
                 />
               </div>
               <div>
@@ -430,8 +507,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 <input
                   type="date"
                   className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1"
+                  max={todayYmd}
                   value={`${(compareDate.getFullYear())}-${(compareDate.getMonth()+1).toString().padStart(2,'0')}-${(compareDate.getDate()).toString().padStart(2,'0')}`}
-                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setCompareDate(d); }}
+                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setCompareDate(d>today? today : d); }}
                 />
               </div>
               <div>
