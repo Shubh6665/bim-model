@@ -5,6 +5,7 @@ import { useSensorContext } from "../context/sensor-context";
 import { DataVizService, SensorSprite } from "../services/dataviz-service";
 import { HeatmapService } from "../services/heatmap-service";
 import EnergyDashboardOverlay from "./energy-dashboard-overlay";
+import SensorGraphsDashboard from "./sensor-graphs-dashboard";
 import "./forge-viewer.css";
 import type { ProjectModel } from "@/app/types/projects";
 
@@ -2534,18 +2535,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         }
     }, [activePanel, sensorsVisible, dataVizService, isDataVizReady, viewer, isInitialized]);
 
-    // Close overlay when clicking anywhere outside the viewer container
+    // Auto-close behavior: only for the small 'info' overlay.
+    // Do NOT auto-close the full-screen dashboards ('graphs' and 'statistics');
+    // they must be closed explicitly via their Close button.
     useEffect(() => {
-        if (!viewerOverlay) return;
-        // Don't auto-close the statistics dashboard - it has its own close button
-        if (viewerOverlay.type === 'statistics') return;
+        if (!viewerOverlay || viewerOverlay.type !== 'info') return;
         
         const handleGlobalPointerDown = (event: PointerEvent) => {
             const container = viewerContainer.current;
             const overlayEl = overlayRef.current;
             if (!container) return;
             const target = event.target as Node | null;
-            // If clicking inside viewer container OR inside overlay, do not hide
+            // If clicking inside viewer container OR inside the floating info overlay, do not hide
             if (target && (container.contains(target) || (overlayEl && overlayEl.contains(target)))) {
                 return;
             }
@@ -2658,7 +2659,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 ref={viewerContainer}
                 style={{ width: "100%", height: "100vh", background: "#222" }}
             />
-            {viewerOverlay && viewerOverlay.type !== 'statistics' && (
+            {viewerOverlay && viewerOverlay.type === 'info' && (
                 <div
                     ref={overlayRef}
                     style={{
@@ -2686,9 +2687,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         onPointerUp={onOverlayHeaderPointerUp}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab' }}
                     >
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>
-                            {viewerOverlay.type === 'info' ? 'Sensor Information' : viewerOverlay.type === 'graphs' ? 'Sensor Graphs' : 'Sensor Statistics'}
-                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Sensor Information</div>
                         <button onClick={hideViewerOverlay} title="Close"
                             style={{ width: 22, height: 22, borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', cursor: 'pointer' }}>✕</button>
                     </div>
@@ -2747,41 +2746,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             </div>
                         </div>
                     )}
-                    {viewerOverlay.type === 'graphs' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {graphLoading && (
-                                <div style={{ color: '#9ca3af', fontSize: 12 }}>Loading charts…</div>
-                            )}
-                            {graphError && (
-                                <div style={{ color: '#f87171', fontSize: 12 }}>Error: {graphError}</div>
-                            )}
-                            {!graphLoading && !graphError && graphSeries && (
-                                <>
-                                    {(() => {
-                                        const meta = getPrimaryChannel(viewerOverlay.sensor?.type);
-                                        const vals = graphSeries[meta.key];
-                                        return (
-                                            <>
-                                                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>
-                                                    Real-time • Every 5s
-                                                </div>
-                                                {renderSparkline(meta.label, meta.unit, vals, meta.color, graphTimestamps)}
-                                            </>
-                                        );
-                                    })()}
-                                </>
-                            )}
-                        </div>
-                    )}
-                    {/* statistics dashboard renders full-width below; no inline content here */}
+                    {/* graphs moved to full-size dashboard */}
                 </div>
             )}
             
-            {/* Full-width Energy Statistics Dashboard */}
+            {/* Full-width overlays */}
             {viewerOverlay && viewerOverlay.type === 'statistics' && (
                 <EnergyDashboardOverlay
                     sensor={viewerOverlay.sensor}
                     onClose={hideViewerOverlay}
+                />
+            )}
+            {viewerOverlay && viewerOverlay.type === 'graphs' && viewerOverlay.sensor && (
+                <SensorGraphsDashboard
+                    sensor={viewerOverlay.sensor as any}
+                    allSensors={sensors as any}
+                    onClose={hideViewerOverlay}
+                    projectId={currentProjectId}
                 />
             )}
             
