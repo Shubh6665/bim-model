@@ -16,6 +16,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   const [series, setSeries] = useState<DailySeries | null>(null);
   const [compareSensorId, setCompareSensorId] = useState<string | null>(null);
   const [compareSeries, setCompareSeries] = useState<DailySeries | null>(null);
+  const [compareDate, setCompareDate] = useState<Date>(() => new Date());
+  const [compareRoom, setCompareRoom] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
@@ -31,9 +33,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     return `${y}-${m}-${day}`;
   }, [date]);
 
-  const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare') => {
+  const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare', forDate?: Date) => {
     try {
-      const start = new Date(date); start.setHours(0,0,0,0);
+      const baseDate = forDate || date;
+      const start = new Date(baseDate); start.setHours(0,0,0,0);
       const end = new Date(start); end.setHours(23,59,59,999);
       const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution: '96' });
       if (projectId) params.set('projectId', projectId);
@@ -61,8 +64,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     if (!compareSensorId) { setCompareSeries(null); return; }
     const s = allSensors.find(s=>s.id===compareSensorId);
     if (!s) return;
-    loadForSensor(s, setCompareSeries, 'compare');
-  }, [compareSensorId, date, projectId, allSensors]);
+    loadForSensor(s, setCompareSeries, 'compare', compareDate);
+  }, [compareSensorId, compareDate, projectId, allSensors]);
 
   const stats = useMemo(() => {
     if (!series?.temp || !series.rh) return null;
@@ -308,14 +311,73 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Compare UI */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
-            <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Compare Sensors</div>
-            <div className="space-y-2">
-              <select value={compareSensorId||''} onChange={e=> setCompareSensorId(e.target.value||null)} className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1">
-                <option value="">None</option>
-                {allSensors.filter(s=>s.id!==sensor.id).map(s=> <option key={s.id} value={s.id}>{s.name} {s.room?`• ${s.room}`:''}</option>)}
-              </select>
-              <input type="date" className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setDate(d); }} />
-              {compareSensorId && (<button onClick={()=> setCompareSensorId(null)} className="text-[11px] text-red-400 hover:text-red-300">Clear Compare</button>)}
+            <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Compare</div>
+            {/* Row A: Base (current) */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Date A</label>
+                <input
+                  type="date"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1"
+                  value={dateInputValue}
+                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setDate(d); }}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Room A</label>
+                <div
+                  className="w-full bg-gray-800/60 border border-gray-700 rounded-md text-sm text-gray-300 px-2 h-9 flex items-center whitespace-nowrap overflow-hidden text-ellipsis"
+                  title={sensor.room || '—'}
+                >
+                  {sensor.room || '—'}
+                </div>
+              </div>
+            </div>
+            {/* Row B: Comparison selection */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Date B</label>
+                <input
+                  type="date"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1"
+                  value={`${(compareDate.getFullYear())}-${(compareDate.getMonth()+1).toString().padStart(2,'0')}-${(compareDate.getDate()).toString().padStart(2,'0')}`}
+                  onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); if(!isNaN(d.getTime())) setCompareDate(d); }}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1">Room B</label>
+                <select
+                  value={compareRoom}
+                  onChange={(e)=> setCompareRoom(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-gray-200 px-2 py-1"
+                >
+                  <option value="">Select room</option>
+                  {Array.from(new Set(allSensors.filter(s=> s.type===sensor.type && s.room && s.id!==sensor.id).map(s=> s.room))).map((room)=> (
+                    <option key={room} value={room}>{room}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {/* Actions */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  if (!compareRoom) { setCompareSensorId(null); setCompareSeries(null); return; }
+                  const match = allSensors.find(s=> s.room===compareRoom && s.type===sensor.type);
+                  if (match) {
+                    setCompareSensorId(match.id);
+                  } else {
+                    setCompareSensorId(null);
+                    setCompareSeries(null);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-sm"
+              >
+                Compare
+              </button>
+              {compareSensorId ? (
+                <button onClick={()=> { setCompareSensorId(null); setCompareSeries(null); }} className="text-[11px] text-red-400 hover:text-red-300">Clear</button>
+              ) : <span className="text-[11px] text-gray-500">Same type: {sensor.type}</span>}
             </div>
           </div>
 
