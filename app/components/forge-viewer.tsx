@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { useSensorContext } from "../context/sensor-context";
 import { DataVizService, SensorSprite } from "../services/dataviz-service";
 import { HeatmapService } from "../services/heatmap-service";
+import EnergyDashboardOverlay from "./energy-dashboard-overlay";
 import "./forge-viewer.css";
 import type { ProjectModel } from "@/app/types/projects";
 
@@ -2536,6 +2537,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     // Close overlay when clicking anywhere outside the viewer container
     useEffect(() => {
         if (!viewerOverlay) return;
+        // Don't auto-close the statistics dashboard - it has its own close button
+        if (viewerOverlay.type === 'statistics') return;
+        
         const handleGlobalPointerDown = (event: PointerEvent) => {
             const container = viewerContainer.current;
             const overlayEl = overlayRef.current;
@@ -2654,7 +2658,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 ref={viewerContainer}
                 style={{ width: "100%", height: "100vh", background: "#222" }}
             />
-            {viewerOverlay && (
+            {viewerOverlay && viewerOverlay.type !== 'statistics' && (
                 <div
                     ref={overlayRef}
                     style={{
@@ -2769,11 +2773,18 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             )}
                         </div>
                     )}
-                    {viewerOverlay.type === 'statistics' && (
-                        <div style={{ color: '#9ca3af', fontSize: 12 }}>Coming soon.</div>
-                    )}
+                    {/* statistics dashboard renders full-width below; no inline content here */}
                 </div>
             )}
+            
+            {/* Full-width Energy Statistics Dashboard */}
+            {viewerOverlay && viewerOverlay.type === 'statistics' && (
+                <EnergyDashboardOverlay
+                    sensor={viewerOverlay.sensor}
+                    onClose={hideViewerOverlay}
+                />
+            )}
+            
             {isLoading && (
                 <div style={{ 
                     position: "absolute", 
