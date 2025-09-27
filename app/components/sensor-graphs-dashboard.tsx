@@ -148,6 +148,20 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     return { tMin, tMax, hMin, hMax, tCur, hCur };
   }, [series]);
 
+  // External Weather: simple day/night curve independent of indoor sensors
+  const weatherData = useMemo(() => {
+    const t = now;
+    const minutes = t.getHours() * 60 + t.getMinutes();
+    const phase = (minutes / 1440) * Math.PI * 2; // 0..2π across a day
+    // Temperature swings cooler at night (~20°C) and warmer midday (~30°C)
+    const temp = 25 + 5 * Math.sin(phase) + 1.5 * Math.sin(phase * 3 + 1);
+    // Humidity opposite trend, with some variation
+    let hum = 50 + 15 * Math.sin(phase + Math.PI) + 5 * Math.sin(phase * 2);
+    hum = Math.max(20, Math.min(90, Math.round(hum)));
+    const icon = temp > 30 ? '☀️' : temp > 22 ? '⛅' : '🌧️';
+    return { temp: parseFloat(temp.toFixed(1)), hum, icon };
+  }, [now]);
+
   // Simple heartbeat for live clock on header
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -370,17 +384,17 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
         {/* Right column: Weather + Compare + Alerts */}
         <div className="col-span-12 md:col-span-3 space-y-4">
-          {/* Weather box */}
+          {/* Weather (external, not indoor) */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold text-gray-200">Weather</div>
-              <div className="text-[11px] text-gray-400">DATA</div>
+              <div className="text-xs font-semibold text-gray-400 uppercase">Weather</div>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Data</div>
             </div>
             <div className="flex items-center justify-between">
-              <div className="text-3xl">{(stats?.tCur ?? 25) > 28 ? '☀️' : (stats?.tCur ?? 25) > 20 ? '⛅' : '🌧️'}</div>
+              <div className="text-3xl">{weatherData.icon}</div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-white">{(stats?.tCur ?? 25).toFixed(1)}°C</div>
-                <div className="text-[11px] text-gray-400">Humidity {(stats?.hCur ?? 50).toFixed(0)}%</div>
+                <div className="text-2xl font-bold text-white">{weatherData.temp.toFixed(1)}°C</div>
+                <div className="text-[11px] text-gray-400">Humidity {weatherData.hum}%</div>
               </div>
             </div>
           </div>
