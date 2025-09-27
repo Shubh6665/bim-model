@@ -37,7 +37,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     try {
       const baseDate = forDate || date;
       const start = new Date(baseDate); start.setHours(0,0,0,0);
-      const end = new Date(start); end.setHours(23,59,59,999);
+      let end = new Date(start); end.setHours(23,59,59,999);
+      // If loading today, align end to now so the latest sample equals current time
+      const today = new Date();
+      const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate();
+      if (isSameDay) end = new Date();
       const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution: '96' });
       if (projectId) params.set('projectId', projectId);
       const resp = await fetch(`/api/iot/samples?${params.toString()}`);
@@ -59,6 +63,72 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     setLoading(true);
     loadForSensor(sensor, setSeries, 'primary').finally(()=> setLoading(false));
   }, [sensor.id, date, projectId]);
+
+  // Periodically append realtime point so gauges (derived from series) and charts move
+  useEffect(() => {
+    if (!projectId) return;
+    // Only live-update when viewing today's date
+    const start = new Date(date); start.setHours(0,0,0,0);
+    const today = new Date();
+    const isToday = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate();
+    if (!isToday) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const resp = await fetch(`/api/iot/realtime?projectId=${projectId}`);
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const ts = new Date(json.timestamp || Date.now());
+        // Primary sensor
+        const upd = (json.updates || []).find((u: any) => u.id === sensor.id);
+        if (upd) {
+          const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+          setSeries(prev => {
+            if (!prev) return prev;
+            const next: DailySeries = { 
+              timestamps: [...prev.timestamps, ts],
+              temp: prev.temp ? [...prev.temp, num] : prev.temp,
+              rh: prev.rh ? [...prev.rh, prev.rh[prev.rh.length-1]] : prev.rh,
+            };
+            // keep last 200 points for performance
+            if (next.timestamps.length > 200) {
+              const drop = next.timestamps.length - 200;
+              next.timestamps = next.timestamps.slice(drop);
+              if (next.temp) next.temp = next.temp.slice(drop);
+              if (next.rh) next.rh = next.rh.slice(drop);
+            }
+            return next;
+          });
+        }
+        // Compare sensor (if selected and same-day B)
+        if (compareSensorId && compareSeries) {
+          const updB = (json.updates || []).find((u: any) => u.id === compareSensorId);
+          if (updB) {
+            const numB = parseFloat(String(updB.value).replace(/[^0-9.+-]/g, ''));
+            setCompareSeries(prev => {
+              if (!prev) return prev;
+              const next: DailySeries = {
+                timestamps: [...prev.timestamps, ts],
+                temp: prev.temp ? [...prev.temp, numB] : prev.temp,
+                rh: prev.rh ? [...prev.rh, prev.rh[prev.rh.length-1]] : prev.rh,
+              };
+              if (next.timestamps.length > 200) {
+                const drop = next.timestamps.length - 200;
+                next.timestamps = next.timestamps.slice(drop);
+                if (next.temp) next.temp = next.temp.slice(drop);
+                if (next.rh) next.rh = next.rh.slice(drop);
+              }
+              return next;
+            });
+          }
+        }
+      } catch {}
+    };
+    // initial tick and interval
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => { stopped = true; clearInterval(id); };
+  }, [sensor.id, projectId, date, compareSensorId, !!compareSeries]);
 
   useEffect(() => {
     if (!compareSensorId) { setCompareSeries(null); return; }
@@ -98,8 +168,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   const Gauge: React.FC<{ value?: number; min: number; max: number; label: string; unit?: string; gradient: string; dangerZones?: { from: number; to: number; color: string }[]; small?: boolean; }> = ({ value, min, max, label, unit, gradient, dangerZones=[], small=false }) => {
     const v = value ?? 0;
     const pct = Math.max(0, Math.min(1, (v - min) / (max - min || 1)));
-    // Wider sweep for a fuller semicircle look (-150..+150)
-    const startDeg = -150; const sweepDeg = 300;
+    // Use exact semicircle sweep to match the SVG arc path: -180° to 0° (180° total)
+    const startDeg = -180; const sweepDeg = 180;
     const angle = startDeg + sweepDeg * pct;
     const ticks = Array.from({ length: 6 }).map((_,i)=> min + (max-min)*i/5);
     const paddingCls = small ? 'p-3' : 'p-4';
@@ -107,6 +177,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const sw = small ? 18 : 22; // arc thickness
     const needleW = small ? 5 : 6;
     const tickW = 3;
+    const rArc = 90; // main arc radius
+    const xL = 100 - rArc;
+    const xR = 100 + rArc;
+    const rTickInner = rArc - 14;
+    const rTickOuter = rArc - 4;
+    const rNeedle = rArc - 10;
     return (
       <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center justify-between shadow-inner`}>
         <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">{label}</div>
@@ -118,14 +194,14 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <stop offset="100%" stopColor="#dc2626" />
             </linearGradient>
           </defs>
-          {dangerZones.map((dz,i)=>{ const a1 = (startDeg + sweepDeg*((dz.from-min)/(max-min)))*Math.PI/180; const a2 = (startDeg + sweepDeg*((dz.to-min)/(max-min)))*Math.PI/180; const r=92; const x1=100 + r*Math.cos(a1); const y1=100 + r*Math.sin(a1); const x2=100 + r*Math.cos(a2); const y2=100 + r*Math.sin(a2); const large = (a2-a1)>Math.PI?1:0; return <path key={i} d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`} stroke={dz.color} strokeWidth={sw-6} fill="none" opacity={0.35} /> })}
-          {/* Track */}
-          <path d="M 13 100 A 95 95 0 0 1 187 100" stroke="#1f2937" strokeWidth={sw} fill="none" strokeLinecap="round" />
+          {dangerZones.map((dz,i)=>{ const a1 = (startDeg + sweepDeg*((dz.from-min)/(max-min)))*Math.PI/180; const a2 = (startDeg + sweepDeg*((dz.to-min)/(max-min)))*Math.PI/180; const x1=100 + rArc*Math.cos(a1); const y1=100 + rArc*Math.sin(a1); const x2=100 + rArc*Math.cos(a2); const y2=100 + rArc*Math.sin(a2); const large = (a2-a1)>Math.PI?1:0; return <path key={i} d={`M ${x1} ${y1} A ${rArc} ${rArc} 0 ${large} 1 ${x2} ${y2}`} stroke={dz.color} strokeWidth={sw-6} fill="none" opacity={0.35} /> })}
+          {/* Track (true semicircle -180..0 deg) */}
+          <path d={`M ${xL} 100 A ${rArc} ${rArc} 0 0 1 ${xR} 100`} stroke="#1f2937" strokeWidth={sw} fill="none" strokeLinecap="round" />
           {/* Foreground arc */}
-          <path d="M 13 100 A 95 95 0 0 1 187 100" stroke={`url(#${gradient})`} strokeWidth={sw} fill="none" strokeLinecap="round" />
-          {ticks.map((t,i)=>{ const a=(startDeg+sweepDeg*i/5)*Math.PI/180; const r=80; const x1=100 + (r)*Math.cos(a); const y1=100 + (r)*Math.sin(a); const x2=100 + (r+10)*Math.cos(a); const y2=100 + (r+10)*Math.sin(a); return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#374151" strokeWidth={tickW}/> })}
+          <path d={`M ${xL} 100 A ${rArc} ${rArc} 0 0 1 ${xR} 100`} stroke={`url(#${gradient})`} strokeWidth={sw} fill="none" strokeLinecap="round" />
+          {ticks.map((t,i)=>{ const a=(startDeg+sweepDeg*i/5)*Math.PI/180; const x1=100 + (rTickInner)*Math.cos(a); const y1=100 + (rTickInner)*Math.sin(a); const x2=100 + (rTickOuter)*Math.cos(a); const y2=100 + (rTickOuter)*Math.sin(a); return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#374151" strokeWidth={tickW}/> })}
           <g transform={`rotate(${angle} 100 100)`}>
-            <line x1={100} y1={100} x2={166} y2={100} stroke="#e5e7eb" strokeWidth={needleW} strokeLinecap="round" />
+            <line x1={100} y1={100} x2={100 + rNeedle} y2={100} stroke="#e5e7eb" strokeWidth={needleW} strokeLinecap="round" />
             <circle cx={100} cy={100} r={6.5} fill="#e5e7eb" />
           </g>
           <text x={100} y={small? 80 : 74} textAnchor="middle" className="fill-white" style={{fontSize: small? '16px':'20px', fontWeight:800}}>{value?.toFixed(1)}{unit}</text>

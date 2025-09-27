@@ -12,9 +12,61 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
+// PRNG compatible with /api/iot/samples for alignment
+function seededRandom(seedStr: string) {
+  let seed = 0;
+  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+  return () => {
+    seed ^= seed << 13; seed >>>= 0;
+    seed ^= seed >> 17; seed >>>= 0;
+    seed ^= seed << 5;  seed >>>= 0;
+    return (seed & 0xfffffff) / 0xfffffff;
+  };
+}
+
+function generateSeries(base: number, amp: number, count: number, rnd: () => number, integer = false): number[] {
+  const out: number[] = [];
+  let val = base + (rnd() - 0.5) * amp * 0.2;
+  for (let i = 0; i < count; i++) {
+    const delta = (rnd() - 0.5) * amp * 0.05;
+    val += delta;
+    val = Math.min(base + amp, Math.max(base - amp, val));
+    out.push(integer ? Math.round(val) : parseFloat(val.toFixed(1)));
+  }
+  return out;
+}
+
+function generateTempSeries(count: number, rnd: () => number): number[] {
+  const out: number[] = [];
+  let val = 24 + (rnd() - 0.5) * 4;
+  let spikeLeft = 0; let spikeAmp = 0;
+  const clamp = (x: number) => Math.max(18, Math.min(42, x));
+  for (let i = 0; i < count; i++) {
+    const phase = count > 1 ? i / (count - 1) : 0.5;
+    const wave = Math.sin(Math.PI * phase);
+    const baseline = 22 + 10 * wave;
+    const walk = (rnd() - 0.5) * 1.2;
+    val += walk;
+    val += (baseline - val) * 0.12;
+    if (spikeLeft <= 0 && rnd() < 0.04) {
+      spikeLeft = 2 + Math.floor(rnd() * 4);
+      const up = rnd() < 0.7;
+      spikeAmp = (up ? 4 : -3) + (rnd() * (up ? 6 : 3));
+    }
+    if (spikeLeft > 0) {
+      const factor = spikeLeft / (spikeLeft + 2);
+      val += spikeAmp * factor * 0.6;
+      spikeLeft--;
+    }
+    val = clamp(val);
+    out.push(parseFloat(val.toFixed(1)));
+  }
+  return out;
+}
+
 function generateCurrentValue(sensorType: string, baseValue: number, groupKey: string, timestamp: Date): { value: string; status: "Online" | "Warning" | "Offline" } {
-  // 5-second time bucket for visible updates
-  const bucket = Math.floor(timestamp.getTime() / 5000);
+  // 1-second time bucket for visible updates so values can change each second
+  const bucket = Math.floor(timestamp.getTime() / 1000);
   const seed = hashString(groupKey) ^ bucket;
   // Deterministic pseudo-random in [0,1)
   const rand = (() => {
@@ -25,17 +77,32 @@ function generateCurrentValue(sensorType: string, baseValue: number, groupKey: s
     return (x & 0xfffffff) / 0xfffffff;
   })();
 
-  // Base sinusoidal drift + random jitter per bucket (intentionally larger so values change visibly)
-  const drift = Math.sin(bucket / 3 + (seed % 10)) * 1.2; // faster + larger drift
-  const jitter = (rand - 0.5) * 1.2; // stronger bucket jitter
-  let currentVal = baseValue + drift + jitter;
+  let currentVal = baseValue;
   let status: "Online" | "Warning" | "Offline" = "Online";
 
   switch (sensorType.toLowerCase()) {
-    case "temperature":
-      currentVal = Math.max(18, Math.min(34, currentVal));
+    case "temperature": {
+      // Compute today's series (96 points) and interpolate to the exact time-of-day
+      const rnd = seededRandom(groupKey);
+      const count = 96;
+      const start = new Date(timestamp); start.setHours(0,0,0,0);
+      const end = new Date(start); end.setHours(23,59,59,999);
+      const series = generateTempSeries(count, rnd);
+      const frac = Math.min(1, Math.max(0, (timestamp.getTime() - start.getTime()) / (end.getTime() - start.getTime())));
+      const pos = frac * (count - 1);
+      const i0 = Math.floor(pos);
+      const i1 = Math.min(count - 1, i0 + 1);
+      const alpha = pos - i0;
+      let base = series[i0] + (series[i1] - series[i0]) * alpha;
+      // Add fast micro-oscillation (≈60s period) with per-sensor phase
+      const phaseOffset = (hashString(groupKey) % 60) / 60; // 0..1
+      const fastWave = Math.sin(2 * Math.PI * ((timestamp.getTime() / 1000) / 60 + phaseOffset)) * 0.25; // ±0.25°C
+      // Jitter per 1s bucket so value changes frequently
+      const jitter = (rand - 0.5) * 0.6; // ±0.3°C
+      currentVal = Math.max(18, Math.min(42, base + fastWave + jitter));
       status = currentVal >= 30 ? "Warning" : "Online";
       return { value: `${currentVal.toFixed(1)}°C`, status };
+    }
     
     case "co2":
       currentVal = Math.max(400, Math.min(1600, currentVal));

@@ -8,6 +8,43 @@ function parseDate(value: string | null, fallback: Date): Date {
   return isNaN(d.getTime()) ? fallback : d;
 }
 
+// Generate temperature with day-night trend and occasional spikes
+function generateTempSeries(count: number, rnd: () => number): number[] {
+  const out: number[] = [];
+  let val = 24 + (rnd() - 0.5) * 4; // initial temp around 24±2
+  let spikeLeft = 0;
+  let spikeAmp = 0;
+  const clamp = (x: number) => Math.max(18, Math.min(42, x));
+  for (let i = 0; i < count; i++) {
+    // Diurnal baseline: cooler at edges, warmer in middle of range
+    const phase = count > 1 ? i / (count - 1) : 0.5; // 0..1 across the day window
+    const wave = Math.sin(Math.PI * phase); // 0..1..0
+    const baseline = 22 + 10 * wave; // 22 at night → ~32 midday
+
+    // Smooth random walk around baseline
+    const walk = (rnd() - 0.5) * 1.2; // small short-term noise
+    val += walk;
+    val += (baseline - val) * 0.12; // pull towards baseline
+
+    // Occasionally trigger a spike up or down
+    if (spikeLeft <= 0 && rnd() < 0.04) {
+      spikeLeft = 2 + Math.floor(rnd() * 4); // 2..5 samples
+      const up = rnd() < 0.7; // mostly warm spikes
+      spikeAmp = (up ? 4 : -3) + (rnd() * (up ? 6 : 3)); // +4..+10 or -3..0
+    }
+    if (spikeLeft > 0) {
+      // tapering spike contribution
+      const factor = spikeLeft / (spikeLeft + 2);
+      val += spikeAmp * factor * 0.6;
+      spikeLeft--;
+    }
+
+    val = clamp(val);
+    out.push(parseFloat(val.toFixed(1)));
+  }
+  return out;
+}
+
 // Generate evenly spaced timestamps between start and end (inclusive)
 function generateTimestamps(start: Date, end: Date, resolution: number): string[] {
   if (resolution < 2) resolution = 2;
@@ -93,7 +130,8 @@ export async function GET(request: Request) {
       const rhBase = 48.0;
       const co2Base = 650;
       const pBase = 1012.0;
-      const temp = generateSeries(tempBase, 1.5, count, rnd, false);
+      // Use realistic temperature generator (19–40 typical range with occasional excursions)
+      const temp = generateTempSeries(count, rnd);
       const rh = generateSeries(rhBase, 4.0, count, rnd, false);
       const co2 = generateSeries(co2Base, 60, count, rnd, true);
       const pressure = generateSeries(pBase, 2.0, count, rnd, false);
