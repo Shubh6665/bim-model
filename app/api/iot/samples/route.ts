@@ -9,17 +9,20 @@ function parseDate(value: string | null, fallback: Date): Date {
 }
 
 // Generate temperature with day-night trend and occasional spikes
-function generateTempSeries(count: number, rnd: () => number): number[] {
+function generateTempSeries(count: number, rnd: () => number, dateOffset: number = 0): number[] {
   const out: number[] = [];
-  let val = 24 + (rnd() - 0.5) * 4; // initial temp around 24±2
+  // Vary initial temp and baseline based on date offset for different daily patterns
+  const dayVariation = Math.sin(dateOffset * 0.3) * 3; // ±3°C variation between days
+  let val = 24 + dayVariation + (rnd() - 0.5) * 4; // initial temp varies by day
   let spikeLeft = 0;
   let spikeAmp = 0;
   const clamp = (x: number) => Math.max(18, Math.min(42, x));
+  
   for (let i = 0; i < count; i++) {
     // Diurnal baseline: cooler at edges, warmer in middle of range
     const phase = count > 1 ? i / (count - 1) : 0.5; // 0..1 across the day window
     const wave = Math.sin(Math.PI * phase); // 0..1..0
-    const baseline = 22 + 10 * wave; // 22 at night → ~32 midday
+    const baseline = 22 + dayVariation + 10 * wave; // 22 at night → ~32 midday, varies by day
 
     // Smooth random walk around baseline
     const walk = (rnd() - 0.5) * 1.2; // small short-term noise
@@ -122,17 +125,24 @@ export async function GET(request: Request) {
 
     for (const [groupKey, groupSensors] of byGroup.entries()) {
       const first = groupSensors[0];
-      const seedId = groupKey; // stable seed across duplicates
+      // Include date in seed so different dates produce different data
+      const dateStr = start.toISOString().split('T')[0]; // YYYY-MM-DD
+      const seedId = groupKey + '-' + dateStr;
       const rnd = seededRandom(seedId);
       const count = timestamps.length;
       const type = (first?.type || "").toLowerCase();
+      
+      // Calculate days offset from epoch for day variation
+      const epochStart = new Date('2025-01-01');
+      const dayOffset = Math.floor((start.getTime() - epochStart.getTime()) / (24 * 60 * 60 * 1000));
+      
       const tempBase = type.includes("temp") ? 24.0 : 23.5;
       const rhBase = 48.0;
       const co2Base = 650;
       const pBase = 1012.0;
-      // Use realistic temperature generator (19–40 typical range with occasional excursions)
-      const temp = generateTempSeries(count, rnd);
-      const rh = generateSeries(rhBase, 4.0, count, rnd, false);
+      // Use realistic temperature generator with date variation
+      const temp = generateTempSeries(count, rnd, dayOffset);
+      const rh = generateSeries(rhBase + Math.sin(dayOffset * 0.2) * 8, 4.0, count, rnd, false); // humidity varies by day too
       const co2 = generateSeries(co2Base, 60, count, rnd, true);
       const pressure = generateSeries(pBase, 2.0, count, rnd, false);
       // Assign the same merged series to all sensors in the group
