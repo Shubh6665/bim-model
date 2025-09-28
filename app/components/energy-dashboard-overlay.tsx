@@ -51,7 +51,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
     return () => clearInterval(timer);
   }, []);
 
-  const box = "bg-gray-900/95 border border-gray-700 rounded-xl p-3 shadow-md";
+  const box = "bg-gray-900/95 border border-gray-700 rounded-xl p-2 shadow-md";
   const label = "text-[11px] uppercase tracking-wider text-gray-400";
   const value = "text-sm font-semibold text-gray-100";
 
@@ -78,9 +78,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
   };
 
   return (
-    <div className="absolute inset-0 z-[1010] flex flex-col bg-gray-950/98">
+    <div className="fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/70">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-baseline gap-3">
           <h3 className="text-lg font-bold text-white">Energy Statistics Dashboard</h3>
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
@@ -101,11 +101,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-12 gap-4 max-w-[1600px] mx-auto">
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="grid grid-cols-12 gap-3 max-w-none mx-auto">
           
           {/* Left Column - Time-of-Use & Monthly Summary */}
-          <div className="col-span-12 md:col-span-3 space-y-3">
+          <div className="col-span-12 md:col-span-3 space-y-2">
             <div className={box}>
               <div className="text-gray-200 font-semibold mb-3">Energy Consumption</div>
               
@@ -183,14 +183,14 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           </div>
 
           {/* Center Area - Charts */}
-          <div className="col-span-12 md:col-span-6 space-y-3">
+          <div className="col-span-12 md:col-span-6 space-y-2">
             {/* L1 Chart */}
             <div className={box}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Line 1 (L1)</div>
                 <div className="text-[11px] text-gray-400">kWh</div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-3 h-36">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-36">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -314,7 +314,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                 <div className="text-[11px] text-gray-400">kWh</div>
               </div>
               
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 h-56">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-3 h-56">
                 <div className="flex h-full">
                   {/* Y-axis with values */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -387,7 +387,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
               </div>
               
               {/* Enhanced Legend */}
-              <div className="flex items-center gap-4 justify-center mt-3">
+              <div className="flex items-center gap-3 justify-center mt-2">
                 <div className="flex items-center gap-1 text-[11px] text-gray-300">
                   <div className="w-3 h-3 bg-blue-500 rounded-sm" />
                   <span>Line 1 (L1)</span>

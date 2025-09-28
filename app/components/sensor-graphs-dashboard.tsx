@@ -361,7 +361,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   };
 
   return (
-    <div className="absolute inset-0 bg-gray-950/98 z-[1005] flex flex-col">
+    <div className="fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col">
       {/* Top Header */}
       <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-center justify-between">
@@ -408,12 +408,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
       </div>
 
       {/* Body 3-column layout */}
-      <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-y-auto">
+      <div className="flex-1 grid grid-cols-12 gap-3 p-3 overflow-y-auto">
         {/* Left column: Gauges + Min/Max */}
-        <div className="col-span-12 md:col-span-3 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-12 md:col-span-3 space-y-2">
+          <div className="grid grid-cols-2 gap-3">
             <Gauge label="Temp Current" value={gaugeStats?.tCur ?? stats?.tCur} min={0} max={50} unit="°C" gradient="gtemp" dangerZones={[{from:30,to:50,color:'#dc2626'}]} />
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[150px] flex flex-col items-center justify-center">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[150px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-2">Hum. Current</div>
               <div className="text-4xl font-extrabold text-gray-100">{(gaugeStats?.hCur ?? stats?.hCur)?.toFixed ? (gaugeStats?.hCur ?? stats?.hCur)!.toFixed(0)+'%' : '--'}</div>
             </div>
@@ -423,7 +423,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             <Gauge small label="Temp Max" value={gaugeStats?.tMax ?? stats?.tMax} min={0} max={50} unit="°C" gradient="gtempMax" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[120px] flex flex-col items-center justify-center">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[120px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Min</div>
               <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMin ?? stats?.hMin)?.toFixed ? (gaugeStats?.hMin ?? stats?.hMin)!.toFixed(0)+'%' : '--'}</div>
             </div>
@@ -435,7 +435,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
 
         {/* Center column: three graphs */}
-        <div ref={centerColRef} className="col-span-12 md:col-span-6 space-y-4 min-w-0 overflow-x-hidden">
+        <div ref={centerColRef} className="col-span-12 md:col-span-6 space-y-3 min-w-0 overflow-x-hidden">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-200">Temp + Hum Combined</h4>
