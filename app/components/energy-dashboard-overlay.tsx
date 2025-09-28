@@ -114,8 +114,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-md bg-gray-700 hover:bg-gray-600 text-white text-sm border border-gray-600">
-            Close ×
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-sm border border-gray-600 flex items-center justify-center transition-colors">
+            ×
           </button>
         </div>
       </div>
