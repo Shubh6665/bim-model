@@ -670,34 +670,82 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             </div>
 
             <div className={box}>
-              <div className="text-gray-200 font-semibold mb-3">Export Data</div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="text-gray-200 font-semibold">Export Data</div>
+              </div>
+              
               <div className="space-y-3">
-                <div className="text-[11px] text-gray-400 mb-2">Select time range for Excel export:</div>
                 
                 {/* Export Options */}
                 <div className="space-y-2">
                   <button
                     onClick={() => handleExportData('month')}
-                    className="w-full flex items-center justify-between p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                    className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-blue-900/40 to-blue-800/40 hover:from-blue-800/60 hover:to-blue-700/60 border border-blue-700/50 hover:border-blue-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <span className="text-[12px] text-gray-200">Monthly Data</span>
-                    <span className="text-[10px] text-gray-400">Excel</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center group-hover:bg-blue-600/30 transition-colors">
+                        <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[13px] font-medium text-gray-200">Monthly Data</div>
+                        <div className="text-[10px] text-gray-400">Last 12 months breakdown</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-2 py-1 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
+                      <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
+                      </svg>
+                    </div>
                   </button>
                   
                   <button
                     onClick={() => handleExportData('week')}
-                    className="w-full flex items-center justify-between p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                    className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-900/40 to-purple-800/40 hover:from-purple-800/60 hover:to-purple-700/60 border border-purple-700/50 hover:border-purple-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <span className="text-[12px] text-gray-200">Weekly Data</span>
-                    <span className="text-[10px] text-gray-400">Excel</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center group-hover:bg-purple-600/30 transition-colors">
+                        <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[13px] font-medium text-gray-200">Weekly Data</div>
+                        <div className="text-[10px] text-gray-400">Last 4 weeks summary</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-2 py-1 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
+                      <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
+                      </svg>
+                    </div>
                   </button>
                   
                   <button
                     onClick={() => handleExportData('consumption')}
-                    className="w-full flex items-center justify-between p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                    className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-orange-900/40 to-orange-800/40 hover:from-orange-800/60 hover:to-orange-700/60 border border-orange-700/50 hover:border-orange-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <span className="text-[12px] text-gray-200">All Consumption</span>
-                    <span className="text-[10px] text-gray-400">Excel</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-orange-600/20 rounded-lg flex items-center justify-center group-hover:bg-orange-600/30 transition-colors">
+                        <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[13px] font-medium text-gray-200">All Consumption</div>
+                        <div className="text-[10px] text-gray-400">Complete data export</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-2 py-1 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
+                      <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
+                      </svg>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -707,9 +755,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             <div className="pt-2">
               <button
                 onClick={onClose}
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg border border-gray-600 transition-colors"
+                className="group w-full py-3 bg-gradient-to-r from-red-900/40 to-red-800/40 hover:from-red-800/60 hover:to-red-700/60 border border-red-700/50 hover:border-red-600/70 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
               >
-                Close
+                <svg className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="text-gray-200 group-hover:text-white">Close</span>
               </button>
             </div>
           </div>
