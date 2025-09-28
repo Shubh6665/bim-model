@@ -108,7 +108,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
   return (
     <div className="fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-800 bg-gray-900/70">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-800 bg-gray-900/70 flex-shrink-0">
         <div className="flex items-baseline gap-3">
           <h3 className="text-lg font-bold text-white">Consumption</h3>
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
@@ -121,8 +121,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="grid grid-cols-12 gap-2 max-w-none mx-auto">
+      <div className="flex-1 p-2 overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 max-w-none mx-auto h-full">
           
           {/* Left Column - Time-of-Use & Monthly Summary */}
           <div className="col-span-12 md:col-span-3 space-y-1.5">
@@ -182,7 +182,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
 
             <div className={box}>
               <div className="text-gray-200 font-semibold mb-3">Monthly Summary</div>
-              <div className="divide-y divide-gray-800">
+              <div className="divide-y divide-gray-800 max-h-80 overflow-y-auto">
                 {[
                   "September 2025", "August 2025", "July 2025", "June 2025", 
                   "May 2025", "April 2025", "March 2025", "February 2025"
