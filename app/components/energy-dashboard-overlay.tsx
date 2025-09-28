@@ -108,7 +108,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
   return (
     <div className="fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900/70">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-baseline gap-3">
           <h3 className="text-lg font-bold text-white">Consumption</h3>
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
