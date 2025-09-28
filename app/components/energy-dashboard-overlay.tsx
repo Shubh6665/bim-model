@@ -232,9 +232,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const timeVariation = Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (baseValue * 0.3);
                         const value = Math.max(5, baseValue + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
+                            {/* Tooltip */}
+                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                              <div className="text-blue-300">L1: {value.toFixed(1)} kWh</div>
+                            </div>
                             <div className="flex items-end h-20">
-                              <div className="bg-blue-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
+                              <div className="bg-blue-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
                               {l1Scale === "D" ? i : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
@@ -276,9 +280,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const timeVariation = Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (baseValue * 0.25);
                         const value = Math.max(3, baseValue + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
+                            {/* Tooltip */}
+                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                              <div className="text-green-300">L2: {value.toFixed(1)} kWh</div>
+                            </div>
                             <div className="flex items-end h-20">
-                              <div className="bg-green-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
+                              <div className="bg-green-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
                               {l2Scale === "D" ? i : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
@@ -320,9 +328,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const timeVariation = Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (baseValue * 0.2);
                         const value = Math.max(2, baseValue + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
+                            {/* Tooltip */}
+                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                              <div className="text-yellow-300">L3: {value.toFixed(1)} kWh</div>
+                            </div>
                             <div className="flex items-end h-20">
-                              <div className="bg-yellow-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
+                              <div className="bg-yellow-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
                               {l3Scale === "D" ? i : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
@@ -381,7 +393,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                       return (
                         <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
                           {/* Tooltip */}
-                          <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                          <div className="absolute -top-14 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
                             <div>Total: {total.toFixed(1)} kWh</div>
                             <div className="text-blue-300">L1: {l1.toFixed(1)} kWh</div>
                             <div className="text-green-300">L2: {l2.toFixed(1)} kWh</div>
