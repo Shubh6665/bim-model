@@ -110,7 +110,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-lg font-bold text-white">Energy Statistics Dashboard</h3>
+          <h3 className="text-lg font-bold text-white">Consumption</h3>
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
         </div>
         <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           {/* Left Column - Time-of-Use & Monthly Summary */}
           <div className="col-span-12 md:col-span-3 space-y-1.5">
             <div className={box}>
-              <div className="text-gray-200 font-semibold mb-3">Energy Consumption</div>
+              <div className="text-gray-200 font-semibold mb-3">Time Band</div>
               
               {/* Table Header */}
               <div className="border border-gray-600 rounded-lg overflow-hidden">
@@ -475,7 +475,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
               {/* Grid Rows */}
               <div className="grid grid-cols-2 gap-y-1">
                 {/* NOW Row */}
-                <div className="text-[13px] font-bold text-lime-400">NOW</div>
+                <div className="text-[13px] font-bold text-lime-400">Now</div>
                 <div className="text-right text-[15px] font-bold flex items-center justify-end gap-2">
                   <span className={`${realtimeData.currentPower > 450 ? 'text-red-400' : realtimeData.currentPower > 350 ? 'text-yellow-400' : 'text-white'}`}>{realtimeData.currentPower.toFixed(0)}</span>
                   <span className="text-gray-400 text-[11px] font-medium">W</span>
@@ -496,7 +496,6 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                 <div className="pt-1 mt-1 border-t border-gray-700 text-[12px] font-semibold text-gray-200">TOTAL</div>
                 <div className="pt-1 mt-1 border-t border-gray-700 text-right text-[13px] font-bold text-white">{formatEnergy(realtimeData.totalConsumption,0)} <span className="text-[10px] text-gray-400 font-medium">kWh</span></div>
               </div>
-              <div className="absolute bottom-1 left-0 w-full text-center text-[10px] text-gray-500 tracking-wider">{formatTime(currentTime)}</div>
             </div>
 
             <div className={box}>
