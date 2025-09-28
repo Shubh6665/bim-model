@@ -616,8 +616,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           <div className="col-span-12 md:col-span-3 space-y-1.5">
             <div className={box + " relative overflow-hidden"}>
               {/* POWER Header */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[11px] tracking-wider font-semibold text-gray-300">POWER</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-gray-200 font-semibold">Power</div>
                 {powerTrend !== 'same' && (
                   <div className={`text-[10px] flex items-center gap-1 font-semibold ${powerTrend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
                     {powerTrend === 'up' ? '▲' : '▼'}
