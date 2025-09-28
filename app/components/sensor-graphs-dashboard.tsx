@@ -262,7 +262,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const startDeg = -180; const sweepDeg = 180;
     const angle = startDeg + sweepDeg * pct;
     const ticks = Array.from({ length: 6 }).map((_,i)=> min + (max-min)*i/5);
-    const paddingCls = small ? 'p-3' : 'p-4';
+    const paddingCls = small ? 'p-3' : 'p-3';
     const minHCls = small ? 'min-h-[120px]' : 'min-h-[150px]';
     const sw = small ? 18 : 22; // arc thickness
     const needleW = small ? 5 : 6;
@@ -365,7 +365,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
       {/* Top Header */}
       <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <h3 className="text-lg font-bold text-white">Sensor Graphs Dashboard</h3>
             <div className="text-xs text-gray-300 flex items-center gap-2">
               <div><span className="text-gray-400">Room:</span> <span className="font-semibold text-white">{sensor.room || '—'}</span></div>
@@ -418,16 +418,16 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <div className="text-4xl font-extrabold text-gray-100">{(gaugeStats?.hCur ?? stats?.hCur)?.toFixed ? (gaugeStats?.hCur ?? stats?.hCur)!.toFixed(0)+'%' : '--'}</div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <Gauge small label="Temp Min" value={gaugeStats?.tMin ?? stats?.tMin} min={0} max={50} unit="°C" gradient="gtempMin" />
             <Gauge small label="Temp Max" value={gaugeStats?.tMax ?? stats?.tMax} min={0} max={50} unit="°C" gradient="gtempMax" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[120px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Min</div>
               <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMin ?? stats?.hMin)?.toFixed ? (gaugeStats?.hMin ?? stats?.hMin)!.toFixed(0)+'%' : '--'}</div>
             </div>
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 min-h-[120px] flex flex-col items-center justify-center">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[120px] flex flex-col items-center justify-center">
               <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Max</div>
               <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMax ?? stats?.hMax)?.toFixed ? (gaugeStats?.hMax ?? stats?.hMax)!.toFixed(0)+'%' : '--'}</div>
             </div>
@@ -459,7 +459,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
 
         {/* Right column: Weather + Compare + Alerts */}
-        <div className="col-span-12 md:col-span-3 space-y-4">
+        <div className="col-span-12 md:col-span-3 space-y-3">
           {/* Weather (external, not indoor) */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
             <div className="flex items-center justify-between mb-2">
