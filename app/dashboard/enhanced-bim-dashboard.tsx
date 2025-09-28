@@ -667,6 +667,13 @@ function BIMDashboard() {
                       wireframeMode={wireframeMode}
                       onWireframeModeChange={handleWireframeModeChange}
                       sensorsVisible={sensorsVisible}
+                      selectedProject={selectedProject ? {
+                        lat: selectedProject.lat,
+                        lng: selectedProject.lng,
+                        address: selectedProject.address,
+                        municipality: selectedProject.municipality,
+                        country: selectedProject.country
+                      } : undefined}
                     />
                     {openFile && (
                       /\.pdf$/i.test(openFile.name) ? (

@@ -25,6 +25,12 @@ interface ForgeViewerProps {
     onViewerReady?: (viewer: any, iotExtension: any) => void;
     // When in BIM panel, controls whether sensors should be shown in the 3D model
     sensorsVisible?: boolean;
+    projectLocation?: {
+        latitude: number;
+        longitude: number;
+        address?: string;
+        city?: string;
+    };
 }
 
 const ForgeViewer: React.FC<ForgeViewerProps> = ({
@@ -42,6 +48,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     onWireframeModeChange,
     onViewerReady,
     sensorsVisible,
+    projectLocation,
 }) => {
     const viewerContainer = useRef<HTMLDivElement>(null);
     const [viewer, setViewer] = useState<any>(null);
@@ -2774,6 +2781,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 <EnergyDashboardOverlay
                     sensor={viewerOverlay.sensor}
                     onClose={hideViewerOverlay}
+                    projectLocation={projectLocation}
                 />
             )}
             {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && viewerOverlay.sensor.type !== 'Energy consumption' && (

@@ -31,6 +31,13 @@ interface ThreeDViewerProps {
   wireframeMode?: boolean;
   onWireframeModeChange?: (wireframe: boolean) => void;
   sensorsVisible?: boolean;
+  selectedProject?: {
+    lat: number;
+    lng: number;
+    address?: string;
+    municipality?: string;
+    country?: string;
+  };
 }
 
 export function ThreeDViewer({
@@ -46,6 +53,7 @@ export function ThreeDViewer({
   wireframeMode,
   onWireframeModeChange,
   sensorsVisible,
+  selectedProject,
 }: ThreeDViewerProps) {
   const [showRVTInterface, setShowRVTInterface] = useState(false);
   const [forgeData, setForgeData] = useState<{
@@ -137,6 +145,25 @@ export function ThreeDViewer({
           onWireframeModeChange={onWireframeModeChange}
           onViewerReady={onViewerReady}
           sensorsVisible={sensorsVisible}
+          projectLocation={(() => {
+            // Use selectedFile location first, then fallback to selectedProject location
+            if (selectedFile?.lat && selectedFile?.lng) {
+              return {
+                latitude: selectedFile.lat,
+                longitude: selectedFile.lng,
+                address: selectedFile.description
+              };
+            } else if (selectedProject?.lat && selectedProject?.lng) {
+              const cityParts = [selectedProject.municipality, selectedProject.country].filter(Boolean);
+              return {
+                latitude: selectedProject.lat,
+                longitude: selectedProject.lng,
+                address: selectedProject.address,
+                city: cityParts.length > 0 ? cityParts.join(', ') : undefined
+              };
+            }
+            return undefined;
+          })()}
         />
       )}
 

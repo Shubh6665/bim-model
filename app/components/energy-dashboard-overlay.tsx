@@ -6,9 +6,15 @@ import type { Sensor } from "@/app/context/sensor-context";
 interface Props {
   sensor?: Sensor | null;
   onClose: () => void;
+  projectLocation?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    city?: string;
+  };
 }
 
-export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
+export default function EnergyDashboardOverlay({ sensor, onClose, projectLocation }: Props) {
   const [l1Scale, setL1Scale] = useState<"D" | "W" | "M" | "Y">("M");
   const [l2Scale, setL2Scale] = useState<"D" | "W" | "M" | "Y">("M");
   const [l3Scale, setL3Scale] = useState<"D" | "W" | "M" | "Y">("M");
@@ -28,6 +34,68 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
     l3Current: 14.3
   });
 
+  const [weatherData, setWeatherData] = useState({
+    temperature: 5,
+    humidity: 65,
+    sunrise: "06:51",
+    sunset: "18:46",
+    weatherCode: 2, // 0: Clear, 1: Partly cloudy, 2: Cloudy, 3: Rain
+    location: projectLocation?.city || projectLocation?.address || "Project Location"
+  });
+
+  // Fetch weather data on component mount
+  useEffect(() => {
+    const fetchWeatherData = async () => {
+      try {
+        // Use project coordinates or fallback to Delhi
+        const lat = projectLocation?.latitude || 28.6139;
+        const lon = projectLocation?.longitude || 77.2090;
+        const locationName = projectLocation?.city || projectLocation?.address || "Delhi";
+        
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&daily=sunrise,sunset&timezone=auto&forecast_days=1`
+        );
+        const data = await response.json();
+        
+        if (data.current && data.daily) {
+          // Get timezone from the API response for accurate time formatting
+          const timezone = data.timezone || 'UTC';
+          
+          const sunrise = new Date(data.daily.sunrise[0]).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: timezone,
+            hour12: true
+          });
+          const sunset = new Date(data.daily.sunset[0]).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: timezone,
+            hour12: true
+          });
+          
+          setWeatherData({
+            temperature: Math.round(data.current.temperature_2m * 10) / 10,
+            humidity: Math.round(data.current.relative_humidity_2m),
+            sunrise,
+            sunset,
+            weatherCode: data.current.weather_code,
+            location: locationName
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch weather data:', error);
+        // Keep default values on error
+      }
+    };
+
+    fetchWeatherData();
+    // Refresh weather data every 10 minutes
+    const weatherTimer = setInterval(fetchWeatherData, 10 * 60 * 1000);
+
+    return () => clearInterval(weatherTimer);
+  }, [projectLocation]);
+
   // Update time and mock real-time data every few seconds
   useEffect(() => {
     const timer = setInterval(() => {
@@ -42,8 +110,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           monthConsumption: Math.max(700, prev.monthConsumption + (Math.random() - 0.5) * 5),
           yearConsumption: Math.max(8000, prev.yearConsumption + (Math.random() - 0.5) * 20),
           totalConsumption: prev.totalConsumption + Math.random() * 0.1,
-          temperature: Math.max(-2, Math.min(12, prev.temperature + (Math.random() - 0.5) * 2)),
-          humidity: Math.max(40, Math.min(85, prev.humidity + (Math.random() - 0.5) * 5)),
+          temperature: prev.temperature, // Keep existing temperature
+          humidity: prev.humidity, // Keep existing humidity  
           l1Current: Math.max(20, Math.min(35, prev.l1Current + (Math.random() - 0.5) * 3)),
           l2Current: Math.max(15, Math.min(30, prev.l2Current + (Math.random() - 0.5) * 2.5)),
           l3Current: Math.max(10, Math.min(25, prev.l3Current + (Math.random() - 0.5) * 2))
@@ -78,6 +146,19 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
     const mm = d.getMinutes().toString().padStart(2,'0');
     const ss = d.getSeconds().toString().padStart(2,'0');
     return `${hh}:${mm}.${ss}`; // Format like 10:21.36
+  };
+
+  // Weather code to emoji mapping (WMO Weather interpretation codes)
+  const getWeatherEmoji = (code: number) => {
+    if (code === 0) return "☀️"; // Clear sky
+    if (code <= 3) return "⛅"; // Partly cloudy
+    if (code <= 48) return "🌫️"; // Fog
+    if (code <= 67) return "🌧️"; // Rain
+    if (code <= 77) return "🌨️"; // Snow
+    if (code <= 82) return "🌦️"; // Rain showers
+    if (code <= 86) return "🌨️"; // Snow showers
+    if (code <= 99) return "⛈️"; // Thunderstorm
+    return "⛅"; // Default
   };
 
   // Small inline scale switch used in each chart header
@@ -437,26 +518,26 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
             <div className={box}>
               <div className="text-gray-200 font-semibold mb-3">Weather Condition</div>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-2xl">{realtimeData.temperature > 8 ? "☀️" : realtimeData.temperature > 0 ? "⛅" : "❄️"}</div>
+                <div className="text-2xl">{getWeatherEmoji(weatherData.weatherCode)}</div>
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${realtimeData.temperature > 5 ? 'text-green-400' : realtimeData.temperature > 0 ? 'text-yellow-400' : 'text-blue-400'}`}>
-                    {realtimeData.temperature > 0 ? '+' : ''}{realtimeData.temperature.toFixed(1)}°C
+                  <div className={`text-2xl font-bold ${weatherData.temperature > 15 ? 'text-green-400' : weatherData.temperature > 5 ? 'text-yellow-400' : 'text-blue-400'}`}>
+                    {weatherData.temperature > 0 ? '+' : ''}{weatherData.temperature.toFixed(1)}°C
                   </div>
-                  <div className="text-[11px] text-gray-400">Delhi</div>
+                  <div className="text-[11px] text-gray-400">{weatherData.location}</div>
                 </div>
               </div>
               <div className="space-y-1 text-[12px]">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Humidity:</span>
-                  <span className="text-gray-200">{realtimeData.humidity.toFixed(0)}%</span>
+                  <span className="text-gray-200">{weatherData.humidity}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Sunrise:</span>
-                  <span className="text-gray-200">06:51</span>
+                  <span className="text-gray-200">{weatherData.sunrise}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Sunset:</span>
-                  <span className="text-gray-200">18:46</span>
+                  <span className="text-gray-200">{weatherData.sunset}</span>
                 </div>
               </div>
             </div>
