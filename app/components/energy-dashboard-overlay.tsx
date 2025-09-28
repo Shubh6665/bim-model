@@ -671,7 +671,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
             <div className={box}>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                
                 <div className="text-gray-200 font-semibold">Export Data</div>
               </div>
               
