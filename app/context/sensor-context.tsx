@@ -422,6 +422,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
 
   // Viewer overlay actions
   const showViewerOverlay = useCallback((sensor: Sensor, type: 'info' | 'graphs' | 'statistics') => {
+    // Respect the requested overlay type; viewer will decide which component to render
     setViewerOverlay({ sensor, type });
   }, []);
 

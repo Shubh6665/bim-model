@@ -2659,7 +2659,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 ref={viewerContainer}
                 style={{ width: "100%", height: "100vh", background: "#222" }}
             />
-            {viewerOverlay && viewerOverlay.type === 'info' && (
+            {viewerOverlay && (viewerOverlay.type === 'info' || viewerOverlay.type === 'graphs') && (
                 <div
                     ref={overlayRef}
                     style={{
@@ -2687,7 +2687,9 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                         onPointerUp={onOverlayHeaderPointerUp}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab' }}
                     >
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>Sensor Information</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>
+                            {viewerOverlay.type === 'graphs' ? 'Sensor Graphs' : 'Sensor Information'}
+                        </div>
                         <button onClick={hideViewerOverlay} title="Close"
                             style={{ width: 22, height: 22, borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', cursor: 'pointer' }}>✕</button>
                     </div>
@@ -2746,18 +2748,35 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             </div>
                         </div>
                     )}
-                    {/* graphs moved to full-size dashboard */}
+                    {viewerOverlay.type === 'graphs' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ padding: '8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: 6, background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#93c5fd', fontWeight: 700 }}>🧪</div>
+                                    <div>
+                                        <div style={{ color: '#e5e7eb', fontWeight: 700, fontSize: 13 }}>Graphs</div>
+                                        <div style={{ color: '#9ca3af', fontSize: 12 }}>This feature is coming soon.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ padding: '8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 8 }}>
+                                <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                                    You can view sensor details via <strong style={{ color: '#e5e7eb' }}>Info</strong> and use <strong style={{ color: '#e5e7eb' }}>Statistics</strong> for Energy consumption sensors.
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
             
             {/* Full-width overlays */}
-            {viewerOverlay && viewerOverlay.type === 'statistics' && (
+            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor?.type === 'Energy consumption' && (
                 <EnergyDashboardOverlay
                     sensor={viewerOverlay.sensor}
                     onClose={hideViewerOverlay}
                 />
             )}
-            {viewerOverlay && viewerOverlay.type === 'graphs' && viewerOverlay.sensor && (
+            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && viewerOverlay.sensor.type !== 'Energy consumption' && (
                 <SensorGraphsDashboard
                     sensor={viewerOverlay.sensor as any}
                     allSensors={sensors as any}
@@ -2765,6 +2784,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     projectId={currentProjectId}
                 />
             )}
+            
             
             {isLoading && (
                 <div style={{ 

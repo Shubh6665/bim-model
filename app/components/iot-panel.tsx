@@ -345,6 +345,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    // Always open 'statistics' overlay; viewer will decide which full-screen dashboard to show
                                     showViewerOverlay(sensor, 'statistics');
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
