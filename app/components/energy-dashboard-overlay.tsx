@@ -417,22 +417,6 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                   </div>
                 </div>
               </div>
-              
-              {/* Enhanced Legend */}
-              <div className="flex items-center gap-3 justify-center mt-2">
-                <div className="flex items-center gap-1 text-[11px] text-gray-300">
-                  <div className="w-3 h-3 bg-blue-500 rounded-sm" />
-                  <span>Line 1 (L1)</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-gray-300">
-                  <div className="w-3 h-3 bg-green-500 rounded-sm" />
-                  <span>Line 2 (L2)</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-gray-300">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-sm" />
-                  <span>Line 3 (L3)</span>
-                </div>
-              </div>
             </div>
           </div>
 
