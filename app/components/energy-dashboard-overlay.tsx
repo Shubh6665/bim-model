@@ -121,11 +121,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <div className="grid grid-cols-12 gap-3 max-w-none mx-auto">
+      <div className="flex-1 overflow-y-auto p-2">
+        <div className="grid grid-cols-12 gap-2 max-w-none mx-auto">
           
           {/* Left Column - Time-of-Use & Monthly Summary */}
-          <div className="col-span-12 md:col-span-3 space-y-2">
+          <div className="col-span-12 md:col-span-3 space-y-1.5">
             <div className={box}>
               <div className="text-gray-200 font-semibold mb-3">Energy Consumption</div>
               
@@ -203,7 +203,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           </div>
 
           {/* Center Area - Charts */}
-          <div className="col-span-12 md:col-span-6 space-y-2">
+          <div className="col-span-12 md:col-span-6 space-y-1.5">
             {/* L1 Chart */}
             <div className={box}>
               <div className="flex items-center justify-between mb-2">
@@ -213,13 +213,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                   <ScaleSwitch currentScale={l1Scale} setScale={setL1Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-36">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
                     {[50,40,30,20,10,0].map((val,i)=>(
                       <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-gray-500 w-6 text-right">{val}</div>
+                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
                         <div className="w-2 h-px bg-gray-700 ml-1"></div>
                       </div>
                     ))}
@@ -233,10 +233,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const value = Math.max(5, baseValue + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
                         return (
                           <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                            <div className="flex items-end h-24">
-                              <div className="bg-blue-500 rounded-sm min-w-[3px]" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
+                            <div className="flex items-end h-20">
+                              <div className="bg-blue-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
                             </div>
-                            <div className="text-[8px] text-gray-500 text-center">
+                            <div className="text-[8px] text-white text-center">
                               {l1Scale === "D" ? i : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
                           </div>
@@ -257,13 +257,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                   <ScaleSwitch currentScale={l2Scale} setScale={setL2Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-36">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
                     {[50,40,30,20,10,0].map((val,i)=>(
                       <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-gray-500 w-6 text-right">{val}</div>
+                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
                         <div className="w-2 h-px bg-gray-700 ml-1"></div>
                       </div>
                     ))}
@@ -277,10 +277,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const value = Math.max(3, baseValue + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
                         return (
                           <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                            <div className="flex items-end h-24">
-                              <div className="bg-green-500 rounded-sm min-w-[3px]" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
+                            <div className="flex items-end h-20">
+                              <div className="bg-green-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
                             </div>
-                            <div className="text-[8px] text-gray-500 text-center">
+                            <div className="text-[8px] text-white text-center">
                               {l2Scale === "D" ? i : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
                           </div>
@@ -301,13 +301,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                   <ScaleSwitch currentScale={l3Scale} setScale={setL3Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-36">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
                     {[50,40,30,20,10,0].map((val,i)=>(
                       <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-gray-500 w-6 text-right">{val}</div>
+                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
                         <div className="w-2 h-px bg-gray-700 ml-1"></div>
                       </div>
                     ))}
@@ -321,10 +321,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                         const value = Math.max(2, baseValue + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
                         return (
                           <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                            <div className="flex items-end h-24">
-                              <div className="bg-yellow-500 rounded-sm min-w-[3px]" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
+                            <div className="flex items-end h-20">
+                              <div className="bg-yellow-500 rounded-sm min-w-[6px]" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
                             </div>
-                            <div className="text-[8px] text-gray-500 text-center">
+                            <div className="text-[8px] text-white text-center">
                               {l3Scale === "D" ? i : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
                           </div>
@@ -338,7 +338,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
 
             {/* Total Usage Chart */}
             <div className={box}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Total Usage (Stacked)</div>
                 <div className="flex items-center gap-3">
                   <div className="text-[11px] text-gray-400">kWh</div>
@@ -346,13 +346,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                 </div>
               </div>
               
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-3 h-56">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-40">
                 <div className="flex h-full">
                   {/* Y-axis with values */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
                     {[100, 80, 60, 40, 20, 0].map((val, i) => (
                       <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-gray-400 text-right w-6">{val}</div>
+                        <div className="text-[9px] text-white text-right w-6">{val}</div>
                         <div className="w-2 h-px bg-gray-700 ml-1"></div>
                       </div>
                     ))}
@@ -389,7 +389,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                           </div>
                           
                           {/* Stacked bars */}
-                          <div className="flex flex-col h-40 justify-end min-w-[3px] relative">
+                          <div className="flex flex-col h-28 justify-end min-w-[6px] relative">
                             <div 
                               className="bg-blue-500 rounded-t-sm transition-all duration-300 hover:brightness-110" 
                               style={{ height: `${(l1/100)*100}%` }}
@@ -408,7 +408,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
                           </div>
                           
                           {/* X-axis labels */}
-                          <div className="text-[8px] text-gray-500 text-center">
+                          <div className="text-[8px] text-white text-center">
                             {totalScale === "D" ? i : totalScale === "W" ? ["M","T","W","T","F","S","S"][i] : totalScale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                           </div>
                         </div>
@@ -437,7 +437,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose }: Props) {
           </div>
 
           {/* Right Column - Weather, Power, Alerts */}
-          <div className="col-span-12 md:col-span-3 space-y-3">
+          <div className="col-span-12 md:col-span-3 space-y-1.5">
             <div className={box}>
               <div className="text-gray-200 font-semibold mb-3">Weather Condition</div>
               <div className="flex items-center justify-between mb-2">
