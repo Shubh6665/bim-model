@@ -822,9 +822,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const y1 = height - (clamp(l1Values[idx],100)/100) * height;
                               const y2 = height - (clamp(l2Values[idx],100)/100) * height;
                               const y3 = height - (clamp(l3Values[idx],100)/100) * height;
-                              // Tooltip positioning
-                              const tipX = Math.min(x + 16, width - 170);
-                              const tipY = Math.max(10, Math.min(Math.min(y1,y2,y3) - 8, height - 70));
+                              // Tooltip positioning (above the hovered point)
+                              const tipW = 200; // tooltip width
+                              const tipH = 72;  // tooltip height
+                              const tipX = Math.max(6, Math.min(x - tipW / 2, width - tipW - 6));
+                              const topY = Math.min(y1, y2, y3);
+                              const tipY = Math.max(6, Math.min(topY - tipH - 10, height - tipH - 6));
                               return (
                                 <g>
                                   {/* guide */}
@@ -835,19 +838,19 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                   <circle cx={x} cy={y3} r={6.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
                                   {/* legend tooltip */}
                                   <g transform={`translate(${tipX}, ${tipY})`}>
-                                    <rect width="160" height="56" rx="8" fill="#0b1020" opacity="0.97" />
+                                    <rect width="200" height="72" rx="10" fill="#0b1020" opacity="0.98" />
                                     {/* L1 row */}
-                                    <circle cx="10" cy="14" r="5" fill="#60a5fa" />
-                                    <text x="24" y="17" fontSize="14" fontWeight="700" fill="#e5e7eb">L1:</text>
-                                    <text x="56" y="17" fontSize="14" fontWeight="700" fill="#e5e7eb">{l1Values[idx].toFixed(1)} kWh</text>
+                                    <circle cx="12" cy="22" r="6" fill="#60a5fa" />
+                                    <text x="30" y="25" fontSize="16" fontWeight="700" fill="#e5e7eb">L1:</text>
+                                    <text x="70" y="25" fontSize="16" fontWeight="700" fill="#e5e7eb">{l1Values[idx].toFixed(1)} kWh</text>
                                     {/* L2 row */}
-                                    <circle cx="10" cy="30" r="5" fill="#34d399" />
-                                    <text x="24" y="33" fontSize="14" fontWeight="700" fill="#e5e7eb">L2:</text>
-                                    <text x="56" y="33" fontSize="14" fontWeight="700" fill="#e5e7eb">{l2Values[idx].toFixed(1)} kWh</text>
+                                    <circle cx="12" cy="40" r="6" fill="#34d399" />
+                                    <text x="30" y="43" fontSize="16" fontWeight="700" fill="#e5e7eb">L2:</text>
+                                    <text x="70" y="43" fontSize="16" fontWeight="700" fill="#e5e7eb">{l2Values[idx].toFixed(1)} kWh</text>
                                     {/* L3 row */}
-                                    <circle cx="10" cy="46" r="5" fill="#fbbf24" />
-                                    <text x="24" y="49" fontSize="14" fontWeight="700" fill="#e5e7eb">L3:</text>
-                                    <text x="56" y="49" fontSize="14" fontWeight="700" fill="#e5e7eb">{l3Values[idx].toFixed(1)} kWh</text>
+                                    <circle cx="12" cy="58" r="6" fill="#fbbf24" />
+                                    <text x="30" y="61" fontSize="16" fontWeight="700" fill="#e5e7eb">L3:</text>
+                                    <text x="70" y="61" fontSize="16" fontWeight="700" fill="#e5e7eb">{l3Values[idx].toFixed(1)} kWh</text>
                                   </g>
                                 </g>
                               );
