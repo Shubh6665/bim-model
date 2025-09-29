@@ -255,48 +255,46 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     return () => ro.disconnect();
   }, [centerColRef]);
 
-  const Gauge: React.FC<{ value?: number; min: number; max: number; label: string; unit?: string; gradient: string; dangerZones?: { from: number; to: number; color: string }[]; small?: boolean; }> = ({ value, min, max, label, unit, gradient, dangerZones=[], small=false }) => {
+  const Gauge: React.FC<{ value?: number; min: number; max: number; label: string; unit?: string; color?: string; dangerZones?: { from: number; to: number; color: string }[]; small?: boolean; showMinMax?: boolean; }> = ({ value, min, max, label, unit = '', color = '#22c55e', dangerZones = [], small = false, showMinMax = false }) => {
     const v = value ?? 0;
     const pct = Math.max(0, Math.min(1, (v - min) / (max - min || 1)));
-    // Use exact semicircle sweep to match the SVG arc path: -180° to 0° (180° total)
-    const startDeg = -180; const sweepDeg = 180;
-    const angle = startDeg + sweepDeg * pct;
-    const ticks = Array.from({ length: 6 }).map((_,i)=> min + (max-min)*i/5);
-    const paddingCls = small ? 'p-3' : 'p-3';
-    const minHCls = small ? 'min-h-[120px]' : 'min-h-[150px]';
-    const sw = small ? 18 : 22; // arc thickness
-    const needleW = small ? 5 : 6;
-    const tickW = 3;
-    const rArc = 90; // main arc radius
-    const xL = 100 - rArc;
-    const xR = 100 + rArc;
-    const rTickInner = rArc - 14;
-    const rTickOuter = rArc - 4;
-    const rNeedle = rArc - 10;
+    const isPercentUnit = (unit || '').includes('%');
+    
+    // Exact geometry from reference image
+    const centerX = 100;
+    const centerY = 100;
+    const outerRadius = 88;
+    const innerRadius = 70; // Reduced gap between rings
+    const outerStroke = 4;
+    const innerStroke = 24; // Much thicker inner ring
+    
+    // Create semicircle paths
+    const outerPath = `M ${centerX - outerRadius} ${centerY} A ${outerRadius} ${outerRadius} 0 0 1 ${centerX + outerRadius} ${centerY}`;
+    const innerPath = `M ${centerX - innerRadius} ${centerY} A ${innerRadius} ${innerRadius} 0 0 1 ${centerX + innerRadius} ${centerY}`;
+    
+    const paddingCls = small ? 'p-3' : 'p-4';
+    const minHCls = small ? 'min-h-[130px]' : 'min-h-[160px]';
+    
     return (
       <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center justify-between shadow-inner`}>
-        <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">{label}</div>
         <svg viewBox="0 0 200 120" className="w-full">
-          <defs>
-            <linearGradient id={gradient} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#dc2626" />
-              <stop offset="50%" stopColor="#16a34a" />
-              <stop offset="100%" stopColor="#dc2626" />
-            </linearGradient>
-          </defs>
-          {dangerZones.map((dz,i)=>{ const a1 = (startDeg + sweepDeg*((dz.from-min)/(max-min)))*Math.PI/180; const a2 = (startDeg + sweepDeg*((dz.to-min)/(max-min)))*Math.PI/180; const x1=100 + rArc*Math.cos(a1); const y1=100 + rArc*Math.sin(a1); const x2=100 + rArc*Math.cos(a2); const y2=100 + rArc*Math.sin(a2); const large = (a2-a1)>Math.PI?1:0; return <path key={i} d={`M ${x1} ${y1} A ${rArc} ${rArc} 0 ${large} 1 ${x2} ${y2}`} stroke={dz.color} strokeWidth={sw-6} fill="none" opacity={0.35} /> })}
-          {/* Track (true semicircle -180..0 deg) */}
-          <path d={`M ${xL} 100 A ${rArc} ${rArc} 0 0 1 ${xR} 100`} stroke="#1f2937" strokeWidth={sw} fill="none" strokeLinecap="round" />
-          {/* Foreground arc */}
-          <path d={`M ${xL} 100 A ${rArc} ${rArc} 0 0 1 ${xR} 100`} stroke={`url(#${gradient})`} strokeWidth={sw} fill="none" strokeLinecap="round" />
-          {ticks.map((t,i)=>{ const a=(startDeg+sweepDeg*i/5)*Math.PI/180; const x1=100 + (rTickInner)*Math.cos(a); const y1=100 + (rTickInner)*Math.sin(a); const x2=100 + (rTickOuter)*Math.cos(a); const y2=100 + (rTickOuter)*Math.sin(a); return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#374151" strokeWidth={tickW}/> })}
-          <g transform={`rotate(${angle} 100 100)`}>
-            <line x1={100} y1={100} x2={100 + rNeedle} y2={100} stroke="#e5e7eb" strokeWidth={needleW} strokeLinecap="round" />
-            <circle cx={100} cy={100} r={6.5} fill="#e5e7eb" />
-          </g>
-          <text x={100} y={small? 80 : 74} textAnchor="middle" className="fill-white" style={{fontSize: small? '16px':'20px', fontWeight:800}}>{value?.toFixed(1)}{unit}</text>
-          <text x={100} y={90} textAnchor="middle" className="fill-gray-300" style={{fontSize: '10px'}}>{min} / {max}{unit}</text>
+          {/* Outer ring - 3 color segments */}
+          <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
+          <path d={outerPath} stroke="#22c55e" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="50 100" strokeDashoffset="-25" />
+          <path d={outerPath} stroke="#ef4444" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" strokeDashoffset="-75" />
+          
+          {/* Inner thick ring - background track */}
+          <path d={innerPath} stroke="#1f2937" strokeWidth={innerStroke} fill="none" />
+          
+          {/* Inner thick ring - progress fill */}
+          <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
+          
+          {/* Center value text */}
+          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '20px' : '24px', fontWeight: 800 }}>
+            {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : 1)}${unit}` : `—${unit}`}
+          </text>
         </svg>
+        <div className="text-[11px] text-gray-300 uppercase tracking-wide mt-1">{label}</div>
       </div>
     );
   };
@@ -408,28 +406,94 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
       </div>
 
       {/* Body 3-column layout */}
-      <div className="flex-1 grid grid-cols-12 gap-3 p-3 overflow-y-auto">
-        {/* Left column: Gauges + Min/Max */}
-        <div className="col-span-12 md:col-span-3 space-y-2">
-          <div className="grid grid-cols-2 gap-3">
-            <Gauge label="Temp Current" value={gaugeStats?.tCur ?? stats?.tCur} min={0} max={50} unit="°C" gradient="gtemp" dangerZones={[{from:30,to:50,color:'#dc2626'}]} />
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[150px] flex flex-col items-center justify-center">
-              <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-2">Hum. Current</div>
-              <div className="text-4xl font-extrabold text-gray-100">{(gaugeStats?.hCur ?? stats?.hCur)?.toFixed ? (gaugeStats?.hCur ?? stats?.hCur)!.toFixed(0)+'%' : '--'}</div>
+      <div className="flex-1 grid grid-cols-12 gap-3 p-3 overflow-hidden">
+        {/* Left column: Current Condition + Temperature + Humidity */}
+        <div className="col-span-12 md:col-span-3 flex flex-col h-full space-y-2 min-h-0">
+          {/* Current Condition Section */}
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1 min-h-0">
+            <div className="text-sm font-semibold text-white mb-2 text-center">Current Condition</div>
+            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
+              {/* Indoor Temperature (Gauge) */}
+              <Gauge
+                label="Indoor"
+                value={gaugeStats?.tCur ?? stats?.tCur ?? 23}
+                min={0}
+                max={50}
+                unit=" °C"
+                color="#22c55e"
+                dangerZones={[{ from: 42.5, to: 50, color: '#ef4444' }]}
+                small
+              />
+
+              {/* Outdoor Temperature (Gauge) */}
+              <Gauge
+                label="Outdoor"
+                value={weatherData.temp}
+                min={0}
+                max={50}
+                unit=" °C"
+                color="#22c55e"
+                dangerZones={[{ from: 42.5, to: 50, color: '#ef4444' }]}
+                small
+              />
+
+              {/* Indoor Humidity (Gauge) */}
+              <Gauge
+                label="Indoor"
+                value={gaugeStats?.hCur ?? stats?.hCur ?? 60}
+                min={0}
+                max={100}
+                unit=" %H"
+                color="#22c55e"
+                dangerZones={[{ from: 85, to: 100, color: '#ef4444' }]}
+                small
+              />
+
+              {/* Outdoor Humidity (Gauge) */}
+              <Gauge
+                label="Outdoor"
+                value={weatherData.hum}
+                min={0}
+                max={100}
+                unit=" %H"
+                color="#22c55e"
+                dangerZones={[{ from: 85, to: 100, color: '#ef4444' }]}
+                small
+              />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Gauge small label="Temp Min" value={gaugeStats?.tMin ?? stats?.tMin} min={0} max={50} unit="°C" gradient="gtempMin" />
-            <Gauge small label="Temp Max" value={gaugeStats?.tMax ?? stats?.tMax} min={0} max={50} unit="°C" gradient="gtempMax" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[120px] flex flex-col items-center justify-center">
-              <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Min</div>
-              <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMin ?? stats?.hMin)?.toFixed ? (gaugeStats?.hMin ?? stats?.hMin)!.toFixed(0)+'%' : '--'}</div>
+
+          {/* Temperature Min/Max Section */}
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
+            <div className="text-sm font-semibold text-white mb-2 text-center">Temperature</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Min</div>
+                <div className="text-base font-bold text-blue-400">{Math.round(gaugeStats?.tMin ?? stats?.tMin ?? 0)}°C</div>
+                <div className="text-xs text-gray-500">00:00</div>
+              </div>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Max</div>
+                <div className="text-base font-bold text-red-400">{Math.round(gaugeStats?.tMax ?? stats?.tMax ?? 0)}°C</div>
+                <div className="text-xs text-gray-500">00:00</div>
+              </div>
             </div>
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 min-h-[120px] flex flex-col items-center justify-center">
-              <div className="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Hum Max</div>
-              <div className="text-3xl font-semibold text-gray-100">{(gaugeStats?.hMax ?? stats?.hMax)?.toFixed ? (gaugeStats?.hMax ?? stats?.hMax)!.toFixed(0)+'%' : '--'}</div>
+          </div>
+
+          {/* Humidity Min/Max Section */}
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
+            <div className="text-sm font-semibold text-white mb-2 text-center">Humidity</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Min</div>
+                <div className="text-base font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
+                <div className="text-xs text-gray-500">00:00</div>
+              </div>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Max</div>
+                <div className="text-base font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
+                <div className="text-xs text-gray-500">00:00</div>
+              </div>
             </div>
           </div>
         </div>
