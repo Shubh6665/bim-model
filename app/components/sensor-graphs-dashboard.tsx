@@ -464,35 +464,35 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Temperature Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-2 text-center">Temperature</div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Min</div>
-                <div className="text-base font-bold text-blue-400">{Math.round(gaugeStats?.tMin ?? stats?.tMin ?? 0)}°C</div>
-                <div className="text-xs text-gray-500">00:00</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
+            <div className="text-sm font-semibold text-white mb-3 text-center">Temperature</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
+                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.tMin ?? stats?.tMin ?? 0)}°C</div>
+                <div className="text-xs text-gray-500 mt-1">00:00</div>
               </div>
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Max</div>
-                <div className="text-base font-bold text-red-400">{Math.round(gaugeStats?.tMax ?? stats?.tMax ?? 0)}°C</div>
-                <div className="text-xs text-gray-500">00:00</div>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
+                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.tMax ?? stats?.tMax ?? 0)}°C</div>
+                <div className="text-xs text-gray-500 mt-1">00:00</div>
               </div>
             </div>
           </div>
 
           {/* Humidity Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-2 text-center">Humidity</div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Min</div>
-                <div className="text-base font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
-                <div className="text-xs text-gray-500">00:00</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
+            <div className="text-sm font-semibold text-white mb-3 text-center">Humidity</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
+                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">00:00</div>
               </div>
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">Max</div>
-                <div className="text-base font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
-                <div className="text-xs text-gray-500">00:00</div>
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
+                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">00:00</div>
               </div>
             </div>
           </div>
