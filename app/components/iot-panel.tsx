@@ -4,10 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useSensorContext, SENSOR_TYPES } from "../context/sensor-context";
 
 const SENSOR_TYPE_COLORS = {
-  "Temperature": "bg-red-500",
+  "Temp & Hum": "bg-red-500",
   "CO2": "bg-green-500", 
   "Light": "bg-yellow-400",
-  "Humidity": "bg-blue-500",
+  "FV": "bg-blue-500",
   "Seismic and accelerometric": "bg-purple-500",
   "Energy consumption": "bg-teal-500",
 };

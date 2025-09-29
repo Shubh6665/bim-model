@@ -109,10 +109,10 @@ export class DataVizService {
     const THREE = (window as any).THREE;
 
     const sensorTypes = [
-      { name: "Temperature", color: "#ef4444" },
+      { name: "Temp & Hum", color: "#ef4444" },
       { name: "CO2", color: "#22c55e" },
       { name: "Light", color: "#fde047" },
-      { name: "Humidity", color: "#3b82f6" },
+      { name: "FV", color: "#3b82f6" },
       { name: "Seismic and accelerometric", color: "#a21caf" },
       { name: "Energy consumption", color: "#14b8a6" },
     ];
