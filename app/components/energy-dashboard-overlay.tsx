@@ -750,19 +750,6 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                 </div>
               </div>
             </div>
-
-            {/* Close Button */}
-            <div className="pt-2">
-              <button
-                onClick={onClose}
-                className="group w-full py-3 bg-gradient-to-r from-red-900/40 to-red-800/40 hover:from-red-800/60 hover:to-red-700/60 border border-red-700/50 hover:border-red-600/70 text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-              >
-                <svg className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span className="text-gray-200 group-hover:text-white">Close</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
