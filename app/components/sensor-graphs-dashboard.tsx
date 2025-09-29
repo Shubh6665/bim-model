@@ -26,7 +26,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   const [chartHeight, setChartHeight] = useState<number>(150);
   const dateInputEl = useRef<HTMLInputElement | null>(null);
   // Live stats for gauges (independent of selected date)
-  const [gaugeStats, setGaugeStats] = useState<{ tCur: number; hCur: number; tMin: number; tMax: number; hMin: number; hMax: number } | null>(null);
+  const [gaugeStats, setGaugeStats] = useState<{ tCur: number; hCur: number; tMin: number; tMax: number; hMin: number; hMax: number; tMinTime?: string; tMaxTime?: string; hMinTime?: string; hMaxTime?: string } | null>(null);
 
   const formatDate = (d: Date) => `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
   const dateInputValue = useMemo(() => {
@@ -90,12 +90,34 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         const rec = map[sensor.id] || map[String((sensor as any)._id)] || map[Object.keys(map).find(k=>k.includes(sensor.id)) || ''];
         const tArr: number[] = rec?.temp || [];
         const hArr: number[] = rec?.rh || [];
+        const timestamps: Date[] = (json.timestamps||[]).map((t: string) => new Date(t));
+        
         let tMin = tArr.length? Math.min(...tArr): 0;
         let tMax = tArr.length? Math.max(...tArr): 0;
         let hMin = hArr.length? Math.min(...hArr): 0;
         let hMax = hArr.length? Math.max(...hArr): 0;
         let tCur = tArr.length? tArr[tArr.length-1] : 0;
         let hCur = hArr.length? hArr[hArr.length-1] : 0;
+        
+        // Find timestamps when min/max occurred
+        const formatTime = (date: Date) => 
+          `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        
+        let tMinTime = '00:00', tMaxTime = '00:00', hMinTime = '00:00', hMaxTime = '00:00';
+        
+        if (tArr.length && timestamps.length) {
+          const tMinIndex = tArr.findIndex(t => t === tMin);
+          const tMaxIndex = tArr.findIndex(t => t === tMax);
+          if (tMinIndex >= 0 && timestamps[tMinIndex]) tMinTime = formatTime(timestamps[tMinIndex]);
+          if (tMaxIndex >= 0 && timestamps[tMaxIndex]) tMaxTime = formatTime(timestamps[tMaxIndex]);
+        }
+        
+        if (hArr.length && timestamps.length) {
+          const hMinIndex = hArr.findIndex(h => h === hMin);
+          const hMaxIndex = hArr.findIndex(h => h === hMax);
+          if (hMinIndex >= 0 && timestamps[hMinIndex]) hMinTime = formatTime(timestamps[hMinIndex]);
+          if (hMaxIndex >= 0 && timestamps[hMaxIndex]) hMaxTime = formatTime(timestamps[hMaxIndex]);
+        }
         // Realtime for current point
         const rt = await fetch(`/api/iot/realtime?projectId=${projectId}`);
         if (rt.ok) {
@@ -110,7 +132,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             }
           }
         }
-        setGaugeStats({ tCur, hCur, tMin, tMax, hMin, hMax });
+        setGaugeStats({ tCur, hCur, tMin, tMax, hMin, hMax, tMinTime, tMaxTime, hMinTime, hMaxTime });
       } catch (e) {
         // ignore init errors
       }
@@ -131,10 +153,20 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
         if (isNaN(num)) return;
         setGaugeStats(prev => {
-          if (!prev) return { tCur: num, hCur: 0, tMin: num, tMax: num, hMin: 0, hMax: 0 };
+          if (!prev) return { tCur: num, hCur: 0, tMin: num, tMax: num, hMin: 0, hMax: 0, tMinTime: '00:00', tMaxTime: '00:00', hMinTime: '00:00', hMaxTime: '00:00' };
           const tMin = Math.min(prev.tMin || num, num);
           const tMax = Math.max(prev.tMax || num, num);
-          return { ...prev, tCur: num, tMin, tMax };
+          const now = new Date();
+          const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          
+          // Update timestamps only if we have new min/max values
+          let tMinTime = prev.tMinTime || '00:00';
+          let tMaxTime = prev.tMaxTime || '00:00';
+          
+          if (num < (prev.tMin || num)) tMinTime = currentTime;
+          if (num > (prev.tMax || num)) tMaxTime = currentTime;
+          
+          return { ...prev, tCur: num, tMin, tMax, tMinTime, tMaxTime };
         });
       } catch {}
     }, 10000);
@@ -215,14 +247,30 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   }, [compareSensorId, compareDate, projectId, allSensors]);
 
   const stats = useMemo(() => {
-    if (!series?.temp || !series.rh) return null;
+    if (!series?.temp || !series.rh || !series.timestamps) return null;
+    
     const tMin = Math.min(...series.temp);
     const tMax = Math.max(...series.temp);
     const hMin = Math.min(...series.rh);
     const hMax = Math.max(...series.rh);
     const tCur = series.temp[series.temp.length-1];
     const hCur = series.rh[series.rh.length-1];
-    return { tMin, tMax, hMin, hMax, tCur, hCur };
+    
+    // Find timestamps when min/max occurred
+    const tMinIndex = series.temp.findIndex(t => t === tMin);
+    const tMaxIndex = series.temp.findIndex(t => t === tMax);
+    const hMinIndex = series.rh.findIndex(h => h === hMin);
+    const hMaxIndex = series.rh.findIndex(h => h === hMax);
+    
+    const formatTime = (date: Date) => 
+      `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    
+    const tMinTime = tMinIndex >= 0 ? formatTime(series.timestamps[tMinIndex]) : '00:00';
+    const tMaxTime = tMaxIndex >= 0 ? formatTime(series.timestamps[tMaxIndex]) : '00:00';
+    const hMinTime = hMinIndex >= 0 ? formatTime(series.timestamps[hMinIndex]) : '00:00';
+    const hMaxTime = hMaxIndex >= 0 ? formatTime(series.timestamps[hMaxIndex]) : '00:00';
+    
+    return { tMin, tMax, hMin, hMax, tCur, hCur, tMinTime, tMaxTime, hMinTime, hMaxTime };
   }, [series]);
 
   // External Weather: simple day/night curve independent of indoor sensors
@@ -727,12 +775,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
                 <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.tMin ?? stats?.tMin ?? 0)}°C</div>
-                <div className="text-xs text-gray-500 mt-1">00:00</div>
+                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.tMinTime ?? stats?.tMinTime ?? '00:00'}</div>
               </div>
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
                 <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.tMax ?? stats?.tMax ?? 0)}°C</div>
-                <div className="text-xs text-gray-500 mt-1">00:00</div>
+                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.tMaxTime ?? stats?.tMaxTime ?? '00:00'}</div>
               </div>
             </div>
           </div>
@@ -744,12 +792,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
                 <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
-                <div className="text-xs text-gray-500 mt-1">00:00</div>
+                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMinTime ?? stats?.hMinTime ?? '00:00'}</div>
               </div>
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
                 <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
-                <div className="text-xs text-gray-500 mt-1">00:00</div>
+                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMaxTime ?? stats?.hMaxTime ?? '00:00'}</div>
               </div>
             </div>
           </div>
