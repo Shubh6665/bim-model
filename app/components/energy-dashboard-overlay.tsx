@@ -129,6 +129,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
   // Helpers for redesigned Power panel
   const prevPowerRef = useRef<number>(realtimeData.currentPower);
   const [powerTrend, setPowerTrend] = useState<"up"|"down"|"same">("same");
+  // Hover states for line charts (index under cursor)
+  const [l1HoverIdx, setL1HoverIdx] = useState<number | null>(null);
+  const [l2HoverIdx, setL2HoverIdx] = useState<number | null>(null);
+  const [l3HoverIdx, setL3HoverIdx] = useState<number | null>(null);
+  const [totalHoverIdx, setTotalHoverIdx] = useState<number | null>(null);
 
   useEffect(() => {
     // Determine trend whenever realtimeData.currentPower changes
@@ -146,6 +151,25 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
     const mm = d.getMinutes().toString().padStart(2,'0');
     const ss = d.getSeconds().toString().padStart(2,'0');
     return `${hh}:${mm}.${ss}`; // Format like 10:21.36
+  };
+
+  // Build SVG path strings for line and area under it (responsive via viewBox)
+  const buildLinePaths = (values: number[], max: number) => {
+    const width = 1000; // virtual width for viewBox
+    const height = 200; // virtual height for viewBox
+    const n = values.length;
+    const safeValues = n > 1 ? values : [0, 0];
+    const clamp = (v: number) => Math.max(0, Math.min(max, v));
+    const points = safeValues.map((v, i) => {
+      const x = (i * width) / Math.max(1, n - 1);
+      const y = height - (clamp(v) / max) * height;
+      return [x, y] as [number, number];
+    });
+    const d = points
+      .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`)
+      .join(' ');
+    const area = `${d} L ${width} ${height} L 0 ${height} Z`;
+    return { d, area, width, height };
   };
 
   // Weather code to emoji mapping (WMO Weather interpretation codes)
@@ -484,29 +508,69 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                       </div>
                     ))}
                   </div>
-                  {/* Bars area */}
+                  {/* Line chart area */}
                   <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1 flex items-end justify-between gap-1">
-                      {Array.from({ length: l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30 }, (_, i) => {
-                        const baseValue = realtimeData.l1Current;
-                        const timeVariation = Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (baseValue * 0.3);
-                        const value = Math.max(5, baseValue + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
+                    <div className="relative flex-1">
+                      {(() => {
+                        const len = l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30;
+                        const base = realtimeData.l1Current;
+                        const values = Array.from({ length: len }, (_, i) => {
+                          const timeVariation = Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (base * 0.3);
+                          return Math.max(5, base + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
+                        });
+                        const max = 50;
+                        const { d, area, width, height } = buildLinePaths(values, max);
+                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                          const idx = Math.round(ratio * (len - 1));
+                          setL1HoverIdx(idx);
+                        };
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
-                            {/* Tooltip */}
-                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                              <div className="text-blue-300">L1: {value.toFixed(1)} kWh</div>
-                            </div>
-                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
-                              <div className="bg-blue-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
-                            </div>
-                            <div className="text-[8px] text-white text-center">
+                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL1HoverIdx(null)} style={{cursor:'crosshair'}}>
+                            {/* horizontal grid */}
+                            {[0,1,2,3,4,5].map(i => (
+                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
+                            ))}
+                            {/* area fill */}
+                            <path d={area} fill="#3b82f6" fillOpacity={0.15} />
+                            {/* line */}
+                            <path d={d} fill="none" stroke="#60a5fa" strokeWidth={3} />
+                            {l1HoverIdx !== null && values[l1HoverIdx] !== undefined && (() => {
+                              const x = (l1HoverIdx/(len-1)) * width;
+                              const y = height - (Math.max(0, Math.min(max, values[l1HoverIdx]))/max) * height;
+                              return (
+                                <g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
+                                  <circle cx={x} cy={y} r={7} fill="#60a5fa" stroke="#0ea5e9" strokeWidth={2} />
+                                  <g transform={`translate(${Math.min(x+16, width-160)}, ${Math.max(12, y-22)})`}>
+                                    <rect width="128" height="36" rx="8" fill="#0b1020" opacity="0.97" />
+                                    <text x="64" y="23" textAnchor="middle" fontSize="16" fontWeight="700" fill="#e5e7eb">{values[l1HoverIdx].toFixed(1)} kWh</text>
+                                  </g>
+                                </g>
+                              );
+                            })()}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                    {/* X labels aligned to exact indices */}
+                    {(() => {
+                      const len = l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30;
+                      return (
+                        <div className="mt-1 relative h-4">
+                          {Array.from({ length: len }, (_, i) => (
+                            <div
+                              key={i}
+                              className="absolute text-[8px] text-white text-center"
+                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
+                            >
                               {l1Scale === "D" ? i : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -532,29 +596,65 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                       </div>
                     ))}
                   </div>
-                  {/* Bars area */}
+                  {/* Line chart area */}
                   <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1 flex items-end justify-between gap-1">
-                      {Array.from({ length: l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30 }, (_, i) => {
-                        const baseValue = realtimeData.l2Current;
-                        const timeVariation = Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (baseValue * 0.25);
-                        const value = Math.max(3, baseValue + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
+                    <div className="relative flex-1">
+                      {(() => {
+                        const len = l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30;
+                        const base = realtimeData.l2Current;
+                        const values = Array.from({ length: len }, (_, i) => {
+                          const timeVariation = Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (base * 0.25);
+                          return Math.max(3, base + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
+                        });
+                        const max = 50;
+                        const { d, area, width, height } = buildLinePaths(values, max);
+                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                          const idx = Math.round(ratio * (len - 1));
+                          setL2HoverIdx(idx);
+                        };
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
-                            {/* Tooltip */}
-                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                              <div className="text-green-300">L2: {value.toFixed(1)} kWh</div>
-                            </div>
-                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
-                              <div className="bg-green-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
-                            </div>
-                            <div className="text-[8px] text-white text-center">
+                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL2HoverIdx(null)} style={{cursor:'crosshair'}}>
+                            {[0,1,2,3,4,5].map(i => (
+                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
+                            ))}
+                            <path d={area} fill="#22c55e" fillOpacity={0.15} />
+                            <path d={d} fill="none" stroke="#34d399" strokeWidth={3} />
+                            {l2HoverIdx !== null && values[l2HoverIdx] !== undefined && (() => {
+                              const x = (l2HoverIdx/(len-1)) * width;
+                              const y = height - (Math.max(0, Math.min(max, values[l2HoverIdx]))/max) * height;
+                              return (
+                                <g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
+                                  <circle cx={x} cy={y} r={7} fill="#34d399" stroke="#10b981" strokeWidth={2} />
+                                  <g transform={`translate(${Math.min(x+16, width-160)}, ${Math.max(12, y-22)})`}>
+                                    <rect width="128" height="36" rx="8" fill="#0b1020" opacity="0.97" />
+                                    <text x="64" y="23" textAnchor="middle" fontSize="16" fontWeight="700" fill="#e5e7eb">{values[l2HoverIdx].toFixed(1)} kWh</text>
+                                  </g>
+                                </g>
+                              );
+                            })()}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                    {(() => {
+                      const len = l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30;
+                      return (
+                        <div className="mt-1 relative h-4">
+                          {Array.from({ length: len }, (_, i) => (
+                            <div
+                              key={i}
+                              className="absolute text-[8px] text-white text-center"
+                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
+                            >
                               {l2Scale === "D" ? i : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -580,39 +680,81 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                       </div>
                     ))}
                   </div>
-                  {/* Bars area */}
+                  {/* Line chart area */}
                   <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1 flex items-end justify-between gap-1">
-                      {Array.from({ length: l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30 }, (_, i) => {
-                        const baseValue = realtimeData.l3Current;
-                        const timeVariation = Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (baseValue * 0.2);
-                        const value = Math.max(2, baseValue + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
+                    <div className="relative flex-1">
+                      {(() => {
+                        const len = l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30;
+                        const base = realtimeData.l3Current;
+                        const values = Array.from({ length: len }, (_, i) => {
+                          const timeVariation = Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (base * 0.2);
+                          return Math.max(2, base + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
+                        });
+                        const max = 50;
+                        const { d, area, width, height } = buildLinePaths(values, max);
+                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                          const idx = Math.round(ratio * (len - 1));
+                          setL3HoverIdx(idx);
+                        };
                         return (
-                          <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
-                            {/* Tooltip */}
-                            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                              <div className="text-yellow-300">L3: {value.toFixed(1)} kWh</div>
-                            </div>
-                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
-                              <div className="bg-yellow-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
-                            </div>
-                            <div className="text-[8px] text-white text-center">
+                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL3HoverIdx(null)} style={{cursor:'crosshair'}}>
+                            {[0,1,2,3,4,5].map(i => (
+                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
+                            ))}
+                            <path d={area} fill="#f59e0b" fillOpacity={0.15} />
+                            <path d={d} fill="none" stroke="#fbbf24" strokeWidth={3} />
+                            {l3HoverIdx !== null && values[l3HoverIdx] !== undefined && (() => {
+                              const x = (l3HoverIdx/(len-1)) * width;
+                              const y = height - (Math.max(0, Math.min(max, values[l3HoverIdx]))/max) * height;
+                              return (
+                                <g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
+                                  <circle cx={x} cy={y} r={7.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
+                                  <g transform={`translate(${Math.min(x+16, width-160)}, ${Math.max(12, y-22)})`}>
+                                    <rect width="128" height="36" rx="8" fill="#0b1020" opacity="0.97" />
+                                    <text x="64" y="23" textAnchor="middle" fontSize="16" fontWeight="700" fill="#e5e7eb">{values[l3HoverIdx].toFixed(1)} kWh</text>
+                                  </g>
+                                </g>
+                              );
+                            })()}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                    {(() => {
+                      const len = l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30;
+                      return (
+                        <div className="mt-1 relative h-4">
+                          {Array.from({ length: len }, (_, i) => (
+                            <div
+                              key={i}
+                              className="absolute text-[8px] text-white text-center"
+                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
+                            >
                               {l3Scale === "D" ? i : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Total Usage Chart */}
+            {/* Total Usage Chart (3 lines: L1/L2/L3) */}
             <div className={box + " flex-1 flex flex-col min-h-[160px]"}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-200 font-semibold">Total Usage (Stacked)</div>
+                <div className="text-gray-200 font-semibold">Total Usage (L1/L2/L3)</div>
                 <div className="flex items-center gap-3">
+                  {/* legend */}
+                  <div className="hidden md:flex items-center gap-3 mr-1">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>L1</div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span>L2</div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>L3</div>
+                  </div>
                   <div className="text-[11px] text-gray-400">kWh</div>
                   <ScaleSwitch currentScale={totalScale} setScale={setTotalScale} />
                 </div>
@@ -630,62 +772,106 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                     ))}
                   </div>
                   
-                  {/* Chart area */}
-                  <div className="flex-1 flex items-end justify-between h-full gap-1 relative">
-                    {/* Horizontal grid lines */}
-                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                      {[0, 1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="w-full h-px bg-gray-800 opacity-50"></div>
-                      ))}
+                  {/* Line chart area: render L1, L2, L3 as separate lines */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="relative flex-1">
+                      {(() => {
+                        const len = totalScale === "D" ? 24 : totalScale === "W" ? 7 : totalScale === "Y" ? 12 : 30;
+                        const baseL1 = realtimeData.l1Current;
+                        const baseL2 = realtimeData.l2Current;
+                        const baseL3 = realtimeData.l3Current;
+                        const l1Values = Array.from({ length: len }, (_, i) =>
+                          Math.max(5, baseL1 + Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (baseL1 * 0.3))
+                        );
+                        const l2Values = Array.from({ length: len }, (_, i) =>
+                          Math.max(3, baseL2 + Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (baseL2 * 0.25))
+                        );
+                        const l3Values = Array.from({ length: len }, (_, i) =>
+                          Math.max(2, baseL3 + Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (baseL3 * 0.2))
+                        );
+                        const { d: d1, width, height } = buildLinePaths(l1Values, 100);
+                        const { d: d2 } = buildLinePaths(l2Values, 100);
+                        const { d: d3 } = buildLinePaths(l3Values, 100);
+                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                          const idx = Math.round(ratio * (len - 1));
+                          setTotalHoverIdx(idx);
+                        };
+                        return (
+                          <svg
+                            viewBox={`0 0 ${width} ${height}`}
+                            preserveAspectRatio="none"
+                            className="absolute inset-0 w-full h-full"
+                            onMouseMove={handleMove}
+                            onMouseLeave={() => setTotalHoverIdx(null)}
+                            style={{ cursor: 'crosshair' }}
+                          >
+                            {[0,1,2,3,4,5].map(i => (
+                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
+                            ))}
+                            {/* lines */}
+                            <path d={d1} fill="none" stroke="#60a5fa" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={d2} fill="none" stroke="#34d399" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={d3} fill="none" stroke="#fbbf24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+
+                            {totalHoverIdx !== null && totalHoverIdx >= 0 && totalHoverIdx < len && (() => {
+                              const idx = totalHoverIdx;
+                              const x = (idx/(len-1)) * width;
+                              const clamp = (v:number, max=100)=> Math.max(0, Math.min(max, v));
+                              const y1 = height - (clamp(l1Values[idx],100)/100) * height;
+                              const y2 = height - (clamp(l2Values[idx],100)/100) * height;
+                              const y3 = height - (clamp(l3Values[idx],100)/100) * height;
+                              // Tooltip positioning
+                              const tipX = Math.min(x + 16, width - 170);
+                              const tipY = Math.max(10, Math.min(Math.min(y1,y2,y3) - 8, height - 70));
+                              return (
+                                <g>
+                                  {/* guide */}
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
+                                  {/* markers */}
+                                  <circle cx={x} cy={y1} r={6} fill="#60a5fa" stroke="#0ea5e9" strokeWidth={2} />
+                                  <circle cx={x} cy={y2} r={6} fill="#34d399" stroke="#10b981" strokeWidth={2} />
+                                  <circle cx={x} cy={y3} r={6.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
+                                  {/* legend tooltip */}
+                                  <g transform={`translate(${tipX}, ${tipY})`}>
+                                    <rect width="160" height="56" rx="8" fill="#0b1020" opacity="0.97" />
+                                    {/* L1 row */}
+                                    <circle cx="10" cy="14" r="5" fill="#60a5fa" />
+                                    <text x="24" y="17" fontSize="14" fontWeight="700" fill="#e5e7eb">L1:</text>
+                                    <text x="56" y="17" fontSize="14" fontWeight="700" fill="#e5e7eb">{l1Values[idx].toFixed(1)} kWh</text>
+                                    {/* L2 row */}
+                                    <circle cx="10" cy="30" r="5" fill="#34d399" />
+                                    <text x="24" y="33" fontSize="14" fontWeight="700" fill="#e5e7eb">L2:</text>
+                                    <text x="56" y="33" fontSize="14" fontWeight="700" fill="#e5e7eb">{l2Values[idx].toFixed(1)} kWh</text>
+                                    {/* L3 row */}
+                                    <circle cx="10" cy="46" r="5" fill="#fbbf24" />
+                                    <text x="24" y="49" fontSize="14" fontWeight="700" fill="#e5e7eb">L3:</text>
+                                    <text x="56" y="49" fontSize="14" fontWeight="700" fill="#e5e7eb">{l3Values[idx].toFixed(1)} kWh</text>
+                                  </g>
+                                </g>
+                              );
+                            })()}
+                          </svg>
+                        );
+                      })()}
                     </div>
-                    
-                    {/* Bars */}
-                    {Array.from({ length: totalScale === "D" ? 24 : totalScale === "W" ? 7 : totalScale === "Y" ? 12 : 30 }, (_, i) => {
-                      const baseL1 = realtimeData.l1Current;
-                      const baseL2 = realtimeData.l2Current;
-                      const baseL3 = realtimeData.l3Current;
-                      
-                      const l1 = Math.max(5, baseL1 + Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (baseL1 * 0.3));
-                      const l2 = Math.max(3, baseL2 + Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (baseL2 * 0.25));
-                      const l3 = Math.max(2, baseL3 + Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (baseL3 * 0.2));
-                      const total = l1 + l2 + l3;
-                      
+                    {(() => {
+                      const len = totalScale === "D" ? 24 : totalScale === "W" ? 7 : totalScale === "Y" ? 12 : 30;
                       return (
-                        <div key={i} className="flex flex-col items-center gap-1 flex-1 relative group">
-                          {/* Tooltip */}
-                          <div className="absolute -top-14 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                            <div>Total: {total.toFixed(1)} kWh</div>
-                            <div className="text-blue-300">L1: {l1.toFixed(1)} kWh</div>
-                            <div className="text-green-300">L2: {l2.toFixed(1)} kWh</div>
-                            <div className="text-yellow-300">L3: {l3.toFixed(1)} kWh</div>
-                          </div>
-                          
-                          {/* Stacked bars */}
-                          <div className="flex flex-col h-[72%] md:h-[76%] lg:h-[78%] justify-end min-w-[6px] relative">
-                            <div 
-                              className="bg-blue-500 rounded-t-sm transition-all duration-300 hover:brightness-110" 
-                              style={{ height: `${(l1/100)*100}%` }}
-                              title={`L1: ${l1.toFixed(1)} kWh`}
-                            />
-                            <div 
-                              className="bg-green-500 transition-all duration-300 hover:brightness-110" 
-                              style={{ height: `${(l2/100)*100}%` }}
-                              title={`L2: ${l2.toFixed(1)} kWh`}
-                            />
-                            <div 
-                              className="bg-yellow-500 rounded-b-sm transition-all duration-300 hover:brightness-110" 
-                              style={{ height: `${(l3/100)*100}%` }}
-                              title={`L3: ${l3.toFixed(1)} kWh`}
-                            />
-                          </div>
-                          
-                          {/* X-axis labels */}
-                          <div className="text-[8px] text-white text-center">
-                            {totalScale === "D" ? i : totalScale === "W" ? ["M","T","W","T","F","S","S"][i] : totalScale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
-                          </div>
+                        <div className="mt-1 relative h-4">
+                          {Array.from({ length: len }, (_, i) => (
+                            <div
+                              key={i}
+                              className="absolute text-[8px] text-white text-center"
+                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
+                            >
+                              {totalScale === "D" ? i : totalScale === "W" ? ["M","T","W","T","F","S","S"][i] : totalScale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
+                            </div>
+                          ))}
                         </div>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
               </div>
