@@ -442,10 +442,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               
               {/* Tooltip background */}
               <rect 
-                x={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 10} 
+                x={hoverX > l + innerW / 2 ? hoverX - 130 : hoverX + 10} 
                 y={t + 10} 
-                width={100} 
-                height={(mode === 'combined' ? 70 : 50)} 
+                width={120} 
+                height={compareSeries ? (mode === 'combined' ? 110 : 75) : (mode === 'combined' ? 70 : 50)} 
                 rx={6} 
                 fill="#1f2937" 
                 stroke="#374151" 
@@ -455,7 +455,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               
               {/* Tooltip content */}
               <text 
-                x={hoverX > l + innerW / 2 ? hoverX - 60 : hoverX + 60} 
+                x={hoverX > l + innerW / 2 ? hoverX - 70 : hoverX + 70} 
                 y={t + 26} 
                 fontSize={10} 
                 fill="#9ca3af" 
@@ -464,18 +464,19 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 {timeFmt(new Date(xs[hoverIndex]))}
               </text>
               
+              {/* Primary sensor values */}
               {(mode === 'combined' || mode === 'temp') && (
                 <>
                   <circle 
-                    cx={hoverX > l + innerW / 2 ? hoverX - 85 : hoverX + 35} 
-                    cy={t + 40} 
+                    cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} 
+                    cy={t + 42} 
                     r={3} 
                     fill="#ef4444" 
                   />
                   <text 
-                    x={hoverX > l + innerW / 2 ? hoverX - 75 : hoverX + 45} 
-                    y={t + 43} 
-                    fontSize={11} 
+                    x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
+                    y={t + 45} 
+                    fontSize={10} 
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
@@ -487,15 +488,15 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               {(mode === 'combined' || mode === 'hum') && (
                 <>
                   <circle 
-                    cx={hoverX > l + innerW / 2 ? hoverX - 85 : hoverX + 35} 
-                    cy={mode === 'combined' ? t + 58 : t + 40} 
+                    cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} 
+                    cy={mode === 'combined' ? t + 60 : t + 42} 
                     r={3} 
                     fill="#3b82f6" 
                   />
                   <text 
-                    x={hoverX > l + innerW / 2 ? hoverX - 75 : hoverX + 45} 
-                    y={mode === 'combined' ? t + 61 : t + 43} 
-                    fontSize={11} 
+                    x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
+                    y={mode === 'combined' ? t + 63 : t + 45} 
+                    fontSize={10} 
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
@@ -504,7 +505,62 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 </>
               )}
               
-              {/* Data point markers */}
+              {/* Compare sensor values */}
+              {compareSeries && (
+                <>
+                  {/* Divider line */}
+                  <line 
+                    x1={hoverX > l + innerW / 2 ? hoverX - 120 : hoverX + 20} 
+                    x2={hoverX > l + innerW / 2 ? hoverX - 20 : hoverX + 120} 
+                    y1={mode === 'combined' ? t + 72 : t + 54} 
+                    y2={mode === 'combined' ? t + 72 : t + 54} 
+                    stroke="#374151" 
+                    strokeWidth={1}
+                  />
+                  
+                  {(mode === 'combined' || mode === 'temp') && compareSeries.temp && (
+                    <>
+                      <circle 
+                        cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} 
+                        cy={mode === 'combined' ? t + 84 : t + 66} 
+                        r={3} 
+                        fill="#f97316" 
+                      />
+                      <text 
+                        x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
+                        y={mode === 'combined' ? t + 87 : t + 69} 
+                        fontSize={10} 
+                        fill="#fbbf24" 
+                        fontWeight="600"
+                      >
+                        {compareSeries.temp[hoverIndex]?.toFixed(1) || '—'}°C
+                      </text>
+                    </>
+                  )}
+                  
+                  {(mode === 'combined' || mode === 'hum') && compareSeries.rh && (
+                    <>
+                      <circle 
+                        cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} 
+                        cy={mode === 'combined' ? t + 102 : t + 66} 
+                        r={3} 
+                        fill="#10b981" 
+                      />
+                      <text 
+                        x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
+                        y={mode === 'combined' ? t + 105 : t + 69} 
+                        fontSize={10} 
+                        fill="#34d399" 
+                        fontWeight="600"
+                      >
+                        {compareSeries.rh[hoverIndex]?.toFixed(1) || '—'}%
+                      </text>
+                    </>
+                  )}
+                </>
+              )}
+              
+              {/* Data point markers - Primary sensor */}
               {(mode === 'combined' || mode === 'temp') && (
                 <circle 
                   cx={hoverX} 
@@ -525,6 +581,33 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   stroke="#1f2937" 
                   strokeWidth={2}
                 />
+              )}
+              
+              {/* Data point markers - Compare sensor */}
+              {compareSeries && (
+                <>
+                  {(mode === 'combined' || mode === 'temp') && compareSeries.temp && compareSeries.temp[hoverIndex] !== undefined && (
+                    <circle 
+                      cx={hoverX} 
+                      cy={mapPoint(xs[hoverIndex], compareSeries.temp[hoverIndex]).y} 
+                      r={4} 
+                      fill="#f97316" 
+                      stroke="#1f2937" 
+                      strokeWidth={2}
+                    />
+                  )}
+                  
+                  {(mode === 'combined' || mode === 'hum') && compareSeries.rh && compareSeries.rh[hoverIndex] !== undefined && (
+                    <circle 
+                      cx={hoverX} 
+                      cy={mapPoint(xs[hoverIndex], compareSeries.rh[hoverIndex]).y} 
+                      r={4} 
+                      fill="#10b981" 
+                      stroke="#1f2937" 
+                      strokeWidth={2}
+                    />
+                  )}
+                </>
               )}
             </g>
           )}
