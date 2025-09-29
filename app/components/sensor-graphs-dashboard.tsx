@@ -332,6 +332,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   };
 
   const Cartesian: React.FC<{ mode: 'combined'|'temp'|'hum'; title: string; width: number; height: number; }> = ({ mode, title, width, height }) => {
+    const [hoverX, setHoverX] = useState<number | null>(null);
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+    const svgRef = useRef<SVGSVGElement>(null);
+    
     if (!series?.timestamps?.length || !series.temp || !series.rh) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
     // Explicit canvas size (no letterboxing) - we still draw with margins
     const w = Math.max(320, width);
@@ -364,11 +368,50 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const timeFmt = (d:Date)=> `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     const yTicks = Array.from({length:5}).map((_,i)=> yMin + (span)*i/4);
     
+    const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      
+      // Check if mouse is within chart area
+      if (mouseX < l || mouseX > l + innerW) {
+        setHoverX(null);
+        setHoverIndex(null);
+        return;
+      }
+      
+      // Find closest data point
+      const ratio = (mouseX - l) / innerW;
+      const timeAtMouse = xMin + ratio * (xMax - xMin);
+      let closestIdx = 0;
+      let minDist = Math.abs(xs[0] - timeAtMouse);
+      
+      for (let i = 1; i < xs.length; i++) {
+        const dist = Math.abs(xs[i] - timeAtMouse);
+        if (dist < minDist) {
+          minDist = dist;
+          closestIdx = i;
+        }
+      }
+      
+      const snapX = mapPoint(xs[closestIdx], series.temp![closestIdx]).x;
+      setHoverX(snapX);
+      setHoverIndex(closestIdx);
+    };
+    
+    const handleMouseLeave = () => {
+      setHoverX(null);
+      setHoverIndex(null);
+    };
+    
     return (
       <svg 
+        ref={svgRef}
         width={w}
         height={h}
         className="w-full bg-gray-900 border border-gray-700 rounded-xl block"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
           <rect x={l} y={t} width={innerW} height={innerH} fill="#0b1220" stroke="#1f2937" />
           {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={8} fill="#64748b" textAnchor="end">{v.toFixed(0)}</text></g>;})}
@@ -401,6 +444,110 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           <text x={l} y={h-8} fontSize={9} fill="#94a3b8">{timeFmt(startLabel)}</text>
           <text x={l+innerW/2} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="middle">{timeFmt(midLabel)}</text>
           <text x={l+innerW} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="end">{timeFmt(endLabel)}</text>
+          
+          {/* Hover crosshair and tooltip */}
+          {hoverX !== null && hoverIndex !== null && (
+            <g>
+              {/* Vertical crosshair line */}
+              <line 
+                x1={hoverX} 
+                x2={hoverX} 
+                y1={t} 
+                y2={t + innerH} 
+                stroke="#60a5fa" 
+                strokeWidth={1.5} 
+                strokeDasharray="4 4"
+                opacity={0.8}
+              />
+              
+              {/* Tooltip background */}
+              <rect 
+                x={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 10} 
+                y={t + 10} 
+                width={100} 
+                height={(mode === 'combined' ? 70 : 50)} 
+                rx={6} 
+                fill="#1f2937" 
+                stroke="#374151" 
+                strokeWidth={1.5}
+                opacity={0.95}
+              />
+              
+              {/* Tooltip content */}
+              <text 
+                x={hoverX > l + innerW / 2 ? hoverX - 60 : hoverX + 60} 
+                y={t + 26} 
+                fontSize={10} 
+                fill="#9ca3af" 
+                textAnchor="middle"
+              >
+                {timeFmt(new Date(xs[hoverIndex]))}
+              </text>
+              
+              {(mode === 'combined' || mode === 'temp') && (
+                <>
+                  <circle 
+                    cx={hoverX > l + innerW / 2 ? hoverX - 85 : hoverX + 35} 
+                    cy={t + 40} 
+                    r={3} 
+                    fill="#ef4444" 
+                  />
+                  <text 
+                    x={hoverX > l + innerW / 2 ? hoverX - 75 : hoverX + 45} 
+                    y={t + 43} 
+                    fontSize={11} 
+                    fill="#f3f4f6" 
+                    fontWeight="600"
+                  >
+                    {series.temp![hoverIndex].toFixed(1)}°C
+                  </text>
+                </>
+              )}
+              
+              {(mode === 'combined' || mode === 'hum') && (
+                <>
+                  <circle 
+                    cx={hoverX > l + innerW / 2 ? hoverX - 85 : hoverX + 35} 
+                    cy={mode === 'combined' ? t + 58 : t + 40} 
+                    r={3} 
+                    fill="#3b82f6" 
+                  />
+                  <text 
+                    x={hoverX > l + innerW / 2 ? hoverX - 75 : hoverX + 45} 
+                    y={mode === 'combined' ? t + 61 : t + 43} 
+                    fontSize={11} 
+                    fill="#f3f4f6" 
+                    fontWeight="600"
+                  >
+                    {series.rh![hoverIndex].toFixed(1)}%
+                  </text>
+                </>
+              )}
+              
+              {/* Data point markers */}
+              {(mode === 'combined' || mode === 'temp') && (
+                <circle 
+                  cx={hoverX} 
+                  cy={mapPoint(xs[hoverIndex], series.temp![hoverIndex]).y} 
+                  r={4} 
+                  fill="#ef4444" 
+                  stroke="#1f2937" 
+                  strokeWidth={2}
+                />
+              )}
+              
+              {(mode === 'combined' || mode === 'hum') && (
+                <circle 
+                  cx={hoverX} 
+                  cy={mapPoint(xs[hoverIndex], series.rh![hoverIndex]).y} 
+                  r={4} 
+                  fill="#3b82f6" 
+                  stroke="#1f2937" 
+                  strokeWidth={2}
+                />
+              )}
+            </g>
+          )}
       </svg>
     );
   };
@@ -417,9 +564,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <div className="hidden sm:block">|</div>
               <div><span className="text-gray-400">Sensor:</span> <span className="font-semibold text-white">{sensor.name}</span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Battery:</span> <span className="font-semibold text-white">{sensor.batteryLevel ?? 100}%</span></div>
+              <div><span className="text-gray-400">Battery:</span> <span className="font-semibold text-white">{sensor.batteryLevel ?? 100}% </span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Wi‑Fi:</span> <span className="font-semibold text-white">Good</span></div>
+              <div><span className="text-gray-400">Wi‑Fi:</span> <span className="font-semibold text-white">Good </span></div>
             </div>
           </div>
           <div className="flex items-center gap-3">
