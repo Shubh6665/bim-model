@@ -606,7 +606,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           {/* Current Condition Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1 min-h-0">
             <div className="text-sm font-semibold text-white mb-2 text-center">Current Condition</div>
-            <div className="grid grid-cols-2 gap-2 lg:gap-4 lg:py-4 flex-1 min-h-0">
+            <div className="grid grid-cols-2 gap-2 lg:gap-3 lg:py-3 flex-1 min-h-0">
               {/* Indoor Temperature (Gauge) */}
               <Gauge
                 label="Indoor"
