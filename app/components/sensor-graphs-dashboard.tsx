@@ -420,27 +420,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           {(mode==='combined' || mode==='hum') && <path d={primaryHumPath} fill="none" stroke="#3b82f6" strokeWidth={2} />}
           {(mode!=='hum' && compareTempPath) && <path d={compareTempPath} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3 3" />}
           {(mode!=='temp' && compareHumPath) && <path d={compareHumPath} fill="none" stroke="#10b981" strokeWidth={1.5} strokeDasharray="3 3" />}
-          <g>
-            <rect x={l+8} y={t+8} width={180} height={30} rx={4} ry={4} fill="#111827" stroke="#1f2937" />
-            {(mode==='combined' || mode==='temp') && (<>
-              <circle cx={l+18} cy={t+20} r={3} fill="#ef4444" />
-              <text x={l+26} y={t+23} fontSize={9} fill="#e5e7eb">Temp (°C)</text>
-            </>)}
-            {(mode==='combined' || mode==='hum') && (<>
-              <circle cx={l+100} cy={t+20} r={3} fill="#3b82f6" />
-              <text x={l+108} y={t+23} fontSize={9} fill="#e5e7eb">Humidity (%)</text>
-            </>)}
-            {compareSeries && (<>
-              {(mode!=='hum') && (<>
-                <line x1={l+18} y1={t+30} x2={l+26} y2={t+30} stroke="#f97316" strokeWidth={1.5} strokeDasharray="3 3" />
-                <text x={l+30} y={t+33} fontSize={8} fill="#fbbf24">Compare T</text>
-              </>)}
-              {(mode!=='temp') && (<>
-                <line x1={l+100} y1={t+30} x2={l+108} y2={t+30} stroke="#10b981" strokeWidth={1.5} strokeDasharray="3 3" />
-                <text x={l+112} y={t+33} fontSize={8} fill="#34d399">Compare H</text>
-              </>)}
-            </>)}
-          </g>
+          
           <text x={l} y={h-8} fontSize={9} fill="#94a3b8">{timeFmt(startLabel)}</text>
           <text x={l+innerW/2} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="middle">{timeFmt(midLabel)}</text>
           <text x={l+innerW} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="end">{timeFmt(endLabel)}</text>
