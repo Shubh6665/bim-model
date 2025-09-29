@@ -236,7 +236,28 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     let hum = 50 + 15 * Math.sin(phase + Math.PI) + 5 * Math.sin(phase * 2);
     hum = Math.max(20, Math.min(90, Math.round(hum)));
     const icon = temp > 30 ? '☀️' : temp > 22 ? '⛅' : '🌧️';
-    return { temp: parseFloat(temp.toFixed(1)), hum, icon };
+    
+    // Calculate sunrise/sunset (simplified calculation for demo)
+    const dayOfYear = Math.floor((t.getTime() - new Date(t.getFullYear(), 0, 0).getTime()) / 86400000);
+    const lat = 28.6; // Delhi latitude for demo
+    const declination = -23.45 * Math.cos(2 * Math.PI * (dayOfYear + 10) / 365.25);
+    const hourAngle = Math.acos(-Math.tan(lat * Math.PI / 180) * Math.tan(declination * Math.PI / 180));
+    const sunriseHour = 12 - (hourAngle * 180 / Math.PI) / 15;
+    const sunsetHour = 12 + (hourAngle * 180 / Math.PI) / 15;
+    
+    const formatTime = (hour: number) => {
+      const h = Math.floor(hour);
+      const m = Math.floor((hour - h) * 60);
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+    
+    return { 
+      temp: parseFloat(temp.toFixed(1)), 
+      hum, 
+      icon, 
+      sunrise: formatTime(sunriseHour),
+      sunset: formatTime(sunsetHour)
+    };
   }, [now]);
 
   // Simple heartbeat for live clock on header
@@ -562,24 +583,39 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
 
         {/* Right column: Weather + Compare + Alerts */}
-        <div className="col-span-12 md:col-span-3 space-y-3">
+        <div className="col-span-12 md:col-span-3 flex flex-col h-full gap-3 min-h-0">
           {/* Weather (external, not indoor) */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-semibold text-gray-400 uppercase">Weather</div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">Data</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1 min-h-0 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-semibold text-gray-400 uppercase">Weather Condition</div>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl">{weatherData.icon}</div>
+            
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-4xl">{weatherData.icon}</div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-white">{weatherData.temp.toFixed(1)}°C</div>
-                <div className="text-[11px] text-gray-400">Humidity {weatherData.hum}%</div>
+                <div className="text-3xl font-bold text-white">{weatherData.temp.toFixed(1)}°C</div>
+                <div className="text-sm text-gray-400">Humidity {weatherData.hum}%</div>
+              </div>
+            </div>
+            
+            <div className="flex-1 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                
+                  <div className="text-xs text-gray-400 mb-1">Sunrise</div>
+                  <div className="text-sm font-semibold text-white">{weatherData.sunrise}</div>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                 
+                  <div className="text-xs text-gray-400 mb-1">Sunset</div>
+                  <div className="text-sm font-semibold text-white">{weatherData.sunset}</div>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Compare UI */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1">
             <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Compare</div>
             {/* Row A: Base (current) */}
             <div className="grid grid-cols-2 gap-2 mb-3">
@@ -653,14 +689,29 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Alerts */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3">
-            <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Alerts</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1">
+            <div className="text-xs font-semibold text-gray-400 mb-3 uppercase">Active Alerts</div>
             <div className="space-y-2">
-              <div className="text-[11px] text-gray-500">(No alerts for selected date)</div>
+              <div className="flex items-center gap-3 bg-blue-900/30 border border-blue-700 rounded-lg p-3">
+                <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-blue-400">System Normal</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-red-900/30 border border-red-700 rounded-lg p-3">
+                <div className="w-2 h-2 bg-red-400 rounded-full flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-red-400">Sensor Offline</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-yellow-400">Temperature High</div>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="text-[10px] text-gray-500">Data is generated from mock API (/api/iot/samples). Date format dd/mm/yyyy as requested.</div>
         </div>
       </div>
 
