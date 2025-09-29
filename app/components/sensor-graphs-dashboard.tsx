@@ -300,8 +300,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   };
 
   const Cartesian: React.FC<{ mode: 'combined'|'temp'|'hum'; title: string; width: number; }> = ({ mode, title, width }) => {
-    if (!series?.timestamps?.length || !series.temp || !series.rh) return <div className="flex items-center justify-center h-44 text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
-    const w = Math.max(320, Math.floor(width)); const h = 260; const l=38; const r=12; const t=16; const b=32;
+    if (!series?.timestamps?.length || !series.temp || !series.rh) return <div className="flex items-center justify-center h-full min-h-[180px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
+    
+    const w = Math.max(320, Math.floor(width)); 
+    const h = 220; // Fixed height for better proportions
+    const l = 38; const r = 12; const t = 20; const b = 35;
+    
     const xs = series.timestamps.map(d=>d.getTime());
     const xMin = xs[0]; const xMax = xs[xs.length-1];
     const tMin = Math.min(...series.temp, ...(compareSeries?.temp||[]));
@@ -310,8 +314,15 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const hMax = Math.max(...series.rh, ...(compareSeries?.rh||[]));
     const yMin = Math.min(tMin, hMin); const yMax = Math.max(tMax, hMax);
     const span = yMax - yMin || 1;
-    const innerW = w-l-r; const innerH = h-t-b;
-    const mapPoint = (time:number,val:number)=>{ const x = l + (innerW * (time - xMin)/(xMax - xMin || 1)); const y = t + innerH * (1 - (val - yMin)/span); return {x,y}; };
+    const innerW = w - l - r; 
+    const innerH = h - t - b;
+    
+    const mapPoint = (time:number,val:number)=>{ 
+      const x = l + (innerW * (time - xMin)/(xMax - xMin || 1)); 
+      const y = t + innerH * (1 - (val - yMin)/span); 
+      return {x,y}; 
+    };
+    
     const pathFor = (arr:number[]) => arr.map((v,i)=>{const p=mapPoint(xs[i],v);return `${i===0?'M':'L'}${p.x},${p.y}`}).join(' ');
     const primaryTempPath = pathFor(series.temp);
     const primaryHumPath = pathFor(series.rh);
@@ -320,8 +331,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const startLabel = new Date(xs[0]); const midLabel = new Date((xMin+xMax)/2); const endLabel = new Date(xs[xs.length-1]);
     const timeFmt = (d:Date)=> `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
     const yTicks = Array.from({length:5}).map((_,i)=> yMin + (span)*i/4);
+    
     return (
-      <svg width={w} height={h} className="bg-gray-900 border border-gray-700 rounded-xl">
+      <svg width={w} height={h} className="bg-gray-900 border border-gray-700 rounded-xl w-full">
         <rect x={l} y={t} width={innerW} height={innerH} fill="#0b1220" stroke="#1f2937" />
         {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={10} fill="#64748b" textAnchor="end">{v.toFixed(0)}</text></g>;})}
         {[0,0.25,0.5,0.75,1].map(f=>{const x=l+innerW*f;return <line key={f} x1={x} x2={x} y1={t} y2={t+innerH} stroke="#1f2937"/>})}
@@ -330,30 +342,29 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {(mode!=='hum' && compareTempPath) && <path d={compareTempPath} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="4 4" />}
         {(mode!=='temp' && compareHumPath) && <path d={compareHumPath} fill="none" stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 4" />}
         <g>
-          <rect x={l+8} y={t+8} width={260} height={42} rx={6} ry={6} fill="#111827" stroke="#1f2937" />
+          <rect x={l+8} y={t+8} width={220} height={35} rx={4} ry={4} fill="#111827" stroke="#1f2937" />
           {(mode==='combined' || mode==='temp') && (<>
-            <circle cx={l+20} cy={t+20} r={5} fill="#ef4444" />
-            <text x={l+32} y={t+24} fontSize={11} fill="#e5e7eb">Temp (°C)</text>
+            <circle cx={l+20} cy={t+20} r={4} fill="#ef4444" />
+            <text x={l+30} y={t+24} fontSize={10} fill="#e5e7eb">Temp (°C)</text>
           </>)}
           {(mode==='combined' || mode==='hum') && (<>
-            <circle cx={l+120} cy={t+20} r={5} fill="#3b82f6" />
-            <text x={l+132} y={t+24} fontSize={11} fill="#e5e7eb">Humidity (%)</text>
+            <circle cx={l+120} cy={t+20} r={4} fill="#3b82f6" />
+            <text x={l+130} y={t+24} fontSize={10} fill="#e5e7eb">Humidity (%)</text>
           </>)}
           {compareSeries && (<>
-            <rect x={l+8} y={t+30} width={260} height={20} fill="none" />
             {(mode!=='hum') && (<>
-              <line x1={l+20} y1={t+40} x2={l+30} y2={t+40} stroke="#f97316" strokeWidth={2} strokeDasharray="4 4" />
-              <text x={l+32} y={t+44} fontSize={10} fill="#fbbf24">Compare Temp</text>
+              <line x1={l+20} y1={t+32} x2={l+30} y2={t+32} stroke="#f97316" strokeWidth={2} strokeDasharray="4 4" />
+              <text x={l+35} y={t+36} fontSize={9} fill="#fbbf24">Compare Temp</text>
             </>)}
             {(mode!=='temp') && (<>
-              <line x1={l+120} y1={t+40} x2={l+130} y2={t+40} stroke="#10b981" strokeWidth={2} strokeDasharray="4 4" />
-              <text x={l+132} y={t+44} fontSize={10} fill="#34d399">Compare Hum</text>
+              <line x1={l+120} y1={t+32} x2={l+130} y2={t+32} stroke="#10b981" strokeWidth={2} strokeDasharray="4 4" />
+              <text x={l+135} y={t+36} fontSize={9} fill="#34d399">Compare Hum</text>
             </>)}
           </>)}
         </g>
-        <text x={l} y={h-8} fontSize={11} fill="#94a3b8">{timeFmt(startLabel)}</text>
-        <text x={l+innerW/2} y={h-8} fontSize={11} fill="#94a3b8" textAnchor="middle">{timeFmt(midLabel)}</text>
-        <text x={l+innerW} y={h-8} fontSize={11} fill="#94a3b8" textAnchor="end">{timeFmt(endLabel)}</text>
+        <text x={l} y={h-8} fontSize={10} fill="#94a3b8">{timeFmt(startLabel)}</text>
+        <text x={l+innerW/2} y={h-8} fontSize={10} fill="#94a3b8" textAnchor="middle">{timeFmt(midLabel)}</text>
+        <text x={l+innerW} y={h-8} fontSize={10} fill="#94a3b8" textAnchor="end">{timeFmt(endLabel)}</text>
       </svg>
     );
   };
@@ -499,27 +510,36 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
 
         {/* Center column: three graphs */}
-        <div ref={centerColRef} className="col-span-12 md:col-span-6 space-y-3 min-w-0 overflow-x-hidden">
+        <div ref={centerColRef} className="col-span-12 md:col-span-6 space-y-3 min-w-0 overflow-y-auto">
+          {/* Combined Temperature + Humidity Graph */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-gray-200">Temp + Hum Combined</h4>
-              {compareSeries && <div className="text-[11px] text-amber-400">Comparing with: {allSensors.find(s=>s.id===compareSensorId)?.name}</div>}
+              <h4 className="text-sm font-semibold text-gray-200">Temperature + Humidity Combined</h4>
+              {compareSeries && <div className="text-xs text-gray-400">vs Compare Sensor</div>}
             </div>
             <Cartesian mode="combined" title="Combined" width={chartWidth} />
           </div>
+
+          {/* Temperature Only Graph */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-200">Temperature</h4>
             </div>
             <Cartesian mode="temp" title="Temperature" width={chartWidth} />
           </div>
+
+          {/* Humidity Only Graph */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-200">Humidity</h4>
             </div>
             <Cartesian mode="hum" title="Humidity" width={chartWidth} />
           </div>
-          <div className="text-[10px] text-gray-500">When you enable compare, dashed lines show the other sensor values.</div>
+          
+          {/* Footer note */}
+          <div className="text-[10px] text-gray-500 mt-2">
+            When you enable compare, dashed lines show the other sensor values.
+          </div>
         </div>
 
         {/* Right column: Weather + Compare + Alerts */}
