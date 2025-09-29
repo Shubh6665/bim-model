@@ -827,7 +827,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const tipH = 72;  // tooltip height
                               const tipX = Math.max(6, Math.min(x - tipW / 2, width - tipW - 6));
                               const topY = Math.min(y1, y2, y3);
-                              const tipY = Math.max(6, Math.min(topY - tipH - 10, height - tipH - 6));
+                              const tipY = Math.max(6, Math.min(topY - tipH - 18, height - tipH - 6));
                               return (
                                 <g>
                                   {/* guide */}
