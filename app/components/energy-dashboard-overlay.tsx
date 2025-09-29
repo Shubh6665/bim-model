@@ -922,7 +922,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
             <div className={box + " flex-none"}>
               <div className="text-gray-200 font-semibold mb-3">Active Alerts</div>
-              <div className="space-y-2">
+              <div className="flex flex-col-reverse gap-2 max-h-56 overflow-y-auto pr-1">
                 <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
                   <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
                   <div className="text-[13px] md:text-[14px] text-yellow-200">Line 2 High Load</div>
