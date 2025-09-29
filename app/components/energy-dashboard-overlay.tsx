@@ -375,12 +375,18 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-2 overflow-hidden">
+      <div
+        className="flex-1 px-2 sm:px-3 md:px-4 pt-3 sm:pt-4 md:pt-5 pb-5 md:pb-6 overflow-y-auto"
+        style={{
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 6px)'
+        }}
+      >
         <div className="grid grid-cols-12 gap-2 max-w-none mx-auto h-full">
           
           {/* Left Column - Time-of-Use & Monthly Summary */}
-          <div className="col-span-12 md:col-span-3 space-y-1.5">
-            <div className={box}>
+          <div className="col-span-12 md:col-span-3 space-y-1.5 h-full flex flex-col">
+            <div className={box + " flex-none"}>
               <div className="text-gray-200 font-semibold mb-3">Time Band</div>
               
               {/* Table Header */}
@@ -434,9 +440,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
               <div className="text-[10px] text-gray-500 mt-2 text-center">Energy [kWh]</div>
             </div>
 
-            <div className={box}>
+            <div className={box + " flex-1 min-h-0 overflow-hidden"}>
               <div className="text-gray-200 font-semibold mb-3">Monthly Summary</div>
-              <div className="divide-y divide-gray-800 max-h-80 overflow-y-auto">
+              <div className="divide-y divide-gray-800 h-full overflow-y-auto">
                 {[
                   "September 2025", "August 2025", "July 2025", "June 2025", 
                   "May 2025", "April 2025", "March 2025", "February 2025"
@@ -457,9 +463,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           </div>
 
           {/* Center Area - Charts */}
-          <div className="col-span-12 md:col-span-6 space-y-1.5">
+          <div className="col-span-12 md:col-span-6 space-y-1.5 h-full flex flex-col">
             {/* L1 Chart */}
-            <div className={box}>
+            <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Line 1 (L1)</div>
                 <div className="flex items-center gap-3">
@@ -467,7 +473,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l1Scale} setScale={setL1Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -491,7 +497,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                             <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
                               <div className="text-blue-300">L1: {value.toFixed(1)} kWh</div>
                             </div>
-                            <div className="flex items-end h-20">
+                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
                               <div className="bg-blue-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L1: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
@@ -507,7 +513,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             </div>
 
             {/* L2 Chart */}
-            <div className={box}>
+            <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Line 2 (L2)</div>
                 <div className="flex items-center gap-3">
@@ -515,7 +521,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l2Scale} setScale={setL2Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -539,7 +545,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                             <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
                               <div className="text-green-300">L2: {value.toFixed(1)} kWh</div>
                             </div>
-                            <div className="flex items-end h-20">
+                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
                               <div className="bg-green-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L2: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
@@ -555,7 +561,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             </div>
 
             {/* L3 Chart */}
-            <div className={box}>
+            <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Line 3 (L3)</div>
                 <div className="flex items-center gap-3">
@@ -563,7 +569,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l3Scale} setScale={setL3Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-28">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
                 <div className="flex h-full">
                   {/* Y-axis */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -587,7 +593,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                             <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
                               <div className="text-yellow-300">L3: {value.toFixed(1)} kWh</div>
                             </div>
-                            <div className="flex items-end h-20">
+                            <div className="flex items-end h-[72%] md:h-[76%] lg:h-[78%]">
                               <div className="bg-yellow-500 rounded-sm min-w-[6px] transition-all duration-200 hover:brightness-110" style={{ height: `${(value/50)*100}%` }} title={`L3: ${value.toFixed(1)} kWh`} />
                             </div>
                             <div className="text-[8px] text-white text-center">
@@ -603,7 +609,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             </div>
 
             {/* Total Usage Chart */}
-            <div className={box}>
+            <div className={box + " flex-1 flex flex-col min-h-[160px]"}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-gray-200 font-semibold">Total Usage (Stacked)</div>
                 <div className="flex items-center gap-3">
@@ -612,7 +618,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                 </div>
               </div>
               
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 h-40">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
                 <div className="flex h-full">
                   {/* Y-axis with values */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
@@ -655,7 +661,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           </div>
                           
                           {/* Stacked bars */}
-                          <div className="flex flex-col h-28 justify-end min-w-[6px] relative">
+                          <div className="flex flex-col h-[72%] md:h-[76%] lg:h-[78%] justify-end min-w-[6px] relative">
                             <div 
                               className="bg-blue-500 rounded-t-sm transition-all duration-300 hover:brightness-110" 
                               style={{ height: `${(l1/100)*100}%` }}
@@ -687,7 +693,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           </div>
 
           {/* Right Column - Power, Alerts, Export, Close */}
-          <div className="col-span-12 md:col-span-3 space-y-1.5">
+          <div className="col-span-12 md:col-span-3 space-y-1.5 h-full flex flex-col">
             <div className={box + " relative overflow-hidden"}>
               {/* POWER Header */}
               <div className="flex items-center justify-between mb-3">
@@ -702,48 +708,48 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
               {/* Grid Rows */}
               <div className="grid grid-cols-2 gap-y-1">
                 {/* NOW Row */}
-                <div className="text-[13px] font-bold text-lime-400">Now</div>
-                <div className="text-right text-[15px] font-bold flex items-center justify-end gap-2">
+                <div className="text-[14px] md:text-[15px] font-bold text-lime-400">Now</div>
+                <div className="text-right text-[16px] md:text-[18px] font-bold flex items-center justify-end gap-2">
                   <span className={`${realtimeData.currentPower > 450 ? 'text-red-400' : realtimeData.currentPower > 350 ? 'text-yellow-400' : 'text-white'}`}>{realtimeData.currentPower.toFixed(0)}</span>
                   <span className="text-gray-400 text-[11px] font-medium">W</span>
                 </div>
                 {/* Hour */}
-                <div className="text-[12px] font-semibold text-lime-400">Hour</div>
-                <div className="text-right text-[12px] text-gray-200">{realtimeData.hourConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Hour</div>
+                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{realtimeData.hourConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
                 {/* Day */}
-                <div className="text-[12px] font-semibold text-lime-400">Day</div>
-                <div className="text-right text-[12px] text-gray-200">{realtimeData.dayConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Day</div>
+                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{realtimeData.dayConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
                 {/* Month */}
-                <div className="text-[12px] font-semibold text-lime-400">Month</div>
-                <div className="text-right text-[12px] text-gray-200">{formatEnergy(realtimeData.monthConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Month</div>
+                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{formatEnergy(realtimeData.monthConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
                 {/* Year */}
-                <div className="text-[12px] font-semibold text-lime-400">Year</div>
-                <div className="text-right text-[12px] text-gray-200">{formatEnergy(realtimeData.yearConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Year</div>
+                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{formatEnergy(realtimeData.yearConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
                 {/* TOTAL */}
-                <div className="pt-1 mt-1 border-t border-gray-700 text-[12px] font-semibold text-gray-200">TOTAL</div>
-                <div className="pt-1 mt-1 border-t border-gray-700 text-right text-[13px] font-bold text-white">{formatEnergy(realtimeData.totalConsumption,0)} <span className="text-[10px] text-gray-400 font-medium">kWh</span></div>
+                <div className="pt-1 mt-1 border-t border-gray-700 text-[13px] md:text-[14px] font-semibold text-gray-200">TOTAL</div>
+                <div className="pt-1 mt-1 border-t border-gray-700 text-right text-[14px] md:text-[15px] font-bold text-white">{formatEnergy(realtimeData.totalConsumption,0)} <span className="text-[10px] text-gray-400 font-medium">kWh</span></div>
               </div>
             </div>
 
-            <div className={box}>
+            <div className={box + " flex-none"}>
               <div className="text-gray-200 font-semibold mb-3">Active Alerts</div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
                   <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                  <div className="text-[11px] text-yellow-200">Line 2 High Load</div>
+                  <div className="text-[13px] md:text-[14px] text-yellow-200">Line 2 High Load</div>
                 </div>
                 <div className="flex items-center gap-2 p-2 bg-red-900/30 border border-red-700/50 rounded-lg">
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <div className="text-[11px] text-red-200">Sensor Offline</div>
+                  <div className="text-[13px] md:text-[14px] text-red-200">Sensor Offline</div>
                 </div>
                 <div className="flex items-center gap-2 p-2 bg-blue-900/30 border border-blue-700/50 rounded-lg">
                   <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <div className="text-[11px] text-blue-200">System Normal</div>
+                  <div className="text-[13px] md:text-[14px] text-blue-200">System Normal</div>
                 </div>
               </div>
             </div>
 
-            <div className={box}>
+            <div className={box + " flex-1 min-h-0 overflow-auto"}>
               <div className="flex items-center gap-2 mb-4">
                 
                 <div className="text-gray-200 font-semibold">Export Data</div>
@@ -800,10 +806,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                     <>
                       <button
                         onClick={() => handleExportData('month')}
-                        className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-blue-900/40 to-blue-800/40 hover:from-blue-800/60 hover:to-blue-700/60 border border-blue-700/50 hover:border-blue-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="group w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-900/40 to-blue-800/40 hover:from-blue-800/60 hover:to-blue-700/60 border border-blue-700/50 hover:border-blue-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center group-hover:bg-blue-600/30 transition-colors">
+                          <div className="w-7 h-7 bg-blue-600/20 rounded-lg flex items-center justify-center group-hover:bg-blue-600/30 transition-colors">
                             <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                             </svg>
@@ -822,10 +828,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
                       <button
                         onClick={() => handleExportData('week')}
-                        className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-purple-900/40 to-purple-800/40 hover:from-purple-800/60 hover:to-purple-700/60 border border-purple-700/50 hover:border-purple-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="group w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-purple-900/40 to-purple-800/40 hover:from-purple-800/60 hover:to-purple-700/60 border border-purple-700/50 hover:border-purple-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center group-hover:bg-purple-600/30 transition-colors">
+                          <div className="w-7 h-7 bg-purple-600/20 rounded-lg flex items-center justify-center group-hover:bg-purple-600/30 transition-colors">
                             <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                             </svg>
@@ -844,10 +850,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
                       <button
                         onClick={() => handleExportData('consumption')}
-                        className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-orange-900/40 to-orange-800/40 hover:from-orange-800/60 hover:to-orange-700/60 border border-orange-700/50 hover:border-orange-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="group w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-orange-900/40 to-orange-800/40 hover:from-orange-800/60 hover:to-orange-700/60 border border-orange-700/50 hover:border-orange-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-orange-600/20 rounded-lg flex items-center justify-center group-hover:bg-orange-600/30 transition-colors">
+                          <div className="w-7 h-7 bg-orange-600/20 rounded-lg flex items-center justify-center group-hover:bg-orange-600/30 transition-colors">
                             <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
                               <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -866,10 +872,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
                       <button
                         onClick={() => setShowCustomExport(true)}
-                        className="group w-full flex items-center justify-between p-3 bg-gradient-to-r from-teal-900/40 to-teal-800/40 hover:from-teal-800/60 hover:to-teal-700/60 border border-teal-700/50 hover:border-teal-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="group w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-teal-900/40 to-teal-800/40 hover:from-teal-800/60 hover:to-teal-700/60 border border-teal-700/50 hover:border-teal-600/70 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-teal-600/20 rounded-lg flex items-center justify-center group-hover:bg-teal-600/30 transition-colors">
+                          <div className="w-7 h-7 bg-teal-600/20 rounded-lg flex items-center justify-center group-hover:bg-teal-600/30 transition-colors">
                             <svg className="w-4 h-4 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm-1 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
                             </svg>
