@@ -470,6 +470,71 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     </div>
   );
 
+  // WiFi Signal Strength Component
+  const WiFiSignal: React.FC<{ strength: number; size?: number }> = ({ strength, size = 16 }) => {
+    // strength: 0-4 (0 = no signal, 4 = excellent)
+    const getColor = () => {
+      if (strength >= 4) return '#22c55e'; // Green - Excellent
+      if (strength >= 3) return '#eab308'; // Yellow - Good  
+      if (strength >= 2) return '#f97316'; // Orange - Fair
+      if (strength >= 1) return '#ef4444'; // Red - Poor
+      return '#6b7280'; // Gray - No signal
+    };
+
+    const color = getColor();
+    const viewBoxSize = 24;
+    const centerX = 12;
+    const centerY = 20;
+
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} className="inline-block">
+        {/* Base triangle/dot */}
+        <circle 
+          cx={centerX} 
+          cy={centerY} 
+          r="1.5" 
+          fill={strength >= 1 ? color : '#374151'}
+        />
+        
+        {/* Arc 1 - Smallest */}
+        <path 
+          d={`M ${centerX - 3} ${centerY - 2} A 4 4 0 0 1 ${centerX + 3} ${centerY - 2}`}
+          stroke={strength >= 2 ? color : '#374151'} 
+          strokeWidth="1.5" 
+          fill="none"
+          strokeLinecap="round"
+        />
+        
+        {/* Arc 2 - Medium */}
+        <path 
+          d={`M ${centerX - 5} ${centerY - 4} A 7 7 0 0 1 ${centerX + 5} ${centerY - 4}`}
+          stroke={strength >= 3 ? color : '#374151'} 
+          strokeWidth="1.5" 
+          fill="none"
+          strokeLinecap="round"
+        />
+        
+        {/* Arc 3 - Large */}
+        <path 
+          d={`M ${centerX - 7} ${centerY - 6} A 10 10 0 0 1 ${centerX + 7} ${centerY - 6}`}
+          stroke={strength >= 4 ? color : '#374151'} 
+          strokeWidth="1.5" 
+          fill="none"
+          strokeLinecap="round"
+        />
+        
+        {/* Arc 4 - Largest */}
+        <path 
+          d={`M ${centerX - 9} ${centerY - 8} A 13 13 0 0 1 ${centerX + 9} ${centerY - 8}`}
+          stroke={strength >= 4 ? color : '#374151'} 
+          strokeWidth="1.5" 
+          fill="none"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  };
+
   const Cartesian: React.FC<{ mode: 'combined'|'temp'|'hum'; title: string; width: number; height: number; data: DailySeries | null; scale: "D" | "W" | "M" | "Y"; }> = ({ mode, title, width, height, data, scale }) => {
     const [hoverX, setHoverX] = useState<number | null>(null);
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -961,7 +1026,15 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               <div className="hidden sm:block">|</div>
               <div><span className="text-gray-400">Battery:</span> <span className="font-semibold text-white">{sensor.batteryLevel ?? 100}% </span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Wi‑Fi:</span> <span className="font-semibold text-white">Good </span></div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400">Wi‑Fi:</span> 
+                <div className="flex items-center mb-1">
+                 <WiFiSignal strength={sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 4 : sensor.batteryLevel > 50 ? 3 : sensor.batteryLevel > 25 ? 2 : 1) : 4} size={16} />
+                </div>
+                <span className="font-semibold text-white">
+                  {sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 'Excellent' : sensor.batteryLevel > 50 ? 'Good' : sensor.batteryLevel > 25 ? 'Fair' : 'Poor') : 'Excellent'}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
