@@ -14,6 +14,9 @@ type DailySeries = { timestamps: Date[]; temp?: number[]; rh?: number[] };
 export default function SensorGraphsDashboard({ sensor, allSensors, onClose, projectId }: Props) {
   const [date, setDate] = useState(() => new Date());
   const [series, setSeries] = useState<DailySeries | null>(null);
+  const [combinedSeries, setCombinedSeries] = useState<DailySeries | null>(null);
+  const [tempSeries, setTempSeries] = useState<DailySeries | null>(null);
+  const [humSeries, setHumSeries] = useState<DailySeries | null>(null);
   const [compareSensorId, setCompareSensorId] = useState<string | null>(null);
   const [compareSeries, setCompareSeries] = useState<DailySeries | null>(null);
   const [compareDate, setCompareDate] = useState<Date>(() => new Date());
@@ -27,6 +30,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   const dateInputEl = useRef<HTMLInputElement | null>(null);
   // Live stats for gauges (independent of selected date)
   const [gaugeStats, setGaugeStats] = useState<{ tCur: number; hCur: number; tMin: number; tMax: number; hMin: number; hMax: number; tMinTime?: string; tMaxTime?: string; hMinTime?: string; hMaxTime?: string } | null>(null);
+  
+  // Time period scales for each graph
+  const [combinedScale, setCombinedScale] = useState<"D" | "W" | "M" | "Y">("D");
+  const [tempScale, setTempScale] = useState<"D" | "W" | "M" | "Y">("D");
+  const [humScale, setHumScale] = useState<"D" | "W" | "M" | "Y">("D");
 
   const formatDate = (d: Date) => `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
   const dateInputValue = useMemo(() => {
@@ -43,16 +51,58 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     return `${y}-${m}-${d}`;
   }, [now]);
 
-  const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare', forDate?: Date) => {
+  const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare', forDate?: Date, scale: "D" | "W" | "M" | "Y" = "D") => {
     try {
       const baseDate = forDate || date;
-      const start = new Date(baseDate); start.setHours(0,0,0,0);
-      let end = new Date(start); end.setHours(23,59,59,999);
+      let start = new Date(baseDate);
+      let end = new Date(baseDate);
+      let resolution = '96'; // Default for daily
+      
+      // Adjust date range based on scale
+      switch (scale) {
+        case "D":
+          start.setHours(0,0,0,0);
+          end.setHours(23,59,59,999);
+          resolution = '96'; // 15-min intervals for day
+          break;
+        case "W":
+          // Start of week (Sunday)
+          const dayOfWeek = start.getDay();
+          start.setDate(start.getDate() - dayOfWeek);
+          start.setHours(0,0,0,0);
+          end = new Date(start);
+          end.setDate(end.getDate() + 6);
+          end.setHours(23,59,59,999);
+          resolution = '168'; // Hourly for week
+          break;
+        case "M":
+          // Start of month
+          start.setDate(1);
+          start.setHours(0,0,0,0);
+          end = new Date(start);
+          end.setMonth(end.getMonth() + 1);
+          end.setDate(0);
+          end.setHours(23,59,59,999);
+          resolution = '720'; // Daily for month
+          break;
+        case "Y":
+          // Start of year
+          start.setMonth(0, 1);
+          start.setHours(0,0,0,0);
+          end = new Date(start);
+          end.setFullYear(end.getFullYear() + 1);
+          end.setDate(0);
+          end.setHours(23,59,59,999);
+          resolution = '8760'; // Daily for year
+          break;
+      }
+      
       // If loading today, align end to now so the latest sample equals current time
       const today = new Date();
-      const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate();
+      const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate() && scale === "D";
       if (isSameDay) end = new Date();
-      const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution: '96' });
+      
+      const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution });
       if (projectId) params.set('projectId', projectId);
       const resp = await fetch(`/api/iot/samples?${params.toString()}`);
       if (!resp.ok) throw new Error(`Samples request failed (${resp.status})`);
@@ -71,8 +121,14 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
   useEffect(() => {
     setLoading(true);
-    loadForSensor(sensor, setSeries, 'primary').finally(()=> setLoading(false));
-  }, [sensor.id, date, projectId]);
+    // Load data for each graph with its respective scale
+    Promise.all([
+      loadForSensor(sensor, setSeries, 'primary', date, "D"), // Keep original for compatibility
+      loadForSensor(sensor, setCombinedSeries, 'primary', date, combinedScale),
+      loadForSensor(sensor, setTempSeries, 'primary', date, tempScale),
+      loadForSensor(sensor, setHumSeries, 'primary', date, humScale)
+    ]).finally(() => setLoading(false));
+  }, [sensor.id, date, projectId, combinedScale, tempScale, humScale]);
 
   // Initialize gauge stats from today's samples and realtime (independent of selected date)
   useEffect(() => {
@@ -379,23 +435,48 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     );
   };
 
-  const Cartesian: React.FC<{ mode: 'combined'|'temp'|'hum'; title: string; width: number; height: number; }> = ({ mode, title, width, height }) => {
+  // Small inline scale switch used in each chart header
+  const ScaleSwitch: React.FC<{
+    currentScale: "D" | "W" | "M" | "Y";
+    setScale: (scale: "D" | "W" | "M" | "Y") => void;
+  }> = ({ currentScale, setScale }) => (
+    <div className="flex items-center gap-1">
+      {(["D","W","M","Y"] as const).map(k => (
+        <button
+          key={k}
+          onClick={() => setScale(k)}
+          className={`px-2 py-0.5 rounded border text-[10px] font-semibold transition ${
+            currentScale === k
+              ? "bg-blue-600 border-blue-500 text-white"
+              : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+          }`}
+          title={
+            k === "D" ? "Day" : k === "W" ? "Week" : k === "M" ? "Month" : "Year"
+          }
+        >
+          {k}
+        </button>
+      ))}
+    </div>
+  );
+
+  const Cartesian: React.FC<{ mode: 'combined'|'temp'|'hum'; title: string; width: number; height: number; data: DailySeries | null; scale: "D" | "W" | "M" | "Y"; }> = ({ mode, title, width, height, data, scale }) => {
     const [hoverX, setHoverX] = useState<number | null>(null);
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     
-    if (!series?.timestamps?.length || !series.temp || !series.rh) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
+    if (!data?.timestamps?.length || !data.temp || !data.rh) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
     // Explicit canvas size (no letterboxing) - we still draw with margins
     const w = Math.max(320, width);
     const h = Math.max(120, height);
     const l = 38; const r = 12; const t = 20; const b = 30;
     
-    const xs = series.timestamps.map(d=>d.getTime());
+    const xs = data.timestamps.map(d=>d.getTime());
     const xMin = xs[0]; const xMax = xs[xs.length-1];
-    const tMin = Math.min(...series.temp, ...(compareSeries?.temp||[]));
-    const tMax = Math.max(...series.temp, ...(compareSeries?.temp||[]));
-    const hMin = Math.min(...series.rh, ...(compareSeries?.rh||[]));
-    const hMax = Math.max(...series.rh, ...(compareSeries?.rh||[]));
+    const tMin = Math.min(...(data.temp || []), ...(compareSeries?.temp||[]));
+    const tMax = Math.max(...(data.temp || []), ...(compareSeries?.temp||[]));
+    const hMin = Math.min(...(data.rh || []), ...(compareSeries?.rh||[]));
+    const hMax = Math.max(...(data.rh || []), ...(compareSeries?.rh||[]));
     
     // Determine Y-axis range based on chart mode
     let yMin, yMax, span;
@@ -449,12 +530,110 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     };
     
     const pathFor = (arr:number[]) => arr.map((v,i)=>{const p=mapPoint(xs[i],v);return `${i===0?'M':'L'}${p.x},${p.y}`}).join(' ');
-    const primaryTempPath = pathFor(series.temp);
-    const primaryHumPath = pathFor(series.rh);
+    const primaryTempPath = pathFor(data.temp!);
+    const primaryHumPath = pathFor(data.rh!);
     const compareTempPath = compareSeries?.temp? pathFor(compareSeries.temp): null;
     const compareHumPath = compareSeries?.rh? pathFor(compareSeries.rh): null;
-    const startLabel = new Date(xs[0]); const midLabel = new Date((xMin+xMax)/2); const endLabel = new Date(xs[xs.length-1]);
-    const timeFmt = (d:Date)=> `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    
+    // Generate all X-axis labels based on scale and actual data range
+    let xLabels: { position: number; label: string }[] = [];
+    
+    switch (scale) {
+      case "D": // Day: Show hourly times based on actual data range
+        const startHour = new Date(xs[0]).getHours();
+        const endHour = new Date(xs[xs.length - 1]).getHours();
+        const dataSpanHours = (xs[xs.length - 1] - xs[0]) / (1000 * 60 * 60); // hours
+        
+        // Determine step size based on data span
+        let hourStep = 2;
+        if (dataSpanHours <= 6) hourStep = 1;
+        else if (dataSpanHours <= 12) hourStep = 2;
+        else hourStep = 3;
+        
+        // Generate labels for actual time range
+        for (let hour = Math.floor(startHour / hourStep) * hourStep; hour <= endHour + hourStep; hour += hourStep) {
+          if (hour > 23) break;
+          const timeInMs = new Date(xs[0]).setHours(hour, 0, 0, 0);
+          if (timeInMs < xs[0] || timeInMs > xs[xs.length - 1]) continue;
+          
+          const timePos = (timeInMs - xMin) / (xMax - xMin);
+          const x = l + innerW * timePos;
+          xLabels.push({
+            position: x,
+            label: `${hour.toString().padStart(2,'0')}:00`
+          });
+        }
+        break;
+        
+      case "W": // Week: Show days based on actual data range
+        const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const startDate = new Date(xs[0]);
+        const endDate = new Date(xs[xs.length - 1]);
+        const currentDate = new Date(startDate);
+        
+        while (currentDate <= endDate) {
+          const dayOfWeek = currentDate.getDay();
+          const timePos = (currentDate.getTime() - xMin) / (xMax - xMin);
+          const x = l + innerW * timePos;
+          xLabels.push({
+            position: x,
+            label: weekDays[dayOfWeek]
+          });
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        break;
+        
+      case "M": // Month: Show dates based on actual data range
+        const startDateM = new Date(xs[0]);
+        const endDateM = new Date(xs[xs.length - 1]);
+        const startDay = startDateM.getDate();
+        const endDay = endDateM.getDate();
+        const monthSpan = endDay - startDay + 1;
+        
+        // Determine step size based on month span
+        let dayStep = monthSpan <= 7 ? 1 : monthSpan <= 15 ? 3 : 5;
+        
+        for (let day = Math.ceil(startDay / dayStep) * dayStep; day <= endDay; day += dayStep) {
+          const testDate = new Date(startDateM.getFullYear(), startDateM.getMonth(), day);
+          if (testDate < startDateM || testDate > endDateM) continue;
+          
+          const timePos = (testDate.getTime() - xMin) / (xMax - xMin);
+          const x = l + innerW * timePos;
+          xLabels.push({
+            position: x,
+            label: day.toString()
+          });
+        }
+        break;
+        
+      case "Y": // Year: Show months based on actual data range
+        const monthAbbrevs = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+        const startDateY = new Date(xs[0]);
+        const endDateY = new Date(xs[xs.length - 1]);
+        const startMonth = startDateY.getMonth();
+        const endMonth = endDateY.getMonth();
+        const startYear = startDateY.getFullYear();
+        const endYear = endDateY.getFullYear();
+        
+        for (let year = startYear; year <= endYear; year++) {
+          const monthStart = year === startYear ? startMonth : 0;
+          const monthEnd = year === endYear ? endMonth : 11;
+          
+          for (let month = monthStart; month <= monthEnd; month++) {
+            const testDate = new Date(year, month, 1);
+            const timePos = (testDate.getTime() - xMin) / (xMax - xMin);
+            const x = l + innerW * timePos;
+            xLabels.push({
+              position: x,
+              label: monthAbbrevs[month]
+            });
+          }
+        }
+        break;
+        
+      default:
+        xLabels = [];
+    }
     
     // Generate appropriate Y-axis ticks based on mode
     let yTicks;
@@ -500,7 +679,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         }
       }
       
-      const snapX = mapPoint(xs[closestIdx], series.temp![closestIdx]).x;
+      const snapX = mapPoint(xs[closestIdx], data.temp![closestIdx]).x;
       setHoverX(snapX);
       setHoverIndex(closestIdx);
     };
@@ -520,16 +699,38 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         onMouseLeave={handleMouseLeave}
       >
           <rect x={l} y={t} width={innerW} height={innerH} fill="#0b1220" stroke="#1f2937" />
+          {/* Y-axis grid lines and labels */}
           {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={8} fill="#64748b" textAnchor="end">{v.toFixed(0)}</text></g>;})}
-          {[0,0.25,0.5,0.75,1].map(f=>{const x=l+innerW*f;return <line key={f} x1={x} x2={x} y1={t} y2={t+innerH} stroke="#1f2937"/>})}
+          {/* X-axis grid lines aligned with labels */}
+          {xLabels.map((labelInfo, index) => (
+            <line 
+              key={index}
+              x1={labelInfo.position} 
+              x2={labelInfo.position} 
+              y1={t} 
+              y2={t+innerH} 
+              stroke="#1f2937"
+              strokeWidth={0.5}
+            />
+          ))}
           {(mode==='combined' || mode==='temp') && <path d={primaryTempPath} fill="none" stroke="#ef4444" strokeWidth={2} />}
           {(mode==='combined' || mode==='hum') && <path d={primaryHumPath} fill="none" stroke="#3b82f6" strokeWidth={2} />}
           {(mode!=='hum' && compareTempPath) && <path d={compareTempPath} fill="none" stroke="#f97316" strokeWidth={1.5} strokeDasharray="3 3" />}
           {(mode!=='temp' && compareHumPath) && <path d={compareHumPath} fill="none" stroke="#10b981" strokeWidth={1.5} strokeDasharray="3 3" />}
           
-          <text x={l} y={h-8} fontSize={9} fill="#94a3b8">{timeFmt(startLabel)}</text>
-          <text x={l+innerW/2} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="middle">{timeFmt(midLabel)}</text>
-          <text x={l+innerW} y={h-8} fontSize={9} fill="#94a3b8" textAnchor="end">{timeFmt(endLabel)}</text>
+          {/* Render all X-axis labels */}
+          {xLabels.map((labelInfo, index) => (
+            <text 
+              key={index}
+              x={labelInfo.position} 
+              y={h-8} 
+              fontSize={9} 
+              fill="#94a3b8" 
+              textAnchor="middle"
+            >
+              {labelInfo.label}
+            </text>
+          ))}
           
           {/* Hover crosshair and tooltip */}
           {hoverX !== null && hoverIndex !== null && (
@@ -567,7 +768,22 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 fill="#9ca3af" 
                 textAnchor="middle"
               >
-                {timeFmt(new Date(xs[hoverIndex]))}
+                {(() => {
+                  const hoverDate = new Date(xs[hoverIndex]);
+                  switch (scale) {
+                    case "D": 
+                      return `${hoverDate.getHours().toString().padStart(2,'0')}:${hoverDate.getMinutes().toString().padStart(2,'0')}`;
+                    case "W": 
+                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      return `${dayNames[hoverDate.getDay()]} ${hoverDate.getDate()}/${hoverDate.getMonth() + 1}`;
+                    case "M": 
+                      return `${hoverDate.getDate()}/${hoverDate.getMonth() + 1}/${hoverDate.getFullYear()}`;
+                    case "Y": 
+                      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                      return `${monthNames[hoverDate.getMonth()]} ${hoverDate.getFullYear()}`;
+                    default: return '';
+                  }
+                })()}
               </text>
               
               {/* Primary sensor values */}
@@ -586,7 +802,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
-                    {series.temp![hoverIndex].toFixed(1)}°C
+                    {data.temp![hoverIndex].toFixed(1)}°C
                   </text>
                 </>
               )}
@@ -606,7 +822,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
-                    {series.rh![hoverIndex].toFixed(1)}%
+                    {data.rh![hoverIndex].toFixed(1)}%
                   </text>
                 </>
               )}
@@ -670,7 +886,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               {(mode === 'combined' || mode === 'temp') && (
                 <circle 
                   cx={hoverX} 
-                  cy={mapPoint(xs[hoverIndex], series.temp![hoverIndex]).y} 
+                  cy={mapPoint(xs[hoverIndex], data.temp![hoverIndex]).y} 
                   r={4} 
                   fill="#ef4444" 
                   stroke="#1f2937" 
@@ -681,7 +897,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               {(mode === 'combined' || mode === 'hum') && (
                 <circle 
                   cx={hoverX} 
-                  cy={mapPoint(xs[hoverIndex], series.rh![hoverIndex]).y} 
+                  cy={mapPoint(xs[hoverIndex], data.rh![hoverIndex]).y} 
                   r={4} 
                   fill="#3b82f6" 
                   stroke="#1f2937" 
@@ -868,31 +1084,40 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {/* Combined Temperature + Humidity Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">Temperature & Humidity</h4>
+                <div className="flex items-center gap-3">
+                  <h4 className="text-sm font-semibold text-gray-200">Temperature & Humidity</h4>
+                  <ScaleSwitch currentScale={combinedScale} setScale={setCombinedScale} />
+                </div>
                 {compareSeries && <div className="text-xs text-gray-400">vs Compare Sensor</div>}
               </div>
               <div className="flex-1 min-h-0">
-                <Cartesian mode="combined" title="Combined" width={chartWidth} height={chartHeight} />
+                <Cartesian mode="combined" title="Combined" width={chartWidth} height={chartHeight} data={combinedSeries} scale={combinedScale} />
               </div>
             </div>
 
             {/* Temperature Only Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">Temperature</h4>
+                <div className="flex items-center gap-3">
+                  <h4 className="text-sm font-semibold text-gray-200">Temperature</h4>
+                  <ScaleSwitch currentScale={tempScale} setScale={setTempScale} />
+                </div>
               </div>
               <div className="flex-1 min-h-0">
-                <Cartesian mode="temp" title="Temperature" width={chartWidth} height={chartHeight} />
+                <Cartesian mode="temp" title="Temperature" width={chartWidth} height={chartHeight} data={tempSeries} scale={tempScale} />
               </div>
             </div>
 
             {/* Humidity Only Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">Humidity</h4>
+                <div className="flex items-center gap-3">
+                  <h4 className="text-sm font-semibold text-gray-200">Humidity</h4>
+                  <ScaleSwitch currentScale={humScale} setScale={setHumScale} />
+                </div>
               </div>
               <div className="flex-1 min-h-0">
-                <Cartesian mode="hum" title="Humidity" width={chartWidth} height={chartHeight} />
+                <Cartesian mode="hum" title="Humidity" width={chartWidth} height={chartHeight} data={humSeries} scale={humScale} />
               </div>
             </div>
           </div>
