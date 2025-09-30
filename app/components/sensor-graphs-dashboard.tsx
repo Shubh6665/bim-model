@@ -1085,10 +1085,13 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <h4 className="text-sm font-semibold text-gray-200">Temperature & Humidity</h4>
+                  <h4 className="text-md font-semibold text-white">Temperature & Humidity</h4>
+                  {compareSeries && <div className="text-xs text-gray-400">vs Compare Sensor</div>}
+                </div>
+                <div className="flex items-center gap-2">
+                  
                   <ScaleSwitch currentScale={combinedScale} setScale={setCombinedScale} />
                 </div>
-                {compareSeries && <div className="text-xs text-gray-400">vs Compare Sensor</div>}
               </div>
               <div className="flex-1 min-h-0">
                 <Cartesian mode="combined" title="Combined" width={chartWidth} height={chartHeight} data={combinedSeries} scale={combinedScale} />
@@ -1099,7 +1102,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <h4 className="text-sm font-semibold text-gray-200">Temperature</h4>
+                  <h4 className="text-md font-semibold text-white">Temperature</h4>
+                </div>
+                <div className="flex items-center gap-2">
+              
                   <ScaleSwitch currentScale={tempScale} setScale={setTempScale} />
                 </div>
               </div>
@@ -1112,7 +1118,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <h4 className="text-sm font-semibold text-gray-200">Humidity</h4>
+                  <h4 className="text-md font-semibold text-white">Humidity</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  
                   <ScaleSwitch currentScale={humScale} setScale={setHumScale} />
                 </div>
               </div>
