@@ -396,8 +396,49 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const tMax = Math.max(...series.temp, ...(compareSeries?.temp||[]));
     const hMin = Math.min(...series.rh, ...(compareSeries?.rh||[]));
     const hMax = Math.max(...series.rh, ...(compareSeries?.rh||[]));
-    const yMin = Math.min(tMin, hMin); const yMax = Math.max(tMax, hMax);
-    const span = yMax - yMin || 1;
+    
+    // Determine Y-axis range based on chart mode
+    let yMin, yMax, span;
+    if (mode === 'temp') {
+      yMin = tMin - 2; // Add some padding
+      yMax = tMax + 2;
+    } else if (mode === 'hum') {
+      // For humidity, create a focused range around the actual data
+      const humRange = hMax - hMin;
+      const padding = Math.max(5, humRange * 0.2); // At least 5% padding or 20% of range
+      yMin = Math.max(0, hMin - padding);
+      yMax = Math.min(100, hMax + padding);
+      
+      // If the range is too small (less than 20%), expand it
+      if ((yMax - yMin) < 20) {
+        const center = (hMin + hMax) / 2;
+        yMin = Math.max(0, center - 10);
+        yMax = Math.min(100, center + 10);
+      }
+    } else { // combined mode
+      // For combined mode, normalize both temp and humidity to show variations clearly
+      // Use a range that accommodates both with appropriate scaling
+      const tempPadding = (tMax - tMin || 1) * 0.1;
+      const humPadding = (hMax - hMin || 1) * 0.2;
+      
+      // Create a unified scale that shows both clearly
+      const tempMin = tMin - tempPadding;
+      const tempMax = tMax + tempPadding;
+      const humMin = Math.max(0, hMin - humPadding);
+      const humMax = Math.min(100, hMax + humPadding);
+      
+      // Use a range that includes both comfortably
+      yMin = Math.min(tempMin, humMin);
+      yMax = Math.max(tempMax, humMax);
+      
+      // Ensure minimum range for visibility
+      if ((yMax - yMin) < 30) {
+        const center = (yMin + yMax) / 2;
+        yMin = center - 15;
+        yMax = center + 15;
+      }
+    }
+    span = yMax - yMin || 1;
   const innerW = w - l - r; 
   const innerH = h - t - b;
     
@@ -414,7 +455,24 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const compareHumPath = compareSeries?.rh? pathFor(compareSeries.rh): null;
     const startLabel = new Date(xs[0]); const midLabel = new Date((xMin+xMax)/2); const endLabel = new Date(xs[xs.length-1]);
     const timeFmt = (d:Date)=> `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-    const yTicks = Array.from({length:5}).map((_,i)=> yMin + (span)*i/4);
+    
+    // Generate appropriate Y-axis ticks based on mode
+    let yTicks;
+    if (mode === 'temp') {
+      yTicks = Array.from({length:6}).map((_,i)=> Math.round(yMin + (span)*i/5));
+    } else if (mode === 'hum') {
+      // For humidity, create evenly spaced ticks with nice round numbers
+      const numTicks = 5;
+      yTicks = [];
+      for (let i = 0; i <= numTicks; i++) {
+        const tickValue = yMin + (span * i / numTicks);
+        yTicks.push(Math.round(tickValue));
+      }
+      // Remove duplicates and sort
+      yTicks = [...new Set(yTicks)].sort((a, b) => a - b);
+    } else { // combined
+      yTicks = Array.from({length:6}).map((_,i)=> Math.round(yMin + (span)*i/5));
+    }
     
     const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
       if (!svgRef.current) return;
