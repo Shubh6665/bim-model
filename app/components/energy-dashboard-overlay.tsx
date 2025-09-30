@@ -920,23 +920,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
               </div>
             </div>
 
-            <div className={box + " flex-none"}>
-              <div className="text-gray-200 font-semibold mb-3">Active Alerts</div>
-              <div className="flex flex-col-reverse gap-2 max-h-56 overflow-y-auto pr-1">
-                <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                  <div className="text-[13px] md:text-[14px] text-yellow-200">Line 2 High Load</div>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-red-900/30 border border-red-700/50 rounded-lg">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <div className="text-[13px] md:text-[14px] text-red-200">Sensor Offline</div>
-                </div>
-                <div className="flex items-center gap-2 p-2 bg-blue-900/30 border border-blue-700/50 rounded-lg">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  <div className="text-[13px] md:text-[14px] text-blue-200">System Normal</div>
-                </div>
-              </div>
-            </div>
+
 
             <div className={box + " flex-1 min-h-0 overflow-auto"}>
               <div className="flex items-center gap-2 mb-4">
@@ -1082,6 +1066,25 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                       </button>
                     </>
                   )}
+                </div>
+
+                {/* Active Alerts Section */}
+                <div className="mt-6 pt-4 border-t border-gray-700">
+                  <div className="text-gray-200 font-semibold mb-3">Active Alerts</div>
+                  <div className="flex flex-col-reverse gap-2 max-h-56 overflow-y-auto pr-1">
+                    <div className="flex items-center gap-2 p-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                      <div className="text-[13px] md:text-[14px] text-yellow-200">Line 2 High Load</div>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-red-900/30 border border-red-700/50 rounded-lg">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      <div className="text-[13px] md:text-[14px] text-red-200">Sensor Offline</div>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-blue-900/30 border border-blue-700/50 rounded-lg">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                      <div className="text-[13px] md:text-[14px] text-blue-200">System Normal</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
