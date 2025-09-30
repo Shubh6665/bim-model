@@ -418,12 +418,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const outerPath = `M ${centerX - outerRadius} ${centerY} A ${outerRadius} ${outerRadius} 0 0 1 ${centerX + outerRadius} ${centerY}`;
     const innerPath = `M ${centerX - innerRadius} ${centerY} A ${innerRadius} ${innerRadius} 0 0 1 ${centerX + innerRadius} ${centerY}`;
     
-    const paddingCls = small ? 'p-3' : 'p-4';
-    const minHCls = small ? 'min-h-[130px]' : 'min-h-[160px]';
+    const paddingCls = small ? 'p-2' : 'p-4';
+    const minHCls = small ? 'min-h-[110px]' : 'min-h-[160px]';
     
     return (
-      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center justify-between shadow-inner`}>
-        <svg viewBox="0 0 200 120" className="w-full">
+      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner`}>
+        <svg viewBox="0 0 200 120" className="w-full flex-1">
           {/* Outer ring - 3 color segments */}
           <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
           <path d={outerPath} stroke="#22c55e" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="50 100" strokeDashoffset="-25" />
@@ -440,7 +440,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : 1)}${unit}` : `—${unit}`}
           </text>
         </svg>
-        <div className="text-[11px] text-gray-300 uppercase tracking-wide mt-1">{label}</div>
+        <div className="text-[11px] text-gray-300 uppercase tracking-wide -mt-1">{label}</div>
       </div>
     );
   };
@@ -999,8 +999,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Left column: Current Condition + Temperature + Humidity */}
         <div className="col-span-12 md:col-span-3 flex flex-col h-full space-y-2 min-h-0">
           {/* Current Condition Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1 min-h-0">
-            <div className="text-sm font-semibold text-white mb-2 text-center">Current Condition</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-1 min-h-0">
+            <div className="text-md font-semibold text-white mb-1 text-center">Current Condition</div>
             <div className="grid grid-cols-2 gap-2 lg:gap-3 lg:py-3 flex-1 min-h-0">
               {/* Indoor Temperature (Gauge) */}
               <Gauge
@@ -1054,34 +1054,72 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Temperature Min/Max Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-3 text-center">Temperature</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
-                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.tMin ?? stats?.tMin ?? 0)}°C</div>
-                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.tMinTime ?? stats?.tMinTime ?? '00:00'}</div>
+            <div className="text-md font-semibold text-white mb-2 text-center">Temperature</div>
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
+              {/* Temperature Min Gauge */}
+              <div className="relative">
+                <Gauge
+                  label="Min"
+                  value={gaugeStats?.tMin ?? stats?.tMin ?? 0}
+                  min={0}
+                  max={50}
+                  unit=" °C"
+                  color="#3b82f6"
+                  dangerZones={[{ from: 0, to: 5, color: '#06b6d4' }]}
+                  small
+                />
+               
               </div>
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
-                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.tMax ?? stats?.tMax ?? 0)}°C</div>
-                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.tMaxTime ?? stats?.tMaxTime ?? '00:00'}</div>
+              
+              {/* Temperature Max Gauge */}
+              <div className="relative">
+                <Gauge
+                  label="Max"
+                  value={gaugeStats?.tMax ?? stats?.tMax ?? 0}
+                  min={0}
+                  max={50}
+                  unit=" °C"
+                  color="#ef4444"
+                  dangerZones={[{ from: 42.5, to: 50, color: '#dc2626' }]}
+                  small
+                />
+                
               </div>
             </div>
           </div>
 
           {/* Humidity Min/Max Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-3 text-center">Humidity</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
-                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
-                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMinTime ?? stats?.hMinTime ?? '00:00'}</div>
+            <div className="text-md font-semibold text-white mb-2 text-center">Humidity</div>
+            <div className="grid grid-cols-2 gap-2 lg:gap-3">
+              {/* Humidity Min Gauge */}
+              <div className="relative">
+                <Gauge
+                  label="Min"
+                  value={gaugeStats?.hMin ?? stats?.hMin ?? 0}
+                  min={0}
+                  max={100}
+                  unit=" %H"
+                  color="#3b82f6"
+                  dangerZones={[{ from: 0, to: 20, color: '#06b6d4' }]}
+                  small
+                />
+                
               </div>
-              <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
-                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
-                <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMaxTime ?? stats?.hMaxTime ?? '00:00'}</div>
+              
+              {/* Humidity Max Gauge */}
+              <div className="relative">
+                <Gauge
+                  label="Max"
+                  value={gaugeStats?.hMax ?? stats?.hMax ?? 0}
+                  min={0}
+                  max={100}
+                  unit=" %H"
+                  color="#ef4444"
+                  dangerZones={[{ from: 85, to: 100, color: '#dc2626' }]}
+                  small
+                />
+                
               </div>
             </div>
           </div>
