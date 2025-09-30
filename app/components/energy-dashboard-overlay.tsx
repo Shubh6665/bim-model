@@ -12,9 +12,10 @@ interface Props {
     address?: string;
     city?: string;
   };
+  standalone?: boolean;
 }
 
-export default function EnergyDashboardOverlay({ sensor, onClose, projectLocation }: Props) {
+export default function EnergyDashboardOverlay({ sensor, onClose, projectLocation, standalone = false }: Props) {
   const [l1Scale, setL1Scale] = useState<"D" | "W" | "M" | "Y">("M");
   const [l2Scale, setL2Scale] = useState<"D" | "W" | "M" | "Y">("M");
   const [l3Scale, setL3Scale] = useState<"D" | "W" | "M" | "Y">("M");
@@ -384,7 +385,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
   );
 
   return (
-    <div className="fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98">
+    <div className={standalone ? "h-full w-full flex flex-col bg-gray-950" : "fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98"}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-800 bg-gray-900/70 flex-shrink-0">
         <div className="flex items-baseline gap-3">
@@ -392,6 +393,21 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
         </div>
         <div className="flex items-center gap-2">
+          {!standalone && (
+            <button 
+              onClick={() => {
+                const params = new URLSearchParams({
+                  sensor: JSON.stringify(sensor),
+                  projectLocation: JSON.stringify(projectLocation)
+                });
+                window.open(`/energy-dashboard?${params.toString()}`, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+              }}
+              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm border border-blue-500 flex items-center justify-center transition-colors"
+              title="Open in new window"
+            >
+              ⧉
+            </button>
+          )}
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-sm border border-gray-600 flex items-center justify-center transition-colors">
             ×
           </button>

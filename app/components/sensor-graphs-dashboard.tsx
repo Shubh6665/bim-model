@@ -7,11 +7,12 @@ interface Props {
   allSensors: Sensor[];
   onClose: () => void;
   projectId?: string | null;
+  standalone?: boolean;
 }
 
 type DailySeries = { timestamps: Date[]; temp?: number[]; rh?: number[] };
 
-export default function SensorGraphsDashboard({ sensor, allSensors, onClose, projectId }: Props) {
+export default function SensorGraphsDashboard({ sensor, allSensors, onClose, projectId, standalone = false }: Props) {
   const [date, setDate] = useState(() => new Date());
   const [series, setSeries] = useState<DailySeries | null>(null);
   const [combinedSeries, setCombinedSeries] = useState<DailySeries | null>(null);
@@ -1013,7 +1014,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   };
 
   return (
-    <div className="fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col">
+    <div className={standalone ? "h-full w-full bg-gray-950 flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col"}>
       {/* Top Header */}
       <div className="px-4 py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-center justify-between">
@@ -1054,7 +1055,24 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               {now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </div>
 
-            {/* Circular close button with only an X */}
+            {/* Pop Out and Close buttons */}
+            {!standalone && (
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    sensor: JSON.stringify(sensor),
+                    allSensors: JSON.stringify(allSensors),
+                    projectId: projectId || ''
+                  });
+                  window.open(`/sensor-dashboard?${params.toString()}`, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
+                }}
+                className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-lg flex items-center justify-center"
+                aria-label="Open in new window"
+                title="Open in new window"
+              >
+                ⧉
+              </button>
+            )}
             <button
               onClick={onClose}
               className="w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-lg flex items-center justify-center"
