@@ -543,7 +543,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                 <g>
                                   <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
                                   <circle cx={x} cy={y} r={7} fill="#60a5fa" stroke="#0ea5e9" strokeWidth={2} />
-                                  <g transform={`translate(${Math.min(x+20, width-200)}, ${Math.max(15, y-30)})`}>
+                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
                                     <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
                                     <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l1HoverIdx].toFixed(1)} kWh</text>
                                   </g>
@@ -628,7 +628,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                 <g>
                                   <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
                                   <circle cx={x} cy={y} r={7} fill="#34d399" stroke="#10b981" strokeWidth={2} />
-                                  <g transform={`translate(${Math.min(x+20, width-200)}, ${Math.max(15, y-30)})`}>
+                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
                                     <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
                                     <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l2HoverIdx].toFixed(1)} kWh</text>
                                   </g>
@@ -712,7 +712,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                 <g>
                                   <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
                                   <circle cx={x} cy={y} r={7.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
-                                  <g transform={`translate(${Math.min(x+20, width-200)}, ${Math.max(15, y-30)})`}>
+                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
                                     <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
                                     <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l3HoverIdx].toFixed(1)} kWh</text>
                                   </g>
