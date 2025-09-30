@@ -770,7 +770,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Temperature Min/Max Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-3 text-center">Temp & Hum</div>
+            <div className="text-sm font-semibold text-white mb-3 text-center">Temperature</div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
@@ -787,16 +787,16 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Humidity Min/Max Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-3 text-center">FV</div>
+            <div className="text-sm font-semibold text-white mb-3 text-center">Humidity</div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Min</div>
-                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)} %H</div>
+                <div className="text-lg font-bold text-blue-400">{Math.round(gaugeStats?.hMin ?? stats?.hMin ?? 0)}%</div>
                 <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMinTime ?? stats?.hMinTime ?? '00:00'}</div>
               </div>
               <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">Max</div>
-                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)} %H</div>
+                <div className="text-lg font-bold text-red-400">{Math.round(gaugeStats?.hMax ?? stats?.hMax ?? 0)}%</div>
                 <div className="text-xs text-gray-500 mt-1">{gaugeStats?.hMaxTime ?? stats?.hMaxTime ?? '00:00'}</div>
               </div>
             </div>
@@ -810,7 +810,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {/* Combined Temperature + Humidity Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">Temp & Hum + FV</h4>
+                <h4 className="text-sm font-semibold text-gray-200">Temperature & Humidity</h4>
                 {compareSeries && <div className="text-xs text-gray-400">vs Compare Sensor</div>}
               </div>
               <div className="flex-1 min-h-0">
@@ -821,20 +821,20 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {/* Temperature Only Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">Temp & Hum</h4>
+                <h4 className="text-sm font-semibold text-gray-200">Temperature</h4>
               </div>
               <div className="flex-1 min-h-0">
-                <Cartesian mode="temp" title="Temp & Hum" width={chartWidth} height={chartHeight} />
+                <Cartesian mode="temp" title="Temperature" width={chartWidth} height={chartHeight} />
               </div>
             </div>
 
             {/* Humidity Only Graph */}
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-1 flex-shrink-0">
-                <h4 className="text-sm font-semibold text-gray-200">FV</h4>
+                <h4 className="text-sm font-semibold text-gray-200">Humidity</h4>
               </div>
               <div className="flex-1 min-h-0">
-                <Cartesian mode="hum" title="FV" width={chartWidth} height={chartHeight} />
+                <Cartesian mode="hum" title="Humidity" width={chartWidth} height={chartHeight} />
               </div>
             </div>
           </div>
