@@ -1128,7 +1128,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           {/* Weather (external, not indoor) */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1 min-h-0 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-xs font-semibold text-gray-400 uppercase">Weather Condition</div>
+              <div className="text-lg font-semibold text-white">Weather Condition</div>
             </div>
             
             <div className="flex items-center justify-between mb-4">
@@ -1157,7 +1157,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Compare UI */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1">
-            <div className="text-xs font-semibold text-gray-400 mb-2 uppercase">Compare</div>
+            <div className="text-lg font-semibold text-white mb-2">Compare</div>
             {/* Row A: Base (current) */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
@@ -1231,7 +1231,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
 
           {/* Alerts */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex-1">
-            <div className="text-xs font-semibold text-gray-400 mb-3 uppercase">Active Alerts</div>
+            <div className="text-lg font-semibold text-white mb-3">Active Alerts</div>
             <div className="space-y-2">
               <div className="flex items-center gap-3 bg-blue-900/30 border border-blue-700 rounded-lg p-3">
                 <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
