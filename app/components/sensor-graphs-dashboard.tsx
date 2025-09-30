@@ -1008,7 +1008,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 value={gaugeStats?.tCur ?? stats?.tCur ?? 23}
                 min={0}
                 max={50}
-                unit=" °C"
+                unit="°C"
                 color="#22c55e"
                 dangerZones={[{ from: 42.5, to: 50, color: '#ef4444' }]}
                 small
@@ -1020,7 +1020,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 value={weatherData.temp}
                 min={0}
                 max={50}
-                unit=" °C"
+                unit="°C"
                 color="#22c55e"
                 dangerZones={[{ from: 42.5, to: 50, color: '#ef4444' }]}
                 small
@@ -1032,7 +1032,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 value={gaugeStats?.hCur ?? stats?.hCur ?? 60}
                 min={0}
                 max={100}
-                unit=" %H"
+                unit="%"
                 color="#22c55e"
                 dangerZones={[{ from: 85, to: 100, color: '#ef4444' }]}
                 small
@@ -1044,7 +1044,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 value={weatherData.hum}
                 min={0}
                 max={100}
-                unit=" %H"
+                unit="%"
                 color="#22c55e"
                 dangerZones={[{ from: 85, to: 100, color: '#ef4444' }]}
                 small
@@ -1063,7 +1063,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   value={gaugeStats?.tMin ?? stats?.tMin ?? 0}
                   min={0}
                   max={50}
-                  unit=" °C"
+                  unit="°C"
                   color="#3b82f6"
                   dangerZones={[{ from: 0, to: 5, color: '#06b6d4' }]}
                   small
@@ -1078,7 +1078,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   value={gaugeStats?.tMax ?? stats?.tMax ?? 0}
                   min={0}
                   max={50}
-                  unit=" °C"
+                  unit="°C"
                   color="#ef4444"
                   dangerZones={[{ from: 42.5, to: 50, color: '#dc2626' }]}
                   small
@@ -1099,7 +1099,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   value={gaugeStats?.hMin ?? stats?.hMin ?? 0}
                   min={0}
                   max={100}
-                  unit=" %H"
+                  unit="%"
                   color="#3b82f6"
                   dangerZones={[{ from: 0, to: 20, color: '#06b6d4' }]}
                   small
@@ -1114,7 +1114,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   value={gaugeStats?.hMax ?? stats?.hMax ?? 0}
                   min={0}
                   max={100}
-                  unit=" %H"
+                  unit="%"
                   color="#ef4444"
                   dangerZones={[{ from: 85, to: 100, color: '#dc2626' }]}
                   small
