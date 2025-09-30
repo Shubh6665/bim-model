@@ -65,44 +65,16 @@ function generateTempSeries(count: number, rnd: () => number): number[] {
 }
 
 function generateCurrentValue(sensorType: string, baseValue: number, groupKey: string, timestamp: Date): { value: string; status: "Online" | "Warning" | "Offline" } {
-  // 1-second time bucket for visible updates so values can change each second
-  const bucket = Math.floor(timestamp.getTime() / 1000);
-  const seed = hashString(groupKey) ^ bucket;
-  // Deterministic pseudo-random in [0,1)
-  const rand = (() => {
-    let x = seed >>> 0;
-    x ^= x << 13; x >>>= 0;
-    x ^= x >> 17; x >>>= 0;
-    x ^= x << 5;  x >>>= 0;
-    return (x & 0xfffffff) / 0xfffffff;
-  })();
-
-  let currentVal = baseValue;
+  // Add random variation to base value
+  const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
+  let currentVal = baseValue * (1 + variation);
   let status: "Online" | "Warning" | "Offline" = "Online";
 
   switch (sensorType.toLowerCase()) {
-    case "temperature": {
-      // Compute today's series (96 points) and interpolate to the exact time-of-day
-      const rnd = seededRandom(groupKey);
-      const count = 96;
-      const start = new Date(timestamp); start.setHours(0,0,0,0);
-      const end = new Date(start); end.setHours(23,59,59,999);
-      const series = generateTempSeries(count, rnd);
-      const frac = Math.min(1, Math.max(0, (timestamp.getTime() - start.getTime()) / (end.getTime() - start.getTime())));
-      const pos = frac * (count - 1);
-      const i0 = Math.floor(pos);
-      const i1 = Math.min(count - 1, i0 + 1);
-      const alpha = pos - i0;
-      let base = series[i0] + (series[i1] - series[i0]) * alpha;
-      // Add fast micro-oscillation (≈60s period) with per-sensor phase
-      const phaseOffset = (hashString(groupKey) % 60) / 60; // 0..1
-      const fastWave = Math.sin(2 * Math.PI * ((timestamp.getTime() / 1000) / 60 + phaseOffset)) * 0.25; // ±0.25°C
-      // Jitter per 1s bucket so value changes frequently
-      const jitter = (rand - 0.5) * 0.6; // ±0.3°C
-      currentVal = Math.max(18, Math.min(42, base + fastWave + jitter));
-      status = currentVal >= 30 ? "Warning" : "Online";
+    case "temperature":
+      currentVal = Math.max(18, Math.min(42, currentVal));
+      status = currentVal >= 35 ? "Warning" : "Online";
       return { value: `${currentVal.toFixed(1)}°C`, status };
-    }
     
     case "co2":
       currentVal = Math.max(400, Math.min(1600, currentVal));
@@ -150,42 +122,50 @@ export async function GET(request: Request) {
     const now = new Date();
     const updates: Array<{ id: string; value: string; status: string; lastUpdate: string }> = [];
 
-    // Group by externalId/devsn for consistent values
-    const groups = new Map<string, any[]>();
+    // Process each sensor individually for unique values
+    
+    // Generate unique values for each sensor instead of grouping
     for (const sensor of sensors) {
-      const groupKey = sensor.externalId || sensor.devsn || String(sensor._id);
-      const arr = groups.get(groupKey) || [];
-      arr.push(sensor);
-      groups.set(groupKey, arr);
-    }
-
-    for (const [groupKey, groupSensors] of groups.entries()) {
-      const first = groupSensors[0];
-      const type = first.type || "Temperature";
+      const type = sensor.type || "Temperature";
+      const sensorId = String(sensor._id);
       
-      // Base value from sensor type
+      // Base value from sensor type with random variation
       let baseValue = 23.5; // Default temperature
       switch (type.toLowerCase()) {
-        case "temperature": baseValue = 23.5; break;
-        case "co2": baseValue = 650; break;
-        case "light": baseValue = 500; break;
-        case "humidity": baseValue = 48; break;
-        case "seismic and accelerometric": baseValue = 0.02; break;
-        case "energy consumption": baseValue = 2.4; break;
+        case "temperature": 
+          baseValue = 22 + Math.random() * 6; // 22-28°C range
+          break;
+        case "co2": 
+          baseValue = 600 + Math.random() * 200; // 600-800 ppm range
+          break;
+        case "light": 
+          baseValue = 400 + Math.random() * 300; // 400-700 lux range
+          break;
+        case "humidity": 
+          baseValue = 40 + Math.random() * 20; // 40-60% range
+          break;
+        case "seismic and accelerometric": 
+          baseValue = 0.01 + Math.random() * 0.03; // 0.01-0.04g range
+          break;
+        case "energy consumption": 
+          baseValue = 1.8 + Math.random() * 1.4; // 1.8-3.2 kW range
+          break;
+        default:
+          baseValue = baseValue + (Math.random() - 0.5) * 2; // ±1 variation
       }
 
-      const { value, status } = generateCurrentValue(type, baseValue, groupKey, now);
-      
-      // Apply same values to all sensors in group
-      for (const sensor of groupSensors) {
-        updates.push({
-          id: String(sensor._id),
-          value,
-          status,
-          lastUpdate: now.toISOString()
-        });
-        console.log(`[IoT Realtime API] Generated value for sensor ${sensor._id}: ${value} (${status})`);
-      }
+      // Add time-based variation for more realistic fluctuation
+      const timeVariation = Math.sin(Date.now() / 30000 + parseInt(sensorId.slice(-4), 16)) * 0.1;
+      baseValue += baseValue * timeVariation;
+
+      // Use individual sensor ID for unique randomness
+      const { value, status } = generateCurrentValue(type, baseValue, sensorId, now);      updates.push({
+        id: sensorId,
+        value,
+        status,
+        lastUpdate: now.toISOString()
+      });
+      console.log(`[IoT Realtime API] Generated value for sensor ${sensor._id}: ${value} (${status})`);
     }
 
     return NextResponse.json({ updates, timestamp: now.toISOString() }, { status: 200 });

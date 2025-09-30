@@ -396,11 +396,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           {!standalone && (
             <button 
               onClick={() => {
-                const params = new URLSearchParams({
-                  sensor: JSON.stringify(sensor),
-                  projectLocation: JSON.stringify(projectLocation)
-                });
-                window.open(`/energy-dashboard?${params.toString()}`, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
+                const roomName = sensor?.room ? encodeURIComponent(sensor.room.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')) : 'unknown-room';
+                const sensorName = sensor?.name ? encodeURIComponent(sensor.name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')) : 'unknown-sensor';
+                const url = `/energy-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}`;
+                window.open(url, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
               }}
               className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm border border-blue-500 flex items-center justify-center transition-colors"
               title="Open in new window"

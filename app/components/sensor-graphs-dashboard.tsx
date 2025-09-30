@@ -1059,12 +1059,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {!standalone && (
               <button
                 onClick={() => {
-                  const params = new URLSearchParams({
-                    sensor: JSON.stringify(sensor),
-                    allSensors: JSON.stringify(allSensors),
-                    projectId: projectId || ''
-                  });
-                  window.open(`/sensor-dashboard?${params.toString()}`, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
+                  const roomName = sensor?.room ? encodeURIComponent(sensor.room.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')) : 'unknown-room';
+                  const sensorName = sensor?.name ? encodeURIComponent(sensor.name.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')) : 'unknown-sensor';
+                  const url = `/sensor-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}&projectId=${projectId || ''}`;
+                  window.open(url, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
                 }}
                 className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-lg flex items-center justify-center"
                 aria-label="Open in new window"
