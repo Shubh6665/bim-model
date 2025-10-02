@@ -1090,8 +1090,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
           {/* Current Condition Section */}
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Current Condition</div>
-            <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
+            <div className="text-sm md:text-md font-semibold text-white mb-1.5 md:mb-2 text-center">Current Condition</div>
+            <div className="grid grid-cols-2 py-3 gap-1 md:gap-1.5 w-full">
               {/* Indoor Temperature (Gauge) */}
               <Gauge
                 label="Indoor"
@@ -1301,8 +1301,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             </div>
             
             <div className="space-y-1.5">
-              <div className="grid grid-cols-2 gap-1.5 w-full">
-                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[50px] md:min-h-[55px] flex flex-col justify-center">
+              <div className="grid grid-cols-2 py-3 gap-1.5 w-full">
+                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[60px] md:min-h-[55px] flex flex-col justify-center">
                 
                   <div className="text-[10px] md:text-xs text-gray-400 mb-1">Sunrise</div>
                   <div className="text-xs md:text-sm font-semibold text-white truncate">{weatherData.sunrise}</div>
