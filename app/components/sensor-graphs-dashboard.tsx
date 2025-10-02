@@ -419,12 +419,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const outerPath = `M ${centerX - outerRadius} ${centerY} A ${outerRadius} ${outerRadius} 0 0 1 ${centerX + outerRadius} ${centerY}`;
     const innerPath = `M ${centerX - innerRadius} ${centerY} A ${innerRadius} ${innerRadius} 0 0 1 ${centerX + innerRadius} ${centerY}`;
     
-    const paddingCls = small ? 'p-2' : 'p-4';
-    const minHCls = small ? 'min-h-[110px]' : 'min-h-[160px]';
+    const paddingCls = small ? 'p-1 md:p-1.5' : 'p-4';
+    const minHCls = small ? 'min-h-[80px] md:min-h-[90px]' : 'min-h-[160px]';
     
     return (
-      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner`}>
-        <svg viewBox="0 0 200 120" className="w-full flex-1">
+      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner w-full overflow-hidden`}>
+        <svg viewBox="0 0 200 120" className="w-full flex-1 max-h-[80px] md:max-h-[90px]">
           {/* Outer ring - 3 color segments */}
           <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
           <path d={outerPath} stroke="#22c55e" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="50 100" strokeDashoffset="-25" />
@@ -437,11 +437,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
           
           {/* Center value text */}
-          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '20px' : '24px', fontWeight: 800 }}>
+          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
             {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : 1)}${unit}` : `—${unit}`}
           </text>
         </svg>
-        <div className="text-[11px] text-gray-300 uppercase tracking-wide -mt-1">{label}</div>
+        <div className="text-[8px] md:text-[10px] text-gray-300 uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
       </div>
     );
   };
@@ -1089,9 +1089,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Left column: Current Condition + Temperature + Humidity */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
           {/* Current Condition Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0">
-            <div className="text-sm md:text-md font-semibold text-white mb-2 text-center">Current Condition</div>
-            <div className="grid grid-cols-2 gap-2 md:gap-3">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Current Condition</div>
+            <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               {/* Indoor Temperature (Gauge) */}
               <Gauge
                 label="Indoor"
@@ -1143,9 +1143,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Temperature Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0">
-            <div className="text-sm md:text-md font-semibold text-white mb-2 text-center">Temperature</div>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Temperature</div>
+            <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               {/* Temperature Min Gauge */}
               <div className="relative">
                 <Gauge
@@ -1179,9 +1179,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Humidity Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0">
-            <div className="text-sm md:text-md font-semibold text-white mb-2 text-center">Humidity</div>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Humidity</div>
+            <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               {/* Humidity Min Gauge */}
               <div className="relative">
                 <Gauge
@@ -1287,30 +1287,30 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Right column: Weather + Compare + Alerts */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
           {/* Weather (external, not indoor) */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm md:text-base font-semibold text-white">Weather Condition</div>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-xs md:text-sm font-semibold text-white truncate">Weather Condition</div>
             </div>
             
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-4xl">{weatherData.icon}</div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-white">{weatherData.temp.toFixed(1)}°C</div>
-                <div className="text-sm text-gray-400">Humidity {weatherData.hum}%</div>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-xl md:text-2xl lg:text-3xl flex-shrink-0">{weatherData.icon}</div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-lg md:text-xl lg:text-2xl font-bold text-white whitespace-nowrap">{weatherData.temp.toFixed(1)}°C</div>
+                <div className="text-[10px] md:text-xs text-gray-400 whitespace-nowrap">Humidity {weatherData.hum}%</div>
               </div>
             </div>
             
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-800/50 rounded-lg p-2 text-center">
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5 w-full">
+                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[50px] md:min-h-[55px] flex flex-col justify-center">
                 
-                  <div className="text-xs text-gray-400 mb-1">Sunrise</div>
-                  <div className="text-sm font-semibold text-white">{weatherData.sunrise}</div>
+                  <div className="text-[10px] md:text-xs text-gray-400 mb-1">Sunrise</div>
+                  <div className="text-xs md:text-sm font-semibold text-white truncate">{weatherData.sunrise}</div>
                 </div>
-                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[50px] md:min-h-[55px] flex flex-col justify-center">
                  
-                  <div className="text-xs text-gray-400 mb-1">Sunset</div>
-                  <div className="text-sm font-semibold text-white">{weatherData.sunset}</div>
+                  <div className="text-[10px] md:text-xs text-gray-400 mb-1">Sunset</div>
+                  <div className="text-xs md:text-sm font-semibold text-white truncate">{weatherData.sunset}</div>
                 </div>
               </div>
             </div>
