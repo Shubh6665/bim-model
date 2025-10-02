@@ -386,15 +386,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const el = centerColRef.current;
     if (!el) return;
     const update = () => {
-      setChartWidth(Math.max(320, el.clientWidth));
-      // 3 charts stacked: account for 2 gaps (gap-2 = 8px) and per-chart header (~28px including margin)
-      const gapTotal = 16; // 2 * 8px
-      const headerPerChart = 28; // title + margins
-      const headerTotal = headerPerChart * 3;
-      const raw = el.clientHeight - gapTotal - headerTotal;
-      const usable = Math.max(120, raw); // safeguard
-      const each = Math.max(120, Math.floor(usable / 3));
-      setChartHeight(each);
+      setChartWidth(Math.max(320, el.clientWidth - 32)); // subtract padding
+      // Calculate height for viewBox - using 200 as reasonable chart aspect ratio
+      setChartHeight(200);
     };
     update();
     const ro = new ResizeObserver(() => update());
@@ -768,9 +762,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     return (
       <svg 
         ref={svgRef}
-        width={w}
-        height={h}
-        className="w-full bg-gray-900 border border-gray-700 rounded-xl block"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        className="w-full h-full bg-gray-900 border border-gray-700 rounded-xl block"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
@@ -1220,64 +1214,61 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           {/* Container for all three graphs with dynamic height distribution */}
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             {/* Combined Temperature + Humidity Graph */}
-            <div className="flex-1 flex flex-col min-h-[120px] md:min-h-0">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-md font-semibold text-white">Temperature & Humidity</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-white">Temperature & Humidity</h4>
                   {compareSeries && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-gray-400">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  
                   <ScaleSwitch currentScale={combinedScale} setScale={setCombinedScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <Cartesian mode="combined" title="Combined" width={chartWidth} height={chartHeight} data={combinedSeries} scale={combinedScale} />
               </div>
             </div>
 
             {/* Temperature Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[120px] md:min-h-0">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-md font-semibold text-white">Temperature</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-white">Temperature</h4>
                   {compareSeries && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-gray-400">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-              
                   <ScaleSwitch currentScale={tempScale} setScale={setTempScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <Cartesian mode="temp" title="Temperature" width={chartWidth} height={chartHeight} data={tempSeries} scale={tempScale} />
               </div>
             </div>
 
             {/* Humidity Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[120px] md:min-h-0">
-              <div className="flex items-center justify-between mb-1 flex-shrink-0">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+              <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-md font-semibold text-white">Humidity</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-white">Humidity</h4>
                   {compareSeries && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-gray-400">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  
                   <ScaleSwitch currentScale={humScale} setScale={setHumScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <Cartesian mode="hum" title="Humidity" width={chartWidth} height={chartHeight} data={humSeries} scale={humScale} />
               </div>
             </div>
