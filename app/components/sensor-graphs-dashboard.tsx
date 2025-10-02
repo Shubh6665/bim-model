@@ -768,9 +768,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-          <rect x={l} y={t} width={innerW} height={innerH} fill="#0b1220" stroke="#1f2937" />
+          <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
           {/* Y-axis grid lines and labels */}
-          {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={8} fill="#64748b" textAnchor="end">{v.toFixed(0)}</text></g>;})}
+          {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{v.toFixed(0)}</text></g>;})}
           {/* X-axis grid lines aligned with labels */}
           {xLabels.map((labelInfo, index) => (
             <line 
@@ -794,8 +794,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
               key={index}
               x={labelInfo.position} 
               y={h-8} 
-              fontSize={9} 
-              fill="#94a3b8" 
+              fontSize={10} 
+              fill="#ffffff" 
               textAnchor="middle"
             >
               {labelInfo.label}
