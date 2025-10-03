@@ -99,6 +99,51 @@ function generateCurrentValue(sensorType: string, baseValue: number, groupKey: s
       currentVal = Math.max(0.5, Math.min(5, currentVal));
       return { value: `${currentVal.toFixed(1)} kW`, status };
     
+    case "photovoltaic":
+    case "fv sensor":
+    case "pv sensor":
+      // Generate realistic solar panel data based on time of day
+      // Use local time (assuming IST/UTC+5:30 for India, or local timezone)
+      const hour = timestamp.getHours();
+      const minute = timestamp.getMinutes();
+      const timeInHours = hour + minute / 60;
+      
+      console.log(`[IoT Realtime API] FV Sensor time check: hour=${hour}, minute=${minute}, timeInHours=${timeInHours}`);
+      
+      // Solar generation during extended daylight (5 AM - 7 PM for better demo)
+      // In production, this should use actual sunrise/sunset times
+      if (timeInHours >= 5 && timeInHours <= 19) {
+        // Map time to solar position (0 to 1, peak at noon)
+        const solarPosition = (timeInHours - 5) / 14; // 0 to 1 over 5 AM to 7 PM
+        const peakTime = 0.5; // Noon is at 50% of the range
+        const distanceFromPeak = Math.abs(solarPosition - peakTime);
+        const bellCurve = Math.cos(distanceFromPeak * Math.PI); // Peak at noon
+        
+        // Power: 0-13 kW with solar curve + random variation
+        const power = Math.max(0, bellCurve * 11 * (0.85 + Math.random() * 0.3));
+        
+        // Voltage: 280-360V when generating
+        const voltage = power > 0.5 ? 320 + (Math.random() - 0.5) * 40 : 0;
+        
+        // Current: calculated from P = V × I
+        const current = voltage > 0 ? (power * 1000) / voltage : 0;
+        
+        // Efficiency: 15-22%
+        const efficiency = power > 0.5 ? 15 + bellCurve * 7 + (Math.random() - 0.5) * 2 : 0;
+        
+        console.log(`[IoT Realtime API] FV Generation: power=${power.toFixed(1)}kW, voltage=${voltage.toFixed(0)}V, current=${current.toFixed(1)}A, eff=${efficiency.toFixed(1)}%`);
+        
+        // Return combined string with all values
+        return { 
+          value: `${power.toFixed(1)} kW | ${voltage.toFixed(0)} V | ${current.toFixed(1)} A | ${efficiency.toFixed(1)}%`, 
+          status 
+        };
+      } else {
+        // No generation at night
+        console.log(`[IoT Realtime API] FV Night mode - no generation`);
+        return { value: `0.0 kW | 0 V | 0.0 A | 0.0%`, status };
+      }
+    
     default:
       return { value: `${currentVal.toFixed(1)}`, status };
   }
@@ -128,9 +173,34 @@ export async function GET(request: Request) {
     for (const sensor of sensors) {
       const type = sensor.type || "Temperature";
       const sensorId = String(sensor._id);
+      const sensorName = sensor.name || "";
+      
+      console.log(`[IoT Realtime API] Processing sensor ${sensorId}: type="${type}", name="${sensorName}"`);
+      
+      // Check if this is FV/Photovoltaic sensor by type or name
+      const isFVSensor = type.toLowerCase().includes("photovoltaic") || 
+                        type.toLowerCase().includes("fv") || 
+                        type.toLowerCase().includes("pv") ||
+                        sensorName.toLowerCase().includes("fv") ||
+                        sensorName.toLowerCase().includes("photovoltaic") ||
+                        sensorName.toLowerCase().includes("pv sensor");
       
       // Base value from sensor type with random variation
       let baseValue = 23.5; // Default temperature
+      
+      if (isFVSensor) {
+        // Special handling for FV sensors - use timestamp directly
+        const { value, status } = generateCurrentValue("photovoltaic", 8.5, sensorId, now);
+        updates.push({
+          id: sensorId,
+          value,
+          status,
+          lastUpdate: now.toISOString()
+        });
+        console.log(`[IoT Realtime API] Generated FV value for sensor ${sensor._id}: ${value} (${status})`);
+        continue; // Skip to next sensor
+      }
+      
       switch (type.toLowerCase()) {
         case "temperature": 
           baseValue = 22 + Math.random() * 6; // 22-28°C range
@@ -149,6 +219,11 @@ export async function GET(request: Request) {
           break;
         case "energy consumption": 
           baseValue = 1.8 + Math.random() * 1.4; // 1.8-3.2 kW range
+          break;
+        case "photovoltaic":
+        case "fv sensor":
+        case "pv sensor":
+          baseValue = 8.5; // Will be calculated based on time in generateCurrentValue
           break;
         default:
           baseValue = baseValue + (Math.random() - 0.5) * 2; // ±1 variation

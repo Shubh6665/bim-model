@@ -6,6 +6,8 @@ import { DataVizService, SensorSprite } from "../services/dataviz-service";
 import { HeatmapService } from "../services/heatmap-service";
 import EnergyDashboardOverlay from "./energy-dashboard-overlay";
 import SensorGraphsDashboard from "./sensor-graphs-dashboard";
+import PVSensorDashboard from "./pv-sensor-dashboard";
+import SeismicSensorDashboard from "./seismic-sensor-dashboard";
 import "./forge-viewer.css";
 import type { ProjectModel } from "@/app/types/projects";
 
@@ -2768,7 +2770,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             </div>
                             <div style={{ padding: '8px', background: '#0b1220', border: '1px solid #374151', borderRadius: 8 }}>
                                 <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                                    You can view sensor details via <strong style={{ color: '#e5e7eb' }}>Info</strong> and use <strong style={{ color: '#e5e7eb' }}>Statistics</strong> for Energy consumption sensors.
+                                    You can view sensor details via <strong style={{ color: '#e5e7eb' }}>Info</strong> and use <strong style={{ color: '#e5e7eb' }}>Statistics</strong> for Energy, FV (Photovoltaic), and Seismic sensors.
                                 </div>
                             </div>
                         </div>
@@ -2784,7 +2786,26 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                     projectLocation={projectLocation}
                 />
             )}
-            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && viewerOverlay.sensor.type !== 'Energy consumption' && (
+            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && viewerOverlay.sensor.type === 'FV' && (
+                <PVSensorDashboard
+                    sensor={viewerOverlay.sensor as any}
+                    allSensors={sensors as any}
+                    onClose={hideViewerOverlay}
+                    projectId={currentProjectId}
+                />
+            )}
+            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && viewerOverlay.sensor.type === 'Seismic and accelerometric' && (
+                <SeismicSensorDashboard
+                    sensor={viewerOverlay.sensor as any}
+                    allSensors={sensors as any}
+                    onClose={hideViewerOverlay}
+                    projectId={currentProjectId}
+                />
+            )}
+            {viewerOverlay && viewerOverlay.type === 'statistics' && viewerOverlay.sensor && 
+             viewerOverlay.sensor.type !== 'Energy consumption' && 
+             viewerOverlay.sensor.type !== 'FV' && 
+             viewerOverlay.sensor.type !== 'Seismic and accelerometric' && (
                 <SensorGraphsDashboard
                     sensor={viewerOverlay.sensor as any}
                     allSensors={sensors as any}
