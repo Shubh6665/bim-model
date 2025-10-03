@@ -556,12 +556,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const y = height - (Math.max(0, Math.min(max, values[l1HoverIdx]))/max) * height;
                               return (
                                 <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
-                                  <circle cx={x} cy={y} r={7} fill="#60a5fa" stroke="#0ea5e9" strokeWidth={2} />
-                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
-                                    <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
-                                    <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l1HoverIdx].toFixed(1)} kWh</text>
-                                  </g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#60a5fa" />
+                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l1HoverIdx].toFixed(1)} kWh</text>
+                                  <circle cx={x} cy={y} r={5} fill="#60a5fa" stroke="#1f2937" strokeWidth={2} />
                                 </g>
                               );
                             })()}
@@ -641,12 +640,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const y = height - (Math.max(0, Math.min(max, values[l2HoverIdx]))/max) * height;
                               return (
                                 <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
-                                  <circle cx={x} cy={y} r={7} fill="#34d399" stroke="#10b981" strokeWidth={2} />
-                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
-                                    <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
-                                    <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l2HoverIdx].toFixed(1)} kWh</text>
-                                  </g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#34d399" />
+                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l2HoverIdx].toFixed(1)} kWh</text>
+                                  <circle cx={x} cy={y} r={5} fill="#34d399" stroke="#1f2937" strokeWidth={2} />
                                 </g>
                               );
                             })()}
@@ -725,12 +723,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const y = height - (Math.max(0, Math.min(max, values[l3HoverIdx]))/max) * height;
                               return (
                                 <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
-                                  <circle cx={x} cy={y} r={7.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
-                                  <g transform={`translate(${x < width/2 ? x + 25 : x - 205}, ${Math.max(15, y-30)})`}>
-                                    <rect width="180" height="50" rx="12" fill="#0b1020" opacity="0.97" stroke="#374151" strokeWidth="1" />
-                                    <text x="90" y="32" textAnchor="middle" fontSize="22" fontWeight="700" fill="#e5e7eb">{values[l3HoverIdx].toFixed(1)} kWh</text>
-                                  </g>
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#fbbf24" />
+                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l3HoverIdx].toFixed(1)} kWh</text>
+                                  <circle cx={x} cy={y} r={5} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
                                 </g>
                               );
                             })()}
@@ -837,36 +834,28 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               const y1 = height - (clamp(l1Values[idx],100)/100) * height;
                               const y2 = height - (clamp(l2Values[idx],100)/100) * height;
                               const y3 = height - (clamp(l3Values[idx],100)/100) * height;
-                              // Tooltip positioning (above the hovered point)
-                              const tipW = 280; // tooltip width (increased)
-                              const tipH = 100;  // tooltip height (increased)
-                              const tipX = Math.max(8, Math.min(x - tipW / 2, width - tipW - 8));
-                              const topY = Math.min(y1, y2, y3);
-                              const tipY = Math.max(8, Math.min(topY - tipH - 40, height - tipH - 8));
                               return (
                                 <g>
-                                  {/* guide */}
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#94a3b8" strokeOpacity={0.55} strokeWidth={1.4} />
-                                  {/* markers */}
-                                  <circle cx={x} cy={y1} r={6} fill="#60a5fa" stroke="#0ea5e9" strokeWidth={2} />
-                                  <circle cx={x} cy={y2} r={6} fill="#34d399" stroke="#10b981" strokeWidth={2} />
-                                  <circle cx={x} cy={y3} r={6.5} fill="#fbbf24" stroke="#f59e0b" strokeWidth={2} />
-                                  {/* legend tooltip */}
-                                  <g transform={`translate(${tipX}, ${tipY})`}>
-                                    <rect width="280" height="100" rx="15" fill="#0b1020" opacity="0.98" stroke="#374151" strokeWidth="2" />
-                                    {/* L1 row */}
-                                    <circle cx="18" cy="28" r="8" fill="#60a5fa" />
-                                    <text x="40" y="34" fontSize="20" fontWeight="700" fill="#e5e7eb">L1:</text>
-                                    <text x="90" y="34" fontSize="20" fontWeight="700" fill="#e5e7eb">{l1Values[idx].toFixed(1)} kWh</text>
-                                    {/* L2 row */}
-                                    <circle cx="18" cy="50" r="8" fill="#34d399" />
-                                    <text x="40" y="56" fontSize="20" fontWeight="700" fill="#e5e7eb">L2:</text>
-                                    <text x="90" y="56" fontSize="20" fontWeight="700" fill="#e5e7eb">{l2Values[idx].toFixed(1)} kWh</text>
-                                    {/* L3 row */}
-                                    <circle cx="18" cy="72" r="8" fill="#fbbf24" />
-                                    <text x="40" y="78" fontSize="20" fontWeight="700" fill="#e5e7eb">L3:</text>
-                                    <text x="90" y="78" fontSize="20" fontWeight="700" fill="#e5e7eb">{l3Values[idx].toFixed(1)} kWh</text>
-                                  </g>
+                                  {/* Crosshair line */}
+                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                                  {/* Tooltip background - much larger */}
+                                  <rect x={x < width/2 ? x + 10 : x - 145} y={10} width={135} height={115} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  {/* L1 */}
+                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={35} r={5} fill="#60a5fa" />
+                                  <text x={x < width/2 ? x + 35 : x - 120} y={40} fontSize={15} fill="#9ca3af" fontWeight="500">L1:</text>
+                                  <text x={x < width/2 ? x + 130 : x - 25} y={40} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
+                                  {/* L2 */}
+                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={65} r={5} fill="#34d399" />
+                                  <text x={x < width/2 ? x + 35 : x - 120} y={70} fontSize={15} fill="#9ca3af" fontWeight="500">L2:</text>
+                                  <text x={x < width/2 ? x + 130 : x - 25} y={70} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
+                                  {/* L3 */}
+                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={95} r={5} fill="#fbbf24" />
+                                  <text x={x < width/2 ? x + 35 : x - 120} y={100} fontSize={15} fill="#9ca3af" fontWeight="500">L3:</text>
+                                  <text x={x < width/2 ? x + 130 : x - 25} y={100} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
+                                  {/* Data point circles */}
+                                  <circle cx={x} cy={y1} r={5} fill="#60a5fa" stroke="#1f2937" strokeWidth={2} />
+                                  <circle cx={x} cy={y2} r={5} fill="#34d399" stroke="#1f2937" strokeWidth={2} />
+                                  <circle cx={x} cy={y3} r={5} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
                                 </g>
                               );
                             })()}
