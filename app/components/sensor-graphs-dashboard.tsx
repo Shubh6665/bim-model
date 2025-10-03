@@ -764,10 +764,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         ref={svgRef}
         viewBox={`0 0 ${w} ${h}`}
         preserveAspectRatio="none"
-        className="w-full h-full bg-gray-900 border border-gray-700 rounded-xl block"
+        className="absolute inset-0 w-full h-full rounded-xl"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
+          <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
           <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
           {/* Y-axis grid lines and labels */}
           {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{v.toFixed(0)}</text></g>;})}
@@ -1228,7 +1229,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   <ScaleSwitch currentScale={combinedScale} setScale={setCombinedScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 relative">
                 <Cartesian mode="combined" title="Combined" width={chartWidth} height={chartHeight} data={combinedSeries} scale={combinedScale} />
               </div>
             </div>
@@ -1248,7 +1249,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   <ScaleSwitch currentScale={tempScale} setScale={setTempScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 relative">
                 <Cartesian mode="temp" title="Temperature" width={chartWidth} height={chartHeight} data={tempSeries} scale={tempScale} />
               </div>
             </div>
@@ -1268,7 +1269,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   <ScaleSwitch currentScale={humScale} setScale={setHumScale} />
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 relative">
                 <Cartesian mode="hum" title="Humidity" width={chartWidth} height={chartHeight} data={humSeries} scale={humScale} />
               </div>
             </div>
