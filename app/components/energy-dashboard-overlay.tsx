@@ -512,81 +512,78 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l1Scale} setScale={setL1Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
-                <div className="flex h-full">
-                  {/* Y-axis */}
-                  <div className="flex flex-col justify-between h-full w-8 mr-2">
-                    {[50,40,30,20,10,0].map((val,i)=>(
-                      <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
-                        <div className="w-2 h-px bg-gray-700 ml-1"></div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Line chart area */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1">
-                      {(() => {
-                        const len = l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30;
-                        const base = realtimeData.l1Current;
-                        const values = Array.from({ length: len }, (_, i) => {
-                          const timeVariation = Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (base * 0.3);
-                          return Math.max(5, base + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
-                        });
-                        const max = 50;
-                        const { d, area, width, height } = buildLinePaths(values, max);
-                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                          const idx = Math.round(ratio * (len - 1));
-                          setL1HoverIdx(idx);
-                        };
+              <div className="relative flex-1 rounded-xl overflow-hidden">
+                {(() => {
+                  const len = l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30;
+                  const base = realtimeData.l1Current;
+                  const values = Array.from({ length: len }, (_, i) => {
+                    const timeVariation = Math.sin(i * 0.5 + currentTime.getMinutes() * 0.1) * (base * 0.3);
+                    return Math.max(5, base + timeVariation + Math.sin(i * 0.3 + realtimeData.currentPower/100) * 5);
+                  });
+                  const max = 50;
+                  const w = 1000, h = 200;
+                  const l = 38, r = 12, t = 20, b = 30;
+                  const innerW = w - l - r;
+                  const innerH = h - t - b;
+                  
+                  const pathD = values.map((v, i) => {
+                    const x = l + (i / (len - 1)) * innerW;
+                    const y = t + innerH * (1 - v / max);
+                    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+                  }).join(' ');
+                  
+                  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const ratio = Math.max(0, Math.min(1, (mouseX - rect.left * (l / w)) / (rect.width * (innerW / w))));
+                    const idx = Math.round(ratio * (len - 1));
+                    setL1HoverIdx(idx);
+                  };
+                  
+                  return (
+                    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL1HoverIdx(null)} style={{cursor:'crosshair'}}>
+                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      {/* Y-axis grid and labels */}
+                      {[50,40,30,20,10,0].map((val, i) => {
+                        const y = t + innerH * (1 - val / max);
                         return (
-                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL1HoverIdx(null)} style={{cursor:'crosshair'}}>
-                            {/* horizontal grid */}
-                            {[0,1,2,3,4,5].map(i => (
-                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
-                            ))}
-                            {/* area fill */}
-                            <path d={area} fill="#3b82f6" fillOpacity={0.15} />
-                            {/* line */}
-                            <path d={d} fill="none" stroke="#60a5fa" strokeWidth={3} />
-                            {l1HoverIdx !== null && values[l1HoverIdx] !== undefined && (() => {
-                              const x = (l1HoverIdx/(len-1)) * width;
-                              const y = height - (Math.max(0, Math.min(max, values[l1HoverIdx]))/max) * height;
-                              return (
-                                <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
-                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#60a5fa" />
-                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l1HoverIdx].toFixed(1)} kWh</text>
-                                  <circle cx={x} cy={y} r={5} fill="#60a5fa" stroke="#1f2937" strokeWidth={2} />
-                                </g>
-                              );
-                            })()}
-                          </svg>
+                          <g key={i}>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                          </g>
+                        );
+                      })}
+                      {/* X-axis grid and labels */}
+                      {Array.from({ length: len }, (_, i) => {
+                        const x = l + (i / (len - 1)) * innerW;
+                        const label = l1Scale === "D" ? `${i}:00` : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
+                        return (
+                          <g key={i}>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                          </g>
+                        );
+                      })}
+                      {/* Line path */}
+                      <path d={pathD} fill="none" stroke="#ef4444" strokeWidth={2} />
+                      {/* Hover tooltip */}
+                      {l1HoverIdx !== null && values[l1HoverIdx] !== undefined && (() => {
+                        const hoverX = l + (l1HoverIdx / (len - 1)) * innerW;
+                        const hoverY = t + innerH * (1 - values[l1HoverIdx] / max);
+                        return (
+                          <g>
+                            <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#ef4444" />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l1HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
+                          </g>
                         );
                       })()}
-                    </div>
-                    {/* X labels aligned to exact indices */}
-                    {(() => {
-                      const len = l1Scale === "D" ? 24 : l1Scale === "W" ? 7 : l1Scale === "Y" ? 12 : 30;
-                      return (
-                        <div className="mt-1 relative h-4">
-                          {Array.from({ length: len }, (_, i) => (
-                            <div
-                              key={i}
-                              className="absolute text-[8px] text-white text-center"
-                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
-                            >
-                              {l1Scale === "D" ? i : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
+                    </svg>
+                  );
+                })()}
               </div>
             </div>
 
@@ -599,77 +596,78 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l2Scale} setScale={setL2Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
-                <div className="flex h-full">
-                  {/* Y-axis */}
-                  <div className="flex flex-col justify-between h-full w-8 mr-2">
-                    {[50,40,30,20,10,0].map((val,i)=>(
-                      <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
-                        <div className="w-2 h-px bg-gray-700 ml-1"></div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Line chart area */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1">
-                      {(() => {
-                        const len = l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30;
-                        const base = realtimeData.l2Current;
-                        const values = Array.from({ length: len }, (_, i) => {
-                          const timeVariation = Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (base * 0.25);
-                          return Math.max(3, base + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
-                        });
-                        const max = 50;
-                        const { d, area, width, height } = buildLinePaths(values, max);
-                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                          const idx = Math.round(ratio * (len - 1));
-                          setL2HoverIdx(idx);
-                        };
+              <div className="relative flex-1 rounded-xl overflow-hidden">
+                {(() => {
+                  const len = l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30;
+                  const base = realtimeData.l2Current;
+                  const values = Array.from({ length: len }, (_, i) => {
+                    const timeVariation = Math.sin(i * 0.7 + currentTime.getMinutes() * 0.15) * (base * 0.25);
+                    return Math.max(3, base + timeVariation + Math.sin(i * 0.4 + realtimeData.currentPower/120) * 4);
+                  });
+                  const max = 50;
+                  const w = 1000, h = 200;
+                  const l = 38, r = 12, t = 20, b = 30;
+                  const innerW = w - l - r;
+                  const innerH = h - t - b;
+                  
+                  const pathD = values.map((v, i) => {
+                    const x = l + (i / (len - 1)) * innerW;
+                    const y = t + innerH * (1 - v / max);
+                    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+                  }).join(' ');
+                  
+                  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const ratio = Math.max(0, Math.min(1, (mouseX - rect.left * (l / w)) / (rect.width * (innerW / w))));
+                    const idx = Math.round(ratio * (len - 1));
+                    setL2HoverIdx(idx);
+                  };
+                  
+                  return (
+                    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL2HoverIdx(null)} style={{cursor:'crosshair'}}>
+                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      {/* Y-axis grid and labels */}
+                      {[50,40,30,20,10,0].map((val, i) => {
+                        const y = t + innerH * (1 - val / max);
                         return (
-                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL2HoverIdx(null)} style={{cursor:'crosshair'}}>
-                            {[0,1,2,3,4,5].map(i => (
-                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
-                            ))}
-                            <path d={area} fill="#22c55e" fillOpacity={0.15} />
-                            <path d={d} fill="none" stroke="#34d399" strokeWidth={3} />
-                            {l2HoverIdx !== null && values[l2HoverIdx] !== undefined && (() => {
-                              const x = (l2HoverIdx/(len-1)) * width;
-                              const y = height - (Math.max(0, Math.min(max, values[l2HoverIdx]))/max) * height;
-                              return (
-                                <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
-                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#34d399" />
-                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l2HoverIdx].toFixed(1)} kWh</text>
-                                  <circle cx={x} cy={y} r={5} fill="#34d399" stroke="#1f2937" strokeWidth={2} />
-                                </g>
-                              );
-                            })()}
-                          </svg>
+                          <g key={i}>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                          </g>
+                        );
+                      })}
+                      {/* X-axis grid and labels */}
+                      {Array.from({ length: len }, (_, i) => {
+                        const x = l + (i / (len - 1)) * innerW;
+                        const label = l2Scale === "D" ? `${i}:00` : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
+                        return (
+                          <g key={i}>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                          </g>
+                        );
+                      })}
+                      {/* Line path */}
+                      <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} />
+                      {/* Hover tooltip */}
+                      {l2HoverIdx !== null && values[l2HoverIdx] !== undefined && (() => {
+                        const hoverX = l + (l2HoverIdx / (len - 1)) * innerW;
+                        const hoverY = t + innerH * (1 - values[l2HoverIdx] / max);
+                        return (
+                          <g>
+                            <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#3b82f6" />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l2HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
+                          </g>
                         );
                       })()}
-                    </div>
-                    {(() => {
-                      const len = l2Scale === "D" ? 24 : l2Scale === "W" ? 7 : l2Scale === "Y" ? 12 : 30;
-                      return (
-                        <div className="mt-1 relative h-4">
-                          {Array.from({ length: len }, (_, i) => (
-                            <div
-                              key={i}
-                              className="absolute text-[8px] text-white text-center"
-                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
-                            >
-                              {l2Scale === "D" ? i : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
+                    </svg>
+                  );
+                })()}
               </div>
             </div>
 
@@ -682,77 +680,78 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   <ScaleSwitch currentScale={l3Scale} setScale={setL3Scale} />
                 </div>
               </div>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
-                <div className="flex h-full">
-                  {/* Y-axis */}
-                  <div className="flex flex-col justify-between h-full w-8 mr-2">
-                    {[50,40,30,20,10,0].map((val,i)=>(
-                      <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-white w-6 text-right">{val}</div>
-                        <div className="w-2 h-px bg-gray-700 ml-1"></div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Line chart area */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="relative flex-1">
-                      {(() => {
-                        const len = l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30;
-                        const base = realtimeData.l3Current;
-                        const values = Array.from({ length: len }, (_, i) => {
-                          const timeVariation = Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (base * 0.2);
-                          return Math.max(2, base + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
-                        });
-                        const max = 50;
-                        const { d, area, width, height } = buildLinePaths(values, max);
-                        const handleMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-                          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-                          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                          const idx = Math.round(ratio * (len - 1));
-                          setL3HoverIdx(idx);
-                        };
+              <div className="relative flex-1 rounded-xl overflow-hidden">
+                {(() => {
+                  const len = l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30;
+                  const base = realtimeData.l3Current;
+                  const values = Array.from({ length: len }, (_, i) => {
+                    const timeVariation = Math.sin(i * 0.9 + currentTime.getMinutes() * 0.12) * (base * 0.2);
+                    return Math.max(2, base + timeVariation + Math.sin(i * 0.6 + realtimeData.currentPower/150) * 3);
+                  });
+                  const max = 50;
+                  const w = 1000, h = 200;
+                  const l = 38, r = 12, t = 20, b = 30;
+                  const innerW = w - l - r;
+                  const innerH = h - t - b;
+                  
+                  const pathD = values.map((v, i) => {
+                    const x = l + (i / (len - 1)) * innerW;
+                    const y = t + innerH * (1 - v / max);
+                    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+                  }).join(' ');
+                  
+                  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const ratio = Math.max(0, Math.min(1, (mouseX - rect.left * (l / w)) / (rect.width * (innerW / w))));
+                    const idx = Math.round(ratio * (len - 1));
+                    setL3HoverIdx(idx);
+                  };
+                  
+                  return (
+                    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL3HoverIdx(null)} style={{cursor:'crosshair'}}>
+                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      {/* Y-axis grid and labels */}
+                      {[50,40,30,20,10,0].map((val, i) => {
+                        const y = t + innerH * (1 - val / max);
                         return (
-                          <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full" onMouseMove={handleMove} onMouseLeave={() => setL3HoverIdx(null)} style={{cursor:'crosshair'}}>
-                            {[0,1,2,3,4,5].map(i => (
-                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
-                            ))}
-                            <path d={area} fill="#f59e0b" fillOpacity={0.15} />
-                            <path d={d} fill="none" stroke="#fbbf24" strokeWidth={3} />
-                            {l3HoverIdx !== null && values[l3HoverIdx] !== undefined && (() => {
-                              const x = (l3HoverIdx/(len-1)) * width;
-                              const y = height - (Math.max(0, Math.min(max, values[l3HoverIdx]))/max) * height;
-                              return (
-                                <g>
-                                  <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                                  <rect x={x < width/2 ? x + 10 : x - 130} y={10} width={120} height={50} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
-                                  <circle cx={x < width/2 ? x + 30 : x - 110} cy={35} r={4} fill="#fbbf24" />
-                                  <text x={x < width/2 ? x + 42 : x - 98} y={40} fontSize={18} fill="#f3f4f6" fontWeight="600">{values[l3HoverIdx].toFixed(1)} kWh</text>
-                                  <circle cx={x} cy={y} r={5} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
-                                </g>
-                              );
-                            })()}
-                          </svg>
+                          <g key={i}>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                          </g>
+                        );
+                      })}
+                      {/* X-axis grid and labels */}
+                      {Array.from({ length: len }, (_, i) => {
+                        const x = l + (i / (len - 1)) * innerW;
+                        const label = l3Scale === "D" ? `${i}:00` : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
+                        return (
+                          <g key={i}>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                          </g>
+                        );
+                      })}
+                      {/* Line path */}
+                      <path d={pathD} fill="none" stroke="#fbbf24" strokeWidth={2} />
+                      {/* Hover tooltip */}
+                      {l3HoverIdx !== null && values[l3HoverIdx] !== undefined && (() => {
+                        const hoverX = l + (l3HoverIdx / (len - 1)) * innerW;
+                        const hoverY = t + innerH * (1 - values[l3HoverIdx] / max);
+                        return (
+                          <g>
+                            <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#fbbf24" />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l3HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
+                          </g>
                         );
                       })()}
-                    </div>
-                    {(() => {
-                      const len = l3Scale === "D" ? 24 : l3Scale === "W" ? 7 : l3Scale === "Y" ? 12 : 30;
-                      return (
-                        <div className="mt-1 relative h-4">
-                          {Array.from({ length: len }, (_, i) => (
-                            <div
-                              key={i}
-                              className="absolute text-[8px] text-white text-center"
-                              style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
-                            >
-                              {l3Scale === "D" ? i : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
+                    </svg>
+                  );
+                })()}
               </div>
             </div>
 
@@ -838,20 +837,20 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                 <g>
                                   {/* Crosshair line */}
                                   <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                                  {/* Tooltip background - much larger */}
-                                  <rect x={x < width/2 ? x + 10 : x - 145} y={10} width={135} height={115} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  {/* Tooltip background - spacious */}
+                                  <rect x={x < width/2 ? x + 10 : x - 170} y={15} width={160} height={105} rx={8} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
                                   {/* L1 */}
-                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={35} r={5} fill="#60a5fa" />
-                                  <text x={x < width/2 ? x + 35 : x - 120} y={40} fontSize={15} fill="#9ca3af" fontWeight="500">L1:</text>
-                                  <text x={x < width/2 ? x + 130 : x - 25} y={40} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
+                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={40} r={5} fill="#60a5fa" />
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={45} fontSize={16} fill="#9ca3af" fontWeight="600">L1:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={45} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
                                   {/* L2 */}
-                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={65} r={5} fill="#34d399" />
-                                  <text x={x < width/2 ? x + 35 : x - 120} y={70} fontSize={15} fill="#9ca3af" fontWeight="500">L2:</text>
-                                  <text x={x < width/2 ? x + 130 : x - 25} y={70} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
+                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={70} r={5} fill="#34d399" />
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={75} fontSize={16} fill="#9ca3af" fontWeight="600">L2:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={75} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
                                   {/* L3 */}
-                                  <circle cx={x < width/2 ? x + 22 : x - 133} cy={95} r={5} fill="#fbbf24" />
-                                  <text x={x < width/2 ? x + 35 : x - 120} y={100} fontSize={15} fill="#9ca3af" fontWeight="500">L3:</text>
-                                  <text x={x < width/2 ? x + 130 : x - 25} y={100} fontSize={16} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
+                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={100} r={5} fill="#fbbf24" />
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={105} fontSize={16} fill="#9ca3af" fontWeight="600">L3:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={105} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
                                   {/* Data point circles */}
                                   <circle cx={x} cy={y1} r={5} fill="#60a5fa" stroke="#1f2937" strokeWidth={2} />
                                   <circle cx={x} cy={y2} r={5} fill="#34d399" stroke="#1f2937" strokeWidth={2} />
