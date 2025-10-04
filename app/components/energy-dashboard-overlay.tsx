@@ -762,8 +762,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                 <div className="flex items-center gap-3">
                   {/* legend */}
                   <div className="hidden md:flex items-center gap-3 mr-1">
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>L1</div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span>L2</div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>L1</div>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>L2</div>
                     <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>L3</div>
                   </div>
                   <div className="text-[11px] text-gray-400">kWh</div>
@@ -822,8 +822,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                               <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
                             ))}
                             {/* lines */}
-                            <path d={d1} fill="none" stroke="#60a5fa" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-                            <path d={d2} fill="none" stroke="#34d399" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={d1} fill="none" stroke="#ef4444" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                            <path d={d2} fill="none" stroke="#3b82f6" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                             <path d={d3} fill="none" stroke="#fbbf24" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
 
                             {totalHoverIdx !== null && totalHoverIdx >= 0 && totalHoverIdx < len && (() => {
@@ -840,11 +840,11 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                   {/* Tooltip background - spacious */}
                                   <rect x={x < width/2 ? x + 10 : x - 170} y={15} width={160} height={105} rx={8} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
                                   {/* L1 */}
-                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={40} r={5} fill="#60a5fa" />
+                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={40} r={5} fill="#ef4444" />
                                   <text x={x < width/2 ? x + 38 : x - 142} y={45} fontSize={16} fill="#9ca3af" fontWeight="600">L1:</text>
                                   <text x={x < width/2 ? x + 160 : x - 20} y={45} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
                                   {/* L2 */}
-                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={70} r={5} fill="#34d399" />
+                                  <circle cx={x < width/2 ? x + 25 : x - 155} cy={70} r={5} fill="#3b82f6" />
                                   <text x={x < width/2 ? x + 38 : x - 142} y={75} fontSize={16} fill="#9ca3af" fontWeight="600">L2:</text>
                                   <text x={x < width/2 ? x + 160 : x - 20} y={75} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
                                   {/* L3 */}
@@ -852,8 +852,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                   <text x={x < width/2 ? x + 38 : x - 142} y={105} fontSize={16} fill="#9ca3af" fontWeight="600">L3:</text>
                                   <text x={x < width/2 ? x + 160 : x - 20} y={105} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
                                   {/* Data point circles */}
-                                  <circle cx={x} cy={y1} r={5} fill="#60a5fa" stroke="#1f2937" strokeWidth={2} />
-                                  <circle cx={x} cy={y2} r={5} fill="#34d399" stroke="#1f2937" strokeWidth={2} />
+                                  <circle cx={x} cy={y1} r={5} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
+                                  <circle cx={x} cy={y2} r={5} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
                                   <circle cx={x} cy={y3} r={5} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
                                 </g>
                               );
