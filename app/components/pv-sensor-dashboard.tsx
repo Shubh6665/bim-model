@@ -245,7 +245,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const [chartHeight, setChartHeight] = useState<number>(200);
   const dateInputEl = useRef<HTMLInputElement | null>(null);
   
-  const [viewScale, setViewScale] = useState<"D" | "W" | "M" | "Y">("D");
   const [showSettings, setShowSettings] = useState(false);
   const [forecastPeriod, setForecastPeriod] = useState<ForecastPeriod>('monthly');
   const [customForecastDays, setCustomForecastDays] = useState(90);
@@ -257,6 +256,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     sellingPrice: 0.10,
     forecastTrend: 0,
   });
+
+  // KPIs are computed for current day only; this keeps D/W/M/Y controls exclusive to charts.
+  const periodDays = 1;
 
   const formatDate = (d: Date) => `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
   const dateInputValue = useMemo(() => {
@@ -387,9 +389,68 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   };
 
   useEffect(() => {
+    // Load daily series for KPIs and Live Status; chart series are computed per-chart below
     setLoading(true);
-    loadForSensor(sensor, setSeries, date, viewScale).finally(() => setLoading(false));
-  }, [sensor.id, date, projectId, viewScale]);
+    loadForSensor(sensor, setSeries, date, 'D').finally(() => setLoading(false));
+  }, [sensor.id, date, projectId]);
+
+  // Helper to compute series for a given scale (per-chart)
+  const computeSeriesFor = React.useCallback((scale: "D" | "W" | "M" | "Y") => {
+    const baseDate = date;
+    let start = new Date(baseDate);
+    let end = new Date(baseDate);
+    let resolution = 96;
+    switch (scale) {
+      case 'D':
+        start.setHours(0,0,0,0);
+        end.setHours(23,59,59,999);
+        resolution = 96;
+        break;
+      case 'W':
+        const dayOfWeek = start.getDay();
+        start.setDate(start.getDate() - dayOfWeek);
+        start.setHours(0,0,0,0);
+        end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        end.setHours(23,59,59,999);
+        resolution = 7;
+        break;
+      case 'M':
+        start.setDate(1);
+        start.setHours(0,0,0,0);
+        end = new Date(start);
+        end.setMonth(end.getMonth() + 1);
+        end.setDate(0);
+        end.setHours(23,59,59,999);
+        resolution = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+        break;
+      case 'Y':
+        start.setMonth(0, 1);
+        start.setHours(0,0,0,0);
+        end = new Date(start);
+        end.setFullYear(end.getFullYear() + 1);
+        end.setDate(0);
+        end.setHours(23,59,59,999);
+        resolution = 12;
+        break;
+    }
+    const today = new Date();
+    const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate() && scale === 'D';
+    if (isSameDay) end = new Date();
+    return generatePVMockData(start, end, resolution, scale);
+  }, [date]);
+
+  // Per-chart scale state
+  const [prodScale, setProdScale] = useState<"D" | "W" | "M" | "Y">('D');
+  const [distScale, setDistScale] = useState<"D" | "W" | "M" | "Y">('D');
+  const [gridScale, setGridScale] = useState<"D" | "W" | "M" | "Y">('D');
+  const [econScale, setEconScale] = useState<"D" | "W" | "M" | "Y">('D');
+
+  // Per-chart data
+  const prodSeries = useMemo(() => computeSeriesFor(prodScale), [computeSeriesFor, prodScale]);
+  const distSeries = useMemo(() => computeSeriesFor(distScale), [computeSeriesFor, distScale]);
+  const gridSeries = useMemo(() => computeSeriesFor(gridScale), [computeSeriesFor, gridScale]);
+  const econSeries = useMemo(() => computeSeriesFor(econScale), [computeSeriesFor, econScale]);
 
   const calculateKPIs = useMemo((): KPIData | null => {
     if (!series?.energy || series.energy.length === 0) return null;
@@ -401,7 +462,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     
     const selfConsumption = yieldEnergy * (economicParams.selfConsumptionRate / 100);
     const exportedEnergy = yieldEnergy - selfConsumption;
-    const gridConsumption = Math.max(0, economicParams.avgDailyLoad - selfConsumption);
+    // Scale daily load to the selected period to avoid unit mismatch
+    const totalLoadForPeriod = economicParams.avgDailyLoad * periodDays;
+    const gridConsumption = Math.max(0, totalLoadForPeriod - selfConsumption);
     
     const income = exportedEnergy * economicParams.sellingPrice;
     const saving = selfConsumption * economicParams.gridPrice;
@@ -417,7 +480,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       saving,
       bill,
     };
-  }, [series, economicParams]);
+  }, [series, economicParams, periodDays]);
   
   const calculateForecast = useMemo(() => {
     if (!series?.production || series.production.length < 3) return null;
@@ -430,9 +493,12 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     let totalIncome = 0;
     let totalSaving = 0;
     
+    // Use daily energy (kWh) baseline for forecasting from current day
+    const baseDailyKWh = (series.energy && series.energy.length > 0 ? series.energy[series.energy.length - 1] : 0);
+
     for (let day = 1; day <= daysToForecast; day++) {
       const trendFactor = Math.pow(1 + (economicParams.forecastTrend / 100), day);
-      const forecastProduction = avgProduction * trendFactor;
+      const forecastProduction = baseDailyKWh * trendFactor;
       
       const selfConsumption = forecastProduction * (economicParams.selfConsumptionRate / 100);
       const exported = forecastProduction - selfConsumption;
@@ -452,13 +518,29 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const liveStats = useMemo(() => {
     if (!series?.power || !series.voltage || !series.timestamps) return null;
     
-    const powerCur = series.power[series.power.length-1];
-    const voltageCur = series.voltage[series.voltage.length-1];
-    const currentCur = series.current ? series.current[series.current.length-1] : 0;
-    const efficiencyCur = series.efficiency ? series.efficiency[series.efficiency.length-1] : 0;
+    let powerCur = series.power[series.power.length - 1];
+    let voltageCur = series.voltage[series.voltage.length - 1];
+    let currentCur = series.current ? series.current[series.current.length - 1] : 0;
+    let efficiencyCur = series.efficiency ? series.efficiency[series.efficiency.length - 1] : 0;
+
+    // If this is an FV/PV sensor and we have a realtime combined string like "2.2 kW | 320 V | 6.9 A | 18.2%",
+    // parse it to reflect the live reading precisely in the Live Status panel.
+    if (typeof sensor?.value === 'string') {
+      const parts = sensor.value.split('|').map(s => s.trim());
+      if (parts.length >= 4) {
+        const p = parseFloat(parts[0]);
+        if (!isNaN(p)) powerCur = p;
+        const v = parseFloat(parts[1]);
+        if (!isNaN(v)) voltageCur = v;
+        const a = parseFloat(parts[2]);
+        if (!isNaN(a)) currentCur = a;
+        const e = parseFloat(parts[3]?.replace('%', ''));
+        if (!isNaN(e)) efficiencyCur = e;
+      }
+    }
     
     return { powerCur, voltageCur, currentCur, efficiencyCur };
-  }, [series]);
+  }, [series, sensor?.value]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -576,7 +658,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     
     if (mode === 'production') {
       series1 = data.production;
-      label1 = 'Production (kWh)';
+      const prodUnit = scale === 'D' ? 'kW' : 'kWh';
+      label1 = `Production (${prodUnit})`;
       color1 = '#fbbf24';
     } else if (mode === 'distribution' && kpis) {
       series1 = data.production.map(p => p * (economicParams.selfConsumptionRate / 100));
@@ -586,8 +669,14 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       color1 = '#10b981';
       color2 = '#ef4444';
     } else if (mode === 'grid' && kpis) {
-      series1 = data.production.map(() => Math.max(0, economicParams.avgDailyLoad / data.production.length));
-      series2 = data.production.map(p => p * (economicParams.selfConsumptionRate / 100));
+      // Compute per-point baseline load and PV self-consumption, then grid draw = max(load - selfConsumption, 0)
+      const loadPerPoint = data.production.map(() => (
+        scale === 'D'
+          ? Math.max(0, economicParams.avgDailyLoad / 24) // kW baseline load for each hour
+          : Math.max(0, economicParams.avgDailyLoad)      // kWh per day for W/M/Y
+      ));
+      series2 = data.production.map(p => p * (economicParams.selfConsumptionRate / 100)); // self-consumption
+      series1 = loadPerPoint.map((l, i) => Math.max(0, l - (series2[i] || 0))); // grid draw
       label1 = 'Grid Draw';
       label2 = 'Self-Consumption';
       color1 = '#6b7280';
@@ -711,7 +800,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
         {yTicks.map((v,i)=>{
           const y=t+innerH*(1 - (v-yMin)/span);
-          const displayValue = mode === 'economic' ? `€${v.toFixed(1)}` : v.toFixed(1);
+          const baseUnit = mode === 'economic' ? '€' : (scale === 'D' ? 'kW' : 'kWh');
+          const displayValue = mode === 'economic' ? `€${v.toFixed(1)}` : `${v.toFixed(1)} ${baseUnit}`;
           return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{displayValue}</text></g>;
         })}
         {xLabels.map((labelInfo, index) => (
@@ -775,19 +865,25 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               fill="#9ca3af" 
               textAnchor="middle"
             >
-              {new Date(xs[hoverIndex]).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              {(() => {
+                const d = new Date(xs[hoverIndex]);
+                if (scale === 'D') return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                if (scale === 'W') return d.toLocaleDateString('en-GB', { weekday: 'short' });
+                if (scale === 'M') return d.getDate().toString();
+                return d.toLocaleDateString('en-GB', { month: 'short' });
+              })()}
             </text>
             
             <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill={color1} />
             <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
-              {label1}: {series1[hoverIndex].toFixed(2)}
+              {label1}: {mode === 'economic' ? `€${series1[hoverIndex].toFixed(2)}` : `${series1[hoverIndex].toFixed(2)} ${scale === 'D' ? 'kW' : 'kWh'}`}
             </text>
             
             {series2.length > 0 && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 60} r={3} fill={color2} />
                 <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 63} fontSize={10} fill="#f3f4f6" fontWeight="600">
-                  {label2}: {series2[hoverIndex].toFixed(2)}
+                  {label2}: {mode === 'economic' ? `€${series2[hoverIndex].toFixed(2)}` : `${series2[hoverIndex].toFixed(2)} ${scale === 'D' ? 'kW' : 'kWh'}`}
                 </text>
               </>
             )}
@@ -829,7 +925,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
             </button>
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
-            <ScaleSwitch currentScale={viewScale} setScale={setViewScale} />
             {!standalone && (
               <button
                 onClick={() => {
@@ -940,37 +1035,41 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">{viewScale === 'D' ? 'Daily' : viewScale === 'W' ? 'Weekly' : viewScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
+                <div className="text-xs md:text-sm font-semibold text-white">{prodScale === 'D' ? 'Daily' : prodScale === 'W' ? 'Weekly' : prodScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
+                <ScaleSwitch currentScale={prodScale} setScale={setProdScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
-                <EconomicChart mode="production" title="Production" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
+                <EconomicChart mode="production" title="Production" width={chartWidth} height={chartHeight} data={prodSeries} scale={prodScale} kpis={calculateKPIs} />
               </div>
             </div>
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Energy Distribution</div>
+                <ScaleSwitch currentScale={distScale} setScale={setDistScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
-                <EconomicChart mode="distribution" title="Distribution" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
+                <EconomicChart mode="distribution" title="Distribution" width={chartWidth} height={chartHeight} data={distSeries} scale={distScale} kpis={calculateKPIs} />
               </div>
             </div>
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Grid vs Self-Consumption</div>
+                <ScaleSwitch currentScale={gridScale} setScale={setGridScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
-                <EconomicChart mode="grid" title="Grid" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
+                <EconomicChart mode="grid" title="Grid" width={chartWidth} height={chartHeight} data={gridSeries} scale={gridScale} kpis={calculateKPIs} />
               </div>
             </div>
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Economic Trend</div>
+                <ScaleSwitch currentScale={econScale} setScale={setEconScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
-                <EconomicChart mode="economic" title="Economic" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
+                <EconomicChart mode="economic" title="Economic" width={chartWidth} height={chartHeight} data={econSeries} scale={econScale} kpis={calculateKPIs} />
               </div>
             </div>
           </div>
