@@ -57,7 +57,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
     <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 max-w-md w-full m-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xl">⚙️</span>
+          
           <h3 className="text-base font-semibold text-white">System Parameters</h3>
         </div>
         <button 
@@ -475,16 +475,46 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     return () => ro.disconnect();
   }, [centerColRef]);
 
-  const KPICard: React.FC<{ label: string; value: number; unit: string; color?: string; icon?: string }> = ({ label, value, unit, color = '#22c55e', icon }) => {
+  const KPICard: React.FC<{ label: string; value: number; unit: string; color?: string; showGauge?: boolean; gaugeMin?: number; gaugeMax?: number; trend?: 'up' | 'down' | 'neutral' }> = ({ label, value, unit, color = '#22c55e', showGauge = false, gaugeMin = 0, gaugeMax = 100, trend = 'neutral' }) => {
+    const v = value ?? 0;
+    const pct = showGauge ? Math.max(0, Math.min(1, (v - gaugeMin) / (gaugeMax - gaugeMin || 1))) : 0;
+    
     return (
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex flex-col">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs text-gray-400 uppercase tracking-wide">{label}</div>
-          {icon && <span className="text-lg">{icon}</span>}
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4 flex flex-col justify-between h-full hover:border-gray-600 transition-all duration-300 group">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">{label}</div>
+          {trend !== 'neutral' && (
+            <div className={`text-xs px-1.5 py-0.5 rounded ${
+              trend === 'up' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+            }`}>
+              {trend === 'up' ? '↑' : '↓'}
+            </div>
+          )}
         </div>
-        <div className="text-2xl font-bold" style={{ color }}>
-          {value.toFixed(unit === '€' ? 2 : unit === '%' ? 1 : 1)}
-          <span className="text-sm ml-1 text-gray-400">{unit}</span>
+        
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="text-3xl lg:text-4xl font-bold tabular-nums leading-none" style={{ color }}>
+            {value.toFixed(unit === '€' ? 2 : unit === '%' ? 0 : 1)}
+            <span className="text-base ml-2 text-gray-500 font-medium">{unit}</span>
+          </div>
+          
+          {showGauge && (
+            <div className="mt-4 hidden lg:block">
+              <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{ 
+                    width: `${pct * 100}%`,
+                    background: `linear-gradient(90deg, ${color}dd, ${color})`
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5 text-[9px] text-gray-500">
+                <span>{gaugeMin}</span>
+                <span>{gaugeMax}{unit}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -788,7 +818,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               className="px-3 py-1.5 rounded-lg bg-gray-800/70 border border-gray-700 text-xs text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-2"
               title="Settings"
             >
-              ⚙️ Settings
+              <span>⚙️</span> Settings
             </button>
             <button
               onClick={()=>{ const el=dateInputEl.current as any; if(el?.showPicker) el.showPicker(); else el?.click(); }}
@@ -797,7 +827,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             >
               <span className="hidden sm:inline">{formatDate(date)}</span>
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
-              <span className="inline-block w-3 h-3 md:w-4 md:h-4 text-gray-300">📅</span>
             </button>
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
             <ScaleSwitch currentScale={viewScale} setScale={setViewScale} />
@@ -828,20 +857,79 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 min-h-0 max-h-full overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-4 min-h-0 max-h-full overflow-hidden">
         {/* LEFT COLUMN - 8 KPI Indicators */}
-        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-1 md:col-span-3 flex flex-col h-full min-h-0">
+          <div className="grid grid-cols-2 gap-2 h-full">
             {calculateKPIs && (
               <>
-                <KPICard label="Yield Energy" value={calculateKPIs.yieldEnergy} unit="kWh" color="#fbbf24" icon="⚡" />
-                <KPICard label="Efficiency" value={calculateKPIs.efficiency} unit="%" color="#22c55e" icon="🎯" />
-                <KPICard label="Self-Use Rate" value={calculateKPIs.directSelfUseRate} unit="%" color="#10b981" icon="🏠" />
-                <KPICard label="Exported" value={calculateKPIs.exportedEnergy} unit="kWh" color="#ef4444" icon="⬆️" />
-                <KPICard label="Grid Draw" value={calculateKPIs.gridConsumption} unit="kWh" color="#6b7280" icon="⬇️" />
-                <KPICard label="Income" value={calculateKPIs.income} unit="€" color="#a855f7" icon="💰" />
-                <KPICard label="Saving" value={calculateKPIs.saving} unit="€" color="#38bdf8" icon="💵" />
-                <KPICard label="Net Bill" value={calculateKPIs.bill} unit="€" color={calculateKPIs.bill < 0 ? '#22c55e' : '#ef4444'} icon="📊" />
+                {/* Row 1 */}
+                <KPICard 
+                  label="Yield Energy" 
+                  value={calculateKPIs.yieldEnergy} 
+                  unit="kWh" 
+                  color="#fbbf24" 
+                  showGauge={false}
+                  trend="up"
+                />
+                <KPICard 
+                  label="Efficiency" 
+                  value={calculateKPIs.efficiency} 
+                  unit="%" 
+                  color="#22c55e" 
+                  showGauge={true}
+                  gaugeMin={0}
+                  gaugeMax={100}
+                />
+                
+                {/* Row 2 */}
+                <KPICard 
+                  label="Direct Self Use Rate" 
+                  value={calculateKPIs.directSelfUseRate} 
+                  unit="%" 
+                  color="#10b981" 
+                  showGauge={true}
+                  gaugeMin={0}
+                  gaugeMax={100}
+                />
+                <KPICard 
+                  label="Exported Energy" 
+                  value={calculateKPIs.exportedEnergy} 
+                  unit="kWh" 
+                  color="#ef4444"
+                  trend="up"
+                />
+                
+                {/* Row 3 */}
+                <KPICard 
+                  label="Grid Consumption" 
+                  value={calculateKPIs.gridConsumption} 
+                  unit="kWh" 
+                  color="#6b7280"
+                />
+                <KPICard 
+                  label="Income" 
+                  value={calculateKPIs.income} 
+                  unit="€" 
+                  color="#a855f7"
+                  trend="up"
+                />
+                
+                {/* Row 4 */}
+                <KPICard 
+                  label="Saving" 
+                  value={calculateKPIs.saving} 
+                  unit="€" 
+                  color="#38bdf8"
+                  trend="up"
+                />
+                <KPICard 
+                  label="Bill" 
+                  value={calculateKPIs.bill} 
+                  unit="€" 
+                  color={calculateKPIs.bill < 0 ? '#22c55e' : '#ef4444'}
+                  trend={calculateKPIs.bill < 0 ? 'down' : 'up'}
+                />
               </>
             )}
           </div>
@@ -852,7 +940,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">📈 {viewScale === 'D' ? 'Daily' : viewScale === 'W' ? 'Weekly' : viewScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
+                <div className="text-xs md:text-sm font-semibold text-white">{viewScale === 'D' ? 'Daily' : viewScale === 'W' ? 'Weekly' : viewScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
               </div>
               <div className="flex-1 min-h-0 relative">
                 <EconomicChart mode="production" title="Production" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
@@ -861,7 +949,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">🔄 Energy Distribution</div>
+                <div className="text-xs md:text-sm font-semibold text-white">Energy Distribution</div>
               </div>
               <div className="flex-1 min-h-0 relative">
                 <EconomicChart mode="distribution" title="Distribution" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
@@ -870,7 +958,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">⚡ Grid vs Self-Consumption</div>
+                <div className="text-xs md:text-sm font-semibold text-white">Grid vs Self-Consumption</div>
               </div>
               <div className="flex-1 min-h-0 relative">
                 <EconomicChart mode="grid" title="Grid" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
@@ -879,7 +967,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
             <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">💰 Economic Trend</div>
+                <div className="text-xs md:text-sm font-semibold text-white">Economic Trend</div>
               </div>
               <div className="flex-1 min-h-0 relative">
                 <EconomicChart mode="economic" title="Economic" width={chartWidth} height={chartHeight} data={series} scale={viewScale} kpis={calculateKPIs} />
@@ -889,120 +977,165 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
 
         {/* RIGHT COLUMN - Economic Forecast Panel */}
-        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-3">🔮 Economic Forecast</div>
+        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-3 min-h-0">
+          {/* Economic Forecast - Main Card */}
+          <div className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 border border-slate-700/50 rounded-2xl p-3 md:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Decorative background elements */}
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl"></div>
             
-            <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setForecastPeriod('monthly')}
-                className={`flex-1 px-2 py-1 rounded text-xs font-semibold transition ${
-                  forecastPeriod === 'monthly'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setForecastPeriod('annual')}
-                className={`flex-1 px-2 py-1 rounded text-xs font-semibold transition ${
-                  forecastPeriod === 'annual'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Annual
-              </button>
-              <button
-                onClick={() => setForecastPeriod('custom')}
-                className={`flex-1 px-2 py-1 rounded text-xs font-semibold transition ${
-                  forecastPeriod === 'custom'
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Custom
-              </button>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white">Economic Forecast</h3>
+                <div className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                  <span className="text-[10px] font-semibold text-blue-400">{calculateForecast?.days || 30} days</span>
+                </div>
+              </div>
+              
+              {/* Period Selector */}
+              <div className="flex gap-1.5 mb-3 p-0.5 bg-gray-800/40 rounded-lg backdrop-blur-sm">
+                <button
+                  onClick={() => setForecastPeriod('monthly')}
+                  className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
+                    forecastPeriod === 'monthly'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setForecastPeriod('annual')}
+                  className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
+                    forecastPeriod === 'annual'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                  }`}
+                >
+                  Annual
+                </button>
+                <button
+                  onClick={() => setForecastPeriod('custom')}
+                  className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
+                    forecastPeriod === 'custom'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                  }`}
+                >
+                  Custom
+                </button>
+              </div>
+              
+              {/* Custom Days Input */}
+              {forecastPeriod === 'custom' && (
+                <div className="mb-3">
+                  <label className="text-[10px] text-gray-400 block mb-1 font-medium">Days to forecast</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="730"
+                    value={customForecastDays}
+                    onChange={(e) => setCustomForecastDays(Number(e.target.value))}
+                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                  />
+                </div>
+              )}
+              
+              {/* Forecast Values */}
+              {calculateForecast && (
+                <div className="flex-1 flex flex-col gap-2 min-h-0">
+                  {/* Total Benefit - Hero Card */}
+                  <div className="relative group flex-shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-green-500/20 rounded-xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+                    <div className="relative bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-green-500/20 border border-emerald-400/30 rounded-xl p-3 backdrop-blur-sm">
+                      <div className="flex items-start justify-between mb-1.5">
+                        <div className="flex-1">
+                          <div className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-widest mb-1">Total Benefit</div>
+                          <div className="text-2xl md:text-3xl font-black text-emerald-300 tabular-nums tracking-tight leading-none">
+                            €{calculateForecast.total.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                          <div className="w-1 h-1 rounded-full bg-emerald-400/60 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      </div>
+                      <div className="h-0.5 bg-gradient-to-r from-emerald-500/40 via-green-500/40 to-transparent rounded-full"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Income & Saving - Enhanced Cards */}
+                  <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+                    <div className="relative group">
+                      <div className="absolute inset-0 bg-purple-500/10 rounded-lg blur-md group-hover:blur-lg transition-all duration-300"></div>
+                      <div className="relative bg-gradient-to-br from-purple-500/15 to-purple-600/5 border border-purple-400/20 rounded-lg p-2.5 backdrop-blur-sm">
+                        <div className="text-[9px] font-bold text-purple-400/80 uppercase tracking-widest mb-1">Income</div>
+                        <div className="text-lg md:text-xl font-bold text-purple-300 tabular-nums leading-none">€{calculateForecast.income.toFixed(2)}</div>
+                        <div className="mt-1.5 h-0.5 bg-gradient-to-r from-purple-500/50 to-transparent rounded-full"></div>
+                      </div>
+                    </div>
+                    
+                    <div className="relative group">
+                      <div className="absolute inset-0 bg-cyan-500/10 rounded-lg blur-md group-hover:blur-lg transition-all duration-300"></div>
+                      <div className="relative bg-gradient-to-br from-cyan-500/15 to-cyan-600/5 border border-cyan-400/20 rounded-lg p-2.5 backdrop-blur-sm">
+                        <div className="text-[9px] font-bold text-cyan-400/80 uppercase tracking-widest mb-1">Saving</div>
+                        <div className="text-lg md:text-xl font-bold text-cyan-300 tabular-nums leading-none">€{calculateForecast.saving.toFixed(2)}</div>
+                        <div className="mt-1.5 h-0.5 bg-gradient-to-r from-cyan-500/50 to-transparent rounded-full"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            {forecastPeriod === 'custom' && (
-              <div className="mb-3">
-                <label className="text-xs text-gray-400 block mb-1">Days to forecast:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="730"
-                  value={customForecastDays}
-                  onChange={(e) => setCustomForecastDays(Number(e.target.value))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm"
-                />
-              </div>
-            )}
-            
-            {calculateForecast && (
-              <div className="space-y-3">
-                <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-3">
-                  <div className="text-xs text-purple-400 mb-1">Income</div>
-                  <div className="text-2xl font-bold text-purple-300">€{calculateForecast.income.toFixed(2)}</div>
-                  <div className="text-xs text-gray-400 mt-1">{calculateForecast.days} days</div>
-                </div>
-                
-                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-                  <div className="text-xs text-blue-400 mb-1">Saving</div>
-                  <div className="text-2xl font-bold text-blue-300">€{calculateForecast.saving.toFixed(2)}</div>
-                  <div className="text-xs text-gray-400 mt-1">{calculateForecast.days} days</div>
-                </div>
-                
-                <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
-                  <div className="text-xs text-green-400 mb-1">Total Benefit</div>
-                  <div className="text-2xl font-bold text-green-300">€{calculateForecast.total.toFixed(2)}</div>
-                  <div className="text-xs text-gray-400 mt-1">{calculateForecast.days} days</div>
-                </div>
-              </div>
-            )}
           </div>
           
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-shrink-0">
-            <div className="text-sm font-semibold text-white mb-2">⚡ Current Status</div>
+          {/* Live Status - Compact Card */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-white mb-3 tracking-wide">Live Status</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Power</div>
+                <div className="text-lg font-bold text-yellow-400 tabular-nums">{liveStats?.powerCur.toFixed(1) || '0.0'}</div>
+                <div className="text-[9px] text-gray-600">kW</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Voltage</div>
+                <div className="text-lg font-bold text-blue-400 tabular-nums">{liveStats?.voltageCur.toFixed(0) || '0'}</div>
+                <div className="text-[9px] text-gray-600">V</div>
+              </div>
+              <div className="text-center">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Efficiency</div>
+                <div className="text-lg font-bold text-green-400 tabular-nums">{liveStats?.efficiencyCur.toFixed(1) || '0.0'}</div>
+                <div className="text-[9px] text-gray-600">%</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* System Parameters - Compact */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4">
+            <h3 className="text-sm font-bold text-white mb-3 tracking-wide">System Parameters</h3>
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Power:</span>
-                <span className="text-white font-semibold">{liveStats?.powerCur.toFixed(1) || '0.0'} kW</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Self-Consumption</span>
+                <span className="text-white font-semibold tabular-nums">{economicParams.selfConsumptionRate}%</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Voltage:</span>
-                <span className="text-white font-semibold">{liveStats?.voltageCur.toFixed(0) || '0'} V</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Daily Load</span>
+                <span className="text-white font-semibold tabular-nums">{economicParams.avgDailyLoad} kWh</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Efficiency:</span>
-                <span className="text-white font-semibold">{liveStats?.efficiencyCur.toFixed(1) || '0.0'}%</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Grid Price</span>
+                <span className="text-white font-semibold tabular-nums">€{economicParams.gridPrice.toFixed(2)}/kWh</span>
               </div>
-            </div>
-          </div>
-          
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 flex-1 overflow-auto">
-            <div className="text-sm font-semibold text-white mb-2">📊 System Parameters</div>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Self-Consumption:</span>
-                <span className="text-white font-semibold">{economicParams.selfConsumptionRate}%</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Sell Price</span>
+                <span className="text-white font-semibold tabular-nums">€{economicParams.sellingPrice.toFixed(2)}/kWh</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Daily Load:</span>
-                <span className="text-white font-semibold">{economicParams.avgDailyLoad} kWh</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Grid Price:</span>
-                <span className="text-white font-semibold">€{economicParams.gridPrice.toFixed(2)}/kWh</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Sell Price:</span>
-                <span className="text-white font-semibold">€{economicParams.sellingPrice.toFixed(2)}/kWh</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Forecast Trend:</span>
-                <span className="text-white font-semibold">{economicParams.forecastTrend > 0 ? '+' : ''}{economicParams.forecastTrend}%</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Forecast Trend</span>
+                <span className={`font-semibold tabular-nums ${economicParams.forecastTrend > 0 ? 'text-green-400' : economicParams.forecastTrend < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                  {economicParams.forecastTrend > 0 ? '+' : ''}{economicParams.forecastTrend}%
+                </span>
               </div>
             </div>
           </div>
