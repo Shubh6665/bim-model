@@ -298,15 +298,45 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const [forecastPeriod, setForecastPeriod] = useState<ForecastPeriod>('monthly');
   const [customForecastDays, setCustomForecastDays] = useState(90);
   
-  const [economicParams, setEconomicParams] = useState<EconomicParams>({
-    selfConsumptionRate: 70,   // 70% self-consumption
-    avgDailyLoad: 15,          // 15 kWh daily load
-    gridPrice: 0.25,           // €0.25/kWh grid price
-    sellingPrice: 0.10,        // €0.10/kWh selling price
-    forecastTrend: 0,          // 0% trend (no growth/decrease)
-    panelSurface: 50,          // 50 m² panel surface (optional)
-    dailyIrradiance: 4.5,      // 4.5 kWh/m²/day irradiance (optional)
+  // Load economic parameters from LocalStorage or use defaults
+  const [economicParams, setEconomicParams] = useState<EconomicParams>(() => {
+    // Try to load from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const savedParams = localStorage.getItem(`pv-params-${sensor.id}`);
+        if (savedParams) {
+          const parsed = JSON.parse(savedParams);
+          console.log('[PV Dashboard] Loaded saved parameters from LocalStorage:', parsed);
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('[PV Dashboard] Failed to load saved parameters:', e);
+      }
+    }
+    
+    // Default values if no saved data
+    return {
+      selfConsumptionRate: 70,   // 70% self-consumption
+      avgDailyLoad: 15,          // 15 kWh daily load
+      gridPrice: 0.25,           // €0.25/kWh grid price
+      sellingPrice: 0.10,        // €0.10/kWh selling price
+      forecastTrend: 0,          // 0% trend (no growth/decrease)
+      panelSurface: 50,          // 50 m² panel surface (optional)
+      dailyIrradiance: 4.5,      // 4.5 kWh/m²/day irradiance (optional)
+    };
   });
+  
+  // Save economic parameters to LocalStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`pv-params-${sensor.id}`, JSON.stringify(economicParams));
+        console.log('[PV Dashboard] Saved parameters to LocalStorage:', economicParams);
+      } catch (e) {
+        console.warn('[PV Dashboard] Failed to save parameters:', e);
+      }
+    }
+  }, [economicParams, sensor.id]);
 
   // KPIs are computed for current day only; this keeps D/W/M/Y controls exclusive to charts.
   const periodDays = 1;
