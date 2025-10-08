@@ -160,10 +160,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               onChange={(e) => {
                 const val = e.target.value.replace(',', '.');
                 const num = parseFloat(val);
-                setEconomicParams({ ...economicParams, avgDailyLoad: isNaN(num) ? 0 : num });
+                // Average daily load must be ≥ 0 as per specification
+                setEconomicParams({ ...economicParams, avgDailyLoad: isNaN(num) ? 0 : Math.max(0, num) });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
-              placeholder="e.g. 15"
+              placeholder="e.g. 15 (min: 0)"
             />
           </div>
           <div>
@@ -179,7 +180,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                   setGridPriceText(val);
                   const num = parseFloat(val);
                   if (!isNaN(num)) {
-                    setEconomicParams({ ...economicParams, gridPrice: num });
+                    // Grid price must be > 0 as per specification
+                    setEconomicParams({ ...economicParams, gridPrice: Math.max(0.01, num) });
                   }
                 }
               }}
@@ -188,7 +190,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 setGridPriceText(String(economicParams.gridPrice));
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
-              placeholder="e.g. 0.25"
+              placeholder="e.g. 0.25 (min: 0.01)"
             />
           </div>
           <div>
@@ -204,7 +206,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                   setSellingPriceText(val);
                   const num = parseFloat(val);
                   if (!isNaN(num)) {
-                    setEconomicParams({ ...economicParams, sellingPrice: num });
+                    // Selling price must be ≥ 0 as per specification
+                    setEconomicParams({ ...economicParams, sellingPrice: Math.max(0, num) });
                   }
                 }
               }}
@@ -213,7 +216,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 setSellingPriceText(String(economicParams.sellingPrice));
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
-              placeholder="e.g. 0.10"
+              placeholder="e.g. 0.10 (min: 0)"
             />
           </div>
           <div>
@@ -225,10 +228,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               onChange={(e) => {
                 const val = e.target.value.replace(',', '.');
                 const num = parseFloat(val);
-                setEconomicParams({ ...economicParams, forecastTrend: isNaN(num) ? 0 : num });
+                // Clamp trend to -20% → +20% as per specification
+                setEconomicParams({ ...economicParams, forecastTrend: isNaN(num) ? 0 : Math.min(20, Math.max(-20, num)) });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
-              placeholder="e.g. 2"
+              placeholder="e.g. 2 (range: -20 to +20)"
             />
           </div>
         </div>
@@ -654,23 +658,27 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     // 4. Exported = Production − Self-Use
     const exportedEnergy = yieldEnergy - selfConsumption;
     
-    // 5. Grid Consumption = max(0, Daily Load − Self-Use)
+    // 5. Direct Self-Use Rate = (Self-Use / Production) × 100
+    // Calculate actual rate from data as per client specification
+    const directSelfUseRate = yieldEnergy > 0 ? (selfConsumption / yieldEnergy) * 100 : 0;
+    
+    // 6. Grid Consumption = max(0, Daily Load − Self-Use)
     const totalLoadForPeriod = economicParams.avgDailyLoad * periodDays;
     const gridConsumption = Math.max(0, totalLoadForPeriod - selfConsumption);
     
-    // 6. Income = Exported × Selling price
+    // 7. Income = Exported × Selling price
     const income = exportedEnergy * economicParams.sellingPrice;
     
-    // 7. Saving = Self-Use × Grid price
+    // 8. Saving = Self-Use × Grid price
     const saving = selfConsumption * economicParams.gridPrice;
     
-    // 8. Bill = (Grid × Grid price) − Income
+    // 9. Bill = (Grid × Grid price) − Income
     const bill = (gridConsumption * economicParams.gridPrice) - income;
     
     return {
       yieldEnergy,
       efficiency: avgEfficiency,
-      directSelfUseRate: economicParams.selfConsumptionRate,
+      directSelfUseRate,
       exportedEnergy,
       gridConsumption,
       income,
