@@ -320,13 +320,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
 export default function PVSensorDashboard({ sensor, allSensors, onClose, projectId, standalone = false }: Props) {
   const [date, setDate] = useState(() => new Date());
   const [series, setSeries] = useState<DailySeries | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true for initial load
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
   const centerColRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState<number>(800);
   const [chartHeight, setChartHeight] = useState<number>(200);
   const dateInputEl = useRef<HTMLInputElement | null>(null);
+  const [hasReceivedValidData, setHasReceivedValidData] = useState(false);
+  const initialLoadRef = useRef(true);
   
   const [showSettings, setShowSettings] = useState(false);
   const [forecastPeriod, setForecastPeriod] = useState<ForecastPeriod>('monthly');
@@ -391,20 +393,30 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   }, [now]);
 
   // Extract current production from sensor.value (format: "13.02 kWh")
-  const getCurrentProduction = (): number => {
+  // Returns null if sensor value is invalid or zero (waiting for real data)
+  const getCurrentProduction = (): number | null => {
     try {
       console.log('[PV Dashboard] Parsing sensor value:', sensor.value);
+      
+      // Check if sensor value contains "kWh" format
       const match = sensor.value.match(/([0-9.]+)\s*kWh/);
       if (match && match[1]) {
         const production = parseFloat(match[1]);
+        
+        // If production is 0 or invalid, we're still waiting for real data
+        if (production <= 0 || isNaN(production)) {
+          console.log('[PV Dashboard] Sensor value is 0 or invalid, waiting for real data');
+          return null;
+        }
+        
         console.log('[PV Dashboard] Extracted production:', production, 'kWh');
         return production;
       }
     } catch (e) {
       console.warn('[PV Dashboard] Failed to parse sensor value:', sensor.value);
     }
-    console.warn('[PV Dashboard] Could not parse sensor value, returning 0');
-    return 0;
+    console.warn('[PV Dashboard] Could not parse sensor value, waiting for valid data');
+    return null;
   };
 
   const generatePVMockData = (start: Date, end: Date, resolution: number, scale: "D" | "W" | "M" | "Y" = "D", currentProduction?: number): DailySeries => {
@@ -506,9 +518,21 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       // Extract current production from sensor value for today's data
       const currentProduction = isSameDay ? getCurrentProduction() : undefined;
       
-      const mockData = generatePVMockData(start, end, resolution, scale, currentProduction);
+      // Only block loading on initial load if data is invalid
+      if (isSameDay && currentProduction === null && initialLoadRef.current) {
+        console.log('[PV Dashboard] Initial load: Waiting for valid sensor data...');
+        return; // Don't update series yet, keep loading spinner
+      }
+      
+      const mockData = generatePVMockData(start, end, resolution, scale, currentProduction ?? undefined);
       setter(mockData);
       setError(null);
+      
+      // Mark that we've received valid data on first load
+      if (isSameDay && currentProduction !== null && initialLoadRef.current) {
+        setHasReceivedValidData(true);
+        initialLoadRef.current = false;
+      }
     } catch (e:any) {
       setError(e?.message || 'Failed to load data');
       setter(null);
@@ -517,9 +541,28 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
   useEffect(() => {
     // Load daily series for KPIs and Live Status; chart series are computed per-chart below
+    const today = new Date();
+    const isToday = date.getDate() === today.getDate() && 
+                    date.getMonth() === today.getMonth() && 
+                    date.getFullYear() === today.getFullYear();
+    
+    // Only validate on initial load for today's data
+    if (isToday && initialLoadRef.current) {
+      const currentProd = getCurrentProduction();
+      if (currentProd === null) {
+        // Still waiting for valid sensor data on first load
+        setLoading(true);
+        return;
+      } else if (!hasReceivedValidData) {
+        // First time receiving valid data
+        setHasReceivedValidData(true);
+        initialLoadRef.current = false;
+      }
+    }
+    
     setLoading(true);
     loadForSensor(sensor, setSeries, date, 'D').finally(() => setLoading(false));
-  }, [sensor.id, sensor.value, date, projectId]); // Added sensor.value to re-render when sensor updates
+  }, [sensor.id, sensor.value, date, projectId, hasReceivedValidData]); // Added sensor.value to re-render when sensor updates
 
   // Helper to compute series for a given scale (per-chart)
   const computeSeriesFor = React.useCallback((scale: "D" | "W" | "M" | "Y") => {
@@ -568,7 +611,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     // Extract current production from sensor value for today's data
     const currentProduction = isSameDay ? getCurrentProduction() : undefined;
     
-    return generatePVMockData(start, end, resolution, scale, currentProduction);
+    return generatePVMockData(start, end, resolution, scale, currentProduction ?? undefined);
   }, [date, sensor.value]); // Added sensor.value to re-compute when sensor updates
 
   // Per-chart scale state
@@ -1464,7 +1507,22 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       </div>
       
       {showSettings && <SettingsPanel economicParams={economicParams} setEconomicParams={setEconomicParams} onClose={() => setShowSettings(false)} />}
-      {loading && (<div className="absolute inset-0 flex items-center justify-center bg-gray-900/50"><div className="text-sm text-gray-300">Loading data…</div></div>)}
+      
+      {/* Loading Overlay with Backdrop Blur */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-md z-50">
+          <div className="flex flex-col items-center gap-4">
+            {/* Spinner */}
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+            {/* Loading Text */}
+            <div className="text-base text-gray-200 font-medium">Loading sensor data…</div>
+          </div>
+        </div>
+      )}
+      
       {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-white text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
     </div>
   );

@@ -4,16 +4,6 @@ import { useEffect, useState, Suspense } from 'react';
 import PVSensorDashboard from '../../../components/pv-sensor-dashboard';
 import { Sensor } from '../../../context/sensor-context';
 
-// BroadcastChannel for syncing sensor data across windows
-let sensorSyncChannel: BroadcastChannel | null = null;
-if (typeof window !== 'undefined') {
-  try {
-    sensorSyncChannel = new BroadcastChannel('sensor-sync');
-  } catch (e) {
-    console.warn('[PV Dashboard] BroadcastChannel not supported');
-  }
-}
-
 function PVDashboardContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -22,7 +12,6 @@ function PVDashboardContent() {
   const [projectId, setProjectId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMainWindow, setIsMainWindow] = useState(false);
 
   useEffect(() => {
     const loadSensorData = async () => {
@@ -36,24 +25,38 @@ function PVDashboardContent() {
 
         setProjectId(projectIdParam || '');
 
-        // Check if this is the main window (has opener) or standalone
-        setIsMainWindow(!window.opener);
+        // Fetch all sensors first to get the full list
+        const sensorsResponse = await fetch(`/api/iot/sensors?projectId=${projectIdParam || ''}`);
+        if (!sensorsResponse.ok) {
+          throw new Error('Failed to fetch sensors');
+        }
+        const allSensorsData = await sensorsResponse.json();
+        setAllSensors(allSensorsData);
 
-        // Fetch sensor data from IoT API (includes real-time value)
-        const response = await fetch(`/api/iot/sensors?projectId=${projectIdParam || ''}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch sensor data');
+        // Fetch real-time data
+        const realtimeResponse = await fetch(`/api/iot/realtime?projectId=${projectIdParam || ''}`);
+        if (!realtimeResponse.ok) {
+          throw new Error('Failed to fetch real-time data');
         }
         
-        const allSensorsData = await response.json();
+        const { updates } = await realtimeResponse.json();
+        
+        // Find current sensor in all sensors list
         const sensorData = allSensorsData.find((s: Sensor) => s.id === sensorId);
         
         if (!sensorData) {
           throw new Error('Sensor not found in project');
         }
         
+        // Update sensor value from real-time data
+        const realtimeUpdate = updates.find((u: any) => u.id === sensorId);
+        if (realtimeUpdate) {
+          sensorData.value = realtimeUpdate.value;
+          sensorData.status = realtimeUpdate.status;
+          sensorData.lastUpdate = realtimeUpdate.lastUpdate;
+        }
+        
         setSensor(sensorData);
-        setAllSensors(allSensorsData);
         
         console.log('[PV Dashboard Page] Loaded sensor:', sensorData.name, 'Value:', sensorData.value);
       } catch (error) {
@@ -66,54 +69,14 @@ function PVDashboardContent() {
 
     loadSensorData();
     
-    // Listen for sensor updates from other windows via BroadcastChannel
-    if (sensorSyncChannel) {
-      const handleMessage = (event: MessageEvent) => {
-        const { type, updates } = event.data;
-        
-        if (type === 'sensor-update') {
-          const sensorId = searchParams.get('id');
-          
-          // Update current sensor
-          setSensor(prevSensor => {
-            if (!prevSensor) return prevSensor;
-            const update = updates.find((u: any) => u.id === sensorId);
-            if (update) {
-              console.log('[PV Dashboard Page] Received broadcast update:', update.value);
-              return {
-                ...prevSensor,
-                value: update.value,
-                status: update.status,
-                lastUpdate: update.lastUpdate
-              };
-            }
-            return prevSensor;
-          });
-          
-          // Update all sensors
-          setAllSensors(prevSensors => {
-            return prevSensors.map(s => {
-              const update = updates.find((u: any) => u.id === s.id);
-              if (update) {
-                return {
-                  ...s,
-                  value: update.value,
-                  status: update.status,
-                  lastUpdate: update.lastUpdate
-                };
-              }
-              return s;
-            });
-          });
-        }
-      };
-      
-      sensorSyncChannel.addEventListener('message', handleMessage);
-      
-      return () => {
-        sensorSyncChannel?.removeEventListener('message', handleMessage);
-      };
-    }
+    // Poll for updates every 15 seconds (independent real-time updates)
+    const pollInterval = setInterval(() => {
+      loadSensorData();
+    }, 15000);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
   }, [searchParams]);
 
   const handleClose = () => {
