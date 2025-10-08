@@ -1179,13 +1179,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           </div>
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button
-              onClick={() => setShowSettings(true)}
-              className="px-3 py-1.5 rounded-lg bg-gray-800/70 border border-gray-700 text-xs text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-2"
-              title="Settings"
-            >
-              <span>⚙️</span> Settings
-            </button>
-            <button
               onClick={()=>{ const el=dateInputEl.current as any; if(el?.showPicker) el.showPicker(); else el?.click(); }}
               className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-gray-800/70 border border-gray-700 text-xs md:text-sm text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-1 md:gap-2"
               title="Pick date"
@@ -1194,6 +1187,18 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
             </button>
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-800/70 hover:bg-gray-700/60 border border-gray-700 text-gray-100 flex items-center justify-center"
+              aria-label="Settings"
+              title="Settings"
+            >
+              {/* Settings icon (Freepik/Flaticon style) */}
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09c.67 0 1.27-.39 1.51-1a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06c.46.46 1.12.6 1.7.39.55-.2.95-.69 1-1.27V3a2 2 0 1 1 4 0v.09c.05.58.45 1.07 1 1.27.58.21 1.24.07 1.7-.39l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.46.46-.6 1.12-.39 1.7.2.55.69.95 1.27 1H21a2 2 0 1 1 0 4h-.09c-.58.05-1.07.45-1.27 1z"></path>
+              </svg>
+            </button>
             {!standalone && (
               <button
                 onClick={() => {
