@@ -1324,6 +1324,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 setViewer(viewerInstance);
                 viewerRef.current = viewerInstance;
                 
+                // Make viewer globally accessible for asset testing
+                if (typeof window !== 'undefined') {
+                    (window as any).viewer = viewerInstance;
+                    console.log('🔧 [ForgeViewer] Viewer made globally accessible as window.viewer');
+                }
+                
                 // Check if primary model should be loaded
                 const primaryId = (models && models.length > 0) ? models[0].id : null;
                 const shouldLoadPrimary = !enabledModelIds || enabledModelIds.size === 0 || 

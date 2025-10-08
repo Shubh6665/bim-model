@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
 
 // Extended models
 interface FMPanelProps { projectId?: string; viewer?: any; }
@@ -46,7 +47,8 @@ interface AssetRecord {
   location?: string;
   suppliers?: string;
   description?: string; 
-  dbId?: number | null; 
+  dbId?: number | null;
+  source?: 'BIM_MODEL' | 'MANUAL';
 }
 
 interface SpaceRecord { 
@@ -229,7 +231,9 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
 }
 
 const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
-  const [rows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
+  const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState(0);
   const [visibleFields, setVisibleFields] = useState({
     basic: true,
     identification: false,
@@ -242,6 +246,71 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     relationships: false
   });
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '' });
+  
+  // BIM Asset Extraction
+  const extractAssetsFromBIM = async () => {
+    if (!viewer || !viewer.model) {
+      alert('No BIM model loaded. Please load a model first.');
+      return;
+    }
+
+    setIsExtracting(true);
+    setExtractionProgress(0);
+
+    try {
+      const { UniversalAssetExtractor } = await import('../services/universal-asset-extractor');
+      const extractor = new UniversalAssetExtractor(viewer);
+      
+      const universalAssets = await extractor.extractUniversalAssets((progress, found, total) => {
+        setExtractionProgress(progress);
+      });
+
+      // Convert UniversalAsset to AssetRecord format
+      const newAssets: AssetRecord[] = universalAssets.map(asset => ({
+        id: asset.id,
+        dbId: asset.dbId,
+        assetCode: `BIM-${asset.dbId}`,
+        assetName: asset.name,
+        category: asset.category,
+        type: asset.type,
+        brand: asset.family || 'Unknown',
+        model: asset.type || 'Unknown',
+        material: asset.material,
+        location: asset.location,
+        description: `${asset.assetType} asset extracted from BIM model (${asset.confidence} confidence)`,
+        condition: 'Good', // Default for BIM assets
+        source: 'BIM_MODEL'
+      }));
+
+      // Merge with existing manual assets
+      const existingManualAssets = rows.filter(r => !r.id.startsWith('universal-') && !r.id.startsWith('bim-asset-'));
+      const allAssets = [...existingManualAssets, ...newAssets];
+      
+      setRows(allAssets);
+      save(K.assets(projectId), allAssets);
+      
+      alert(`✅ Successfully extracted ${newAssets.length} assets from BIM model!\n\nBreakdown:\n${
+        Object.entries(
+          newAssets.reduce((acc, asset) => {
+            const type = asset.description?.includes('STRUCTURAL') ? 'Structural' :
+                        asset.description?.includes('ARCHITECTURAL') ? 'Architectural' :
+                        asset.description?.includes('MEP') ? 'MEP' :
+                        asset.description?.includes('EQUIPMENT') ? 'Equipment' :
+                        asset.description?.includes('FURNITURE') ? 'Furniture' : 'Other';
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        ).map(([type, count]) => `• ${type}: ${count}`).join('\n')
+      }`);
+
+    } catch (error) {
+      console.error('Asset extraction failed:', error);
+      alert('❌ Failed to extract assets from BIM model. Please check console for details.');
+    } finally {
+      setIsExtracting(false);
+      setExtractionProgress(0);
+    }
+  };
   
   const onRowClick = (r: AssetRecord) => { 
     try { 
@@ -305,6 +374,29 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </div>
         </details>
         
+        {/* BIM Asset Extraction */}
+        <div className="mb-2">
+          <button 
+            onClick={extractAssetsFromBIM}
+            disabled={isExtracting}
+            className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${
+              isExtracting 
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
+          >
+            {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : '🏗️ Extract Assets from BIM'}
+          </button>
+          {isExtracting && (
+            <div className="mt-1 bg-gray-800 rounded-full h-1">
+              <div 
+                className="bg-green-500 h-1 rounded-full transition-all duration-300"
+                style={{ width: `${extractionProgress}%` }}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Filters */}
         <details className="mb-2">
           <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">Filters</summary>
@@ -349,6 +441,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             <tr>
               {visibleFields.basic && (
                 <>
+                  <th className="text-left px-2 py-1.5">Source</th>
                   <th className="text-left px-2 py-1.5">Category</th>
                   <th className="text-left px-2 py-1.5">Type</th>
                   <th className="text-left px-2 py-1.5">Brand</th>
@@ -415,6 +508,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={()=>onRowClick(r)}>
                 {visibleFields.basic && (
                   <>
+                    <td className="px-2 py-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        r.source === 'BIM_MODEL' 
+                          ? 'bg-green-900/40 text-green-300' 
+                          : 'bg-blue-900/40 text-blue-300'
+                      }`}>
+                        {r.source === 'BIM_MODEL' ? '🏗️ BIM' : '✏️ Manual'}
+                      </span>
+                    </td>
                     <td className="px-2 py-1.5 text-gray-100">{r.category||'-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.type||'-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.brand||'-'}</td>
@@ -502,7 +604,8 @@ const CreateAsset: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     const rec: AssetRecord = { 
       ...f as AssetRecord,
       id:`asset-${Date.now()}`,
-      dbId:null 
+      dbId:null,
+      source: 'MANUAL'
     }; 
     setRows(prev=>[rec,...prev]); 
     setF({ 
