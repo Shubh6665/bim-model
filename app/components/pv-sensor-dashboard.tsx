@@ -1028,8 +1028,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
         {yTicks.map((v,i)=>{
           const y=t+innerH*(1 - (v-yMin)/span);
-          const baseUnit = mode === 'economic' ? '€' : (scale === 'D' ? 'kW' : 'kWh');
-          const displayValue = mode === 'economic' ? `€${v.toFixed(1)}` : `${v.toFixed(1)} ${baseUnit}`;
+          // Display only the number value, units are shown in tooltip
+          const displayValue = v.toFixed(1);
           return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{displayValue}</text></g>;
         })}
         {xLabels.map((labelInfo, index) => (
