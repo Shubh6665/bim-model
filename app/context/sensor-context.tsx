@@ -693,6 +693,27 @@ export function SensorProvider({ children }: SensorProviderProps) {
       }
       return updated;
     });
+    
+    // Also update the viewerOverlay sensor if it's currently displayed
+    setViewerOverlay(prev => {
+      if (!prev || !prev.sensor) return prev;
+      
+      const sensorUpdate = updates.find(u => u.id === prev.sensor.id);
+      if (sensorUpdate) {
+        console.log(`[SensorContext] Also updating viewerOverlay sensor ${sensorUpdate.id}: ${sensorUpdate.value}`);
+        return {
+          ...prev,
+          sensor: {
+            ...prev.sensor,
+            value: sensorUpdate.value,
+            status: sensorUpdate.status as "Online" | "Offline" | "Warning",
+            lastUpdate: sensorUpdate.lastUpdate,
+          }
+        };
+      }
+      
+      return prev;
+    });
   }, []);
 
   // (moved room detection helpers above)

@@ -393,7 +393,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   }, [now]);
 
   // Extract current production from sensor.value (format: "13.02 kWh")
-  // Returns null if sensor value is invalid or zero (waiting for real data)
+  // Returns null only on very first load if sensor value is invalid
   const getCurrentProduction = (): number | null => {
     try {
       console.log('[PV Dashboard] Parsing sensor value:', sensor.value);
@@ -403,10 +403,10 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       if (match && match[1]) {
         const production = parseFloat(match[1]);
         
-        // If production is 0 or invalid, we're still waiting for real data
-        if (production <= 0 || isNaN(production)) {
-          console.log('[PV Dashboard] Sensor value is 0 or invalid, waiting for real data');
-          return null;
+        // Only return null on initial load if value is truly invalid
+        if (isNaN(production)) {
+          console.log('[PV Dashboard] Invalid sensor value (NaN)');
+          return initialLoadRef.current ? null : 0;
         }
         
         console.log('[PV Dashboard] Extracted production:', production, 'kWh');
@@ -415,8 +415,10 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     } catch (e) {
       console.warn('[PV Dashboard] Failed to parse sensor value:', sensor.value);
     }
-    console.warn('[PV Dashboard] Could not parse sensor value, waiting for valid data');
-    return null;
+    
+    // Return null only on first load, otherwise return 0
+    console.warn('[PV Dashboard] Could not parse sensor value');
+    return initialLoadRef.current ? null : 0;
   };
 
   const generatePVMockData = (start: Date, end: Date, resolution: number, scale: "D" | "W" | "M" | "Y" = "D", currentProduction?: number): DailySeries => {
@@ -518,7 +520,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       // Extract current production from sensor value for today's data
       const currentProduction = isSameDay ? getCurrentProduction() : undefined;
       
-      // Only block loading on initial load if data is invalid
+      // Only block on very first load if data is completely invalid (null)
       if (isSameDay && currentProduction === null && initialLoadRef.current) {
         console.log('[PV Dashboard] Initial load: Waiting for valid sensor data...');
         return; // Don't update series yet, keep loading spinner
@@ -528,8 +530,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       setter(mockData);
       setError(null);
       
-      // Mark that we've received valid data on first load
+      // Mark that we've received valid data on first successful load
       if (isSameDay && currentProduction !== null && initialLoadRef.current) {
+        console.log('[PV Dashboard] First valid data received, clearing initial load flag');
         setHasReceivedValidData(true);
         initialLoadRef.current = false;
       }
@@ -541,28 +544,33 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
   useEffect(() => {
     // Load daily series for KPIs and Live Status; chart series are computed per-chart below
+    console.log('[PV Dashboard] useEffect triggered - sensor.value:', sensor.value, 'sensor.id:', sensor.id);
+    
     const today = new Date();
     const isToday = date.getDate() === today.getDate() && 
                     date.getMonth() === today.getMonth() && 
                     date.getFullYear() === today.getFullYear();
     
-    // Only validate on initial load for today's data
+    // Only validate on very first mount
     if (isToday && initialLoadRef.current) {
       const currentProd = getCurrentProduction();
       if (currentProd === null) {
         // Still waiting for valid sensor data on first load
+        console.log('[PV Dashboard] Initial mount: waiting for valid data');
         setLoading(true);
         return;
-      } else if (!hasReceivedValidData) {
-        // First time receiving valid data
-        setHasReceivedValidData(true);
+      } else {
+        // First valid data received
+        console.log('[PV Dashboard] Initial mount: valid data received, clearing flag');
         initialLoadRef.current = false;
+        setHasReceivedValidData(true);
       }
     }
     
+    // Load data
     setLoading(true);
     loadForSensor(sensor, setSeries, date, 'D').finally(() => setLoading(false));
-  }, [sensor.id, sensor.value, date, projectId, hasReceivedValidData]); // Added sensor.value to re-render when sensor updates
+  }, [sensor.id, sensor.value, date, projectId]); // Removed hasReceivedValidData to prevent loops
 
   // Helper to compute series for a given scale (per-chart)
   const computeSeriesFor = React.useCallback((scale: "D" | "W" | "M" | "Y") => {
