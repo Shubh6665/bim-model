@@ -878,8 +878,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500">No data</div>;
     }
     
-    const w = Math.max(320, width);
-    const h = Math.max(120, height);
+    const w = 1000; // Fixed viewBox width like energy dashboard
+    const h = 200;  // Fixed viewBox height like energy dashboard
     const l = 48; const r = 12; const t = 20; const b = 30;
     
     const xs = data.timestamps.map(d=>d.getTime());
