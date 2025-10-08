@@ -981,34 +981,45 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     
     switch (scale) {
       case "D":
-        for (let hour = 0; hour <= 24; hour += 3) {
-          const timeInMs = new Date(xs[0]).setHours(hour, 0, 0, 0);
-          if (timeInMs < xs[0] || timeInMs > xs[xs.length - 1]) continue;
-          const timePos = (timeInMs - xMin) / (xMax - xMin);
+        // Align labels with actual data points, show every few hours
+        const hourStep = Math.max(1, Math.floor(xs.length / 8)); // Show ~8 labels
+        for (let i = 0; i < xs.length; i += hourStep) {
+          const timePos = (xs[i] - xMin) / (xMax - xMin);
           const x = l + innerW * timePos;
-          xLabels.push({ position: x, label: `${hour.toString().padStart(2,'0')}:00` });
+          const hour = new Date(xs[i]).getHours();
+          const minute = new Date(xs[i]).getMinutes();
+          const timeLabel = minute === 0 ? `${hour.toString().padStart(2,'0')}:00` : `${hour.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}`;
+          xLabels.push({ position: x, label: timeLabel });
         }
         break;
       case "W":
         const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-        for (let i = 0; i < 7; i++) {
-          const timePos = i / 6;
+        // Align labels with actual data points
+        for (let i = 0; i < Math.min(7, xs.length); i++) {
+          const timePos = (xs[i] - xMin) / (xMax - xMin);
           const x = l + innerW * timePos;
-          xLabels.push({ position: x, label: weekDays[i] });
+          const dayOfWeek = new Date(xs[i]).getDay();
+          xLabels.push({ position: x, label: weekDays[dayOfWeek] });
         }
         break;
       case "M":
-        for (let day = 1; day <= 31; day += 5) {
-          const timePos = (day - 1) / 30;
+        // Align labels with actual data points, show every 5th day or so
+        const step = Math.max(1, Math.floor(xs.length / 6)); // Show ~6 labels
+        for (let i = 0; i < xs.length; i += step) {
+          const timePos = (xs[i] - xMin) / (xMax - xMin);
           const x = l + innerW * timePos;
+          const day = new Date(xs[i]).getDate();
           xLabels.push({ position: x, label: day.toString() });
         }
         break;
       case "Y":
         const monthAbbrevs = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-        for (let month = 0; month < 12; month++) {
-          const timePos = month / 11;
+        // Align labels with actual data points
+        const monthStep = Math.max(1, Math.floor(xs.length / 12)); // Show ~12 labels
+        for (let i = 0; i < xs.length; i += monthStep) {
+          const timePos = (xs[i] - xMin) / (xMax - xMin);
           const x = l + innerW * timePos;
+          const month = new Date(xs[i]).getMonth();
           xLabels.push({ position: x, label: monthAbbrevs[month] });
         }
         break;
@@ -1019,7 +1030,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
       if (!svgRef.current) return;
       const rect = svgRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
+      // Convert pixel coordinates to viewBox coordinates
+      const mouseXPixel = e.clientX - rect.left;
+      const mouseX = (mouseXPixel / rect.width) * w;
       
       if (mouseX < l || mouseX > l + innerW) {
         setHoverX(null);
