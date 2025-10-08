@@ -89,6 +89,129 @@ function generateSeries(base: number, amp: number, count: number, rnd: () => num
   return out;
 }
 
+// Generate seismic magnitude series (Richter scale approximation)
+function generateMagnitudeSeries(count: number, rnd: () => number, dateOffset: number = 0): number[] {
+  const out: number[] = [];
+  let baseLevel = 0.8 + Math.sin(dateOffset * 0.1) * 0.3; // Base magnitude varies by day
+  let val = baseLevel;
+  let eventInProgress = false;
+  let eventDuration = 0;
+  let eventPeakMagnitude = 0;
+  
+  for (let i = 0; i < count; i++) {
+    // Check for seismic event trigger (5% chance)
+    if (!eventInProgress && rnd() < 0.05) {
+      eventInProgress = true;
+      eventDuration = 3 + Math.floor(rnd() * 8); // 3-10 samples
+      eventPeakMagnitude = 2.0 + rnd() * 3.0; // Magnitude 2.0-5.0
+    }
+    
+    if (eventInProgress) {
+      // Gradual rise to peak, then decay
+      const progress = 1 - (eventDuration / 10);
+      const bell = Math.exp(-Math.pow(progress - 0.5, 2) * 12); // Bell curve
+      val = baseLevel + (eventPeakMagnitude - baseLevel) * bell;
+      eventDuration--;
+      if (eventDuration <= 0) eventInProgress = false;
+    } else {
+      // Background noise
+      val = baseLevel + (rnd() - 0.5) * 0.2;
+      val = Math.max(0.5, Math.min(1.5, val));
+    }
+    
+    out.push(parseFloat(val.toFixed(2)));
+  }
+  return out;
+}
+
+// Generate acceleration series (m/s²)
+function generateAccelerationSeries(count: number, rnd: () => number, dateOffset: number = 0): number[] {
+  const out: number[] = [];
+  let baseLevel = 0.001 + Math.sin(dateOffset * 0.15) * 0.0005; // Tiny background
+  let val = baseLevel;
+  let eventInProgress = false;
+  let eventDuration = 0;
+  let eventPeakAcceleration = 0;
+  
+  for (let i = 0; i < count; i++) {
+    // Sync with magnitude events (5% chance)
+    if (!eventInProgress && rnd() < 0.05) {
+      eventInProgress = true;
+      eventDuration = 3 + Math.floor(rnd() * 8);
+      eventPeakAcceleration = 0.1 + rnd() * 0.9; // 0.1-1.0 m/s²
+    }
+    
+    if (eventInProgress) {
+      const progress = 1 - (eventDuration / 10);
+      const bell = Math.exp(-Math.pow(progress - 0.5, 2) * 12);
+      val = baseLevel + (eventPeakAcceleration - baseLevel) * bell;
+      eventDuration--;
+      if (eventDuration <= 0) eventInProgress = false;
+    } else {
+      // Background noise
+      val = baseLevel + (rnd() - 0.5) * 0.0005;
+      val = Math.max(0.0001, Math.min(0.005, val));
+    }
+    
+    out.push(parseFloat(val.toFixed(4)));
+  }
+  return out;
+}
+
+// Generate frequency series (Hz)
+function generateFrequencySeries(count: number, rnd: () => number, dateOffset: number = 0): number[] {
+  const out: number[] = [];
+  let baseFreq = 1.0 + Math.sin(dateOffset * 0.2) * 0.3; // Base frequency varies
+  let val = baseFreq;
+  let eventInProgress = false;
+  let eventDuration = 0;
+  let eventPeakFrequency = 0;
+  
+  for (let i = 0; i < count; i++) {
+    // Sync with seismic events (5% chance)
+    if (!eventInProgress && rnd() < 0.05) {
+      eventInProgress = true;
+      eventDuration = 3 + Math.floor(rnd() * 8);
+      eventPeakFrequency = 5.0 + rnd() * 10.0; // 5-15 Hz during events
+    }
+    
+    if (eventInProgress) {
+      const progress = 1 - (eventDuration / 10);
+      const bell = Math.exp(-Math.pow(progress - 0.5, 2) * 12);
+      val = baseFreq + (eventPeakFrequency - baseFreq) * bell;
+      eventDuration--;
+      if (eventDuration <= 0) eventInProgress = false;
+    } else {
+      // Background variation
+      val = baseFreq + (rnd() - 0.5) * 0.5;
+      val = Math.max(0.5, Math.min(3.0, val));
+    }
+    
+    out.push(parseFloat(val.toFixed(2)));
+  }
+  return out;
+}
+
+// Generate displacement series (mm)
+function generateDisplacementSeries(count: number, rnd: () => number, dateOffset: number = 0): number[] {
+  const out: number[] = [];
+  let cumulative = 0;
+  let baseLevel = 0.01;
+  
+  for (let i = 0; i < count; i++) {
+    // Small random increments with occasional larger movements
+    const increment = rnd() < 0.05 
+      ? (rnd() * 0.5) // Event: 0-0.5mm
+      : (rnd() * 0.01); // Normal: 0-0.01mm
+    
+    cumulative += increment;
+    cumulative = Math.max(0, Math.min(5.0, cumulative)); // Cap at 5mm
+    
+    out.push(parseFloat(cumulative.toFixed(3)));
+  }
+  return out;
+}
+
 export async function GET(request: Request) {
   try {
     console.log('[IoT Samples API] Request received at', new Date().toISOString());
@@ -136,20 +259,38 @@ export async function GET(request: Request) {
       const epochStart = new Date('2025-01-01');
       const dayOffset = Math.floor((start.getTime() - epochStart.getTime()) / (24 * 60 * 60 * 1000));
       
-      const tempBase = type.includes("temp") ? 24.0 : 23.5;
-      const rhBase = 48.0;
-      const co2Base = 650;
-      const pBase = 1012.0;
-      // Use realistic temperature generator with date variation
-      const temp = generateTempSeries(count, rnd, dayOffset);
-      const rh = generateSeries(rhBase + Math.sin(dayOffset * 0.2) * 8, 4.0, count, rnd, false); // humidity varies by day too
-      const co2 = generateSeries(co2Base, 60, count, rnd, true);
-      const pressure = generateSeries(pBase, 2.0, count, rnd, false);
-      // Assign the same merged series to all sensors in the group
-      for (const s of groupSensors) {
-        const sensorId = String(s._id);
-        data[sensorId] = { temp, rh, co2, pressure };
-        console.log(`[IoT Samples API] Assigned series to sensor ${sensorId} (group: ${groupKey})`);
+      // Check if this is a seismic sensor
+      const isSeismicSensor = type.includes("seismic") || type.includes("accelerometric");
+      
+      if (isSeismicSensor) {
+        // Generate seismic-specific time series data
+        const magnitude = generateMagnitudeSeries(count, rnd, dayOffset);
+        const acceleration = generateAccelerationSeries(count, rnd, dayOffset);
+        const frequency = generateFrequencySeries(count, rnd, dayOffset);
+        const displacement = generateDisplacementSeries(count, rnd, dayOffset);
+        
+        for (const s of groupSensors) {
+          const sensorId = String(s._id);
+          data[sensorId] = { magnitude, acceleration, frequency, displacement };
+          console.log(`[IoT Samples API] Assigned seismic series to sensor ${sensorId} (group: ${groupKey})`);
+        }
+      } else {
+        // Generate standard sensor data (temp, humidity, etc.)
+        const tempBase = type.includes("temp") ? 24.0 : 23.5;
+        const rhBase = 48.0;
+        const co2Base = 650;
+        const pBase = 1012.0;
+        // Use realistic temperature generator with date variation
+        const temp = generateTempSeries(count, rnd, dayOffset);
+        const rh = generateSeries(rhBase + Math.sin(dayOffset * 0.2) * 8, 4.0, count, rnd, false); // humidity varies by day too
+        const co2 = generateSeries(co2Base, 60, count, rnd, true);
+        const pressure = generateSeries(pBase, 2.0, count, rnd, false);
+        // Assign the same merged series to all sensors in the group
+        for (const s of groupSensors) {
+          const sensorId = String(s._id);
+          data[sensorId] = { temp, rh, co2, pressure };
+          console.log(`[IoT Samples API] Assigned series to sensor ${sensorId} (group: ${groupKey})`);
+        }
       }
     }
 

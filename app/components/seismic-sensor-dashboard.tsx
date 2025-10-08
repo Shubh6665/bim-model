@@ -116,112 +116,76 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     return Math.max(0.01, Math.min(10, displacement)); // Clamp between 0.01 and 10 mm
   };
 
-  // Generate realistic Seismic mock data
-  const generateSeismicMockData = (start: Date, end: Date, resolution: number): DailySeries => {
-    const timestamps: Date[] = [];
-    const magnitude: number[] = [];
-    const frequency: number[] = [];
-    const acceleration: number[] = [];
-    const displacement: number[] = [];
-    
-    const duration = end.getTime() - start.getTime();
-    const interval = duration / resolution;
-    
-    // Simulate occasional seismic events
-    const eventProbability = 0.02; // 2% chance of elevated activity at any point
-    let inEvent = false;
-    let eventDuration = 0;
-    
-    for (let i = 0; i <= resolution; i++) {
-      const timestamp = new Date(start.getTime() + i * interval);
-      timestamps.push(timestamp);
-      
-      // Determine if we're in a seismic event
-      if (!inEvent && Math.random() < eventProbability) {
-        inEvent = true;
-        eventDuration = Math.floor(Math.random() * 10) + 5; // Event lasts 5-15 samples
-      }
-      
-      if (inEvent) {
-        eventDuration--;
-        if (eventDuration <= 0) inEvent = false;
-      }
-      
-      let magnitudeValue, frequencyValue, accelerationValue, displacementValue;
-      
-      if (inEvent) {
-        // During seismic event - higher values
-        const eventIntensity = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
-        magnitudeValue = 0.5 + eventIntensity * 2.5 + (Math.random() - 0.5) * 0.3; // 0.5-3.3 Richter
-        frequencyValue = 1 + eventIntensity * 15 + (Math.random() - 0.5) * 2; // 1-18 Hz
-        accelerationValue = 0.05 + eventIntensity * 0.5 + (Math.random() - 0.5) * 0.05; // 0.05-0.6 m/s²
-        displacementValue = 0.5 + eventIntensity * 5 + (Math.random() - 0.5) * 0.5; // 0.5-6 mm
-      } else {
-        // Background noise - low values
-        magnitudeValue = 0.1 + Math.random() * 0.3; // 0.1-0.4 Richter (micro-seismic)
-        frequencyValue = 0.1 + Math.random() * 1; // 0.1-1.1 Hz
-        accelerationValue = 0.001 + Math.random() * 0.01; // 0.001-0.011 m/s²
-        displacementValue = 0.01 + Math.random() * 0.1; // 0.01-0.11 mm
-      }
-      
-      magnitude.push(parseFloat(magnitudeValue.toFixed(2)));
-      frequency.push(parseFloat(frequencyValue.toFixed(2)));
-      acceleration.push(parseFloat(accelerationValue.toFixed(3)));
-      displacement.push(parseFloat(displacementValue.toFixed(2)));
-    }
-    
-    return { timestamps, magnitude, frequency, acceleration, displacement };
-  };
-
   const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, which: 'primary'|'compare', forDate?: Date, scale: "D" | "W" | "M" | "Y" = "D") => {
     try {
       const baseDate = forDate || date;
       let start = new Date(baseDate);
       let end = new Date(baseDate);
-      let resolution = 96;
+      let resolution = '96'; // Default for daily
       
+      // Adjust date range based on scale (same logic as sensor-graphs-dashboard)
       switch (scale) {
         case "D":
           start.setHours(0,0,0,0);
           end.setHours(23,59,59,999);
-          resolution = 96;
+          resolution = '96'; // 15-min intervals for day
           break;
         case "W":
+          // Start of week (Sunday)
           const dayOfWeek = start.getDay();
           start.setDate(start.getDate() - dayOfWeek);
           start.setHours(0,0,0,0);
           end = new Date(start);
           end.setDate(end.getDate() + 6);
           end.setHours(23,59,59,999);
-          resolution = 168;
+          resolution = '168'; // Hourly for week
           break;
         case "M":
+          // Start of month
           start.setDate(1);
           start.setHours(0,0,0,0);
           end = new Date(start);
           end.setMonth(end.getMonth() + 1);
           end.setDate(0);
           end.setHours(23,59,59,999);
-          resolution = 720;
+          resolution = '720'; // Daily for month
           break;
         case "Y":
+          // Start of year
           start.setMonth(0, 1);
           start.setHours(0,0,0,0);
           end = new Date(start);
           end.setFullYear(end.getFullYear() + 1);
           end.setDate(0);
           end.setHours(23,59,59,999);
-          resolution = 8760;
+          resolution = '8760'; // Daily for year
           break;
       }
       
+      // If loading today, align end to now
       const today = new Date();
       const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate() && scale === "D";
       if (isSameDay) end = new Date();
       
-      // Generate mock data for Seismic sensors
-      const mockData = generateSeismicMockData(start, end, resolution);
-      setter(mockData);
+      // Fetch from samples API
+      const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString(), resolution });
+      if (projectId) params.set('projectId', projectId);
+      const resp = await fetch(`/api/iot/samples?${params.toString()}`);
+      if (!resp.ok) throw new Error(`Samples request failed (${resp.status})`);
+      const json = await resp.json();
+      const map = json.data || {};
+      const rec = map[target.id] || map[String((target as any)._id)] || map[Object.keys(map).find(k=>k.includes(target.id)) || ''];
+      if (!rec) throw new Error('No data for sensor');
+      const timestamps: Date[] = (json.timestamps||[]).map((t: string) => new Date(t));
+      
+      // Set seismic data (magnitude, acceleration, frequency, displacement)
+      setter({ 
+        timestamps, 
+        magnitude: rec.magnitude, 
+        acceleration: rec.acceleration,
+        frequency: rec.frequency,
+        displacement: rec.displacement
+      });
       if (which==='primary') setError(null);
     } catch (e:any) {
       if (which==='primary') setError(e?.message || 'Failed to load data');
@@ -230,28 +194,18 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
   };
 
   useEffect(() => {
+    // Skip loading when in comparison mode
     if (isCompareMode) return;
+    
     setLoading(true);
-    loadForSensor(sensor, setSeries, 'primary', date, "D").finally(() => setLoading(false));
-  }, [sensor.id, date, projectId, isCompareMode]);
-
-  // Magnitude graph - independent
-  useEffect(() => {
-    if (isCompareMode) return;
-    loadForSensor(sensor, setMagnitudeSeries, 'primary', date, magnitudeScale);
-  }, [sensor.id, date, projectId, magnitudeScale, isCompareMode]);
-
-  // Acceleration graph - independent
-  useEffect(() => {
-    if (isCompareMode) return;
-    loadForSensor(sensor, setAccelerationSeries, 'primary', date, accelerationScale);
-  }, [sensor.id, date, projectId, accelerationScale, isCompareMode]);
-
-  // Frequency graph - independent
-  useEffect(() => {
-    if (isCompareMode) return;
-    loadForSensor(sensor, setFrequencySeries, 'primary', date, frequencyScale);
-  }, [sensor.id, date, projectId, frequencyScale, isCompareMode]);
+    // Load data for each graph with its respective scale
+    Promise.all([
+      loadForSensor(sensor, setSeries, 'primary', date, "D"), // Keep original for compatibility
+      loadForSensor(sensor, setMagnitudeSeries, 'primary', date, magnitudeScale),
+      loadForSensor(sensor, setAccelerationSeries, 'primary', date, accelerationScale),
+      loadForSensor(sensor, setFrequencySeries, 'primary', date, frequencyScale)
+    ]).finally(() => setLoading(false));
+  }, [sensor.id, date, projectId, magnitudeScale, accelerationScale, frequencyScale, isCompareMode]);
 
   useEffect(() => {
     const init = async () => {
@@ -315,7 +269,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     init();
   }, [sensor.id, projectId]);
 
-  // Poll realtime periodically to update gauge current (independent of selected date)
+  // Poll realtime periodically to update gauge current values ONLY (independent of selected date)
+  // Graphs are loaded from /api/iot/samples, not from realtime accumulation
   useEffect(() => {
     if (!projectId) return;
     const id = setInterval(async () => {
@@ -329,15 +284,16 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
         const { x_acc, y_acc, z_acc } = upd.seismicData;
         setRawAccData({ x_acc, y_acc, z_acc });
         
-        // Calculate values from raw acceleration
+        // Calculate values from raw acceleration for gauge display only
         const magnitudeCur = calculateMagnitude(x_acc, y_acc, z_acc);
         const frequencyCur = calculateFrequency(x_acc, y_acc);
         const accelerationCur = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
         const displacementCur = calculateDisplacement(x_acc, y_acc);
         
+        const now = new Date();
+        
         // Track seismic events (magnitude > 2.0)
         if (magnitudeCur > 2.0) {
-          const now = new Date();
           const eventTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
           const eventStatus = magnitudeCur >= 4.0 ? 'Major' : magnitudeCur >= 3.0 ? 'Moderate' : 'Minor';
           
@@ -348,6 +304,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           });
         }
         
+        // Update gauge stats with current values and min/max tracking
         setGaugeStats(prev => {
           if (!prev) return { 
             magnitudeCur, frequencyCur, accelerationCur, displacementCur, 
@@ -362,8 +319,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           const magnitudeMax = Math.max(prev.magnitudeMax || magnitudeCur, magnitudeCur);
           const accelerationMin = Math.min(prev.accelerationMin || accelerationCur, accelerationCur);
           const accelerationMax = Math.max(prev.accelerationMax || accelerationCur, accelerationCur);
+          const displacementMax = Math.max(prev.displacementMax || displacementCur, displacementCur);
           
-          const now = new Date();
           const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
           
           let magnitudeMinTime = prev.magnitudeMinTime || '00:00';
@@ -378,13 +335,13 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           
           return { 
             ...prev, 
-            magnitudeCur, frequencyCur, accelerationCur, displacementCur,
+            magnitudeCur, frequencyCur, accelerationCur, displacementCur, displacementMax,
             magnitudeMin, magnitudeMax, accelerationMin, accelerationMax,
             magnitudeMinTime, magnitudeMaxTime, accelerationMinTime, accelerationMaxTime
           };
         });
       } catch {}
-    }, 10000); // Poll every 10 seconds
+    }, 5000); // Poll every 5 seconds for gauge updates only
     return () => clearInterval(id);
   }, [sensor.id, projectId]);
 
@@ -494,7 +451,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           <path d={innerPath} stroke="#1f2937" strokeWidth={innerStroke} fill="none" />
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
           <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
-            {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : unit.includes('m/s') ? 3 : 2)}${unit}` : `—${unit}`}
+            {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : unit.includes('m/s') ? 4 : 2)}${unit}` : `—${unit}`}
           </text>
         </svg>
         <div className="text-[8px] md:text-[10px] text-gray-300 uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
@@ -781,7 +738,24 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
         }
       }
       
-      const snapX = mapPoint(xs[closestIdx], data.magnitude![closestIdx]).x;
+      // Get the Y value based on mode to snap to the correct line
+      let yValue = 0;
+      if (mode === 'magnitude' && data.magnitude && data.magnitude[closestIdx] !== undefined) {
+        yValue = data.magnitude[closestIdx];
+      } else if (mode === 'acceleration' && effectiveAccelerationData && effectiveAccelerationData[closestIdx] !== undefined) {
+        yValue = effectiveAccelerationData[closestIdx];
+      } else if (mode === 'frequency' && data.frequency && data.frequency[closestIdx] !== undefined) {
+        yValue = data.frequency[closestIdx];
+      } else if (mode === 'combined' && data.magnitude && data.magnitude[closestIdx] !== undefined) {
+        yValue = data.magnitude[closestIdx];
+      } else {
+        // No valid data for this index
+        setHoverX(null);
+        setHoverIndex(null);
+        return;
+      }
+      
+      const snapX = mapPoint(xs[closestIdx], yValue).x;
       setHoverX(snapX);
       setHoverIndex(closestIdx);
     };
@@ -884,43 +858,43 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
               })()}
             </text>
             
-            {(mode === 'combined' || mode === 'magnitude') && (
+            {(mode === 'combined' || mode === 'magnitude') && data.magnitude && data.magnitude[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill="#ef4444" />
                 <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
-                  M {data.magnitude![hoverIndex].toFixed(2)}
+                  M {data.magnitude[hoverIndex].toFixed(2)}
                 </text>
               </>
             )}
             
-            {(mode === 'combined' || mode === 'acceleration') && (
+            {(mode === 'combined' || mode === 'acceleration') && effectiveAccelerationData && effectiveAccelerationData[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={mode === 'combined' ? t + 60 : t + 42} r={3} fill="#3b82f6" />
                 <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={mode === 'combined' ? t + 63 : t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
-                  {effectiveAccelerationData![hoverIndex].toFixed(3)} m/s²
+                  {effectiveAccelerationData[hoverIndex].toFixed(3)} m/s²
                 </text>
               </>
             )}
             
-            {mode === 'frequency' && data.frequency && (
+            {mode === 'frequency' && data.frequency && data.frequency[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill="#f97316" />
                 <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
-                  {data.frequency![hoverIndex].toFixed(2)} Hz
+                  {data.frequency[hoverIndex].toFixed(2)} Hz
                 </text>
               </>
             )}
             
-            {(mode === 'combined' || mode === 'magnitude') && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.magnitude![hoverIndex]).y} r={4} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
+            {(mode === 'combined' || mode === 'magnitude') && data.magnitude && data.magnitude[hoverIndex] !== undefined && (
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.magnitude[hoverIndex]).y} r={4} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
             )}
             
-            {(mode === 'combined' || mode === 'acceleration') && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], mode === 'combined' ? effectiveAccelerationData![hoverIndex] * 3 : effectiveAccelerationData![hoverIndex]).y} r={4} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
+            {(mode === 'combined' || mode === 'acceleration') && effectiveAccelerationData && effectiveAccelerationData[hoverIndex] !== undefined && (
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], mode === 'combined' ? effectiveAccelerationData[hoverIndex] * 3 : effectiveAccelerationData[hoverIndex]).y} r={4} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
             )}
             
-            {mode === 'frequency' && data.frequency && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.frequency![hoverIndex]).y} r={4} fill="#f97316" stroke="#1f2937" strokeWidth={2} />
+            {mode === 'frequency' && data.frequency && data.frequency[hoverIndex] !== undefined && (
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.frequency[hoverIndex]).y} r={4} fill="#f97316" stroke="#1f2937" strokeWidth={2} />
             )}
           </g>
         )}
