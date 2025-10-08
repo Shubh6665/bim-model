@@ -1233,7 +1233,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-4 min-h-0 max-h-full overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-4 min-h-0 max-h-full overflow-y-auto">
         {/* LEFT COLUMN - 8 KPI Indicators */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full min-h-0 md:shrink-0 md:grow">
           <div className="grid grid-cols-2 gap-2 md:shrink-0 md:grow min-h-[220px]">
@@ -1308,9 +1308,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
 
         {/* CENTER COLUMN - 4 Main Charts */}
-        <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-hidden">
+        <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-visible">
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">{prodScale === 'D' ? 'Daily' : prodScale === 'W' ? 'Weekly' : prodScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
                 <ScaleSwitch currentScale={prodScale} setScale={setProdScale} />
@@ -1320,7 +1320,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Energy Distribution</div>
                 <ScaleSwitch currentScale={distScale} setScale={setDistScale} />
@@ -1330,7 +1330,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[240px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Grid vs Self-Consumption</div>
                 <ScaleSwitch currentScale={gridScale} setScale={setGridScale} />
@@ -1340,7 +1340,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[240px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Economic Trend</div>
                 <ScaleSwitch currentScale={econScale} setScale={setEconScale} />
