@@ -1161,14 +1161,33 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               {/* Custom Days Input */}
               {forecastPeriod === 'custom' && (
                 <div className="mb-3">
-                  <label className="text-[10px] text-gray-400 block mb-1 font-medium">Days to forecast</label>
+                  <label className="text-[10px] text-gray-400 block mb-1.5 font-medium">Days to forecast</label>
                   <input
-                    type="number"
-                    min="1"
-                    max="730"
+                    type="text"
+                    inputMode="numeric"
                     value={customForecastDays}
-                    onChange={(e) => setCustomForecastDays(Number(e.target.value))}
-                    className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Allow empty or numbers only
+                      if (val === '') {
+                        setCustomForecastDays('' as any);
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = parseInt(val);
+                        if (numVal >= 1 && numVal <= 730) {
+                          setCustomForecastDays(numVal);
+                        } else if (numVal > 730) {
+                          setCustomForecastDays(730);
+                        }
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                        setCustomForecastDays(1);
+                      }
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="Enter days (1-730)"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
                   />
                 </div>
               )}
