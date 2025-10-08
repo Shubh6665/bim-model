@@ -561,12 +561,15 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     const v = value ?? 0;
     const pct = showGauge ? Math.max(0, Math.min(1, (v - gaugeMin) / (gaugeMax - gaugeMin || 1))) : 0;
     
+    // Check if this is Yield Energy (kWh unit with longer value)
+    const isYieldEnergy = unit === 'kWh';
+    
     return (
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4 flex flex-col justify-between h-full hover:border-gray-600 transition-all duration-300 group">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">{label}</div>
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-2.5 sm:p-3 md:p-4 flex flex-col justify-between h-full hover:border-gray-600 transition-all duration-300 group overflow-hidden">
+        <div className="flex items-center justify-between mb-2 sm:mb-2.5 md:mb-3 flex-shrink-0">
+          <div className="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold truncate pr-1">{label}</div>
           {trend !== 'neutral' && (
-            <div className={`text-xs px-1.5 py-0.5 rounded ${
+            <div className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
               trend === 'up' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
             }`}>
               {trend === 'up' ? '↑' : '↓'}
@@ -574,14 +577,43 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           )}
         </div>
         
-        <div className="flex-1 flex flex-col justify-center">
-          <div className="text-3xl lg:text-4xl font-bold tabular-nums leading-none" style={{ color }}>
-            {value.toFixed(unit === '€' ? 2 : unit === '%' ? 0 : 1)}
-            <span className="text-base ml-2 text-gray-500 font-medium">{unit}</span>
-          </div>
+        <div className="flex-1 flex flex-col justify-center min-h-0">
+          {isYieldEnergy ? (
+            /* Yield Energy - Stack unit below on small screens */
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5 md:gap-2">
+              <div 
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums leading-none"
+                style={{ color }}
+              >
+                {value.toFixed(1)}
+              </div>
+              <div 
+                className="text-base sm:text-base md:text-lg font-medium mt-1 sm:mt-0"
+                style={{ color: '#9ca3af' }}
+              >
+                {unit}
+              </div>
+            </div>
+          ) : (
+            /* Other cards - Keep inline */
+            <div className="flex items-baseline gap-1 sm:gap-1.5 md:gap-2 overflow-hidden">
+              <div 
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums leading-none truncate flex-shrink-0"
+                style={{ color }}
+              >
+                {value.toFixed(unit === '€' ? 2 : unit === '%' ? 0 : 1)}
+              </div>
+              <div 
+                className="text-sm sm:text-base md:text-lg font-medium flex-shrink-0"
+                style={{ color: '#9ca3af' }}
+              >
+                {unit}
+              </div>
+            </div>
+          )}
           
           {showGauge && (
-            <div className="mt-4 hidden lg:block">
+            <div className="mt-3 md:mt-4 hidden lg:block">
               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div 
                   className="h-full rounded-full transition-all duration-700 ease-out"
