@@ -1183,6 +1183,13 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-gray-800/70 border border-gray-700 text-xs md:text-sm text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-1 md:gap-2"
               title="Pick date"
             >
+              {/* Calendar icon (Flaticon style) */}
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                <line x1="16" y1="3" x2="16" y2="7"></line>
+                <line x1="8" y1="3" x2="8" y2="7"></line>
+                <line x1="3" y1="11" x2="21" y2="11"></line>
+              </svg>
               <span className="hidden sm:inline">{formatDate(date)}</span>
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
             </button>
