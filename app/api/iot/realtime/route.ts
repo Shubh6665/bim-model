@@ -64,7 +64,7 @@ function generateTempSeries(count: number, rnd: () => number): number[] {
   return out;
 }
 
-function generateCurrentValue(sensorType: string, baseValue: number, groupKey: string, timestamp: Date): { value: string; status: "Online" | "Warning" | "Offline" } {
+function generateCurrentValue(sensorType: string, baseValue: number, groupKey: string, timestamp: Date): { value: string; status: "Online" | "Warning" | "Offline"; seismicData?: { x_acc: number; y_acc: number; z_acc: number } } {
   // Add random variation to base value
   const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
   let currentVal = baseValue * (1 + variation);
@@ -91,9 +91,42 @@ function generateCurrentValue(sensorType: string, baseValue: number, groupKey: s
       return { value: `${Math.round(currentVal)}%`, status };
     
     case "seismic and accelerometric":
-      currentVal = Math.max(0, Math.min(0.1, currentVal));
-      status = currentVal > 0.05 ? "Warning" : "Online";
-      return { value: `${currentVal.toFixed(3)}g`, status };
+      // Generate realistic seismic sensor data - ONLY raw acceleration values (x, y, z)
+      // Dashboard will calculate magnitude, frequency, displacement from these values
+      const isEvent = Math.random() < 0.05; // 5% chance of seismic event
+      
+      let x_acc: number, y_acc: number, z_acc: number;
+      
+      if (isEvent) {
+        // During seismic event - higher acceleration values
+        const eventIntensity = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
+        
+        x_acc = (Math.random() - 0.5) * eventIntensity * 2; // -1 to 1 m/s²
+        y_acc = (Math.random() - 0.5) * eventIntensity * 2;
+        z_acc = 9.8 + (Math.random() - 0.5) * eventIntensity; // 9.8 ± variation
+        
+        status = "Warning";
+      } else {
+        // Background noise - very low values
+        x_acc = (Math.random() - 0.5) * 0.002; // Very small
+        y_acc = (Math.random() - 0.5) * 0.002;
+        z_acc = 9.8 + (Math.random() - 0.5) * 0.01;
+        
+        status = "Online";
+      }
+      
+      // Calculate resultant acceleration for display value
+      const resultant = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+      
+      return { 
+        value: `${resultant.toFixed(4)} m/s²`, 
+        status,
+        seismicData: {
+          x_acc: parseFloat(x_acc.toFixed(4)),
+          y_acc: parseFloat(y_acc.toFixed(4)),
+          z_acc: parseFloat(z_acc.toFixed(4))
+        }
+      };
     
     case "energy consumption":
       currentVal = Math.max(0.5, Math.min(5, currentVal));
@@ -157,7 +190,7 @@ export async function GET(request: Request) {
     console.log(`[IoT Realtime API] Found ${sensors.length} sensors for project ${projectId}`);
 
     const now = new Date();
-    const updates: Array<{ id: string; value: string; status: string; lastUpdate: string }> = [];
+    const updates: Array<{ id: string; value: string; status: string; lastUpdate: string; seismicData?: { x_acc: number; y_acc: number; z_acc: number } }> = [];
 
     // Process each sensor individually for unique values
     
@@ -193,6 +226,24 @@ export async function GET(request: Request) {
         continue; // Skip to next sensor
       }
       
+      // Check if this is a seismic sensor
+      const isSeismicSensor = type.toLowerCase().includes("seismic") || 
+                              type.toLowerCase().includes("accelerometric");
+      
+      if (isSeismicSensor) {
+        // Special handling for seismic sensors - return raw acceleration data
+        const result = generateCurrentValue("seismic and accelerometric", 0, sensorId, now);
+        updates.push({
+          id: sensorId,
+          value: result.value,
+          status: result.status,
+          lastUpdate: now.toISOString(),
+          seismicData: result.seismicData // Add seismic data to response
+        });
+        console.log(`[IoT Realtime API] Generated seismic value for sensor ${sensor._id}: ${result.value} (${result.status}), x=${result.seismicData?.x_acc}, y=${result.seismicData?.y_acc}, z=${result.seismicData?.z_acc}`);
+        continue; // Skip to next sensor
+      }
+      
       switch (type.toLowerCase()) {
         case "temperature": 
           baseValue = 22 + Math.random() * 6; // 22-28°C range
@@ -205,9 +256,6 @@ export async function GET(request: Request) {
           break;
         case "humidity": 
           baseValue = 40 + Math.random() * 20; // 40-60% range
-          break;
-        case "seismic and accelerometric": 
-          baseValue = 0.01 + Math.random() * 0.03; // 0.01-0.04g range
           break;
         case "energy consumption": 
           baseValue = 1.8 + Math.random() * 1.4; // 1.8-3.2 kW range

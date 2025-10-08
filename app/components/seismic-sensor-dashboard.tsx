@@ -51,6 +51,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     magnitudeMinTime?: string; magnitudeMaxTime?: string; accelerationMinTime?: string; accelerationMaxTime?: string;
   } | null>(null);
   
+  // Store raw acceleration data from API
+  const [rawAccData, setRawAccData] = useState<{ x_acc: number; y_acc: number; z_acc: number } | null>(null);
+  
   const [seismicEvents, setSeismicEvents] = useState<Array<{time: string, magnitude: number, status: string}>>([]);
   
   const [magnitudeScale, setMagnitudeScale] = useState<"D" | "W" | "M" | "Y">("D");
@@ -71,6 +74,47 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     const d = t.getDate().toString().padStart(2,'0');
     return `${y}-${m}-${d}`;
   }, [now]);
+
+  // Helper functions to calculate seismic values from raw acceleration data
+  const calculateMagnitude = (x_acc: number, y_acc: number, z_acc: number): number => {
+    // Calculate resultant acceleration (PGA - Peak Ground Acceleration)
+    const pga = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+    
+    // Convert to displacement (simplified integration)
+    // Assuming time interval of 0.01s (100Hz sampling)
+    const displacement = pga * 0.01 * 0.01 * 1000; // Convert to mm
+    
+    // Calculate magnitude proxy using logarithmic scale
+    // M_L = log10(PGD_max_in_μm) + C
+    const pgd_micrometers = displacement * 1000; // mm to μm
+    const magnitude = Math.log10(Math.max(pgd_micrometers, 0.1)) + 1.5; // C = 1.5 for calibration
+    
+    return Math.max(0.1, Math.min(8, magnitude)); // Clamp between 0.1 and 8
+  };
+
+  const calculateFrequency = (x_acc: number, y_acc: number): number => {
+    // Frequency estimation based on acceleration variation
+    // Higher acceleration typically correlates with higher frequency
+    const acceleration = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+    
+    // Map acceleration to frequency range (0.1 to 20 Hz)
+    // High acceleration events tend to have higher frequencies
+    const frequency = 0.5 + (acceleration * 10);
+    
+    return Math.max(0.1, Math.min(20, frequency));
+  };
+
+  const calculateDisplacement = (x_acc: number, y_acc: number): number => {
+    // Calculate displacement using double integration (simplified)
+    // Displacement ≈ acceleration × time²
+    const acceleration = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+    const dt = 0.01; // Assume 100Hz sampling (0.01s interval)
+    
+    // displacement = 0.5 * a * t²  (converted to mm)
+    const displacement = 0.5 * acceleration * dt * dt * 1000;
+    
+    return Math.max(0.01, Math.min(10, displacement)); // Clamp between 0.01 and 10 mm
+  };
 
   // Generate realistic Seismic mock data
   const generateSeismicMockData = (start: Date, end: Date, resolution: number): DailySeries => {
@@ -212,59 +256,56 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
   useEffect(() => {
     const init = async () => {
       try {
-        const start = new Date(); 
-        start.setHours(0,0,0,0);
-        const end = new Date();
-        
-        const mockData = generateSeismicMockData(start, end, 96);
-        const mArr = mockData.magnitude || [];
-        const fArr = mockData.frequency || [];
-        const aArr = mockData.acceleration || [];
-        const dArr = mockData.displacement || [];
-        
-        let magnitudeMin = mArr.length ? Math.min(...mArr) : 0;
-        let magnitudeMax = mArr.length ? Math.max(...mArr) : 0;
-        let accelerationMin = aArr.length ? Math.min(...aArr) : 0;
-        let accelerationMax = aArr.length ? Math.max(...aArr) : 0;
-        let magnitudeCur = mArr.length ? mArr[mArr.length-1] : 0;
-        let frequencyCur = fArr.length ? fArr[fArr.length-1] : 0;
-        let accelerationCur = aArr.length ? aArr[aArr.length-1] : 0;
-        let displacementCur = dArr.length ? dArr[dArr.length-1] : 0;
-        let frequencyAvg = fArr.length ? fArr.reduce((a, b) => a + b, 0) / fArr.length : 0;
-        let displacementMax = dArr.length ? Math.max(...dArr) : 0;
+        // Initialize with default values
+        let magnitudeMin = 0.1;
+        let magnitudeMax = 0.5;
+        let accelerationMin = 0.001;
+        let accelerationMax = 0.01;
+        let magnitudeCur = 0.2;
+        let frequencyCur = 0.5;
+        let accelerationCur = 0.005;
+        let displacementCur = 0.05;
+        let frequencyAvg = 0.5;
+        let displacementMax = 0.1;
         
         const formatTime = (date: Date) => 
           `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
         
-        let magnitudeMinTime = '00:00', magnitudeMaxTime = '00:00', accelerationMinTime = '00:00', accelerationMaxTime = '00:00';
+        const now = new Date();
+        let magnitudeMinTime = formatTime(now);
+        let magnitudeMaxTime = formatTime(now);
+        let accelerationMinTime = formatTime(now);
+        let accelerationMaxTime = formatTime(now);
         
-        if (mArr.length && mockData.timestamps.length) {
-          const magnitudeMinIndex = mArr.findIndex(m => m === magnitudeMin);
-          const magnitudeMaxIndex = mArr.findIndex(m => m === magnitudeMax);
-          if (magnitudeMinIndex >= 0 && mockData.timestamps[magnitudeMinIndex]) magnitudeMinTime = formatTime(mockData.timestamps[magnitudeMinIndex]);
-          if (magnitudeMaxIndex >= 0 && mockData.timestamps[magnitudeMaxIndex]) magnitudeMaxTime = formatTime(mockData.timestamps[magnitudeMaxIndex]);
-        }
-        
-        if (aArr.length && mockData.timestamps.length) {
-          const accelerationMinIndex = aArr.findIndex(a => a === accelerationMin);
-          const accelerationMaxIndex = aArr.findIndex(a => a === accelerationMax);
-          if (accelerationMinIndex >= 0 && mockData.timestamps[accelerationMinIndex]) accelerationMinTime = formatTime(mockData.timestamps[accelerationMinIndex]);
-          if (accelerationMaxIndex >= 0 && mockData.timestamps[accelerationMaxIndex]) accelerationMaxTime = formatTime(mockData.timestamps[accelerationMaxIndex]);
-        }
-        
-        // Generate event history (events with magnitude > 2.0)
-        const events: Array<{time: string, magnitude: number, status: string}> = [];
-        for (let i = 0; i < mArr.length; i++) {
-          if (mArr[i] > 2.0) {
-            const eventStatus = mArr[i] >= 4.0 ? 'Major' : mArr[i] >= 3.0 ? 'Moderate' : 'Minor';
-            events.push({
-              time: formatTime(mockData.timestamps[i]),
-              magnitude: mArr[i],
-              status: eventStatus
-            });
+        // Fetch realtime data from API - THIS IS THE ONLY SOURCE OF DATA
+        if (projectId) {
+          const rt = await fetch(`/api/iot/realtime?projectId=${projectId}`);
+          if (rt.ok) {
+            const rj = await rt.json();
+            const upd = (rj.updates||[]).find((u:any)=> u.id===sensor.id);
+            if (upd && upd.seismicData) {
+              const { x_acc, y_acc, z_acc } = upd.seismicData;
+              setRawAccData({ x_acc, y_acc, z_acc });
+              
+              // Calculate values from raw acceleration - ONLY API DATA
+              magnitudeCur = calculateMagnitude(x_acc, y_acc, z_acc);
+              frequencyCur = calculateFrequency(x_acc, y_acc);
+              accelerationCur = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+              displacementCur = calculateDisplacement(x_acc, y_acc);
+              
+              // Set initial min/max to current values
+              magnitudeMin = magnitudeCur;
+              magnitudeMax = magnitudeCur;
+              accelerationMin = accelerationCur;
+              accelerationMax = accelerationCur;
+              frequencyAvg = frequencyCur;
+              displacementMax = displacementCur;
+            }
           }
         }
-        setSeismicEvents(events.slice(-6)); // Keep last 6 events
+        
+        // No event history initially - will be populated as events occur
+        setSeismicEvents([]);
         
         setGaugeStats({ magnitudeCur, frequencyCur, accelerationCur, displacementCur, magnitudeMin, magnitudeMax, accelerationMin, accelerationMax, frequencyAvg, displacementMax, magnitudeMinTime, magnitudeMaxTime, accelerationMinTime, accelerationMaxTime });
       } catch (e) {
@@ -272,6 +313,79 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
       }
     };
     init();
+  }, [sensor.id, projectId]);
+
+  // Poll realtime periodically to update gauge current (independent of selected date)
+  useEffect(() => {
+    if (!projectId) return;
+    const id = setInterval(async () => {
+      try {
+        const rt = await fetch(`/api/iot/realtime?projectId=${projectId}`);
+        if (!rt.ok) return;
+        const rj = await rt.json();
+        const upd = (rj.updates||[]).find((u:any)=> u.id===sensor.id);
+        if (!upd || !upd.seismicData) return;
+        
+        const { x_acc, y_acc, z_acc } = upd.seismicData;
+        setRawAccData({ x_acc, y_acc, z_acc });
+        
+        // Calculate values from raw acceleration
+        const magnitudeCur = calculateMagnitude(x_acc, y_acc, z_acc);
+        const frequencyCur = calculateFrequency(x_acc, y_acc);
+        const accelerationCur = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
+        const displacementCur = calculateDisplacement(x_acc, y_acc);
+        
+        // Track seismic events (magnitude > 2.0)
+        if (magnitudeCur > 2.0) {
+          const now = new Date();
+          const eventTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          const eventStatus = magnitudeCur >= 4.0 ? 'Major' : magnitudeCur >= 3.0 ? 'Moderate' : 'Minor';
+          
+          setSeismicEvents(prev => {
+            const newEvent = { time: eventTime, magnitude: magnitudeCur, status: eventStatus };
+            const updated = [...prev, newEvent].slice(-6); // Keep last 6 events
+            return updated;
+          });
+        }
+        
+        setGaugeStats(prev => {
+          if (!prev) return { 
+            magnitudeCur, frequencyCur, accelerationCur, displacementCur, 
+            magnitudeMin: magnitudeCur, magnitudeMax: magnitudeCur, 
+            accelerationMin: accelerationCur, accelerationMax: accelerationCur, 
+            frequencyAvg: frequencyCur, displacementMax: displacementCur,
+            magnitudeMinTime: '00:00', magnitudeMaxTime: '00:00', 
+            accelerationMinTime: '00:00', accelerationMaxTime: '00:00'
+          };
+          
+          const magnitudeMin = Math.min(prev.magnitudeMin || magnitudeCur, magnitudeCur);
+          const magnitudeMax = Math.max(prev.magnitudeMax || magnitudeCur, magnitudeCur);
+          const accelerationMin = Math.min(prev.accelerationMin || accelerationCur, accelerationCur);
+          const accelerationMax = Math.max(prev.accelerationMax || accelerationCur, accelerationCur);
+          
+          const now = new Date();
+          const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+          
+          let magnitudeMinTime = prev.magnitudeMinTime || '00:00';
+          let magnitudeMaxTime = prev.magnitudeMaxTime || '00:00';
+          let accelerationMinTime = prev.accelerationMinTime || '00:00';
+          let accelerationMaxTime = prev.accelerationMaxTime || '00:00';
+          
+          if (magnitudeCur < (prev.magnitudeMin || magnitudeCur)) magnitudeMinTime = currentTime;
+          if (magnitudeCur > (prev.magnitudeMax || magnitudeCur)) magnitudeMaxTime = currentTime;
+          if (accelerationCur < (prev.accelerationMin || accelerationCur)) accelerationMinTime = currentTime;
+          if (accelerationCur > (prev.accelerationMax || accelerationCur)) accelerationMaxTime = currentTime;
+          
+          return { 
+            ...prev, 
+            magnitudeCur, frequencyCur, accelerationCur, displacementCur,
+            magnitudeMin, magnitudeMax, accelerationMin, accelerationMax,
+            magnitudeMinTime, magnitudeMaxTime, accelerationMinTime, accelerationMaxTime
+          };
+        });
+      } catch {}
+    }, 10000); // Poll every 10 seconds
+    return () => clearInterval(id);
   }, [sensor.id, projectId]);
 
   useEffect(() => {
