@@ -1223,8 +1223,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-4 min-h-0 max-h-full overflow-hidden">
         {/* LEFT COLUMN - 8 KPI Indicators */}
-        <div className="col-span-1 md:col-span-3 flex flex-col h-full min-h-0">
-          <div className="grid grid-cols-2 gap-2 h-full">
+        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full min-h-0 md:shrink-0 md:grow">
+          <div className="grid grid-cols-2 gap-2 md:shrink-0 md:grow min-h-[220px]">
             {calculateKPIs && (
               <>
                 {/* Row 1 */}
@@ -1341,9 +1341,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
 
         {/* RIGHT COLUMN - Economic Forecast Panel */}
-        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-3 min-h-0">
+        <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-3 min-h-0 md:shrink-0">
           {/* Economic Forecast - Main Card */}
-          <div className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 border border-slate-700/50 rounded-2xl p-3 md:p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 border border-slate-700/50 rounded-2xl p-3 md:p-4 flex-1 md:grow md:shrink-0 flex flex-col min-h-[260px] overflow-hidden">
             {/* Decorative background elements */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
             <div className="absolute bottom-0 left-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl"></div>
@@ -1473,7 +1473,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           </div>
           
           {/* System Parameters - Compact */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4 md:shrink-0">
             <h3 className="text-sm font-bold text-white mb-3 tracking-wide">System Parameters</h3>
             <div className="space-y-2">
               <div className="flex justify-between items-center text-xs">
