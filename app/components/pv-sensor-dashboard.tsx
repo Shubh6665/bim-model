@@ -278,7 +278,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
           </div>
           
           <p className="text-[10px] text-gray-500 mt-2">
-            * Both values required for efficiency calculation. If omitted, efficiency will show "—"
+            * Both values required for efficiency calculation.
           </p>
         </div>
       </div>
@@ -1380,26 +1380,24 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                 </span>
               </div>
               
-              {/* Optional Parameters - Divider */}
-              {(economicParams.panelSurface || economicParams.dailyIrradiance) && (
-                <div className="border-t border-gray-700 my-2 pt-2">
-                  <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Optional</div>
-                  
-                  {economicParams.panelSurface && (
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-500">Panel Surface</span>
-                      <span className="text-white font-semibold tabular-nums">{economicParams.panelSurface} m²</span>
-                    </div>
-                  )}
-                  
-                  {economicParams.dailyIrradiance && (
-                    <div className="flex justify-between items-center text-xs mt-2">
-                      <span className="text-gray-500">Irradiance</span>
-                      <span className="text-white font-semibold tabular-nums">{economicParams.dailyIrradiance} kWh/m²</span>
-                    </div>
-                  )}
+              {/* Optional Parameters - Always show with divider */}
+              <div className="border-t border-gray-700 my-2 pt-2">
+                <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Optional</div>
+                
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Panel Surface</span>
+                  <span className="text-white font-semibold tabular-nums">
+                    {economicParams.panelSurface ? `${economicParams.panelSurface} m²` : '—'}
+                  </span>
                 </div>
-              )}
+                
+                <div className="flex justify-between items-center text-xs mt-2">
+                  <span className="text-gray-500">Irradiance</span>
+                  <span className="text-white font-semibold tabular-nums">
+                    {economicParams.dailyIrradiance ? `${economicParams.dailyIrradiance} kWh/m²` : '—'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
