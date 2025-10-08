@@ -1080,11 +1080,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
       </div>
 
       {/* Body 3-column layout */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 overflow-y-auto">
         {/* Left column: Current Condition + Temperature + Humidity */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
           {/* Current Condition Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow overflow-hidden min-h-[220px]">
             <div className="text-sm md:text-md font-semibold text-white mb-1.5 md:mb-2 text-center">Current Condition</div>
             <div className="grid grid-cols-2 py-3 gap-1 md:gap-1.5 w-full">
               {/* Indoor Temperature (Gauge) */}
@@ -1211,11 +1211,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
 
         {/* Center column: three graphs */}
-        <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-hidden">
+        <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-visible">
           {/* Container for all three graphs with dynamic height distribution */}
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             {/* Combined Temperature + Humidity Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm md:text-base font-semibold text-white">Temperature & Humidity</h4>
@@ -1235,7 +1235,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             </div>
 
             {/* Temperature Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm md:text-base font-semibold text-white">Temperature</h4>
@@ -1255,7 +1255,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             </div>
 
             {/* Humidity Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <h4 className="text-sm md:text-base font-semibold text-white">Humidity</h4>
@@ -1279,7 +1279,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Right column: Weather + Compare + Alerts */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
           {/* Weather (external, not indoor) */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow flex flex-col overflow-hidden min-h-[180px]">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-xs md:text-sm font-semibold text-white truncate">Weather Condition</div>
             </div>
