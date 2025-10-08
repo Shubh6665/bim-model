@@ -53,6 +53,8 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconomicParams, onClose }) => {
   const [gridPriceText, setGridPriceText] = React.useState(String(economicParams.gridPrice));
   const [sellingPriceText, setSellingPriceText] = React.useState(String(economicParams.sellingPrice));
+  const [panelSurfaceText, setPanelSurfaceText] = React.useState(economicParams.panelSurface ? String(economicParams.panelSurface) : '');
+  const [irradianceText, setIrradianceText] = React.useState(economicParams.dailyIrradiance ? String(economicParams.dailyIrradiance) : '');
   
   return (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[3000] flex items-center justify-center" onClick={onClose}>
@@ -247,11 +249,27 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               <input
                 type="text"
                 inputMode="decimal"
-                value={economicParams.panelSurface || ''}
+                value={panelSurfaceText}
                 onChange={(e) => {
                   const val = e.target.value.replace(',', '.');
-                  const num = parseFloat(val);
-                  setEconomicParams({ ...economicParams, panelSurface: isNaN(num) ? undefined : num });
+                  // Allow typing decimal values
+                  if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                    setPanelSurfaceText(val);
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) {
+                      setEconomicParams({ ...economicParams, panelSurface: num });
+                    } else if (val === '') {
+                      setEconomicParams({ ...economicParams, panelSurface: undefined });
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // On blur, sync with actual value or clear if empty
+                  if (economicParams.panelSurface !== undefined) {
+                    setPanelSurfaceText(String(economicParams.panelSurface));
+                  } else {
+                    setPanelSurfaceText('');
+                  }
                 }}
                 className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
                 placeholder="e.g. 50"
@@ -265,11 +283,27 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               <input
                 type="text"
                 inputMode="decimal"
-                value={economicParams.dailyIrradiance || ''}
+                value={irradianceText}
                 onChange={(e) => {
                   const val = e.target.value.replace(',', '.');
-                  const num = parseFloat(val);
-                  setEconomicParams({ ...economicParams, dailyIrradiance: isNaN(num) ? undefined : num });
+                  // Allow typing decimal values
+                  if (val === '' || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                    setIrradianceText(val);
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) {
+                      setEconomicParams({ ...economicParams, dailyIrradiance: num });
+                    } else if (val === '') {
+                      setEconomicParams({ ...economicParams, dailyIrradiance: undefined });
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // On blur, sync with actual value or clear if empty
+                  if (economicParams.dailyIrradiance !== undefined) {
+                    setIrradianceText(String(economicParams.dailyIrradiance));
+                  } else {
+                    setIrradianceText('');
+                  }
                 }}
                 className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
                 placeholder="e.g. 4.5"
