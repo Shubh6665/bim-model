@@ -276,10 +276,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               />
             </div>
           </div>
-          
-          <p className="text-[10px] text-gray-500 mt-2">
-            * Both values required for efficiency calculation.
-          </p>
         </div>
       </div>
     </div>
