@@ -1005,9 +1005,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   value={calculateKPIs.efficiency} 
                   unit="%" 
                   color="#22c55e" 
-                  showGauge={true}
-                  gaugeMin={0}
-                  gaugeMax={100}
+                  showGauge={false}
                 />
                 
                 {/* Row 2 */}
@@ -1016,9 +1014,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   value={calculateKPIs.directSelfUseRate} 
                   unit="%" 
                   color="#10b981" 
-                  showGauge={true}
-                  gaugeMin={0}
-                  gaugeMax={100}
+                  showGauge={false}
                 />
                 <KPICard 
                   label="Exported Energy" 
