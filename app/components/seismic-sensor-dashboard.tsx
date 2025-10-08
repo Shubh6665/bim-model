@@ -815,7 +815,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
   };
 
   return (
-    <div className={standalone ? "h-screen w-full bg-gray-950 flex flex-col overflow-hidden" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col h-screen overflow-hidden"}>
+    <div className={standalone ? "h-full w-full bg-gray-950 flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col"}>
       <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-gray-800 bg-gray-900/70">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -881,7 +881,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 min-h-0 max-h-full overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 overflow-hidden">
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
             <div className="text-sm md:text-md font-semibold text-white mb-1.5 md:mb-2 text-center">Seismic Activity</div>
@@ -914,7 +914,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           {/* Container for three graphs with dynamic height distribution */}
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             {/* Magnitude Graph */}
-            <div className="flex-1 flex flex-col min-h-[150px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Magnitude (Richter Scale)</div>
                 <ScaleSwitch currentScale={magnitudeScale} setScale={setMagnitudeScale} />
@@ -925,7 +925,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             </div>
 
             {/* Acceleration Graph */}
-            <div className="flex-1 flex flex-col min-h-[150px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Acceleration (m/s²)</div>
                 <ScaleSwitch currentScale={accelerationScale} setScale={setAccelerationScale} />
@@ -936,7 +936,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             </div>
 
             {/* Frequency Graph */}
-            <div className="flex-1 flex flex-col min-h-[150px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Frequency (Hz)</div>
                 <ScaleSwitch currentScale={frequencyScale} setScale={setFrequencyScale} />
@@ -950,7 +950,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
 
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
           {/* Displacement & Frequency Stats Card - Smaller */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-xs md:text-sm font-semibold text-white truncate">Performance Stats</div>
             </div>
