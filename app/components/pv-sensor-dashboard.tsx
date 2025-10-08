@@ -51,10 +51,21 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconomicParams, onClose }) => {
+  // Local state for temporary changes (not applied until Save)
+  const [tempParams, setTempParams] = React.useState<EconomicParams>(economicParams);
   const [gridPriceText, setGridPriceText] = React.useState(String(economicParams.gridPrice));
   const [sellingPriceText, setSellingPriceText] = React.useState(String(economicParams.sellingPrice));
   const [panelSurfaceText, setPanelSurfaceText] = React.useState(economicParams.panelSurface ? String(economicParams.panelSurface) : '');
   const [irradianceText, setIrradianceText] = React.useState(economicParams.dailyIrradiance ? String(economicParams.dailyIrradiance) : '');
+  
+  const handleSave = () => {
+    setEconomicParams(tempParams);
+    onClose();
+  };
+  
+  const handleCancel = () => {
+    onClose();
+  };
   
   return (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[3000] flex items-center justify-center" onClick={onClose}>
@@ -81,7 +92,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setEconomicParams({ ...economicParams, selfConsumptionRate: Math.max(0, economicParams.selfConsumptionRate - 5) })}
+                onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: Math.max(0, tempParams.selfConsumptionRate - 5) })}
                 className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold flex items-center justify-center transition text-sm"
                 title="Decrease by 5%"
               >
@@ -90,10 +101,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               <input
                 type="text"
                 inputMode="numeric"
-                value={economicParams.selfConsumptionRate}
+                value={tempParams.selfConsumptionRate}
                 onChange={(e) => {
                   const val = parseInt(e.target.value) || 0;
-                  setEconomicParams({ ...economicParams, selfConsumptionRate: Math.min(100, Math.max(0, val)) });
+                  setTempParams({ ...tempParams, selfConsumptionRate: Math.min(100, Math.max(0, val)) });
                 }}
                 className="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center text-sm font-semibold"
                 placeholder="70"
@@ -101,7 +112,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               <span className="text-xs text-gray-400 font-medium">%</span>
               <button
                 type="button"
-                onClick={() => setEconomicParams({ ...economicParams, selfConsumptionRate: Math.min(100, economicParams.selfConsumptionRate + 5) })}
+                onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: Math.min(100, tempParams.selfConsumptionRate + 5) })}
                 className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold flex items-center justify-center transition text-sm"
                 title="Increase by 5%"
               >
@@ -114,23 +125,23 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               type="range"
               min={0}
               max={100}
-              value={economicParams.selfConsumptionRate}
-              onChange={(e) => setEconomicParams({ ...economicParams, selfConsumptionRate: Number(e.target.value) })}
+              value={tempParams.selfConsumptionRate}
+              onChange={(e) => setTempParams({ ...tempParams, selfConsumptionRate: Number(e.target.value) })}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
             />
             <div
               className="absolute -top-1.5 translate-x-[-50%] px-1.5 py-0.5 rounded bg-blue-600 text-white text-[10px] font-semibold pointer-events-none"
-              style={{ left: `calc(${economicParams.selfConsumptionRate}%)` }}
+              style={{ left: `calc(${tempParams.selfConsumptionRate}%)` }}
             >
-              {economicParams.selfConsumptionRate}%
+              {tempParams.selfConsumptionRate}%
             </div>
             <div className="flex justify-between text-[10px] text-gray-300 mt-1">
               {[0,25,50,75,100].map((v)=> (
                 <button
                   key={v}
                   type="button"
-                  onClick={() => setEconomicParams({ ...economicParams, selfConsumptionRate: v })}
-                  className={`px-1.5 py-0.5 rounded transition ${economicParams.selfConsumptionRate===v ? 'bg-blue-600 text-white' : 'bg-transparent text-gray-300 hover:bg-gray-800'}`}
+                  onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: v })}
+                  className={`px-1.5 py-0.5 rounded transition ${tempParams.selfConsumptionRate===v ? 'bg-blue-600 text-white' : 'bg-transparent text-gray-300 hover:bg-gray-800'}`}
                   aria-label={`Set to ${v}%`}
                   title={`${v}%`}
                 >
@@ -156,12 +167,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
             <input
               type="text"
               inputMode="decimal"
-              value={economicParams.avgDailyLoad}
+              value={tempParams.avgDailyLoad}
               onChange={(e) => {
                 const val = e.target.value.replace(',', '.');
                 const num = parseFloat(val);
                 // Average daily load must be ≥ 0 as per specification
-                setEconomicParams({ ...economicParams, avgDailyLoad: isNaN(num) ? 0 : Math.max(0, num) });
+                setTempParams({ ...tempParams, avgDailyLoad: isNaN(num) ? 0 : Math.max(0, num) });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
               placeholder="e.g. 15 (min: 0)"
@@ -181,13 +192,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                   const num = parseFloat(val);
                   if (!isNaN(num)) {
                     // Grid price must be > 0 as per specification
-                    setEconomicParams({ ...economicParams, gridPrice: Math.max(0.01, num) });
+                    setTempParams({ ...tempParams, gridPrice: Math.max(0.01, num) });
                   }
                 }
               }}
               onBlur={() => {
                 // On blur, sync with actual value
-                setGridPriceText(String(economicParams.gridPrice));
+                setGridPriceText(String(tempParams.gridPrice));
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
               placeholder="e.g. 0.25 (min: 0.01)"
@@ -207,13 +218,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                   const num = parseFloat(val);
                   if (!isNaN(num)) {
                     // Selling price must be ≥ 0 as per specification
-                    setEconomicParams({ ...economicParams, sellingPrice: Math.max(0, num) });
+                    setTempParams({ ...tempParams, sellingPrice: Math.max(0, num) });
                   }
                 }
               }}
               onBlur={() => {
                 // On blur, sync with actual value
-                setSellingPriceText(String(economicParams.sellingPrice));
+                setSellingPriceText(String(tempParams.sellingPrice));
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
               placeholder="e.g. 0.10 (min: 0)"
@@ -224,12 +235,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
             <input
               type="text"
               inputMode="decimal"
-              value={economicParams.forecastTrend}
+              value={tempParams.forecastTrend}
               onChange={(e) => {
                 const val = e.target.value.replace(',', '.');
                 const num = parseFloat(val);
                 // Clamp trend to -20% → +20% as per specification
-                setEconomicParams({ ...economicParams, forecastTrend: isNaN(num) ? 0 : Math.min(20, Math.max(-20, num)) });
+                setTempParams({ ...tempParams, forecastTrend: isNaN(num) ? 0 : Math.min(20, Math.max(-20, num)) });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
               placeholder="e.g. 2 (range: -20 to +20)"
@@ -261,16 +272,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                     setPanelSurfaceText(val);
                     const num = parseFloat(val);
                     if (!isNaN(num)) {
-                      setEconomicParams({ ...economicParams, panelSurface: num });
+                      setTempParams({ ...tempParams, panelSurface: num });
                     } else if (val === '') {
-                      setEconomicParams({ ...economicParams, panelSurface: undefined });
+                      setTempParams({ ...tempParams, panelSurface: undefined });
                     }
                   }
                 }}
                 onBlur={() => {
                   // On blur, sync with actual value or clear if empty
-                  if (economicParams.panelSurface !== undefined) {
-                    setPanelSurfaceText(String(economicParams.panelSurface));
+                  if (tempParams.panelSurface !== undefined) {
+                    setPanelSurfaceText(String(tempParams.panelSurface));
                   } else {
                     setPanelSurfaceText('');
                   }
@@ -295,16 +306,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                     setIrradianceText(val);
                     const num = parseFloat(val);
                     if (!isNaN(num)) {
-                      setEconomicParams({ ...economicParams, dailyIrradiance: num });
+                      setTempParams({ ...tempParams, dailyIrradiance: num });
                     } else if (val === '') {
-                      setEconomicParams({ ...economicParams, dailyIrradiance: undefined });
+                      setTempParams({ ...tempParams, dailyIrradiance: undefined });
                     }
                   }
                 }}
                 onBlur={() => {
                   // On blur, sync with actual value or clear if empty
-                  if (economicParams.dailyIrradiance !== undefined) {
-                    setIrradianceText(String(economicParams.dailyIrradiance));
+                  if (tempParams.dailyIrradiance !== undefined) {
+                    setIrradianceText(String(tempParams.dailyIrradiance));
                   } else {
                     setIrradianceText('');
                   }
@@ -314,6 +325,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               />
             </div>
           </div>
+        </div>
+        
+        {/* Save and Cancel Buttons */}
+        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-sm font-medium transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-sm font-semibold transition"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
