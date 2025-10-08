@@ -11,21 +11,23 @@ interface Props {
 }
 
 type DailySeries = { 
-  timestamps: Date[]; 
-  power?: number[];
-  voltage?: number[];
-  current?: number[];
-  efficiency?: number[];
-  energy?: number[];
-  production?: number[];
+  timestamps: Date[];       // Time points
+  production: number[];     // Daily energy production (kWh) - PRIMARY INPUT
+  power?: number[];         // Instantaneous power (kW) - for live display only
+  voltage?: number[];       // For live display only
+  current?: number[];       // For live display only
+  efficiency?: number[];    // Calculated efficiency
+  energy?: number[];        // Cumulative energy
 };
 
 type EconomicParams = {
-  selfConsumptionRate: number;
-  avgDailyLoad: number;
-  gridPrice: number;
-  sellingPrice: number;
-  forecastTrend: number;
+  selfConsumptionRate: number;  // Direct self-consumption rate (%)
+  avgDailyLoad: number;          // Average daily household load (kWh)
+  gridPrice: number;             // Grid electricity price (€/kWh)
+  sellingPrice: number;          // Energy selling price (€/kWh)
+  forecastTrend: number;         // Forecast trend (%)
+  panelSurface?: number;         // Total surface of PV panels (m²) - optional
+  dailyIrradiance?: number;      // Average daily irradiance (kWh/m²) - optional
 };
 
 type ForecastPeriod = 'monthly' | 'annual' | 'custom';
@@ -228,6 +230,57 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
             />
           </div>
         </div>
+        
+        {/* Optional Parameters */}
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Optional Parameters</h4>
+            <span className="text-[10px] text-gray-500">For efficiency calculation</span>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-300 block mb-1">
+                Panel Surface (m²)
+                <span className="text-gray-500 ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={economicParams.panelSurface || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(',', '.');
+                  const num = parseFloat(val);
+                  setEconomicParams({ ...economicParams, panelSurface: isNaN(num) ? undefined : num });
+                }}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                placeholder="e.g. 50"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-300 block mb-1">
+                Daily Irradiance (kWh/m²)
+                <span className="text-gray-500 ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={economicParams.dailyIrradiance || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(',', '.');
+                  const num = parseFloat(val);
+                  setEconomicParams({ ...economicParams, dailyIrradiance: isNaN(num) ? undefined : num });
+                }}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                placeholder="e.g. 4.5"
+              />
+            </div>
+          </div>
+          
+          <p className="text-[10px] text-gray-500 mt-2">
+            * Both values required for efficiency calculation. If omitted, efficiency will show "—"
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -250,11 +303,13 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const [customForecastDays, setCustomForecastDays] = useState(90);
   
   const [economicParams, setEconomicParams] = useState<EconomicParams>({
-    selfConsumptionRate: 70,
-    avgDailyLoad: 15,
-    gridPrice: 0.25,
-    sellingPrice: 0.10,
-    forecastTrend: 0,
+    selfConsumptionRate: 70,   // 70% self-consumption
+    avgDailyLoad: 15,          // 15 kWh daily load
+    gridPrice: 0.25,           // €0.25/kWh grid price
+    sellingPrice: 0.10,        // €0.10/kWh selling price
+    forecastTrend: 0,          // 0% trend (no growth/decrease)
+    panelSurface: 50,          // 50 m² panel surface (optional)
+    dailyIrradiance: 4.5,      // 4.5 kWh/m²/day irradiance (optional)
   });
 
   // KPIs are computed for current day only; this keeps D/W/M/Y controls exclusive to charts.
@@ -275,62 +330,71 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     return `${y}-${m}-${d}`;
   }, [now]);
 
-  const generatePVMockData = (start: Date, end: Date, resolution: number, scale: "D" | "W" | "M" | "Y" = "D"): DailySeries => {
+  // Extract current production from sensor.value (format: "13.02 kWh")
+  const getCurrentProduction = (): number => {
+    try {
+      console.log('[PV Dashboard] Parsing sensor value:', sensor.value);
+      const match = sensor.value.match(/([0-9.]+)\s*kWh/);
+      if (match && match[1]) {
+        const production = parseFloat(match[1]);
+        console.log('[PV Dashboard] Extracted production:', production, 'kWh');
+        return production;
+      }
+    } catch (e) {
+      console.warn('[PV Dashboard] Failed to parse sensor value:', sensor.value);
+    }
+    console.warn('[PV Dashboard] Could not parse sensor value, returning 0');
+    return 0;
+  };
+
+  const generatePVMockData = (start: Date, end: Date, resolution: number, scale: "D" | "W" | "M" | "Y" = "D", currentProduction?: number): DailySeries => {
     const timestamps: Date[] = [];
-    const power: number[] = [];
-    const voltage: number[] = [];
-    const current: number[] = [];
-    const efficiency: number[] = [];
-    const energy: number[] = [];
     const production: number[] = [];
     
     const duration = end.getTime() - start.getTime();
     const interval = duration / resolution;
-    let cumulativeEnergy = 0;
+    const today = new Date();
+    const isToday = start.getDate() === today.getDate() && 
+                    start.getMonth() === today.getMonth() && 
+                    start.getFullYear() === today.getFullYear();
     
     for (let i = 0; i <= resolution; i++) {
       const timestamp = new Date(start.getTime() + i * interval);
       timestamps.push(timestamp);
       
-      const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
       const dayOfYear = Math.floor((timestamp.getTime() - new Date(timestamp.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
       const seasonalFactor = 0.7 + 0.3 * Math.sin((dayOfYear / 365) * 2 * Math.PI - Math.PI / 2);
       
-      let powerValue = 0;
-      let efficiencyValue = 0;
-      let dailyProduction = 0;
+      let dailyProduction = 0; // Daily energy production in kWh - PRIMARY INPUT
       
-      if (scale === "D") {
+      // Use real sensor value for today's last data point
+      if (isToday && scale === "D" && i === resolution && currentProduction !== undefined) {
+        dailyProduction = currentProduction;
+        console.log(`[PV Dashboard] Using real sensor value: ${dailyProduction} kWh`);
+      } else if (scale === "D") {
+        // For daily view, spread production across hours (simulation only)
+        const hour = timestamp.getHours() + timestamp.getMinutes() / 60;
         if (hour >= 6 && hour <= 18) {
           const solarPosition = (hour - 6) / 12;
           const bellCurve = Math.sin(solarPosition * Math.PI);
-          powerValue = bellCurve * 12 * (0.85 + Math.random() * 0.3) * seasonalFactor;
-          efficiencyValue = 15 + bellCurve * 7 + (Math.random() - 0.5) * 2;
+          // Scale historical hourly data proportionally to current production if available
+          const baseHourly = bellCurve * (1.5 + Math.random() * 0.5) * seasonalFactor;
+          if (isToday && currentProduction !== undefined) {
+            // Scale historical hours to match current cumulative production
+            dailyProduction = baseHourly * (currentProduction / 25); // Assume ~25 kWh daily capacity
+          } else {
+            dailyProduction = baseHourly;
+          }
         }
       } else {
-        dailyProduction = (8 + Math.random() * 4) * seasonalFactor;
-        powerValue = dailyProduction;
+        // Daily/Weekly/Monthly/Yearly: Total daily production
+        dailyProduction = (20 + Math.random() * 10) * seasonalFactor; // 20-30 kWh per day
       }
       
-      const voltageValue = powerValue > 0 ? 320 + (Math.random() - 0.5) * 40 : 0;
-      const currentValue = voltageValue > 0 ? (powerValue * 1000) / voltageValue : 0;
-      
-      if (i > 0 && scale === "D") {
-        const intervalHours = interval / (1000 * 60 * 60);
-        cumulativeEnergy += powerValue * intervalHours;
-      } else if (scale !== "D") {
-        cumulativeEnergy += dailyProduction;
-      }
-      
-      power.push(parseFloat(powerValue.toFixed(2)));
-      voltage.push(parseFloat(voltageValue.toFixed(1)));
-      current.push(parseFloat(currentValue.toFixed(2)));
-      efficiency.push(parseFloat(efficiencyValue.toFixed(1)));
-      energy.push(parseFloat(cumulativeEnergy.toFixed(2)));
-      production.push(parseFloat((scale === "D" ? powerValue : dailyProduction).toFixed(2)));
+      production.push(parseFloat(dailyProduction.toFixed(2)));
     }
     
-    return { timestamps, power, voltage, current, efficiency, energy, production };
+    return { timestamps, production };
   };
 
   const loadForSensor = async (target: Sensor, setter: (s: DailySeries|null)=>void, forDate?: Date, scale: "D" | "W" | "M" | "Y" = "D") => {
@@ -379,7 +443,10 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate() && scale === "D";
       if (isSameDay) end = new Date();
       
-      const mockData = generatePVMockData(start, end, resolution, scale);
+      // Extract current production from sensor value for today's data
+      const currentProduction = isSameDay ? getCurrentProduction() : undefined;
+      
+      const mockData = generatePVMockData(start, end, resolution, scale, currentProduction);
       setter(mockData);
       setError(null);
     } catch (e:any) {
@@ -392,7 +459,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     // Load daily series for KPIs and Live Status; chart series are computed per-chart below
     setLoading(true);
     loadForSensor(sensor, setSeries, date, 'D').finally(() => setLoading(false));
-  }, [sensor.id, date, projectId]);
+  }, [sensor.id, sensor.value, date, projectId]); // Added sensor.value to re-render when sensor updates
 
   // Helper to compute series for a given scale (per-chart)
   const computeSeriesFor = React.useCallback((scale: "D" | "W" | "M" | "Y") => {
@@ -437,8 +504,12 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     const today = new Date();
     const isSameDay = start.getFullYear()===today.getFullYear() && start.getMonth()===today.getMonth() && start.getDate()===today.getDate() && scale === 'D';
     if (isSameDay) end = new Date();
-    return generatePVMockData(start, end, resolution, scale);
-  }, [date]);
+    
+    // Extract current production from sensor value for today's data
+    const currentProduction = isSameDay ? getCurrentProduction() : undefined;
+    
+    return generatePVMockData(start, end, resolution, scale, currentProduction);
+  }, [date, sensor.value]); // Added sensor.value to re-compute when sensor updates
 
   // Per-chart scale state
   const [prodScale, setProdScale] = useState<"D" | "W" | "M" | "Y">('D');
@@ -453,21 +524,36 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const econSeries = useMemo(() => computeSeriesFor(econScale), [computeSeriesFor, econScale]);
 
   const calculateKPIs = useMemo((): KPIData | null => {
-    if (!series?.energy || series.energy.length === 0) return null;
+    if (!series?.production || series.production.length === 0) return null;
     
-    const yieldEnergy = series.energy[series.energy.length - 1];
-    const avgEfficiency = series.efficiency && series.efficiency.length > 0
-      ? series.efficiency.reduce((a, b) => a + b, 0) / series.efficiency.filter(e => e > 0).length
-      : 18;
+    // 1. Yield Energy = sum of daily production (kWh)
+    const yieldEnergy = series.production.reduce((sum, val) => sum + val, 0);
     
+    // 2. Efficiency = (Production / (Irradiance × Area)) × 100
+    // Only calculate if panel surface and irradiance are available
+    let avgEfficiency = 0;
+    if (economicParams.panelSurface && economicParams.dailyIrradiance) {
+      const theoreticalMax = economicParams.dailyIrradiance * economicParams.panelSurface;
+      avgEfficiency = theoreticalMax > 0 ? (yieldEnergy / theoreticalMax) * 100 : 0;
+    }
+    
+    // 3. Self-Use = Production × self-consumption rate
     const selfConsumption = yieldEnergy * (economicParams.selfConsumptionRate / 100);
+    
+    // 4. Exported = Production − Self-Use
     const exportedEnergy = yieldEnergy - selfConsumption;
-    // Scale daily load to the selected period to avoid unit mismatch
+    
+    // 5. Grid Consumption = max(0, Daily Load − Self-Use)
     const totalLoadForPeriod = economicParams.avgDailyLoad * periodDays;
     const gridConsumption = Math.max(0, totalLoadForPeriod - selfConsumption);
     
+    // 6. Income = Exported × Selling price
     const income = exportedEnergy * economicParams.sellingPrice;
+    
+    // 7. Saving = Self-Use × Grid price
     const saving = selfConsumption * economicParams.gridPrice;
+    
+    // 8. Bill = (Grid × Grid price) − Income
     const bill = (gridConsumption * economicParams.gridPrice) - income;
     
     return {
@@ -485,28 +571,35 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   const calculateForecast = useMemo(() => {
     if (!series?.production || series.production.length < 3) return null;
     
+    // 3-day moving average as base (per specification)
     const recentProduction = series.production.slice(-3);
-    const avgProduction = recentProduction.reduce((a, b) => a + b, 0) / recentProduction.length;
+    const avgDailyProduction = recentProduction.reduce((a, b) => a + b, 0) / recentProduction.length;
     
     const daysToForecast = forecastPeriod === 'monthly' ? 30 : forecastPeriod === 'annual' ? 365 : customForecastDays;
     
     let totalIncome = 0;
     let totalSaving = 0;
     
-    // Use daily energy (kWh) baseline for forecasting from current day
-    const baseDailyKWh = (series.energy && series.energy.length > 0 ? series.energy[series.energy.length - 1] : 0);
-
+    // For each future day, apply trend adjustment
     for (let day = 1; day <= daysToForecast; day++) {
+      // Estimated Production = Average(last 3 days) × (1 + trend)^day
       const trendFactor = Math.pow(1 + (economicParams.forecastTrend / 100), day);
-      const forecastProduction = baseDailyKWh * trendFactor;
+      const forecastProduction = avgDailyProduction * trendFactor;
       
+      // Estimated Self-Use = Estimated Production × self-consumption rate
       const selfConsumption = forecastProduction * (economicParams.selfConsumptionRate / 100);
+      
+      // Estimated Exported = Estimated Production − Self-Use
       const exported = forecastProduction - selfConsumption;
       
+      // Estimated Income = Exported × selling price
       totalIncome += exported * economicParams.sellingPrice;
+      
+      // Estimated Saving = Self-Use × grid price
       totalSaving += selfConsumption * economicParams.gridPrice;
     }
     
+    // Estimated Total = Income + Saving
     return {
       income: totalIncome,
       saving: totalSaving,
@@ -514,33 +607,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       days: daysToForecast,
     };
   }, [series, economicParams, forecastPeriod, customForecastDays]);
-
-  const liveStats = useMemo(() => {
-    if (!series?.power || !series.voltage || !series.timestamps) return null;
-    
-    let powerCur = series.power[series.power.length - 1];
-    let voltageCur = series.voltage[series.voltage.length - 1];
-    let currentCur = series.current ? series.current[series.current.length - 1] : 0;
-    let efficiencyCur = series.efficiency ? series.efficiency[series.efficiency.length - 1] : 0;
-
-    // If this is an FV/PV sensor and we have a realtime combined string like "2.2 kW | 320 V | 6.9 A | 18.2%",
-    // parse it to reflect the live reading precisely in the Live Status panel.
-    if (typeof sensor?.value === 'string') {
-      const parts = sensor.value.split('|').map(s => s.trim());
-      if (parts.length >= 4) {
-        const p = parseFloat(parts[0]);
-        if (!isNaN(p)) powerCur = p;
-        const v = parseFloat(parts[1]);
-        if (!isNaN(v)) voltageCur = v;
-        const a = parseFloat(parts[2]);
-        if (!isNaN(a)) currentCur = a;
-        const e = parseFloat(parts[3]?.replace('%', ''));
-        if (!isNaN(e)) efficiencyCur = e;
-      }
-    }
-    
-    return { powerCur, voltageCur, currentCur, efficiencyCur };
-  }, [series, sensor?.value]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -557,9 +623,12 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     return () => ro.disconnect();
   }, [centerColRef]);
 
-  const KPICard: React.FC<{ label: string; value: number; unit: string; color?: string; showGauge?: boolean; gaugeMin?: number; gaugeMax?: number; trend?: 'up' | 'down' | 'neutral' }> = ({ label, value, unit, color = '#22c55e', showGauge = false, gaugeMin = 0, gaugeMax = 100, trend = 'neutral' }) => {
+  const KPICard: React.FC<{ label: string; value: number | undefined; unit: string; color?: string; showGauge?: boolean; gaugeMin?: number; gaugeMax?: number; trend?: 'up' | 'down' | 'neutral' }> = ({ label, value, unit, color = '#22c55e', showGauge = false, gaugeMin = 0, gaugeMax = 100, trend = 'neutral' }) => {
     const v = value ?? 0;
     const pct = showGauge ? Math.max(0, Math.min(1, (v - gaugeMin) / (gaugeMax - gaugeMin || 1))) : 0;
+    
+    // Check if value is undefined (not available)
+    const isValueUnavailable = value === undefined;
     
     // Check if this is Yield Energy (kWh unit with longer value)
     const isYieldEnergy = unit === 'kWh';
@@ -568,7 +637,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-2.5 sm:p-3 md:p-4 flex flex-col justify-between h-full hover:border-gray-600 transition-all duration-300 group overflow-hidden">
         <div className="flex items-center justify-between mb-2 sm:mb-2.5 md:mb-3 flex-shrink-0">
           <div className="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold truncate pr-1">{label}</div>
-          {trend !== 'neutral' && (
+          {trend !== 'neutral' && !isValueUnavailable && (
             <div className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
               trend === 'up' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
             }`}>
@@ -578,14 +647,30 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         </div>
         
         <div className="flex-1 flex flex-col justify-center min-h-0">
-          {isYieldEnergy ? (
+          {isValueUnavailable ? (
+            /* Show dash when value is not available */
+            <div className="flex items-baseline gap-1 sm:gap-1.5 md:gap-2 overflow-hidden">
+              <div 
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums leading-none truncate flex-shrink-0"
+                style={{ color: '#6b7280' }}
+              >
+                —
+              </div>
+              <div 
+                className="text-sm sm:text-base md:text-lg font-medium flex-shrink-0"
+                style={{ color: '#4b5563' }}
+              >
+                {unit}
+              </div>
+            </div>
+          ) : isYieldEnergy ? (
             /* Yield Energy - Stack unit below on small screens */
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5 md:gap-2">
               <div 
                 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums leading-none"
                 style={{ color }}
               >
-                {value.toFixed(1)}
+                {v.toFixed(1)}
               </div>
               <div 
                 className="text-base sm:text-base md:text-lg font-medium mt-1 sm:mt-0"
@@ -601,7 +686,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tabular-nums leading-none truncate flex-shrink-0"
                 style={{ color }}
               >
-                {value.toFixed(unit === '€' ? 2 : unit === '%' ? 0 : 1)}
+                {v.toFixed(unit === '€' ? 2 : unit === '%' ? 0 : 1)}
               </div>
               <div 
                 className="text-sm sm:text-base md:text-lg font-medium flex-shrink-0"
@@ -612,7 +697,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             </div>
           )}
           
-          {showGauge && (
+          {showGauge && !isValueUnavailable && (
             <div className="mt-3 md:mt-4 hidden lg:block">
               <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div 
@@ -1034,7 +1119,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                 />
                 <KPICard 
                   label="Efficiency" 
-                  value={calculateKPIs.efficiency} 
+                  value={economicParams.panelSurface && economicParams.dailyIrradiance ? calculateKPIs.efficiency : undefined} 
                   unit="%" 
                   color="#22c55e" 
                   showGauge={false}
@@ -1268,28 +1353,6 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             </div>
           </div>
           
-          {/* Live Status - Compact Card */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4">
-            <h3 className="text-sm font-bold text-white mb-3 tracking-wide">Live Status</h3>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="text-center">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Power</div>
-                <div className="text-lg font-bold text-yellow-400 tabular-nums">{liveStats?.powerCur.toFixed(1) || '0.0'}</div>
-                <div className="text-[9px] text-gray-600">kW</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Voltage</div>
-                <div className="text-lg font-bold text-blue-400 tabular-nums">{liveStats?.voltageCur.toFixed(0) || '0'}</div>
-                <div className="text-[9px] text-gray-600">V</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Efficiency</div>
-                <div className="text-lg font-bold text-green-400 tabular-nums">{liveStats?.efficiencyCur.toFixed(1) || '0.0'}</div>
-                <div className="text-[9px] text-gray-600">%</div>
-              </div>
-            </div>
-          </div>
-          
           {/* System Parameters - Compact */}
           <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4">
             <h3 className="text-sm font-bold text-white mb-3 tracking-wide">System Parameters</h3>
@@ -1316,6 +1379,27 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   {economicParams.forecastTrend > 0 ? '+' : ''}{economicParams.forecastTrend}%
                 </span>
               </div>
+              
+              {/* Optional Parameters - Divider */}
+              {(economicParams.panelSurface || economicParams.dailyIrradiance) && (
+                <div className="border-t border-gray-700 my-2 pt-2">
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Optional</div>
+                  
+                  {economicParams.panelSurface && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-500">Panel Surface</span>
+                      <span className="text-white font-semibold tabular-nums">{economicParams.panelSurface} m²</span>
+                    </div>
+                  )}
+                  
+                  {economicParams.dailyIrradiance && (
+                    <div className="flex justify-between items-center text-xs mt-2">
+                      <span className="text-gray-500">Irradiance</span>
+                      <span className="text-white font-semibold tabular-nums">{economicParams.dailyIrradiance} kWh/m²</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

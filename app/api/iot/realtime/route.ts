@@ -102,46 +102,38 @@ function generateCurrentValue(sensorType: string, baseValue: number, groupKey: s
     case "photovoltaic":
     case "fv sensor":
     case "pv sensor":
-      // Generate realistic solar panel data based on time of day
-      // Use local time (assuming IST/UTC+5:30 for India, or local timezone)
+      // Generate daily production data (kWh) as per client specification
+      // Client requires: Daily production data only, not instantaneous power/voltage/current
       const hour = timestamp.getHours();
       const minute = timestamp.getMinutes();
       const timeInHours = hour + minute / 60;
       
       console.log(`[IoT Realtime API] FV Sensor time check: hour=${hour}, minute=${minute}, timeInHours=${timeInHours}`);
       
-      // Solar generation during extended daylight (5 AM - 7 PM for better demo)
-      // In production, this should use actual sunrise/sunset times
+      // Generate cumulative daily production (kWh) based on time of day
+      // Typical solar panel generates 15-40 kWh per day
+      // Production accumulates throughout the day (5 AM - 7 PM)
       if (timeInHours >= 5 && timeInHours <= 19) {
-        // Map time to solar position (0 to 1, peak at noon)
-        const solarPosition = (timeInHours - 5) / 14; // 0 to 1 over 5 AM to 7 PM
-        const peakTime = 0.5; // Noon is at 50% of the range
-        const distanceFromPeak = Math.abs(solarPosition - peakTime);
-        const bellCurve = Math.cos(distanceFromPeak * Math.PI); // Peak at noon
+        // Calculate progress through the day (0 to 1)
+        const dayProgress = (timeInHours - 5) / 14; // 0 at 5 AM, 1 at 7 PM
         
-        // Power: 0-13 kW with solar curve + random variation
-        const power = Math.max(0, bellCurve * 11 * (0.85 + Math.random() * 0.3));
+        // Total daily capacity: 25-35 kWh (realistic for residential solar)
+        const dailyCapacity = 28 + (Math.random() - 0.5) * 6;
         
-        // Voltage: 280-360V when generating
-        const voltage = power > 0.5 ? 320 + (Math.random() - 0.5) * 40 : 0;
+        // Use sigmoid curve for cumulative production (slow start, rapid midday, slow end)
+        const cumulativeProduction = dailyCapacity * (1 / (1 + Math.exp(-8 * (dayProgress - 0.5))));
         
-        // Current: calculated from P = V × I
-        const current = voltage > 0 ? (power * 1000) / voltage : 0;
+        console.log(`[IoT Realtime API] FV Daily Production: ${cumulativeProduction.toFixed(2)} kWh (${(dayProgress * 100).toFixed(1)}% through day)`);
         
-        // Efficiency: 15-22%
-        const efficiency = power > 0.5 ? 15 + bellCurve * 7 + (Math.random() - 0.5) * 2 : 0;
-        
-        console.log(`[IoT Realtime API] FV Generation: power=${power.toFixed(1)}kW, voltage=${voltage.toFixed(0)}V, current=${current.toFixed(1)}A, eff=${efficiency.toFixed(1)}%`);
-        
-        // Return combined string with all values
+        // Return only daily production in kWh as per client spec
         return { 
-          value: `${power.toFixed(1)} kW | ${voltage.toFixed(0)} V | ${current.toFixed(1)} A | ${efficiency.toFixed(1)}%`, 
+          value: `${cumulativeProduction.toFixed(2)} kWh`, 
           status 
         };
       } else {
-        // No generation at night
+        // At night, production is 0 kWh
         console.log(`[IoT Realtime API] FV Night mode - no generation`);
-        return { value: `0.0 kW | 0 V | 0.0 A | 0.0%`, status };
+        return { value: `0.00 kWh`, status };
       }
     
     default:

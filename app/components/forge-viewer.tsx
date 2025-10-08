@@ -98,6 +98,24 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
     const heatmapBtnRef = useRef<any>(null);
     const [heatLegend, setHeatLegend] = useState<{ min: number; max: number; label: string; unit: string } | null>(null);
     const [heatmapChannel, setHeatmapChannel] = useState<string | null>(null);
+    
+    // BroadcastChannel for syncing sensor data across windows
+    const [sensorSyncChannel, setSensorSyncChannel] = useState<BroadcastChannel | null>(null);
+    
+    useEffect(() => {
+        // Initialize BroadcastChannel for cross-window sensor sync
+        try {
+            const channel = new BroadcastChannel('sensor-sync');
+            setSensorSyncChannel(channel);
+            console.log('[ForgeViewer] BroadcastChannel initialized for sensor sync');
+            
+            return () => {
+                channel.close();
+            };
+        } catch (e) {
+            console.warn('[ForgeViewer] BroadcastChannel not supported');
+        }
+    }, []);
 
     // Use sensor context
     const { sensors, selectedSensor, selectSensor, placeSensor, showSensorForm, getFilteredSensors, filteredSensorType, viewerOverlay, hideViewerOverlay, currentProjectId, updateSensorValues, setupRoomDetection, getRoomForDbId } = useSensorContext();
@@ -119,6 +137,15 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 
                 if (json.updates && updateSensorValues) {
                     updateSensorValues(json.updates);
+                    
+                    // Broadcast updates to other windows (like standalone PV dashboard)
+                    if (sensorSyncChannel) {
+                        sensorSyncChannel.postMessage({
+                            type: 'sensor-update',
+                            updates: json.updates
+                        });
+                        console.log('[ForgeViewer] Broadcast sensor updates to other windows');
+                    }
                 }
             } catch (e) {
                 console.warn(`[ForgeViewer] Realtime update error:`, e);
@@ -131,7 +158,7 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         // Update every 15 seconds
         const interval = setInterval(updateRealtime, 15000);
         return () => clearInterval(interval);
-    }, [currentProjectId, activePanel, updateSensorValues]);
+    }, [currentProjectId, activePanel, updateSensorValues, sensorSyncChannel]);
     // Draggable overlay state
     const overlayRef = useRef<HTMLDivElement | null>(null);
     const [overlayPos, setOverlayPos] = useState<{ x: number; y: number } | null>(null);

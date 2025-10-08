@@ -36,9 +36,9 @@ export const SENSOR_TYPES = [
   { name: "Temp & Hum", color: "#ef4444", unit: "°C" },
   { name: "CO2", color: "#22c55e", unit: "ppm" },
   { name: "Light", color: "#fde047", unit: "lux" },
-  { name: "FV", color: "#3b82f6", unit: "%" },
-  { name: "Seismic and accelerometric", color: "#a21caf", unit: "g" },
-  { name: "Energy consumption", color: "#14b8a6", unit: "kWh" },
+  { name: "FV", color: "#3b82f6", unit: "" },
+  { name: "Seismic and accelerometric", color: "#a21caf", unit: "" },
+  { name: "Energy consumption", color: "#14b8a6", unit: "" },
 ];
 
 interface SensorContextType {

@@ -4,6 +4,16 @@ import { useEffect, useState, Suspense } from 'react';
 import PVSensorDashboard from '../../../components/pv-sensor-dashboard';
 import { Sensor } from '../../../context/sensor-context';
 
+// BroadcastChannel for syncing sensor data across windows
+let sensorSyncChannel: BroadcastChannel | null = null;
+if (typeof window !== 'undefined') {
+  try {
+    sensorSyncChannel = new BroadcastChannel('sensor-sync');
+  } catch (e) {
+    console.warn('[PV Dashboard] BroadcastChannel not supported');
+  }
+}
+
 function PVDashboardContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -12,6 +22,7 @@ function PVDashboardContent() {
   const [projectId, setProjectId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMainWindow, setIsMainWindow] = useState(false);
 
   useEffect(() => {
     const loadSensorData = async () => {
@@ -25,28 +36,26 @@ function PVDashboardContent() {
 
         setProjectId(projectIdParam || '');
 
-        // Fetch sensor data from API
-        const response = await fetch(`/api/sensors/${sensorId}`);
+        // Check if this is the main window (has opener) or standalone
+        setIsMainWindow(!window.opener);
+
+        // Fetch sensor data from IoT API (includes real-time value)
+        const response = await fetch(`/api/iot/sensors?projectId=${projectIdParam || ''}`);
         if (!response.ok) {
           throw new Error('Failed to fetch sensor data');
         }
         
-        const sensorData = await response.json();
-        setSensor(sensorData);
-
-        // Fetch all sensors for the project if projectId is available
-        if (projectIdParam) {
-          try {
-            const allSensorsResponse = await fetch(`/api/projects/${projectIdParam}/sensors`);
-            if (allSensorsResponse.ok) {
-              const allSensorsData = await allSensorsResponse.json();
-              setAllSensors(allSensorsData);
-            }
-          } catch (error) {
-            console.warn('Failed to fetch all sensors:', error);
-            // Continue with just the single sensor
-          }
+        const allSensorsData = await response.json();
+        const sensorData = allSensorsData.find((s: Sensor) => s.id === sensorId);
+        
+        if (!sensorData) {
+          throw new Error('Sensor not found in project');
         }
+        
+        setSensor(sensorData);
+        setAllSensors(allSensorsData);
+        
+        console.log('[PV Dashboard Page] Loaded sensor:', sensorData.name, 'Value:', sensorData.value);
       } catch (error) {
         console.error('Error loading sensor data:', error);
         setError(error instanceof Error ? error.message : 'Failed to load sensor data');
@@ -56,6 +65,55 @@ function PVDashboardContent() {
     };
 
     loadSensorData();
+    
+    // Listen for sensor updates from other windows via BroadcastChannel
+    if (sensorSyncChannel) {
+      const handleMessage = (event: MessageEvent) => {
+        const { type, updates } = event.data;
+        
+        if (type === 'sensor-update') {
+          const sensorId = searchParams.get('id');
+          
+          // Update current sensor
+          setSensor(prevSensor => {
+            if (!prevSensor) return prevSensor;
+            const update = updates.find((u: any) => u.id === sensorId);
+            if (update) {
+              console.log('[PV Dashboard Page] Received broadcast update:', update.value);
+              return {
+                ...prevSensor,
+                value: update.value,
+                status: update.status,
+                lastUpdate: update.lastUpdate
+              };
+            }
+            return prevSensor;
+          });
+          
+          // Update all sensors
+          setAllSensors(prevSensors => {
+            return prevSensors.map(s => {
+              const update = updates.find((u: any) => u.id === s.id);
+              if (update) {
+                return {
+                  ...s,
+                  value: update.value,
+                  status: update.status,
+                  lastUpdate: update.lastUpdate
+                };
+              }
+              return s;
+            });
+          });
+        }
+      };
+      
+      sensorSyncChannel.addEventListener('message', handleMessage);
+      
+      return () => {
+        sensorSyncChannel?.removeEventListener('message', handleMessage);
+      };
+    }
   }, [searchParams]);
 
   const handleClose = () => {
