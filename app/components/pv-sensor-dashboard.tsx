@@ -846,51 +846,84 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               opacity={0.8}
             />
             
-            <rect 
-              x={hoverX > l + innerW / 2 ? hoverX - 130 : hoverX + 10} 
-              y={t + 10} 
-              width={120} 
-              height={series2.length > 0 ? 70 : 50} 
-              rx={6} 
-              fill="#1f2937" 
-              stroke="#374151" 
-              strokeWidth={1.5}
-              opacity={0.95}
-            />
+            {(() => {
+              const val1 = series1[hoverIndex];
+              const val2 = series2.length > 0 ? series2[hoverIndex] : null;
+              const unit = mode === 'economic' ? '€' : (scale === 'D' ? 'kW' : 'kWh');
+              const val1Str = mode === 'economic' ? `€${val1.toFixed(2)}` : `${val1.toFixed(2)} ${unit}`;
+              const val2Str = val2 !== null ? (mode === 'economic' ? `€${val2.toFixed(2)}` : `${val2.toFixed(2)} ${unit}`) : '';
+              
+              // Calculate dynamic tooltip dimensions - more generous sizing
+              const maxLabelLength = Math.max(label1.length, label2?.length || 0);
+              const maxValueLength = Math.max(val1Str.length, val2Str.length);
+              const tooltipWidth = Math.max(200, Math.min(260, (maxLabelLength + maxValueLength) * 8.5));
+              const tooltipHeight = val2 !== null ? 110 : 80;
+              
+              // Better positioning - prefer top of chart area for more space
+              const tooltipX = hoverX > l + innerW / 2 ? hoverX - tooltipWidth - 12 : hoverX + 12;
+              const tooltipY = t + 15; // More space from top
+              
+              return (
+                <>
+                  <rect 
+                    x={tooltipX} 
+                    y={tooltipY} 
+                    width={tooltipWidth} 
+                    height={tooltipHeight} 
+                    rx={8} 
+                    fill="#1f2937" 
+                    stroke="#374151" 
+                    strokeWidth={1.5}
+                    opacity={0.98}
+                  />
+                  
+                  {/* Timestamp */}
+                  <text 
+                    x={tooltipX + tooltipWidth / 2} 
+                    y={tooltipY + 22} 
+                    fontSize={11.5} 
+                    fill="#9ca3af" 
+                    textAnchor="middle"
+                    fontWeight="500"
+                  >
+                    {(() => {
+                      const d = new Date(xs[hoverIndex]);
+                      if (scale === 'D') return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                      if (scale === 'W') return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                      if (scale === 'M') return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                      return d.toLocaleDateString('en-GB', { month: 'short' });
+                    })()}
+                  </text>
+                  
+                  {/* First series */}
+                  <circle cx={tooltipX + 16} cy={tooltipY + 46} r={4.5} fill={color1} />
+                  <text x={tooltipX + 28} y={tooltipY + 50} fontSize={11.5} fill="#d1d5db" fontWeight="500">
+                    {label1}
+                  </text>
+                  <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 50} fontSize={12.5} fill="#f3f4f6" fontWeight="700" textAnchor="end">
+                    {val1Str}
+                  </text>
+                  
+                  {val2 !== null && (
+                    <>
+                      {/* Second series */}
+                      <circle cx={tooltipX + 16} cy={tooltipY + 74} r={4.5} fill={color2} />
+                      <text x={tooltipX + 28} y={tooltipY + 78} fontSize={11.5} fill="#d1d5db" fontWeight="500">
+                        {label2}
+                      </text>
+                      <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 78} fontSize={12.5} fill="#f3f4f6" fontWeight="700" textAnchor="end">
+                        {val2Str}
+                      </text>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             
-            <text 
-              x={hoverX > l + innerW / 2 ? hoverX - 70 : hoverX + 70} 
-              y={t + 26} 
-              fontSize={10} 
-              fill="#9ca3af" 
-              textAnchor="middle"
-            >
-              {(() => {
-                const d = new Date(xs[hoverIndex]);
-                if (scale === 'D') return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-                if (scale === 'W') return d.toLocaleDateString('en-GB', { weekday: 'short' });
-                if (scale === 'M') return d.getDate().toString();
-                return d.toLocaleDateString('en-GB', { month: 'short' });
-              })()}
-            </text>
-            
-            <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill={color1} />
-            <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
-              {label1}: {mode === 'economic' ? `€${series1[hoverIndex].toFixed(2)}` : `${series1[hoverIndex].toFixed(2)} ${scale === 'D' ? 'kW' : 'kWh'}`}
-            </text>
-            
+            {/* Data point circles */}
+            <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series1[hoverIndex]).y} r={5} fill={color1} stroke="#1f2937" strokeWidth={2} />
             {series2.length > 0 && (
-              <>
-                <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 60} r={3} fill={color2} />
-                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 63} fontSize={10} fill="#f3f4f6" fontWeight="600">
-                  {label2}: {mode === 'economic' ? `€${series2[hoverIndex].toFixed(2)}` : `${series2[hoverIndex].toFixed(2)} ${scale === 'D' ? 'kW' : 'kWh'}`}
-                </text>
-              </>
-            )}
-            
-            <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series1[hoverIndex]).y} r={4} fill={color1} stroke="#1f2937" strokeWidth={2} />
-            {series2.length > 0 && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series2[hoverIndex]).y} r={4} fill={color2} stroke="#1f2937" strokeWidth={2} />
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series2[hoverIndex]).y} r={5} fill={color2} stroke="#1f2937" strokeWidth={2} />
             )}
           </g>
         )}
@@ -1033,7 +1066,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         {/* CENTER COLUMN - 4 Main Charts */}
         <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-hidden">
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">{prodScale === 'D' ? 'Daily' : prodScale === 'W' ? 'Weekly' : prodScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
                 <ScaleSwitch currentScale={prodScale} setScale={setProdScale} />
@@ -1043,7 +1076,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Energy Distribution</div>
                 <ScaleSwitch currentScale={distScale} setScale={setDistScale} />
@@ -1053,7 +1086,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[240px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Grid vs Self-Consumption</div>
                 <ScaleSwitch currentScale={gridScale} setScale={setGridScale} />
@@ -1063,7 +1096,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[240px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="text-xs md:text-sm font-semibold text-white">Economic Trend</div>
                 <ScaleSwitch currentScale={econScale} setScale={setEconScale} />
