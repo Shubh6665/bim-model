@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { X, ExternalLink } from "lucide-react";
 import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 // Extended models
-interface FMPanelProps { projectId?: string; viewer?: any; }
+interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; }
 
 // Extended Asset Record with all fields from asset_register_facility_manager_template_extended
 interface AssetRecord { 
@@ -76,6 +76,10 @@ interface SpaceRecord {
   description?: string; 
   source?: 'BIM_MODEL' | 'MANUAL';
   dbId?: number | null;
+  // Optional 2D footprint to simulate a room in the model (planar polygon at a given Z)
+  footprint?: { points: { x: number; y: number; z: number }[]; z?: number; levelIndex?: number } | null;
+  // If a BIM room later conflicts with this manual space (or vice-versa)
+  conflictWithId?: string;
 }
 
 interface ScheduledItem { 
@@ -159,13 +163,136 @@ const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => voi
   <button onClick={onClick} className={"w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-300 hover:text-white hover:bg-gray-800"}>{label}</button>
 );
 
-export default function FMPanel({ projectId, viewer }: FMPanelProps) {
+export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps) {
   const [section, setSection] = useState<Section | null>(null);
   const [showModal, setShowModal] = useState(false);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragRef = React.useRef({ startMouseX: 0, startMouseY: 0, startX: 0, startY: 0 });
+  const isStandalone = !!standalone;
+  const childWinRef = useRef<Window | null>(null);
+
+  // Remote drawing bridge (main window only)
+  const remoteActiveRef = useRef(false);
+  const remotePointsRef = useRef<{ x:number; y:number; z:number }[]>([]);
+  const remoteBaseZRef = useRef<number | null>(null);
+  const remoteOverlay = 'fm-remote-footprint-preview';
+  const remoteHoverRef = useRef<{ x:number; y:number; z:number } | null>(null);
+  const remoteClearOverlay = () => {
+    try {
+      if (!viewer?.impl) return;
+      const scn = (viewer.impl.overlayScenes || {})[remoteOverlay];
+      const scene = scn?.scene;
+      if (scene) {
+        const children = [...scene.children];
+        children.forEach(ch => scene.remove(ch));
+        viewer.impl.invalidate(true);
+      }
+    } catch {}
+  };
+  const remoteDrawPreview = () => {
+    try {
+      if (!viewer?.impl) return;
+      if (!(viewer.impl.overlayScenes || {})[remoteOverlay]) viewer.impl.createOverlayScene(remoteOverlay);
+      remoteClearOverlay();
+      const pts = remotePointsRef.current;
+      const hover = remoteHoverRef.current;
+      const vis = (hover && pts.length >= 1) ? [...pts, hover] : pts;
+      if (!vis || vis.length < 2) { viewer.impl.invalidate(true); return; }
+      const THREE = (window as any).THREE;
+      if (!THREE) { viewer.impl.invalidate(true); return; }
+      const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
+      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88 });
+      const line = new THREE.Line(geom, mat);
+      viewer.impl.addOverlay(remoteOverlay, line);
+      if (pts.length > 2) {
+        const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
+        const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66 }));
+        viewer.impl.addOverlay(remoteOverlay, line2);
+      }
+      viewer.impl.invalidate(true);
+    } catch {}
+  };
+  const remoteOnViewerMove = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl || !remoteActiveRef.current) return;
+      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+      if (hit && hit.point) {
+        const z = (remoteBaseZRef.current ?? hit.point.z);
+        remoteHoverRef.current = { x: hit.point.x, y: hit.point.y, z };
+        remoteDrawPreview();
+      }
+    } catch {}
+  };
+  const remoteOnViewerClick = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl || !remoteActiveRef.current) return;
+      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+      if (hit && hit.point) {
+        if (remoteBaseZRef.current == null) remoteBaseZRef.current = hit.point.z;
+        const z = remoteBaseZRef.current ?? hit.point.z;
+        const point = { x: hit.point.x, y: hit.point.y, z };
+        remotePointsRef.current.push(point);
+        childWinRef.current?.postMessage?.({ type: 'FM_DRAW_POINT', point }, '*');
+        remoteDrawPreview();
+      }
+    } catch {}
+  };
+  const remoteAttach = () => {
+    try {
+      if (!viewer || remoteActiveRef.current) return;
+      remotePointsRef.current = [];
+      remoteBaseZRef.current = null;
+      remoteHoverRef.current = null;
+      remoteActiveRef.current = true;
+      viewer.container?.addEventListener('click', remoteOnViewerClick as any, true);
+      viewer.container?.addEventListener('mousemove', remoteOnViewerMove as any, true);
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch {}
+      if (!viewer.impl.overlayScenes?.[remoteOverlay]) viewer.impl.createOverlayScene(remoteOverlay);
+    } catch {}
+  };
+  const remoteDetach = () => {
+    try {
+      if (!viewer) return;
+      viewer.container?.removeEventListener('click', remoteOnViewerClick as any, true);
+      viewer.container?.removeEventListener('mousemove', remoteOnViewerMove as any, true);
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch {}
+      remoteActiveRef.current = false;
+      remoteHoverRef.current = null;
+      remoteClearOverlay();
+    } catch {}
+  };
+
+  // Open FM controls in a new fullscreen-like window
+  const openFmWindow = () => {
+    try {
+      const params = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+      const url = `/fm-control${params}`;
+      const w = (window.screen?.availWidth || window.innerWidth || 1280);
+      const h = (window.screen?.availHeight || window.innerHeight || 800);
+      const features = [
+        'popup=yes',
+        'toolbar=no',
+        'location=no',
+        'status=no',
+        'menubar=no',
+        'scrollbars=yes',
+        'resizable=yes',
+        'left=0',
+        'top=0',
+        `width=${w}`,
+        `height=${h}`
+      ].join(',');
+      const win = window.open(url, 'FMControlsWindow', features);
+      childWinRef.current = win || null;
+      // Attempt to enforce sizing for browsers that ignore features
+      try { win?.moveTo?.(0, 0); } catch {}
+      try { win?.resizeTo?.(w, h); } catch {}
+      try { win?.focus?.(); } catch {}
+    } catch {}
+  };
 
   const modalTitle = React.useMemo(() => {
     if (!section) return 'FM';
@@ -185,12 +312,52 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
     }
   }, [section]);
 
-  // Initialize modal position to viewport center when opening
+  // Initialize defaults and modal position
   useEffect(() => {
+    // Default section in standalone mode
+    if (isStandalone && !section) {
+      setSection({ group: 'spaces', item: 'space-list' });
+    }
     if (showModal) {
       try { setModalPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); } catch {}
     }
-  }, [showModal]);
+  }, [showModal, isStandalone, section]);
+
+  // Bridge messages from child standalone window (only in main window)
+  useEffect(() => {
+    if (isStandalone) return; // child handles its own UI
+    const onMsg = (e: MessageEvent) => {
+      const d: any = e.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'FM_DRAW_START') {
+        if (!viewer) {
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          return;
+        }
+        // Remember sender as our child window for point streaming
+        try { childWinRef.current = (e.source as Window) || null; } catch {}
+        remoteAttach();
+      } else if (d.type === 'FM_DRAW_UNDO') {
+        // Remove last point and update preview
+        remotePointsRef.current.pop();
+        remoteDrawPreview();
+      } else if (d.type === 'FM_DRAW_FINISH') {
+        if (!viewer) return;
+        const pts = remotePointsRef.current;
+        if (pts.length >= 3) {
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_DONE', points: pts }, '*'); } catch {}
+        } else {
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NOT_ENOUGH_POINTS' }, '*'); } catch {}
+        }
+        remoteDetach();
+      } else if (d.type === 'FM_DRAW_CANCEL') {
+        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED' }, '*'); } catch {}
+        remoteDetach();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [isStandalone, viewer]);
 
   const handleMouseMove = (ev: MouseEvent) => {
     const { startMouseX, startMouseY, startX, startY } = dragRef.current;
@@ -232,7 +399,8 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  return (
+  // Sidebar menu (shared)
+  const Sidebar = (
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       <div className="p-4 border-b border-gray-800">
         <h2 className="text-xl font-bold text-white mb-3 text-center">FM</h2>
@@ -247,8 +415,8 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
             </button>
             {section?.group === 'assets' && (
               <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Asset list" active={section?.item==='asset-list'} onClick={()=>{ setSection({group:'assets',item:'asset-list'}); setShowModal(true); }} />
-                <MenuButton label="Create new asset" active={section?.item==='create-asset'} onClick={()=>{ setSection({group:'assets',item:'create-asset'}); setShowModal(true); }} />
+                <MenuButton label="Asset list" active={section?.item==='asset-list'} onClick={()=>{ setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Create new asset" active={section?.item==='create-asset'} onClick={()=>{ setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }} />
               </div>
             )}
           </div>
@@ -263,8 +431,8 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
             </button>
             {section?.group === 'spaces' && (
               <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Space list" active={section?.item==='space-list'} onClick={()=>{ setSection({group:'spaces',item:'space-list'}); setShowModal(true); }} />
-                <MenuButton label="Create new space" active={section?.item==='create-space'} onClick={()=>{ setSection({group:'spaces',item:'create-space'}); setShowModal(true); }} />
+                <MenuButton label="Space list" active={section?.item==='space-list'} onClick={()=>{ setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Create new space" active={section?.item==='create-space'} onClick={()=>{ setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }} />
               </div>
             )}
           </div>
@@ -279,21 +447,53 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
             </button>
             {section?.group === 'maintenance' && (
               <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Scheduled maintenance" active={section?.item==='scheduled'} onClick={()=>{ setSection({group:'maintenance',item:'scheduled'}); setShowModal(true); }} />
-                <MenuButton label="Ticket-based maintenance" active={section?.item==='ticket'} onClick={()=>{ setSection({group:'maintenance',item:'ticket'}); setShowModal(true); }} />
-                <MenuButton label="Work orders" active={section?.item==='work-orders'} onClick={()=>{ setSection({group:'maintenance',item:'work-orders'}); setShowModal(true); }} />
-                <MenuButton label="Service requests" active={section?.item==='service-requests'} onClick={()=>{ setSection({group:'maintenance',item:'service-requests'}); setShowModal(true); }} />
-                <MenuButton label="Maintenance reports" active={section?.item==='reports'} onClick={()=>{ setSection({group:'maintenance',item:'reports'}); setShowModal(true); }} />
-                <MenuButton label="Upcoming maintenance" active={section?.item==='upcoming'} onClick={()=>{ setSection({group:'maintenance',item:'upcoming'}); setShowModal(true); }} />
-                <MenuButton label="Ongoing maintenance" active={section?.item==='ongoing'} onClick={()=>{ setSection({group:'maintenance',item:'ongoing'}); setShowModal(true); }} />
-                <MenuButton label="Planned maintenance" active={section?.item==='planned'} onClick={()=>{ setSection({group:'maintenance',item:'planned'}); setShowModal(true); }} />
+                <MenuButton label="Scheduled maintenance" active={section?.item==='scheduled'} onClick={()=>{ setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Ticket-based maintenance" active={section?.item==='ticket'} onClick={()=>{ setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Work orders" active={section?.item==='work-orders'} onClick={()=>{ setSection({group:'maintenance',item:'work-orders'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Service requests" active={section?.item==='service-requests'} onClick={()=>{ setSection({group:'maintenance',item:'service-requests'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Maintenance reports" active={section?.item==='reports'} onClick={()=>{ setSection({group:'maintenance',item:'reports'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Upcoming maintenance" active={section?.item==='upcoming'} onClick={()=>{ setSection({group:'maintenance',item:'upcoming'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Ongoing maintenance" active={section?.item==='ongoing'} onClick={()=>{ setSection({group:'maintenance',item:'ongoing'}); if(!isStandalone) setShowModal(true); }} />
+                <MenuButton label="Planned maintenance" active={section?.item==='planned'} onClick={()=>{ setSection({group:'maintenance',item:'planned'}); if(!isStandalone) setShowModal(true); }} />
               </div>
             )}
           </div>
         </div>
       </div>
-
       <div className="flex-1 overflow-hidden flex flex-col px-4"></div>
+    </div>
+  );
+
+  if (isStandalone) {
+    return (
+      <div className="h-full w-full flex bg-gray-950">
+        {Sidebar}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
+          </div>
+          <div className="p-4 flex-1 flex flex-col min-h-0 overflow-auto">
+            {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
+            {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
+            {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
+            {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />}
+            {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='upcoming' && <UpcomingMaintenance projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
+      {Sidebar}
 
       {showModal && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
@@ -310,22 +510,31 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
               <div>
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
               </div>
-              <button
-                onClick={()=>setShowModal(false)}
-                onMouseDown={(e)=> e.stopPropagation()}
-                className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
-                aria-label="Close"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2" onMouseDown={(e)=> e.stopPropagation()}>
+                <button
+                  onClick={openFmWindow}
+                  className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                  aria-label="Open controls in new window"
+                  title="Open controls in new window"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={()=>setShowModal(false)}
+                  className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                  aria-label="Close"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {/* Body */}
             <div className="p-4 flex-1 flex flex-col min-h-0">
               {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
               {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
               {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
-              {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} />}
+              {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} />}
               {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
@@ -1404,7 +1613,39 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Cache to localStorage but prefer backend data when available
   useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
+
+  // Load from backend
+  useEffect(()=>{
+    const run = async () => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/spaces`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          // Normalize ids
+          const normalized: SpaceRecord[] = data.map((d:any)=>({
+            id: d.id || d._id || d.idStr || `${d.source||'MANUAL'}-${d.dbId||d.name||Math.random()}`,
+            level: d.level,
+            name: d.name,
+            area: d.area,
+            spaceCode: d.spaceCode,
+            building: d.building,
+            description: d.description,
+            source: d.source,
+            dbId: d.dbId ?? null,
+            footprint: d.footprint || undefined,
+            conflictWithId: d.conflictWithId
+          }));
+          setRows(normalized);
+        }
+      } catch (err) { console.error(err); }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
@@ -1472,15 +1713,48 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         } as SpaceRecord;
       }).filter(Boolean);
 
-      // Merge: prefer manual entries, then add BIM not already present (by name+level)
-      const manual = rows.filter(r=>r.source!== 'BIM_MODEL');
-      const keyOf = (r: SpaceRecord) => `${(r.level||'').toLowerCase()}|${(r.name||'').toLowerCase()}`;
-      const existing = new Map(manual.map(r=>[keyOf(r), true] as const));
-      const merged = [
-        ...manual,
-        ...newRows.filter(r=>!existing.get(keyOf(r)))
-      ];
-      setRows(merged);
+      // Prefer server upsert + refresh when a projectId is available
+      if (projectId && newRows.length) {
+        try {
+          await fetch(`/api/projects/${projectId}/spaces`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upsertMany', spaces: newRows })
+          });
+          const res = await fetch(`/api/projects/${projectId}/spaces`);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              const normalized: SpaceRecord[] = data.map((d:any)=>({
+                id: d.id || d._id || d.idStr || `${d.source||'BIM_MODEL'}-${d.dbId||d.name||Math.random()}`,
+                level: d.level,
+                name: d.name,
+                area: d.area,
+                spaceCode: d.spaceCode,
+                building: d.building,
+                description: d.description,
+                source: d.source,
+                dbId: d.dbId ?? null,
+                footprint: d.footprint || undefined,
+                conflictWithId: d.conflictWithId
+              }));
+              setRows(normalized);
+            }
+          }
+        } catch (e) {
+          console.error('[Spaces] upsertMany/refresh failed', e);
+        }
+      } else {
+        // Fallback: local merge (prefer manual entries, then add BIM not already present by name+level)
+        const manual = rows.filter(r=>r.source!== 'BIM_MODEL');
+        const keyOf = (r: SpaceRecord) => `${(r.level||'').toLowerCase()}|${(r.name||'').toLowerCase()}`;
+        const existing = new Map(manual.map(r=>[keyOf(r), true] as const));
+        const merged = [
+          ...manual,
+          ...newRows.filter(r=>!existing.get(keyOf(r)))
+        ];
+        setRows(merged);
+      }
     } finally {
       setIsExtracting(false);
     }
@@ -1575,11 +1849,212 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   );
 };
 
-const CreateSpace: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows,setRows]=useState<SpaceRecord[]>(()=>load(K.spaces(projectId), [] as SpaceRecord[]));
   useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
   const [f,setF]=useState({ building:'', level:'', name:'', spaceCode:'', area:'', description:'' });
-  const onSave=()=>{ 
+  // Footprint drawing state
+  const [drawing, setDrawing] = useState(false);
+  const [footprint, setFootprint] = useState<{ points: { x:number; y:number; z:number }[]; z?: number; levelIndex?: number } | null>(null);
+  const pointsRef = useRef<{ x:number; y:number; z:number }[]>([]);
+  const baseZRef = useRef<number | null>(null);
+  const overlayName = 'fm-footprint-editor';
+  const isRemote = !viewer && !!standalone; // standalone window without viewer
+  const hoverRef = useRef<{ x:number; y:number; z:number } | null>(null);
+
+  const clearOverlay = () => {
+    try {
+      if (!viewer?.impl) return;
+      const scn = (viewer.impl.overlayScenes || {})[overlayName];
+      const scene = scn?.scene;
+      if (scene) {
+        const children = [...scene.children];
+        children.forEach(ch => scene.remove(ch));
+        viewer.impl.invalidate(true);
+      }
+    } catch {}
+  };
+
+  const drawPreview = () => {
+    try {
+      if (!viewer?.impl) return;
+      if (!(viewer.impl.overlayScenes || {})[overlayName]) {
+        viewer.impl.createOverlayScene(overlayName);
+      }
+      clearOverlay();
+      const pts = pointsRef.current;
+      const hover = hoverRef.current;
+      const vis = (hover && pts.length >= 1) ? [...pts, hover] : pts;
+      if (!vis || vis.length < 2) { viewer.impl.invalidate(true); return; }
+      const THREE = (window as any).THREE;
+      if (!THREE) { viewer.impl.invalidate(true); return; }
+      const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
+      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88 });
+      const line = new THREE.Line(geom, mat);
+      viewer.impl.addOverlay(overlayName, line);
+      if (pts.length > 2) {
+        const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
+        const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66 }));
+        viewer.impl.addOverlay(overlayName, line2);
+      }
+      viewer.impl.invalidate(true);
+    } catch {}
+  };
+
+  const onViewerClick = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl) return;
+      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+      if (hit && hit.point) {
+        if (baseZRef.current == null) baseZRef.current = hit.point.z;
+        const z = baseZRef.current ?? hit.point.z; // ensure number for TS
+        pointsRef.current.push({ x: hit.point.x, y: hit.point.y, z });
+        drawPreview();
+      }
+    } catch {}
+  };
+
+  const onViewerMove = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl || !drawing) return;
+      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+      if (hit && hit.point) {
+        const z = (baseZRef.current ?? hit.point.z);
+        hoverRef.current = { x: hit.point.x, y: hit.point.y, z };
+        drawPreview();
+      }
+    } catch {}
+  };
+
+  const onKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      finishDrawing();
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      cancelDrawing();
+    }
+  };
+
+  const startDrawing = () => {
+    if (!viewer) {
+      // Remote drawing: request main window to start capture
+      try {
+        (window as any).opener?.postMessage?.({ type: 'FM_DRAW_START' }, '*');
+        setFootprint(null);
+        pointsRef.current = [];
+        baseZRef.current = null;
+        setDrawing(true);
+      } catch {}
+      return;
+    }
+    try {
+      setFootprint(null);
+      pointsRef.current = [];
+      baseZRef.current = null;
+      setDrawing(true);
+      viewer.container?.addEventListener('click', onViewerClick as any, true);
+      viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
+      window.addEventListener('keydown', onKeyDown as any, true);
+      if (!viewer.impl.overlayScenes?.[overlayName]) viewer.impl.createOverlayScene(overlayName);
+      try { (viewer.container as HTMLElement).style.cursor = 'crosshair'; } catch {}
+    } catch {}
+  };
+
+  const finishDrawing = () => {
+    try {
+      if (isRemote) {
+        // Ask main window to finalize and send us the points
+        (window as any).opener?.postMessage?.({ type: 'FM_DRAW_FINISH' }, '*');
+        setDrawing(false);
+        return;
+      }
+      setDrawing(false);
+      viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+      viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      window.removeEventListener('keydown', onKeyDown as any, true);
+      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
+      const pts = pointsRef.current;
+      if (pts.length >= 3) {
+        setFootprint({ points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined });
+      } else {
+        // not enough points
+        setFootprint(null);
+        clearOverlay();
+      }
+    } catch {}
+  };
+
+  const cancelDrawing = () => {
+    try {
+      if (isRemote) {
+        (window as any).opener?.postMessage?.({ type: 'FM_DRAW_CANCEL' }, '*');
+      }
+      setDrawing(false);
+      pointsRef.current = [];
+      baseZRef.current = null;
+      viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+      viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      window.removeEventListener('keydown', onKeyDown as any, true);
+      clearOverlay();
+      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
+    } catch {}
+  };
+
+  const undoLastPoint = () => {
+    try {
+      if (!drawing) return;
+      if (isRemote) {
+        (window as any).opener?.postMessage?.({ type: 'FM_DRAW_UNDO' }, '*');
+        // locally reflect count for button state
+        pointsRef.current.pop();
+        return;
+      }
+      pointsRef.current.pop();
+      drawPreview();
+    } catch {}
+  };
+
+  // Cleanup on unmount or viewer change
+  useEffect(() => {
+    return () => {
+      try {
+        viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+        viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+        window.removeEventListener('keydown', onKeyDown as any, true);
+        clearOverlay();
+      } catch {}
+    };
+  }, [viewer]);
+
+  // Remote drawing: receive points and completion from main window
+  useEffect(() => {
+    if (!isRemote) return;
+    const onMsg = (e: MessageEvent) => {
+      const d: any = e.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'FM_DRAW_POINT' && d.point) {
+        try {
+          const p = d.point as { x:number; y:number; z:number };
+          pointsRef.current.push(p);
+          // keep latest summary for UI
+          setFootprint(prev => ({ points: [...pointsRef.current], z: pointsRef.current[0]?.z, levelIndex: undefined }));
+        } catch {}
+      } else if (d.type === 'FM_DRAW_DONE' && Array.isArray(d.points)) {
+        setDrawing(false);
+        pointsRef.current = d.points;
+        setFootprint({ points: [...d.points], z: d.points[0]?.z, levelIndex: undefined });
+      } else if (d.type === 'FM_DRAW_CANCELLED') {
+        setDrawing(false);
+        pointsRef.current = [];
+        setFootprint(null);
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [isRemote]);
+  const onSave = async () => { 
     const rec: SpaceRecord = { 
       id:`space-${Date.now()}`, 
       building:f.building||undefined,
@@ -1587,9 +2062,30 @@ const CreateSpace: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       name:f.name||undefined, 
       spaceCode:f.spaceCode||undefined,
       area: f.area?Number(f.area):undefined, 
-      description:f.description||undefined 
+      description:f.description||undefined,
+      source: 'MANUAL',
+      dbId: null
     }; 
-    setRows(prev=>[rec,...prev]); 
+    try {
+      if (projectId) {
+        const res = await fetch(`/api/projects/${projectId}/spaces`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...rec, footprint: footprint || null }) });
+        if (res.ok) {
+          const result = await res.json();
+          const saved = result?.space || result; // API returns { ok, space }
+          const id = saved?.id || saved?._id || rec.id;
+          setRows(prev=>[{ ...rec, id }, ...prev]);
+          // Clear footprint and overlay after save
+          setFootprint(null);
+          cancelDrawing();
+        } else {
+          setRows(prev=>[rec,...prev]);
+        }
+      } else {
+        setRows(prev=>[rec,...prev]);
+      }
+    } catch {
+      setRows(prev=>[rec,...prev]);
+    }
     setF({ building:'', level:'', name:'', spaceCode:'', area:'', description:'' }); 
   };
   return (
@@ -1602,6 +2098,23 @@ const CreateSpace: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e=>setF(v=>({...v,spaceCode:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e=>setF(v=>({...v,area:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e=>setF(v=>({...v,description:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+      </div>
+      {/* Footprint Editor */}
+      <div className="border-t border-gray-700 pt-3">
+        <div className="text-xs text-gray-400 mb-2">2D Footprint (optional)</div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={startDrawing} disabled={(!!viewer===false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer===false)&&!isRemote)||drawing)?'bg-gray-700 text-gray-400':'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
+          <button onClick={finishDrawing} disabled={!drawing || pointsRef.current.length<3} className={`px-3 py-1.5 rounded text-xs ${(!drawing||pointsRef.current.length<3)?'bg-gray-700 text-gray-400':'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
+          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length===0} className={`px-3 py-1.5 rounded text-xs ${(!drawing||pointsRef.current.length===0)?'bg-gray-700 text-gray-400':'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
+          <button onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing&&!footprint)?'bg-gray-700 text-gray-400':'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
+        </div>
+        <div className="text-[11px] text-gray-500 mt-2">
+          {drawing
+            ? 'Click on the model to add points. Press Enter to finish, ESC to cancel.'
+            : footprint
+              ? `${footprint.points.length} points captured at z=${(footprint.z??0).toFixed?.(2)}`
+              : 'No footprint set.'}
+        </div>
       </div>
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
     </div>
