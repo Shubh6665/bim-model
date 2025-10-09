@@ -749,18 +749,38 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       </div>
 
       {/* Bottom Pagination Controls */}
-      <div className="flex items-center justify-between px-1 py-2 text-xs text-gray-300">
-        <div>
-          Rows per page:
-          <select value={pageSize} onChange={e=>setPageSize(parseInt(e.target.value,10))} className="ml-1 bg-gray-800 border border-gray-700 rounded px-1 py-0.5">
+      <div className="flex items-center justify-between px-2 py-1 text-[11px] text-gray-300 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="whitespace-nowrap">Rows:</span>
+          <select 
+            value={pageSize} 
+            onChange={e=>setPageSize(parseInt(e.target.value,10))} 
+            className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
+          >
             {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
           </select>
-          <span className="ml-2">{filteredRows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}</span>
+        </div>
+        <div className="flex-1 text-center text-gray-400 truncate">
+          {filteredRows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={pageClamped<=1} className={`px-2 py-0.5 rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}>&lt;</button>
-          <span className="mx-1"> {pageClamped} / {totalPages}</span>
-          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={pageClamped>=totalPages} className={`px-2 py-0.5 rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}>&gt;</button>
+          <button 
+            onClick={()=>setPage(p=>Math.max(1,p-1))} 
+            disabled={pageClamped<=1} 
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+            aria-label="Previous page"
+          >
+            &#8249;
+          </button>
+          <span className="mx-1 whitespace-nowrap">{pageClamped}/{totalPages}</span>
+          <button 
+            onClick={()=>setPage(p=>Math.min(totalPages,p+1))} 
+            disabled={pageClamped>=totalPages} 
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+            aria-label="Next page"
+          >
+            &#8250;
+          </button>
         </div>
       </div>
     </div>
