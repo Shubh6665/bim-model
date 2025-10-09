@@ -18,6 +18,8 @@ interface AssetRecord {
   model?: string; 
   serialNumber?: string;
   installationDate?: string;
+  // Classification (from universal extractor)
+  assetClassification?: 'STRUCTURAL' | 'ARCHITECTURAL' | 'MEP' | 'FURNITURE' | 'EQUIPMENT' | 'OTHER';
   // Technical and Construction Data
   material?: string;
   dimensions?: string;
@@ -241,6 +243,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [visibleFields, setVisibleFields] = useState({
     basic: true,
     identification: false,
@@ -252,7 +257,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     compliance: false,
     relationships: false
   });
-  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '' });
+  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '' });
   
   // Deduplicate any pre-existing duplicates on initial load
   useEffect(() => {
@@ -321,6 +326,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           model,
           serialNumber: serial,
           installationDate: installDate,
+          assetClassification: (asset as any).assetType,
           powerRating: power,
           capacity,
           weight,
@@ -396,13 +402,33 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setVisibleFields(prev => ({ ...prev, [field]: !prev[field] }));
   };
   
+  // Build distinct option lists for dropdown filters
+  const distinct = {
+    categories: Array.from(new Set(rows.map(r => r.category).filter(Boolean))).sort() as string[],
+    types: Array.from(new Set(rows.map(r => r.type).filter(Boolean))).sort() as string[],
+    locations: Array.from(new Set(rows.map(r => r.location).filter(Boolean))).sort() as string[],
+    conditions: Array.from(new Set(rows.map(r => r.condition).filter(Boolean))).sort() as string[],
+    classifications: Array.from(new Set(rows.map(r => r.assetClassification).filter(Boolean))).sort() as string[]
+  };
+
   const filteredRows = rows.filter(r => {
     if (filter.category && !r.category?.toLowerCase().includes(filter.category.toLowerCase())) return false;
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
     if (filter.location && !r.location?.toLowerCase().includes(filter.location.toLowerCase())) return false;
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
+    if (filter.classification && (r.assetClassification||'').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
   });
+
+  // Reset page when filters or page size change
+  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, pageSize]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const pageClamped = Math.min(page, totalPages);
+  const startIndex = (pageClamped - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedRows = filteredRows.slice(startIndex, endIndex);
   
   const applyFilterToViewer = () => {
     if (!viewer || filteredRows.length === 0) return;
@@ -529,30 +555,26 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         <details className="mb-2">
           <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">Filters</summary>
           <div className="grid grid-cols-2 gap-1 mt-2">
-            <input 
-              placeholder="Category" 
-              value={filter.category} 
-              onChange={e => setFilter(f => ({ ...f, category: e.target.value }))}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
-            />
-            <input 
-              placeholder="Type" 
-              value={filter.type} 
-              onChange={e => setFilter(f => ({ ...f, type: e.target.value }))}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
-            />
-            <input 
-              placeholder="Location" 
-              value={filter.location} 
-              onChange={e => setFilter(f => ({ ...f, location: e.target.value }))}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
-            />
-            <input 
-              placeholder="Condition" 
-              value={filter.condition} 
-              onChange={e => setFilter(f => ({ ...f, condition: e.target.value }))}
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
-            />
+            <select value={filter.category} onChange={e=>setFilter(f=>({...f,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <option value="">All Categories</option>
+              {distinct.categories.map(v=> <option key={v} value={v}>{v}</option>)}
+            </select>
+            <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <option value="">All Types</option>
+              {distinct.types.map(v=> <option key={v} value={v}>{v}</option>)}
+            </select>
+            <select value={filter.location} onChange={e=>setFilter(f=>({...f,location:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <option value="">All Locations</option>
+              {distinct.locations.map(v=> <option key={v} value={v}>{v}</option>)}
+            </select>
+            <select value={filter.condition} onChange={e=>setFilter(f=>({...f,condition:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <option value="">All Conditions</option>
+              {distinct.conditions.map(v=> <option key={v} value={v}>{v}</option>)}
+            </select>
+            <select value={filter.classification} onChange={e=>setFilter(f=>({...f,classification:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
+              <option value="">All Classifications</option>
+              {distinct.classifications.map(v=> <option key={v} value={v}>{v}</option>)}
+            </select>
           </div>
           <button 
             onClick={applyFilterToViewer}
@@ -639,7 +661,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <tbody>
             {filteredRows.length===0 ? (
               <tr><td colSpan={20} className="px-3 py-4 text-center text-gray-400">No assets. Use "Create new asset".</td></tr>
-            ) : filteredRows.map(r=> (
+            ) : paginatedRows.map(r=> (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={()=>onRowClick(r)}>
                 {visibleFields.basic && (
                   <>
@@ -724,6 +746,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Bottom Pagination Controls */}
+      <div className="flex items-center justify-between px-1 py-2 text-xs text-gray-300">
+        <div>
+          Rows per page:
+          <select value={pageSize} onChange={e=>setPageSize(parseInt(e.target.value,10))} className="ml-1 bg-gray-800 border border-gray-700 rounded px-1 py-0.5">
+            {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+          </select>
+          <span className="ml-2">{filteredRows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={pageClamped<=1} className={`px-2 py-0.5 rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}>&lt;</button>
+          <span className="mx-1"> {pageClamped} / {totalPages}</span>
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={pageClamped>=totalPages} className={`px-2 py-0.5 rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}>&gt;</button>
+        </div>
       </div>
     </div>
   );
