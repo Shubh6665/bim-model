@@ -319,7 +319,7 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
               </button>
             </div>
             {/* Body */}
-            <div className="p-4 flex-1 overflow-y-auto">
+            <div className="p-4 flex-1 flex flex-col min-h-0">
               {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
               {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
               {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} />}
@@ -791,7 +791,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   }, [viewer, rows]);
   
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
         <div className="flex items-center justify-between mb-2">
           <div className="text-white font-semibold text-sm">Asset List</div>
@@ -908,7 +908,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         )}
       </div>
       
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
