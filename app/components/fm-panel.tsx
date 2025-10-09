@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
@@ -307,8 +308,14 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
               <div>
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
               </div>
-              <button onClick={()=>setShowModal(false)} className="px-2 py-1 text-gray-300 hover:text-white hover:bg-gray-700 rounded">
-                Close
+              <button
+                onClick={()=>setShowModal(false)}
+                onMouseDown={(e)=> e.stopPropagation()}
+                className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                aria-label="Close"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
             {/* Body */}
