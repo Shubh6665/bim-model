@@ -74,6 +74,8 @@ interface SpaceRecord {
   spaceCode?: string;
   building?: string;
   description?: string; 
+  source?: 'BIM_MODEL' | 'MANUAL';
+  dbId?: number | null;
 }
 
 interface ScheduledItem { 
@@ -322,7 +324,7 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
             <div className="p-4 flex-1 flex flex-col min-h-0">
               {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
               {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
-              {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} />}
+              {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
               {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
@@ -1395,41 +1397,170 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
   );
 };
 
-const SpaceList: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [rows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
+const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
+  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
+  const [isExtracting, setIsExtracting] = useState(false);
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pageClamped = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (pageClamped - 1) * pageSize;
+  const endIndex = Math.min(rows.length, startIndex + pageSize);
+  const paginatedRows = rows.slice(startIndex, endIndex);
+
+  const findRoomDbIds = async (): Promise<number[]> => {
+    if (!viewer) return [];
+    const queries = ['Revit Rooms', 'Rooms', 'Room', 'Spaces', 'Space'];
+    const all = new Set<number>();
+    for (const q of queries) {
+      // eslint-disable-next-line no-await-in-loop
+      const ids: number[] = await new Promise(resolve => {
+        try {
+          viewer.search(q, (dbids: number[]) => resolve(dbids||[]), () => resolve([]), ['Category'], { searchHidden: true });
+        } catch { resolve([]); }
+      });
+      ids.forEach(id => all.add(id));
+    }
+    return Array.from(all);
+  };
+
+  const extractRoomsFromBIM = async () => {
+    if (!viewer) return;
+    setIsExtracting(true);
+    try {
+      const dbids = await findRoomDbIds();
+      if (!dbids || dbids.length === 0) {
+        setIsExtracting(false);
+        return;
+      }
+      const propsList = await Promise.all(dbids.map((id:number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
+      const newRows: SpaceRecord[] = propsList.map((p:any) => {
+        const get = (names: string[]): string | undefined => {
+          const lower = names.map(n=>n.toLowerCase());
+          const prop = p?.properties?.find((x:any)=>{
+            const dn = x.displayName?.toLowerCase?.();
+            return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n)));
+          });
+          return prop?.displayValue?.toString();
+        };
+        const level = get(['Level','Reference Level']);
+        const name = p?.name || get(['Name','Room Name']);
+        const desc = get(['Comments','Description']);
+        const areaStr = get(['Area']);
+        const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g,'')) : undefined;
+        return {
+          id: `space-${p?.dbId ?? p?.externalId ?? Date.now()}`,
+          level: level || undefined,
+          name: name || undefined,
+          area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
+          description: desc || undefined,
+          source: 'BIM_MODEL',
+          dbId: p?.dbId ?? null
+        } as SpaceRecord;
+      });
+
+      // Merge: prefer manual entries, then add BIM not already present (by name+level)
+      const manual = rows.filter(r=>r.source!== 'BIM_MODEL');
+      const keyOf = (r: SpaceRecord) => `${(r.level||'').toLowerCase()}|${(r.name||'').toLowerCase()}`;
+      const existing = new Map(manual.map(r=>[keyOf(r), true] as const));
+      const merged = [
+        ...manual,
+        ...newRows.filter(r=>!existing.get(keyOf(r)))
+      ];
+      setRows(merged);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const onRowClick = (r: SpaceRecord) => {
+    try {
+      if (!viewer || !r.dbId) return;
+      // Isolate and fit to view the room
+      if (viewer.isolate) viewer.isolate([r.dbId]);
+      if (viewer.fitToView) viewer.fitToView([r.dbId]);
+    } catch {}
+  };
+
   return (
-    <div>
-      <div className="p-4 border-b border-gray-800">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="p-3 border-b border-gray-800">
         <div className="text-white font-semibold text-sm">Space List</div>
-        <div className="text-[11px] text-gray-400">Building – Level – Room name – Space Code – Area – Description</div>
+        <div className="text-[11px] text-gray-400">Level – Room name – Area – Description</div>
+        <div className="mt-2">
+          <button
+            onClick={extractRoomsFromBIM}
+            disabled={isExtracting}
+            className={`w-full ${isExtracting? 'bg-green-700/70':'bg-green-600 hover:bg-green-700'} text-white text-xs py-1.5 rounded`}
+          >
+            {isExtracting ? 'Extracting Rooms…' : 'Extract Rooms from BIM'}
+          </button>
+        </div>
       </div>
-      <div className="overflow-auto">
+
+      <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
-              <th className="text-left px-3 py-2">Building</th>
               <th className="text-left px-3 py-2">Level</th>
               <th className="text-left px-3 py-2">Room name</th>
-              <th className="text-left px-3 py-2">Space Code</th>
               <th className="text-left px-3 py-2">Area</th>
               <th className="text-left px-3 py-2">Description</th>
             </tr>
           </thead>
           <tbody>
             {rows.length===0? (
-              <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">No spaces. Use "Create new space".</td></tr>
-            ) : rows.map(r=> (
-              <tr key={r.id} className="border-b border-gray-800">
-                <td className="px-3 py-2 text-gray-100">{r.building||'-'}</td>
+              <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
+            ) : paginatedRows.map(r=> (
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={()=>onRowClick(r)}>
                 <td className="px-3 py-2 text-gray-100">{r.level||'-'}</td>
                 <td className="px-3 py-2 text-gray-200">{r.name||'-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.spaceCode||'-'}</td>
                 <td className="px-3 py-2 text-gray-200">{r.area!=null?r.area:'-'}</td>
                 <td className="px-3 py-2 text-gray-300">{r.description||'-'}</td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Bottom Pagination Controls */}
+      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2 border-t border-gray-800">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="whitespace-nowrap">Rows:</span>
+          <select 
+            value={pageSize} 
+            onChange={e=>{ setPageSize(parseInt(e.target.value,10)); setPage(1); }} 
+            className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
+          >
+            {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 text-center text-gray-400 truncate">
+          {rows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, rows.length)}`} of {rows.length}
+        </div>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={()=>setPage(p=>Math.max(1,p-1))} 
+            disabled={pageClamped<=1} 
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+            aria-label="Previous page"
+          >
+            &#8249;
+          </button>
+          <span className="mx-1 whitespace-nowrap">{pageClamped}/{totalPages}</span>
+          <button 
+            onClick={()=>setPage(p=>Math.min(totalPages,p+1))} 
+            disabled={pageClamped>=totalPages} 
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+            aria-label="Next page"
+          >
+            &#8250;
+          </button>
+        </div>
       </div>
     </div>
   );
