@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
+import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 // Extended models
 interface FMPanelProps { projectId?: string; viewer?: any; }
@@ -56,8 +57,12 @@ interface AssetRecord {
   placeholderY?: number;
   placeholderZ?: number;
   placeholderShape?: 'cube' | 'sphere';
+  placeholderSize?: number;
   // Conflict indicator
   conflictWithId?: string;
+  // Linkage and visibility helpers
+  linkedAssetId?: string;
+  hidden?: boolean;
 }
 
 interface SpaceRecord { 
@@ -222,7 +227,7 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
       <div className="flex-1 overflow-hidden flex flex-col px-4">
         <div className="flex-1 overflow-y-auto">
           {section.group==='assets' && section.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
-          {section.group==='assets' && section.item==='create-asset' && <CreateAsset projectId={projectId} />}
+          {section.group==='assets' && section.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
           {section.group==='spaces' && section.item==='space-list' && <SpaceList projectId={projectId} />}
           {section.group==='spaces' && section.item==='create-space' && <CreateSpace projectId={projectId} />}
           {section.group==='maintenance' && section.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
@@ -260,6 +265,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '' });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [toast, setToast] = useState<{type:'success'|'error'|'info', text:string}|null>(null);
+  const showToast = (type: 'success'|'error'|'info', text: string) => {
+    setToast({ type, text });
+    window.setTimeout(()=> setToast(null), 3500);
+  };
   
   // Deduplicate any pre-existing duplicates on initial load
   useEffect(() => {
@@ -276,7 +286,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // BIM Asset Extraction
   const extractAssetsFromBIM = async () => {
     if (!viewer || !viewer.model) {
-      alert('No BIM model loaded. Please load a model first.');
+      showToast('error', 'No BIM model loaded. Please load a model first.');
       return;
     }
 
@@ -368,24 +378,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       setRows(uniqueById);
       save(K.assets(projectId), uniqueById);
-      
-      alert(`✅ Successfully extracted ${newAssets.length} assets from BIM model!\n\nBreakdown:\n${
-        Object.entries(
-          newAssets.reduce((acc, asset) => {
-            const type = asset.description?.includes('STRUCTURAL') ? 'Structural' :
-                        asset.description?.includes('ARCHITECTURAL') ? 'Architectural' :
-                        asset.description?.includes('MEP') ? 'MEP' :
-                        asset.description?.includes('EQUIPMENT') ? 'Equipment' :
-                        asset.description?.includes('FURNITURE') ? 'Furniture' : 'Other';
-            acc[type] = (acc[type] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>)
-        ).map(([type, count]) => `• ${type}: ${count}`).join('\n')
-      }`);
+      const breakdown = Object.entries(
+        newAssets.reduce((acc, asset) => {
+          const type = asset.description?.includes('STRUCTURAL') ? 'Structural' :
+                      asset.description?.includes('ARCHITECTURAL') ? 'Architectural' :
+                      asset.description?.includes('MEP') ? 'MEP' :
+                      asset.description?.includes('EQUIPMENT') ? 'Equipment' :
+                      asset.description?.includes('FURNITURE') ? 'Furniture' : 'Other';
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      ).map(([type, count]) => `${type}: ${count}`).join(' • ');
+      showToast('success', `Extracted ${newAssets.length} assets. ${breakdown}`);
 
     } catch (error) {
       console.error('Asset extraction failed:', error);
-      alert('❌ Failed to extract assets from BIM model. Please check console for details.');
+      showToast('error', 'Failed to extract assets. Check console for details.');
     } finally {
       setIsExtracting(false);
       setExtractionProgress(0);
@@ -394,10 +402,85 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   
   const onRowClick = (r: AssetRecord) => { 
     try { 
-      if (!viewer || r.dbId==null) return; 
-      viewer.select?.([r.dbId]); 
-      viewer.fitToView?.([r.dbId]); 
+      if (!viewer) return;
+      if (r.dbId != null) {
+        viewer.select?.([r.dbId]); 
+        viewer.fitToView?.([r.dbId]); 
+        return;
+      }
+      // Manual asset: frame placeholder if available
+      if (r.placeholderX != null && r.placeholderY != null && r.placeholderZ != null) {
+        const THREE = (window as any).THREE;
+        const size = r.placeholderSize ?? 0.3;
+        if (THREE && viewer.navigation?.fitBounds) {
+          const half = Math.max(size, 0.3);
+          const min = new THREE.Vector3(r.placeholderX - half, r.placeholderY - half, r.placeholderZ - half);
+          const max = new THREE.Vector3(r.placeholderX + half, r.placeholderY + half, r.placeholderZ + half);
+          const bbox = new THREE.Box3(min, max);
+          viewer.navigation.fitBounds(true, bbox);
+          viewer.impl?.invalidate(true);
+        }
+      }
     } catch {} 
+  };
+
+  // Conflict resolution modal state
+  const [conflictModal, setConflictModal] = useState<{open:boolean; manualId?:string; bimId?:string}>({open:false});
+
+  const openConflictResolver = (row: AssetRecord) => {
+    const otherId = row.conflictWithId;
+    if (!otherId) return;
+    const other = rows.find(x=>x.id===otherId);
+    if (!other) return;
+    const manual = row.source==='MANUAL' ? row : (other.source==='MANUAL'? other : undefined);
+    const bim = row.source==='BIM_MODEL' ? row : (other.source==='BIM_MODEL'? other : undefined);
+    if (!manual || !bim) return;
+    setConflictModal({open:true, manualId: manual.id, bimId: bim.id});
+  };
+
+  const resolveLink = () => {
+    if (!conflictModal.manualId || !conflictModal.bimId) return;
+    setRows(prev=>prev.map(r=>{
+      if (r.id===conflictModal.manualId) return {...r, linkedAssetId: conflictModal.bimId, conflictWithId: undefined};
+      if (r.id===conflictModal.bimId) return {...r, conflictWithId: undefined};
+      return r;
+    }));
+    setConflictModal({open:false});
+  };
+
+  const resolveMerge = () => {
+    if (!conflictModal.manualId || !conflictModal.bimId) return;
+    setRows(prev=>{
+      const manual = prev.find(r=>r.id===conflictModal.manualId)!;
+      const bim = prev.find(r=>r.id===conflictModal.bimId)!;
+      const merged: AssetRecord = {
+        ...manual,
+        brand: manual.brand||bim.brand,
+        model: manual.model||bim.model,
+        serialNumber: manual.serialNumber||bim.serialNumber,
+        installationDate: manual.installationDate||bim.installationDate,
+        material: manual.material||bim.material,
+        dimensions: manual.dimensions||bim.dimensions,
+        weight: manual.weight||bim.weight,
+        capacity: manual.capacity||bim.capacity,
+        powerRating: manual.powerRating||bim.powerRating,
+        description: manual.description || bim.description,
+        conflictWithId: undefined,
+        linkedAssetId: bim.id
+      };
+      return prev.map(r=>{
+        if (r.id===manual.id) return merged;
+        if (r.id===bim.id) return {...r, hidden:true, conflictWithId: undefined};
+        return r;
+      });
+    });
+    setConflictModal({open:false});
+  };
+
+  const resolveKeepBoth = () => {
+    if (!conflictModal.manualId || !conflictModal.bimId) return;
+    setRows(prev=>prev.map(r=> (r.id===conflictModal.manualId || r.id===conflictModal.bimId) ? {...r, conflictWithId: undefined} : r));
+    setConflictModal({open:false});
   };
   
   const toggleField = (field: keyof typeof visibleFields) => {
@@ -414,6 +497,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   };
 
   const filteredRows = rows.filter(r => {
+    if (r.hidden) return false;
     if (filter.category && !r.category?.toLowerCase().includes(filter.category.toLowerCase())) return false;
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
     if (filter.location && !r.location?.toLowerCase().includes(filter.location.toLowerCase())) return false;
@@ -463,26 +547,51 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     URL.revokeObjectURL(url);
   };
 
-  // Manual asset placement (placeholder cube)
+  // Manual asset placement (placeholder geometry)
   const placeManual = (r: AssetRecord) => {
     if (!viewer) return;
     const container = viewer.container as HTMLElement;
+    // Ensure crosshair cursor globally for the viewer container
+    try {
+      if (!document.getElementById('fm-placing-style')) {
+        const style = document.createElement('style');
+        style.id = 'fm-placing-style';
+        style.textContent = `.fm-placing, .fm-placing * { cursor: crosshair !important; }`;
+        document.head.appendChild(style);
+      }
+    } catch {}
+    container.classList.add('fm-placing');
     container.style.cursor = 'crosshair';
-    const onClick = (ev: MouseEvent) => {
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
+    if (canvas) canvas.style.cursor = 'crosshair';
+
+    const finish = () => {
       container.removeEventListener('click', onClick, true);
+      window.removeEventListener('keydown', onKeyDown, true);
       container.style.cursor = 'default';
+      if (canvas) canvas.style.cursor = 'default';
+      container.classList.remove('fm-placing');
+    };
+    const onClick = (ev: MouseEvent) => {
       try {
         const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-        if (!res || !res.point) return;
+        if (!res || !res.point) {
+          // keep placing until user clicks a valid spot
+          showToast('info', 'Click on a model surface to place the marker. Press ESC to cancel.');
+          return;
+        }
         const pt = res.point;
-        // draw cube overlay
+        // draw overlay using chosen shape and size
         const THREE = (window as any).THREE;
         if (THREE) {
           if (!(viewer as any)._fmOverlayCreated) {
             viewer.impl.createOverlayScene('fm-placeholders');
             (viewer as any)._fmOverlayCreated = true;
           }
-          const geom = new THREE.BoxGeometry(0.3,0.3,0.3);
+          const size = r.placeholderSize ?? 0.3;
+          const geom = (r.placeholderShape||'cube')==='sphere' 
+            ? new THREE.SphereGeometry(size/2, 12, 12)
+            : new THREE.BoxGeometry(size,size,size);
           const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.set(pt.x, pt.y, pt.z);
@@ -490,12 +599,54 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           viewer.impl.invalidate(true);
         }
         // store coordinates
-        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, placeholderShape: 'cube' } : a));
-        save(K.assets(projectId), rows);
+        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z } : a));
+        finish();
       } catch {}
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        container.removeEventListener('click', onClick, true);
+        window.removeEventListener('keydown', onKeyDown, true);
+        container.style.cursor = 'default';
+        if (canvas) canvas.style.cursor = 'default';
+        container.classList.remove('fm-placing');
+      }
+    };
     container.addEventListener('click', onClick, true);
+    window.addEventListener('keydown', onKeyDown, true);
   };
+
+  // Persist asset rows on change (dedicated effect avoids stale saves)
+  useEffect(()=>{
+    save(K.assets(projectId), rows);
+  },[rows, projectId]);
+
+  // Rehydrate overlays from saved rows (after refresh or any change)
+  useEffect(()=>{
+    if (!viewer) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+    try {
+      if (!(viewer as any)._fmOverlayCreated) {
+        viewer.impl.createOverlayScene('fm-placeholders');
+        (viewer as any)._fmOverlayCreated = true;
+      }
+      viewer.impl.clearOverlay('fm-placeholders');
+      rows.forEach(r=>{
+        if (r.placeholderX!=null && r.placeholderY!=null && r.placeholderZ!=null) {
+          const size = r.placeholderSize ?? 0.3;
+          const geom = (r.placeholderShape||'cube')==='sphere' 
+            ? new THREE.SphereGeometry(size/2, 12, 12)
+            : new THREE.BoxGeometry(size,size,size);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
+          viewer.impl.addOverlay('fm-placeholders', mesh);
+        }
+      });
+      viewer.impl.invalidate(true);
+    } catch {}
+  }, [viewer, rows]);
   
   return (
     <div className="flex flex-col h-full">
@@ -705,12 +856,33 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                     <td className="px-2 py-1.5 text-gray-200">{r.model||'-'}</td>
                     <td className="px-2 py-1.5">
                       {r.source === 'MANUAL' && (
-                        <button 
-                          onClick={(e)=>{ e.stopPropagation(); placeManual(r); }}
-                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded"
-                        >
-                          {r.placeholderX==null ? 'Place' : 'Re-place'}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={r.placeholderShape||'cube'}
+                            onClick={e=>e.stopPropagation()}
+                            onChange={e=>{ e.stopPropagation(); const val=e.target.value as 'cube'|'sphere'; setRows(prev=>prev.map(x=>x.id===r.id?{...x, placeholderShape: val}:x)); }}
+                            className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                          >
+                            <option value="cube">Cube</option>
+                            <option value="sphere">Sphere</option>
+                          </select>
+                          <input
+                            onClick={e=>e.stopPropagation()}
+                            value={r.placeholderSize ?? 0.3}
+                            onChange={e=>{ const n=Number(e.target.value)||0.3; setRows(prev=>prev.map(x=>x.id===r.id?{...x, placeholderSize: n}:x)); }}
+                            className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                            placeholder="m"
+                          />
+                          <button 
+                            onClick={(e)=>{ e.stopPropagation(); placeManual(r); }}
+                            className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded"
+                          >
+                            {r.placeholderX==null ? 'Place' : 'Re-place'}
+                          </button>
+                        </div>
+                      )}
+                      {r.conflictWithId && (
+                        <button onClick={(e)=>{e.stopPropagation(); openConflictResolver(r);}} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
                       )}
                     </td>
                   </>
@@ -772,6 +944,35 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         </table>
       </div>
 
+      {/* Conflict Resolution Modal */}
+      {conflictModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-72">
+            <div className="text-white text-sm font-semibold mb-2">Resolve Conflict</div>
+            <div className="text-xs text-gray-300 mb-2">Choose how to resolve the BIM vs Manual conflict.</div>
+            <div className="grid grid-cols-1 gap-2">
+              <button className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1 rounded" onClick={resolveLink}>Link (keep both)</button>
+              <button className="bg-blue-700 hover:bg-blue-600 text-white text-xs py-1 rounded" onClick={resolveMerge}>Merge into Manual (hide BIM)</button>
+              <button className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded" onClick={resolveKeepBoth}>Keep both (dismiss)</button>
+              <button className="bg-red-800 hover:bg-red-700 text-white text-xs py-1 rounded" onClick={()=>setConflictModal({open:false})}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-[1000]">
+          <div className={`px-3 py-2 rounded text-xs shadow border ${
+            toast.type==='success' ? 'bg-emerald-800/80 text-emerald-100 border-emerald-700' :
+            toast.type==='error' ? 'bg-red-800/80 text-red-100 border-red-700' :
+                                   'bg-gray-800/80 text-gray-100 border-gray-700'
+          }`}>
+            {toast.text}
+          </div>
+        </div>
+      )}
+
       {/* Bottom Pagination Controls */}
       <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -811,7 +1012,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   );
 };
 
-const CreateAsset: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
   const [f,setF]=useState<Partial<AssetRecord>>({ 
@@ -864,9 +1065,82 @@ const CreateAsset: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     setF(v => ({ ...v, [key]: value }));
   };
   
+  // Build category options from CATEGORY_MAPPING in Italian / English (IFC)
+  const categoryOptions: string[] = React.useMemo(()=>{
+    const opts: string[] = [];
+    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+      opts.push(`${it} / ${m.english} (${m.ifc})`);
+    }
+    return opts.sort();
+  },[]);
+
+  const mapToStandardCategory = (category?: string): string | undefined => {
+    if (!category) return undefined;
+    const cat = category.toLowerCase();
+    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+      if (cat.includes(it.toLowerCase()) || cat.includes(m.english.toLowerCase()) || cat.includes(m.ifc.toLowerCase())) {
+        return `${it} / ${m.english} (${m.ifc})`;
+      }
+    }
+    return category;
+  };
+
+  // Prefill from current model selection
+  const prefillFromSelection = async () => {
+    try {
+      if (!viewer) return;
+      const getAgg = () => new Promise<any>((resolve)=> viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+      let dbId: number | undefined; let model: any = viewer.model;
+      const agg = await getAgg();
+      if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+      else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
+      if (dbId==null || !model) return;
+      const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
+      const getProp = (names: string[]): string | undefined => {
+        const lower = names.map(n=>n.toLowerCase());
+        const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+        return p?.displayValue?.toString();
+      };
+      const brand = getProp(['Manufacturer','Brand','Manufacturer Name']);
+      const modelName = getProp(['Model','Type Name','Model Number']);
+      const serial = getProp(['Serial Number','Serial']);
+      const installDate = getProp(['Install Date','Installation Date']);
+      const power = getProp(['Power','Power Rating','kW']);
+      const capacity = getProp(['Capacity']);
+      const weight = getProp(['Weight']);
+      const length = getProp(['Length']);
+      const width = getProp(['Width']);
+      const height = getProp(['Height','Thickness']);
+      const material = getProp(['Material','Structural Material']);
+      const level = getProp(['Level','Reference Level']);
+      const room = getProp(['Room','Space']);
+      const rawCategory = getProp(['Category']);
+      const category = mapToStandardCategory(rawCategory);
+      const dimensions = (length||width||height) ? `${length||''} x ${width||''} x ${height||''}`.replace(/\s+x\s+x\s+/,'').trim() : undefined;
+
+      setF(v=>({
+        ...v,
+        brand: v.brand||brand,
+        model: v.model||modelName,
+        serialNumber: v.serialNumber||serial,
+        installationDate: v.installationDate||installDate,
+        powerRating: v.powerRating||power,
+        capacity: v.capacity||capacity,
+        weight: v.weight||weight,
+        dimensions: v.dimensions||dimensions,
+        material: v.material||material,
+        location: v.location || [level, room].filter(Boolean).join(' - '),
+        category: v.category || category
+      }));
+    } catch {}
+  };
+  
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
-      <div className="text-white font-semibold text-sm">Create New Asset</div>
+      <div className="flex items-center justify-between">
+        <div className="text-white font-semibold text-sm">Create New Asset</div>
+        <button className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200" onClick={prefillFromSelection}>Prefill from Selection</button>
+      </div>
       
       {/* Section selector */}
       <div className="flex gap-1 overflow-x-auto pb-2">
@@ -891,7 +1165,12 @@ const CreateAsset: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           <div className="grid grid-cols-2 gap-2">
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input value={f.assetCode||''} onChange={e=>updateField('assetCode',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name</label><input value={f.assetName||''} onChange={e=>updateField('assetName',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Category</label><input value={f.category||''} onChange={e=>updateField('category',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
+              <select value={f.category||''} onChange={e=>updateField('category',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+                <option value="">Select category</option>
+                {categoryOptions.map(opt=> <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type||''} onChange={e=>updateField('type',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input value={f.brand||''} onChange={e=>updateField('brand',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input value={f.model||''} onChange={e=>updateField('model',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
