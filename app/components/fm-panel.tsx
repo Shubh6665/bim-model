@@ -502,8 +502,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         
         {/* Field visibility checkboxes */}
         <details className="mb-2">
-          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">Show/Hide Fields</summary>
-          <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+          <summary className="inline-flex items-center gap-1 text-xs text-gray-200 px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 cursor-pointer">Show/Hide Fields</summary>
+          <div className="grid grid-cols-2 gap-2 mt-2 p-2 text-xs bg-gray-900/60 rounded border border-gray-800">
             {[
               ['Basic', 'basic'],
               ['Identification', 'identification'],
@@ -539,7 +539,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 : 'bg-green-600 hover:bg-green-700 text-white'
             }`}
           >
-            {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : '🏗️ Extract Assets from BIM'}
+            {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract Assets from BIM'}
           </button>
           {isExtracting && (
             <div className="mt-1 bg-gray-800 rounded-full h-1">
@@ -553,8 +553,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
         {/* Filters */}
         <details className="mb-2">
-          <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-300">Filters</summary>
-          <div className="grid grid-cols-2 gap-1 mt-2">
+          <summary className="inline-flex items-center gap-1 text-xs text-gray-200 px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 cursor-pointer">Filters</summary>
+          <div className="grid grid-cols-2 gap-2 mt-2 p-2 bg-gray-900/60 rounded border border-gray-800">
             <select value={filter.category} onChange={e=>setFilter(f=>({...f,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
               <option value="">All Categories</option>
               {distinct.categories.map(v=> <option key={v} value={v}>{v}</option>)}
