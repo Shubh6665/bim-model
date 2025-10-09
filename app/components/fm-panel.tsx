@@ -258,6 +258,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     relationships: false
   });
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '' });
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Deduplicate any pre-existing duplicates on initial load
   useEffect(() => {
@@ -503,40 +505,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
         </div>
         
-        {/* Field visibility checkboxes */}
-        <details className="mb-2">
-          <summary className="inline-flex items-center gap-1 text-xs text-gray-200 px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 cursor-pointer">Show/Hide Fields</summary>
-          <div className="grid grid-cols-2 gap-2 mt-2 p-2 text-xs bg-gray-900/60 rounded border border-gray-800">
-            {[
-              ['Basic', 'basic'],
-              ['Identification', 'identification'],
-              ['Technical', 'technical'],
-              ['Documentation', 'documentation'],
-              ['Lifecycle', 'lifecycle'],
-              ['Maintenance', 'maintenance'],
-              ['Economic', 'economic'],
-              ['Compliance', 'compliance'],
-              ['Relationships', 'relationships']
-            ].map(([label, key]) => (
-              <label key={key} className="flex items-center gap-1 text-gray-300">
-                <input 
-                  type="checkbox" 
-                  checked={visibleFields[key as keyof typeof visibleFields]} 
-                  onChange={() => toggleField(key as keyof typeof visibleFields)}
-                  className="w-3 h-3"
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </details>
-        
         {/* BIM Asset Extraction */}
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-2">
           <button 
             onClick={extractAssetsFromBIM}
             disabled={isExtracting}
-            className={`text-xs py-2 px-3 rounded-md font-medium transition ${
+            className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${
               isExtracting 
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700 text-white'
@@ -545,56 +519,100 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract from BIM'}
           </button>
           {isExtracting && (
-            <div className="flex-1 bg-gray-800 rounded-full h-1">
+            <div className="mt-1 bg-gray-800 rounded-full h-1">
               <div 
                 className="bg-green-500 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${extractionProgress}%` }}
               />
             </div>
           )}
-          
         </div>
 
-        {/* Filters */}
-        <details className="mb-2">
-          <summary className="inline-flex items-center gap-1 text-xs text-gray-200 px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 cursor-pointer">Filters</summary>
-          <div className="grid grid-cols-2 gap-2 mt-2 p-2 bg-gray-900/60 rounded border border-gray-800">
-            <select value={filter.category} onChange={e=>setFilter(f=>({...f,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-              <option value="">All Categories</option>
-              {distinct.categories.map(v=> <option key={v} value={v}>{v}</option>)}
-            </select>
-            <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-              <option value="">All Types</option>
-              {distinct.types.map(v=> <option key={v} value={v}>{v}</option>)}
-            </select>
-            <select value={filter.location} onChange={e=>setFilter(f=>({...f,location:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-              <option value="">All Locations</option>
-              {distinct.locations.map(v=> <option key={v} value={v}>{v}</option>)}
-            </select>
-            <select value={filter.condition} onChange={e=>setFilter(f=>({...f,condition:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-              <option value="">All Conditions</option>
-              {distinct.conditions.map(v=> <option key={v} value={v}>{v}</option>)}
-            </select>
-            <select value={filter.classification} onChange={e=>setFilter(f=>({...f,classification:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
-              <option value="">All Classifications</option>
-              {distinct.classifications.map(v=> <option key={v} value={v}>{v}</option>)}
-            </select>
+        {/* Controls: Show/Hide & Filters toggles */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${fieldsOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
+            onClick={() => { setFieldsOpen(true); setFiltersOpen(false); }}
+          >
+            Show/Hide Fields
+          </button>
+          <button
+            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${filtersOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
+            onClick={() => { setFiltersOpen(true); setFieldsOpen(false); }}
+          >
+            Filters
+          </button>
+        </div>
+
+        {/* Full-width content panels below */}
+        {fieldsOpen && (
+          <div className="mt-2 p-2 text-xs bg-gray-900/60 rounded border border-gray-800 w-full">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['Basic', 'basic'],
+                ['Identification', 'identification'],
+                ['Technical', 'technical'],
+                ['Documentation', 'documentation'],
+                ['Lifecycle', 'lifecycle'],
+                ['Maintenance', 'maintenance'],
+                ['Economic', 'economic'],
+                ['Compliance', 'compliance'],
+                ['Relationships', 'relationships']
+              ].map(([label, key]) => (
+                <label key={key} className="flex items-center gap-1 text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={visibleFields[key as keyof typeof visibleFields]}
+                    onChange={() => toggleField(key as keyof typeof visibleFields)}
+                    className="w-3 h-3"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button 
-              onClick={applyFilterToViewer}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
-            >
-              Apply to Model
-            </button>
-            <button 
-              onClick={exportCSV}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
-            >
-              Export CSV
-            </button>
+        )}
+
+        {filtersOpen && (
+          <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-800 w-full">
+            <div className="grid grid-cols-2 gap-2">
+              <select value={filter.category} onChange={e=>setFilter(f=>({...f,category:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+                <option value="">All Categories</option>
+                {distinct.categories.map(v=> <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+                <option value="">All Types</option>
+                {distinct.types.map(v=> <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={filter.location} onChange={e=>setFilter(f=>({...f,location:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+                <option value="">All Locations</option>
+                {distinct.locations.map(v=> <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={filter.condition} onChange={e=>setFilter(f=>({...f,condition:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+                <option value="">All Conditions</option>
+                {distinct.conditions.map(v=> <option key={v} value={v}>{v}</option>)}
+              </select>
+              <select value={filter.classification} onChange={e=>setFilter(f=>({...f,classification:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
+                <option value="">All Classifications</option>
+                {distinct.classifications.map(v=> <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 w-full">
+              <button 
+                onClick={applyFilterToViewer}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
+              >
+                Apply to Model
+              </button>
+              <button 
+                onClick={exportCSV}
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
+              >
+                Export CSV
+              </button>
+            </div>
           </div>
-        </details>
+        )}
       </div>
       
       <div className="flex-1 overflow-auto">
