@@ -195,18 +195,33 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const remoteWorldOnZ = (clientX: number, clientY: number, z: number) => {
     const THREE = (window as any).THREE;
     if (!THREE || !viewer?.impl?.camera) return null;
-    const rect = (viewer.impl.canvas || viewer.container).getBoundingClientRect();
+    
+    // Get proper canvas bounds
+    const canvas = viewer.impl.canvas || viewer.container;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Normalize to [-1, 1] NDC space
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    
     const camera = viewer.impl.camera;
-    const origin = new THREE.Vector3().copy(camera.position);
-    const dir = new THREE.Vector3(x, y, 0.5).unproject(camera).sub(origin).normalize();
+    
+    // Create ray from camera through mouse position
+    const mouse = new THREE.Vector3(x, y, 0.5);
+    mouse.unproject(camera);
+    
+    const origin = camera.position.clone();
+    const dir = mouse.sub(origin).normalize();
+    
+    // Intersect ray with horizontal plane at z
     const EPS = 1e-6;
-    if (Math.abs(dir.z) < EPS) return null;
+    if (Math.abs(dir.z) < EPS) return null; // parallel to plane
+    
     const t = (z - origin.z) / dir.z;
-    if (!isFinite(t) || t < 0) return null;
-    const p = origin.clone().add(dir.multiplyScalar(t));
-    return p;
+    if (!isFinite(t) || t < 0) return null; // behind camera
+    
+    const point = origin.clone().add(dir.clone().multiplyScalar(t));
+    return point;
   };
   const remoteIsNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
     if (remotePointsRef.current.length < 1) return false;
@@ -221,25 +236,42 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       remoteClearOverlay();
       const pts = remotePointsRef.current;
       const hover = remoteHoverRef.current;
-      const vis = (hover && pts.length >= 1) ? [...pts, hover] : pts;
-      if (!vis || vis.length < 2) { viewer.impl.invalidate(true); return; }
       const THREE = (window as any).THREE;
       if (!THREE) { viewer.impl.invalidate(true); return; }
-      const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
-      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 2, depthTest: false });
-      const line = new THREE.Line(geom, mat);
-      line.renderOrder = 999;
-      viewer.impl.addOverlay(remoteOverlay, line);
-      if (pts.length > 2) {
+
+      // Draw polyline through all clicked points (THICKER & DARKER)
+      if (pts.length >= 2) {
+        const geom = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, p.z)));
+        const mat = new THREE.LineBasicMaterial({ color: 0x00dd00, linewidth: 4, depthTest: false });
+        const line = new THREE.Line(geom, mat);
+        line.renderOrder = 999;
+        viewer.impl.addOverlay(remoteOverlay, line);
+      }
+
+      // Draw preview line from LAST point to hover (THICKER)
+      if (hover && pts.length >= 1) {
+        const lastPt = pts[pts.length - 1];
+        const previewGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(lastPt.x, lastPt.y, lastPt.z),
+          new THREE.Vector3(hover.x, hover.y, hover.z)
+        ]);
+        const previewMat = new THREE.LineBasicMaterial({ color: 0xff8800, linewidth: 4, depthTest: false, opacity: 0.8, transparent: true });
+        const previewLine = new THREE.Line(previewGeom, previewMat);
+        previewLine.renderOrder = 999;
+        viewer.impl.addOverlay(remoteOverlay, previewLine);
+      }
+
+      // Draw closing line preview (back to first point) - THICKER & DARKER
+      if (pts.length >= 3) {
         const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
         const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
-        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66, linewidth: 2, depthTest: false }));
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x0088ff, linewidth: 4, depthTest: false, opacity: 0.7, transparent: true }));
         line2.renderOrder = 999;
         viewer.impl.addOverlay(remoteOverlay, line2);
-        // Filled polygon for visibility
+        // Filled polygon for visibility (DARKER)
         const shape = new THREE.Shape(pts.map((p, i) => new THREE.Vector2(p.x, p.y)));
         const fillGeom = new THREE.ShapeGeometry(shape);
-        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.15, transparent: true, depthWrite: false, depthTest: false });
+        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.25, transparent: true, depthWrite: false, depthTest: false });
         const mesh = new THREE.Mesh(fillGeom, fillMat);
         if (remoteBaseZRef.current != null) mesh.position.z = remoteBaseZRef.current;
         mesh.renderOrder = 998;
@@ -1939,6 +1971,35 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     } catch {}
   };
 
+  const drawFinalPolygon = (pts: { x:number; y:number; z:number }[]) => {
+    try {
+      if (!viewer?.impl || pts.length < 3) return;
+      if (!(viewer.impl.overlayScenes || {})[overlayName]) viewer.impl.createOverlayScene(overlayName);
+      clearOverlay();
+      const THREE = (window as any).THREE;
+      if (!THREE) return;
+      
+      // Draw final closed polygon with THICK DARK GREEN lines
+      const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
+      const geom = new THREE.BufferGeometry().setFromPoints(closedPts);
+      const mat = new THREE.LineBasicMaterial({ color: 0x00aa00, linewidth: 5, depthTest: false });
+      const line = new THREE.Line(geom, mat);
+      line.renderOrder = 999;
+      viewer.impl.addOverlay(overlayName, line);
+      
+      // Filled polygon (darker green)
+      const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.y)));
+      const fillGeom = new THREE.ShapeGeometry(shape);
+      const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.3, transparent: true, depthWrite: false, depthTest: false });
+      const mesh = new THREE.Mesh(fillGeom, fillMat);
+      if (baseZRef.current != null) mesh.position.z = baseZRef.current;
+      mesh.renderOrder = 998;
+      viewer.impl.addOverlay(overlayName, mesh);
+      
+      viewer.impl.invalidate(true);
+    } catch {}
+  };
+
   const drawPreview = () => {
     try {
       if (!viewer?.impl) return;
@@ -1948,25 +2009,42 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       clearOverlay();
       const pts = pointsRef.current;
       const hover = hoverRef.current;
-      const vis = (hover && pts.length >= 1) ? [...pts, hover] : pts;
-      if (!vis || vis.length < 2) { viewer.impl.invalidate(true); return; }
       const THREE = (window as any).THREE;
       if (!THREE) { viewer.impl.invalidate(true); return; }
-      const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
-      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 2, depthTest: false });
-      const line = new THREE.Line(geom, mat);
-      line.renderOrder = 999;
-      viewer.impl.addOverlay(overlayName, line);
-      if (pts.length > 2) {
+
+      // Draw polyline through all clicked points (THICKER & DARKER)
+      if (pts.length >= 2) {
+        const geom = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p.x, p.y, p.z)));
+        const mat = new THREE.LineBasicMaterial({ color: 0x00dd00, linewidth: 4, depthTest: false });
+        const line = new THREE.Line(geom, mat);
+        line.renderOrder = 999;
+        viewer.impl.addOverlay(overlayName, line);
+      }
+
+      // Draw preview line from LAST point to hover (THICKER)
+      if (hover && pts.length >= 1) {
+        const lastPt = pts[pts.length - 1];
+        const previewGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(lastPt.x, lastPt.y, lastPt.z),
+          new THREE.Vector3(hover.x, hover.y, hover.z)
+        ]);
+        const previewMat = new THREE.LineBasicMaterial({ color: 0xff8800, linewidth: 4, depthTest: false, opacity: 0.8, transparent: true });
+        const previewLine = new THREE.Line(previewGeom, previewMat);
+        previewLine.renderOrder = 999;
+        viewer.impl.addOverlay(overlayName, previewLine);
+      }
+
+      // Draw closing line preview (back to first point) - THICKER & DARKER
+      if (pts.length >= 3) {
         const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
         const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
-        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66, linewidth: 2, depthTest: false }));
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x0088ff, linewidth: 4, depthTest: false, opacity: 0.7, transparent: true }));
         line2.renderOrder = 999;
         viewer.impl.addOverlay(overlayName, line2);
-        // Filled polygon for visibility
+        // Filled polygon for visibility (DARKER)
         const shape = new THREE.Shape(pts.map((p, i) => new THREE.Vector2(p.x, p.y)));
         const fillGeom = new THREE.ShapeGeometry(shape);
-        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.15, transparent: true, depthWrite: false, depthTest: false });
+        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.25, transparent: true, depthWrite: false, depthTest: false });
         const mesh = new THREE.Mesh(fillGeom, fillMat);
         if (baseZRef.current != null) mesh.position.z = baseZRef.current;
         mesh.renderOrder = 998;
@@ -1980,18 +2058,33 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const worldOnZ = (clientX: number, clientY: number, z: number) => {
     const THREE = (window as any).THREE;
     if (!THREE || !viewer?.impl?.camera) return null;
-    const rect = (viewer.impl.canvas || viewer.container).getBoundingClientRect();
+    
+    // Get proper canvas bounds
+    const canvas = viewer.impl.canvas || viewer.container;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Normalize to [-1, 1] NDC space
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    
     const camera = viewer.impl.camera;
-    const origin = new THREE.Vector3().copy(camera.position);
-    const dir = new THREE.Vector3(x, y, 0.5).unproject(camera).sub(origin).normalize();
+    
+    // Create ray from camera through mouse position
+    const mouse = new THREE.Vector3(x, y, 0.5);
+    mouse.unproject(camera);
+    
+    const origin = camera.position.clone();
+    const dir = mouse.sub(origin).normalize();
+    
+    // Intersect ray with horizontal plane at z
     const EPS = 1e-6;
-    if (Math.abs(dir.z) < EPS) return null; // parallel; skip
+    if (Math.abs(dir.z) < EPS) return null; // parallel to plane
+    
     const t = (z - origin.z) / dir.z;
-    if (!isFinite(t) || t < 0) return null;
-    const p = origin.clone().add(dir.multiplyScalar(t));
-    return p;
+    if (!isFinite(t) || t < 0) return null; // behind camera
+    
+    const point = origin.clone().add(dir.multiplyScalar(t));
+    return point;
   };
 
   const isNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
@@ -2079,13 +2172,19 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       setFootprint(null);
       pointsRef.current = [];
       baseZRef.current = null;
+      hoverRef.current = null;
       setDrawing(true);
       viewer.container?.addEventListener('click', onViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
       viewer.container?.addEventListener('dblclick', onViewerDblClick as any, true);
       window.addEventListener('keydown', onKeyDown as any, true);
       if (!viewer.impl.overlayScenes?.[overlayName]) viewer.impl.createOverlayScene(overlayName);
-      try { (viewer.container as HTMLElement).style.cursor = 'crosshair'; } catch {}
+      // Force crosshair cursor
+      if (viewer.container) {
+        const container = viewer.container as HTMLElement;
+        container.style.cursor = 'crosshair';
+        container.style.setProperty('cursor', 'crosshair', 'important');
+      }
     } catch {}
   };
 
@@ -2102,10 +2201,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
       viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
-      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
+      // Restore cursor
+      if (viewer?.container) {
+        const container = viewer.container as HTMLElement;
+        container.style.cursor = 'default';
+        container.style.removeProperty('cursor');
+      }
       const pts = pointsRef.current;
       if (pts.length >= 3) {
         setFootprint({ points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined });
+        // Draw final polygon and keep it visible
+        drawFinalPolygon(pts);
       } else {
         // not enough points
         setFootprint(null);
