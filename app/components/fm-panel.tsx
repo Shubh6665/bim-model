@@ -532,13 +532,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         <div className="grid grid-cols-2 gap-2">
           <button
             className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${fieldsOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
-            onClick={() => { setFieldsOpen(true); setFiltersOpen(false); }}
+            onClick={() => { if (fieldsOpen) { setFieldsOpen(false); } else { setFieldsOpen(true); setFiltersOpen(false); } }}
           >
             Show/Hide Fields
           </button>
           <button
             className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${filtersOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
-            onClick={() => { setFiltersOpen(true); setFieldsOpen(false); }}
+            onClick={() => { if (filtersOpen) { setFiltersOpen(false); } else { setFiltersOpen(true); setFieldsOpen(false); } }}
           >
             Filters
           </button>
