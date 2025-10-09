@@ -1414,7 +1414,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
-    const queries = ['Revit Rooms', 'Rooms', 'Room', 'Spaces', 'Space'];
+    // Restrict to clear room/space categories only to avoid false positives
+    const queries = ['Revit Rooms', 'Rooms', 'Spaces'];
     const all = new Set<number>();
     for (const q of queries) {
       // eslint-disable-next-line no-await-in-loop
@@ -1447,11 +1448,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           });
           return prop?.displayValue?.toString();
         };
+        const category = get(['Category']);
+        const cat = category?.toString()?.trim()?.toLowerCase?.();
+        const isRoomCat = !!cat && (/^rooms?$/.test(cat) || /^revit rooms$/.test(cat));
+        const isSpaceCat = !!cat && /^spaces?$/.test(cat);
         const level = get(['Level','Reference Level']);
         const name = p?.name || get(['Name','Room Name']);
         const desc = get(['Comments','Description']);
         const areaStr = get(['Area']);
         const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g,'')) : undefined;
+
+        // Filter strictly: must be Rooms/Spaces category and have a Level
+        if (!(level && (isRoomCat || isSpaceCat))) return null as any;
+
         return {
           id: `space-${p?.dbId ?? p?.externalId ?? Date.now()}`,
           level: level || undefined,
@@ -1461,7 +1470,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           source: 'BIM_MODEL',
           dbId: p?.dbId ?? null
         } as SpaceRecord;
-      });
+      }).filter(Boolean);
 
       // Merge: prefer manual entries, then add BIM not already present (by name+level)
       const manual = rows.filter(r=>r.source!== 'BIM_MODEL');
