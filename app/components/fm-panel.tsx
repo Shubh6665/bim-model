@@ -194,7 +194,7 @@ export default function FMPanel({ projectId, viewer }: FMPanelProps) {
       {/* Sub-menu for the active group only */}
       <div className="p-2 border-b border-gray-800">
         {section.group === 'assets' && (
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <MenuButton label="Asset list" active={section.item==='asset-list'} onClick={()=>setSection({group:'assets',item:'asset-list'})} />
             <MenuButton label="Create new asset" active={section.item==='create-asset'} onClick={()=>setSection({group:'assets',item:'create-asset'})} />
           </div>
@@ -498,7 +498,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-gray-800">
-        <div className="text-white font-semibold text-sm mb-2">Asset List</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-white font-semibold text-sm">Asset List</div>
+          <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
+        </div>
         
         {/* Field visibility checkboxes */}
         <details className="mb-2">
@@ -529,26 +532,27 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         </details>
         
         {/* BIM Asset Extraction */}
-        <div className="mb-2">
+        <div className="mb-2 flex items-center gap-2">
           <button 
             onClick={extractAssetsFromBIM}
             disabled={isExtracting}
-            className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${
+            className={`text-xs py-2 px-3 rounded-md font-medium transition ${
               isExtracting 
                 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700 text-white'
             }`}
           >
-            {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract Assets from BIM'}
+            {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract from BIM'}
           </button>
           {isExtracting && (
-            <div className="mt-1 bg-gray-800 rounded-full h-1">
+            <div className="flex-1 bg-gray-800 rounded-full h-1">
               <div 
                 className="bg-green-500 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${extractionProgress}%` }}
               />
             </div>
           )}
+          
         </div>
 
         {/* Filters */}
@@ -576,18 +580,20 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               {distinct.classifications.map(v=> <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
-          <button 
-            onClick={applyFilterToViewer}
-            className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
-          >
-            Apply Filter to Model
-          </button>
-          <button 
-            onClick={exportCSV}
-            className="mt-2 w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
-          >
-            Export CSV
-          </button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button 
+              onClick={applyFilterToViewer}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
+            >
+              Apply to Model
+            </button>
+            <button 
+              onClick={exportCSV}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
+            >
+              Export CSV
+            </button>
+          </div>
         </details>
       </div>
       
@@ -749,7 +755,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       </div>
 
       {/* Bottom Pagination Controls */}
-      <div className="flex items-center justify-between px-2 py-1 text-[11px] text-gray-300 gap-2">
+      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="whitespace-nowrap">Rows:</span>
           <select 
