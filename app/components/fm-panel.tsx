@@ -152,94 +152,183 @@ const K = {
 function load<T>(key: string, def: T): T { if (typeof window === 'undefined') return def; try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : def; } catch { return def; } }
 function save<T>(key: string, val: T) { if (typeof window === 'undefined') return; try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
-const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => void }>=({label,active,onClick})=> (
-  <button onClick={onClick} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${active? 'bg-blue-600/20 text-blue-300 border border-blue-500/30':'text-gray-300 hover:text-white hover:bg-gray-800'}`}>{label}</button>
+const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => void }>=({label,onClick})=> (
+  <button onClick={onClick} className={"w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-300 hover:text-white hover:bg-gray-800"}>{label}</button>
 );
 
 export default function FMPanel({ projectId, viewer }: FMPanelProps) {
-  const [section, setSection] = useState<Section>({ group: 'assets', item: 'asset-list' });
+  const [section, setSection] = useState<Section | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const modalRef = React.useRef<HTMLDivElement | null>(null);
+  const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragRef = React.useRef({ startMouseX: 0, startMouseY: 0, startX: 0, startY: 0 });
+
+  const modalTitle = React.useMemo(() => {
+    if (!section) return 'FM';
+    if (section.group === 'assets') return section.item === 'asset-list' ? 'Asset List' : 'Create New Asset';
+    if (section.group === 'spaces') return section.item === 'space-list' ? 'Space List' : 'Create New Space';
+    // maintenance
+    switch (section.item) {
+      case 'scheduled': return 'Scheduled Maintenance';
+      case 'ticket': return 'Ticket-based Maintenance';
+      case 'work-orders': return 'Work Orders';
+      case 'service-requests': return 'Service Requests';
+      case 'reports': return 'Maintenance Reports';
+      case 'upcoming': return 'Upcoming Maintenance';
+      case 'ongoing': return 'Ongoing Maintenance';
+      case 'planned': return 'Planned Maintenance';
+      default: return 'FM';
+    }
+  }, [section]);
+
+  // Initialize modal position to viewport center when opening
+  useEffect(() => {
+    if (showModal) {
+      try { setModalPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); } catch {}
+    }
+  }, [showModal]);
+
+  const handleMouseMove = (ev: MouseEvent) => {
+    const { startMouseX, startMouseY, startX, startY } = dragRef.current;
+    const dx = ev.clientX - startMouseX;
+    const dy = ev.clientY - startMouseY;
+    let nx = startX + dx;
+    let ny = startY + dy;
+    const rect = modalRef.current?.getBoundingClientRect();
+    if (rect) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const halfW = rect.width / 2;
+      const halfH = rect.height / 2;
+      const pad = 12;
+      const minX = halfW + pad;
+      const maxX = vw - halfW - pad;
+      const minY = halfH + pad;
+      const maxY = vh - halfH - pad;
+      nx = Math.max(minX, Math.min(maxX, nx));
+      ny = Math.max(minY, Math.min(maxY, ny));
+    }
+    setModalPos({ x: nx, y: ny });
+  };
+
+  const handleMouseUp = () => {
+    setDragging(false);
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current.startMouseX = e.clientX;
+    dragRef.current.startMouseY = e.clientY;
+    dragRef.current.startX = modalPos.x;
+    dragRef.current.startY = modalPos.y;
+    setDragging(true);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
 
   return (
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       <div className="p-4 border-b border-gray-800">
         <h2 className="text-xl font-bold text-white mb-3 text-center">FM</h2>
-        <div className="flex gap-3 w-full">
-          {(() => {
-            const Btn = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
-              <button
-                className={`flex-1 py-2 px-3 text-sm rounded-md font-medium shadow transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
-                onClick={onClick}
-              >
-                {label}
+        <div className="flex flex-col gap-2">
+          {/* Assets Group */}
+          <div>
+            <button
+              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'assets' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
+              onClick={() => setSection(prev => ({ group: 'assets', item: (prev && prev.group === 'assets') ? prev.item : 'asset-list' }))}
+            >
+              Assets
+            </button>
+            {section?.group === 'assets' && (
+              <div className="mt-2 ml-2 flex flex-col gap-2">
+                <MenuButton label="Asset list" active={section?.item==='asset-list'} onClick={()=>{ setSection({group:'assets',item:'asset-list'}); setShowModal(true); }} />
+                <MenuButton label="Create new asset" active={section?.item==='create-asset'} onClick={()=>{ setSection({group:'assets',item:'create-asset'}); setShowModal(true); }} />
+              </div>
+            )}
+          </div>
+
+          {/* Spaces Group */}
+          <div>
+            <button
+              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'spaces' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
+              onClick={() => setSection(prev => ({ group: 'spaces', item: (prev && prev.group === 'spaces') ? prev.item : 'space-list' }))}
+            >
+              Spaces
+            </button>
+            {section?.group === 'spaces' && (
+              <div className="mt-2 ml-2 flex flex-col gap-2">
+                <MenuButton label="Space list" active={section?.item==='space-list'} onClick={()=>{ setSection({group:'spaces',item:'space-list'}); setShowModal(true); }} />
+                <MenuButton label="Create new space" active={section?.item==='create-space'} onClick={()=>{ setSection({group:'spaces',item:'create-space'}); setShowModal(true); }} />
+              </div>
+            )}
+          </div>
+
+          {/* Maintenance Group */}
+          <div>
+            <button
+              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'maintenance' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
+              onClick={() => setSection(prev => ({ group: 'maintenance', item: (prev && prev.group === 'maintenance') ? prev.item : 'scheduled' }))}
+            >
+              Maintenance
+            </button>
+            {section?.group === 'maintenance' && (
+              <div className="mt-2 ml-2 flex flex-col gap-2">
+                <MenuButton label="Scheduled maintenance" active={section?.item==='scheduled'} onClick={()=>{ setSection({group:'maintenance',item:'scheduled'}); setShowModal(true); }} />
+                <MenuButton label="Ticket-based maintenance" active={section?.item==='ticket'} onClick={()=>{ setSection({group:'maintenance',item:'ticket'}); setShowModal(true); }} />
+                <MenuButton label="Work orders" active={section?.item==='work-orders'} onClick={()=>{ setSection({group:'maintenance',item:'work-orders'}); setShowModal(true); }} />
+                <MenuButton label="Service requests" active={section?.item==='service-requests'} onClick={()=>{ setSection({group:'maintenance',item:'service-requests'}); setShowModal(true); }} />
+                <MenuButton label="Maintenance reports" active={section?.item==='reports'} onClick={()=>{ setSection({group:'maintenance',item:'reports'}); setShowModal(true); }} />
+                <MenuButton label="Upcoming maintenance" active={section?.item==='upcoming'} onClick={()=>{ setSection({group:'maintenance',item:'upcoming'}); setShowModal(true); }} />
+                <MenuButton label="Ongoing maintenance" active={section?.item==='ongoing'} onClick={()=>{ setSection({group:'maintenance',item:'ongoing'}); setShowModal(true); }} />
+                <MenuButton label="Planned maintenance" active={section?.item==='planned'} onClick={()=>{ setSection({group:'maintenance',item:'planned'}); setShowModal(true); }} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden flex flex-col px-4"></div>
+
+      {showModal && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
+          <div
+            ref={modalRef}
+            className="absolute bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl mx-4 max-h-[92vh] flex flex-col border border-gray-700"
+            style={{ left: modalPos.x, top: modalPos.y, transform: 'translate(-50%, -50%)' }}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between p-4 border-b border-gray-700 cursor-move select-none"
+              onMouseDown={onHeaderMouseDown}
+            >
+              <div>
+                <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
+              </div>
+              <button onClick={()=>setShowModal(false)} className="px-2 py-1 text-gray-300 hover:text-white hover:bg-gray-700 rounded">
+                Close
               </button>
-            );
-            return (
-              <>
-                <Btn
-                  label="Assets"
-                  active={section.group === 'assets'}
-                  onClick={() => setSection(prev => ({ group: 'assets', item: prev.group === 'assets' ? prev.item : 'asset-list' }))}
-                />
-                <Btn
-                  label="Spaces"
-                  active={section.group === 'spaces'}
-                  onClick={() => setSection(prev => ({ group: 'spaces', item: prev.group === 'spaces' ? prev.item : 'space-list' }))}
-                />
-                <Btn
-                  label="Maintenance"
-                  active={section.group === 'maintenance'}
-                  onClick={() => setSection(prev => ({ group: 'maintenance', item: prev.group === 'maintenance' ? prev.item : 'scheduled' }))}
-                />
-              </>
-            );
-          })()}
+            </div>
+            {/* Body */}
+            <div className="p-4 flex-1 overflow-y-auto">
+              {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
+              {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
+              {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} />}
+              {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='upcoming' && <UpcomingMaintenance projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Sub-menu for the active group only */}
-      <div className="p-2 border-b border-gray-800">
-        {section.group === 'assets' && (
-          <div className="grid grid-cols-2 gap-2">
-            <MenuButton label="Asset list" active={section.item==='asset-list'} onClick={()=>setSection({group:'assets',item:'asset-list'})} />
-            <MenuButton label="Create new asset" active={section.item==='create-asset'} onClick={()=>setSection({group:'assets',item:'create-asset'})} />
-          </div>
-        )}
-        {section.group === 'spaces' && (
-          <div className="grid grid-cols-1 gap-2">
-            <MenuButton label="Space list" active={section.item==='space-list'} onClick={()=>setSection({group:'spaces',item:'space-list'})} />
-            <MenuButton label="Create new space" active={section.item==='create-space'} onClick={()=>setSection({group:'spaces',item:'create-space'})} />
-          </div>
-        )}
-        {section.group === 'maintenance' && (
-          <div className="grid grid-cols-1 gap-2">
-            <MenuButton label="Scheduled maintenance" active={section.item==='scheduled'} onClick={()=>setSection({group:'maintenance',item:'scheduled'})} />
-            <MenuButton label="Ticket-based maintenance" active={section.item==='ticket'} onClick={()=>setSection({group:'maintenance',item:'ticket'})} />
-            <MenuButton label="Work orders" active={section.item==='work-orders'} onClick={()=>setSection({group:'maintenance',item:'work-orders'})} />
-            <MenuButton label="Service requests" active={section.item==='service-requests'} onClick={()=>setSection({group:'maintenance',item:'service-requests'})} />
-            <MenuButton label="Maintenance reports" active={section.item==='reports'} onClick={()=>setSection({group:'maintenance',item:'reports'})} />
-            <MenuButton label="Upcoming maintenance" active={section.item==='upcoming'} onClick={()=>setSection({group:'maintenance',item:'upcoming'})} />
-            <MenuButton label="Ongoing maintenance" active={section.item==='ongoing'} onClick={()=>setSection({group:'maintenance',item:'ongoing'})} />
-            <MenuButton label="Planned maintenance" active={section.item==='planned'} onClick={()=>setSection({group:'maintenance',item:'planned'})} />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-hidden flex flex-col px-4">
-        <div className="flex-1 overflow-y-auto">
-          {section.group==='assets' && section.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
-          {section.group==='assets' && section.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
-          {section.group==='spaces' && section.item==='space-list' && <SpaceList projectId={projectId} />}
-          {section.group==='spaces' && section.item==='create-space' && <CreateSpace projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='ticket' && <TicketForm projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='work-orders' && <WorkOrders projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='service-requests' && <ServiceRequests projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='reports' && <MaintenanceReports projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='upcoming' && <UpcomingMaintenance projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
-          {section.group==='maintenance' && section.item==='planned' && <PlannedMaintenance projectId={projectId} />}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
