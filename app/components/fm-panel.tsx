@@ -191,6 +191,29 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       }
     } catch {}
   };
+  // Remote helpers
+  const remoteWorldOnZ = (clientX: number, clientY: number, z: number) => {
+    const THREE = (window as any).THREE;
+    if (!THREE || !viewer?.impl?.camera) return null;
+    const rect = (viewer.impl.canvas || viewer.container).getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const camera = viewer.impl.camera;
+    const origin = new THREE.Vector3().copy(camera.position);
+    const dir = new THREE.Vector3(x, y, 0.5).unproject(camera).sub(origin).normalize();
+    const EPS = 1e-6;
+    if (Math.abs(dir.z) < EPS) return null;
+    const t = (z - origin.z) / dir.z;
+    if (!isFinite(t) || t < 0) return null;
+    const p = origin.clone().add(dir.multiplyScalar(t));
+    return p;
+  };
+  const remoteIsNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
+    if (remotePointsRef.current.length < 1) return false;
+    const a = remotePointsRef.current[0];
+    const dx = p.x - a.x, dy = p.y - a.y;
+    return Math.hypot(dx, dy) <= eps;
+  };
   const remoteDrawPreview = () => {
     try {
       if (!viewer?.impl) return;
@@ -203,14 +226,24 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       const THREE = (window as any).THREE;
       if (!THREE) { viewer.impl.invalidate(true); return; }
       const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
-      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88 });
+      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 2, depthTest: false });
       const line = new THREE.Line(geom, mat);
+      line.renderOrder = 999;
       viewer.impl.addOverlay(remoteOverlay, line);
       if (pts.length > 2) {
         const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
         const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
-        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66 }));
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66, linewidth: 2, depthTest: false }));
+        line2.renderOrder = 999;
         viewer.impl.addOverlay(remoteOverlay, line2);
+        // Filled polygon for visibility
+        const shape = new THREE.Shape(pts.map((p, i) => new THREE.Vector2(p.x, p.y)));
+        const fillGeom = new THREE.ShapeGeometry(shape);
+        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.15, transparent: true, depthWrite: false, depthTest: false });
+        const mesh = new THREE.Mesh(fillGeom, fillMat);
+        if (remoteBaseZRef.current != null) mesh.position.z = remoteBaseZRef.current;
+        mesh.renderOrder = 998;
+        viewer.impl.addOverlay(remoteOverlay, mesh);
       }
       viewer.impl.invalidate(true);
     } catch {}
@@ -218,25 +251,54 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const remoteOnViewerMove = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !remoteActiveRef.current) return;
-      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-      if (hit && hit.point) {
-        const z = (remoteBaseZRef.current ?? hit.point.z);
-        remoteHoverRef.current = { x: hit.point.x, y: hit.point.y, z };
-        remoteDrawPreview();
+      if (remoteBaseZRef.current == null) {
+        const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (hit?.point?.z != null) remoteBaseZRef.current = hit.point.z; else {
+          try { remoteBaseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { remoteBaseZRef.current = 0; }
+        }
       }
+      const z = remoteBaseZRef.current ?? 0;
+      const p = remoteWorldOnZ(ev.clientX, ev.clientY, z);
+      if (!p) return;
+      if (remotePointsRef.current.length >= 2 && remoteIsNearFirst(p)) {
+        const a = remotePointsRef.current[0];
+        remoteHoverRef.current = { x: a.x, y: a.y, z: a.z };
+      } else {
+        remoteHoverRef.current = { x: p.x, y: p.y, z };
+      }
+      remoteDrawPreview();
     } catch {}
   };
   const remoteOnViewerClick = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !remoteActiveRef.current) return;
-      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-      if (hit && hit.point) {
-        if (remoteBaseZRef.current == null) remoteBaseZRef.current = hit.point.z;
-        const z = remoteBaseZRef.current ?? hit.point.z;
-        const point = { x: hit.point.x, y: hit.point.y, z };
-        remotePointsRef.current.push(point);
-        childWinRef.current?.postMessage?.({ type: 'FM_DRAW_POINT', point }, '*');
-        remoteDrawPreview();
+      if (remoteBaseZRef.current == null) {
+        const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (hit?.point?.z != null) remoteBaseZRef.current = hit.point.z; else {
+          try { remoteBaseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { remoteBaseZRef.current = 0; }
+        }
+      }
+      const z = remoteBaseZRef.current ?? 0;
+      const p = remoteWorldOnZ(ev.clientX, ev.clientY, z);
+      if (!p) return;
+      if (remotePointsRef.current.length >= 3 && remoteIsNearFirst(p)) {
+        // auto finish
+        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch {}
+        remoteDetach();
+        return;
+      }
+      const point = { x: p.x, y: p.y, z };
+      remotePointsRef.current.push(point);
+      childWinRef.current?.postMessage?.({ type: 'FM_DRAW_POINT', point }, '*');
+      remoteDrawPreview();
+    } catch {}
+  };
+  const remoteOnViewerDblClick = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl || !remoteActiveRef.current) return;
+      if (remotePointsRef.current.length >= 3) {
+        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch {}
+        remoteDetach();
       }
     } catch {}
   };
@@ -249,6 +311,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       remoteActiveRef.current = true;
       viewer.container?.addEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', remoteOnViewerMove as any, true);
+      viewer.container?.addEventListener('dblclick', remoteOnViewerDblClick as any, true);
       try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch {}
       if (!viewer.impl.overlayScenes?.[remoteOverlay]) viewer.impl.createOverlayScene(remoteOverlay);
     } catch {}
@@ -258,6 +321,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       if (!viewer) return;
       viewer.container?.removeEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.removeEventListener('mousemove', remoteOnViewerMove as any, true);
+      viewer.container?.removeEventListener('dblclick', remoteOnViewerDblClick as any, true);
       try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch {}
       remoteActiveRef.current = false;
       remoteHoverRef.current = null;
@@ -1889,41 +1953,103 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       const THREE = (window as any).THREE;
       if (!THREE) { viewer.impl.invalidate(true); return; }
       const geom = new THREE.BufferGeometry().setFromPoints(vis.map(p => new THREE.Vector3(p.x, p.y, p.z)));
-      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88 });
+      const mat = new THREE.LineBasicMaterial({ color: 0x00ff88, linewidth: 2, depthTest: false });
       const line = new THREE.Line(geom, mat);
+      line.renderOrder = 999;
       viewer.impl.addOverlay(overlayName, line);
       if (pts.length > 2) {
         const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
         const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
-        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66 }));
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x00aa66, linewidth: 2, depthTest: false }));
+        line2.renderOrder = 999;
         viewer.impl.addOverlay(overlayName, line2);
+        // Filled polygon for visibility
+        const shape = new THREE.Shape(pts.map((p, i) => new THREE.Vector2(p.x, p.y)));
+        const fillGeom = new THREE.ShapeGeometry(shape);
+        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.15, transparent: true, depthWrite: false, depthTest: false });
+        const mesh = new THREE.Mesh(fillGeom, fillMat);
+        if (baseZRef.current != null) mesh.position.z = baseZRef.current;
+        mesh.renderOrder = 998;
+        viewer.impl.addOverlay(overlayName, mesh);
       }
       viewer.impl.invalidate(true);
     } catch {}
   };
 
+  // Compute world point on constant Z plane from screen xy
+  const worldOnZ = (clientX: number, clientY: number, z: number) => {
+    const THREE = (window as any).THREE;
+    if (!THREE || !viewer?.impl?.camera) return null;
+    const rect = (viewer.impl.canvas || viewer.container).getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const camera = viewer.impl.camera;
+    const origin = new THREE.Vector3().copy(camera.position);
+    const dir = new THREE.Vector3(x, y, 0.5).unproject(camera).sub(origin).normalize();
+    const EPS = 1e-6;
+    if (Math.abs(dir.z) < EPS) return null; // parallel; skip
+    const t = (z - origin.z) / dir.z;
+    if (!isFinite(t) || t < 0) return null;
+    const p = origin.clone().add(dir.multiplyScalar(t));
+    return p;
+  };
+
+  const isNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
+    if (pointsRef.current.length < 1) return false;
+    const a = pointsRef.current[0];
+    const dx = p.x - a.x, dy = p.y - a.y;
+    return Math.hypot(dx, dy) <= eps;
+  };
+
   const onViewerClick = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl) return;
-      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-      if (hit && hit.point) {
-        if (baseZRef.current == null) baseZRef.current = hit.point.z;
-        const z = baseZRef.current ?? hit.point.z; // ensure number for TS
-        pointsRef.current.push({ x: hit.point.x, y: hit.point.y, z });
-        drawPreview();
+      // Initialize base Z from first hit or ground if needed
+      if (baseZRef.current == null) {
+        const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (hit?.point?.z != null) baseZRef.current = hit.point.z; else {
+          try { baseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { baseZRef.current = 0; }
+        }
       }
+      const z = baseZRef.current ?? 0;
+      const p = worldOnZ(ev.clientX, ev.clientY, z);
+      if (!p) return;
+      if (pointsRef.current.length >= 3 && isNearFirst(p)) {
+        finishDrawing();
+        return;
+      }
+      pointsRef.current.push({ x: p.x, y: p.y, z });
+      drawPreview();
     } catch {}
   };
 
   const onViewerMove = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !drawing) return;
-      const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-      if (hit && hit.point) {
-        const z = (baseZRef.current ?? hit.point.z);
-        hoverRef.current = { x: hit.point.x, y: hit.point.y, z };
-        drawPreview();
+      if (baseZRef.current == null) {
+        const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (hit?.point?.z != null) baseZRef.current = hit.point.z; else {
+          try { baseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { baseZRef.current = 0; }
+        }
       }
+      const z = baseZRef.current ?? 0;
+      const p = worldOnZ(ev.clientX, ev.clientY, z);
+      if (!p) return;
+      // snap-to-start preview
+      if (pointsRef.current.length >= 2 && isNearFirst(p)) {
+        const a = pointsRef.current[0];
+        hoverRef.current = { x: a.x, y: a.y, z: a.z };
+      } else {
+        hoverRef.current = { x: p.x, y: p.y, z };
+      }
+      drawPreview();
+    } catch {}
+  };
+
+  const onViewerDblClick = (ev: MouseEvent) => {
+    try {
+      if (!viewer?.impl || !drawing) return;
+      if (pointsRef.current.length >= 3) finishDrawing();
     } catch {}
   };
 
@@ -1956,6 +2082,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       setDrawing(true);
       viewer.container?.addEventListener('click', onViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
+      viewer.container?.addEventListener('dblclick', onViewerDblClick as any, true);
       window.addEventListener('keydown', onKeyDown as any, true);
       if (!viewer.impl.overlayScenes?.[overlayName]) viewer.impl.createOverlayScene(overlayName);
       try { (viewer.container as HTMLElement).style.cursor = 'crosshair'; } catch {}
@@ -1973,6 +2100,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       setDrawing(false);
       viewer?.container?.removeEventListener('click', onViewerClick as any, true);
       viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
       try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
       const pts = pointsRef.current;
@@ -1996,6 +2124,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       baseZRef.current = null;
       viewer?.container?.removeEventListener('click', onViewerClick as any, true);
       viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
       clearOverlay();
       try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
