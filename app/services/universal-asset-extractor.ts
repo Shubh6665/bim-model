@@ -71,10 +71,15 @@ export class UniversalAssetExtractor {
     
     // Categories to EXCLUDE (metadata, not real assets)
     private readonly EXCLUDE_CATEGORIES = [
-        'revit document', 'revit level', 'revit view', 'revit sheet', 
+        // Revit meta
+        'revit', 'revit document', 'revit level', 'revit view', 'revit sheet', 
         'revit group', 'revit category', 'project information',
+        // Browsers / organization
         'browser organization', 'levels', 'grids', 'views', 'sheets',
         'schedules', 'legend', 'detail', 'section', 'elevation',
+        // Non-asset annotations / symbols
+        'tag', 'tags', 'annotation', 'symbol', 'dimension', 'text', 'callout',
+        // Misc non-physical
         'materials', 'phases', 'workset', 'design option',
         'scope box', 'reference plane', 'model group', 'detail group',
         'area', 'room', 'space', 'zone', 'mass', 'generic model'
@@ -83,6 +88,22 @@ export class UniversalAssetExtractor {
     constructor(viewer: any) {
         this.viewer = viewer;
         this.model = viewer?.model;
+    }
+
+    /**
+     * Obtain a stable model tag for unique asset ids.
+     * Prefer the model data GUID (stable across sessions). Fallback to model.id.
+     */
+    private getModelTag(): string {
+        try {
+            const guid = this.model?.getData?.()?.guid;
+            if (guid && typeof guid === 'string') return guid;
+            const mid = this.model?.id;
+            return (mid != null) ? String(mid) : 'm';
+        } catch {
+            const mid = this.model?.id;
+            return (mid != null) ? String(mid) : 'm';
+        }
     }
 
     /**
@@ -160,8 +181,10 @@ export class UniversalAssetExtractor {
                 return null; // Skip non-assets
             }
 
+            // Use a stable model tag so ids are globally unique across federated/multi-model sessions
+            const modelTag = this.getModelTag();
             return {
-                id: `universal-${dbId}`,
+                id: `universal-${modelTag}-${dbId}`,
                 dbId,
                 name,
                 category: this.mapToStandardCategory(category),
@@ -196,9 +219,22 @@ export class UniversalAssetExtractor {
     ): { isAsset: boolean; confidence: 'HIGH' | 'MEDIUM' | 'LOW'; assetType: 'STRUCTURAL' | 'ARCHITECTURAL' | 'MEP' | 'FURNITURE' | 'EQUIPMENT' | 'OTHER' } {
         
         const searchText = `${name} ${category} ${type || ''}`.toLowerCase();
+        const nameLower = (name || '').toLowerCase();
+        const categoryLower = (category || '').toLowerCase();
         
         // First check: Exclude obvious non-assets
         if (this.EXCLUDE_CATEGORIES.some(exclude => searchText.includes(exclude))) {
+            return { isAsset: false, confidence: 'LOW', assetType: 'OTHER' };
+        }
+
+        // Additional early exclusions for generic Revit meta and annotations
+        if (categoryLower === 'revit' || categoryLower.startsWith('revit ')) {
+            return { isAsset: false, confidence: 'LOW', assetType: 'OTHER' };
+        }
+        if (/\b(tag|tags|annotation|symbol|schedule|dimension|text)\b/.test(nameLower)) {
+            return { isAsset: false, confidence: 'LOW', assetType: 'OTHER' };
+        }
+        if (/\b(view|sheet)\b/.test(nameLower)) {
             return { isAsset: false, confidence: 'LOW', assetType: 'OTHER' };
         }
 

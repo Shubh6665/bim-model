@@ -49,6 +49,13 @@ interface AssetRecord {
   description?: string; 
   dbId?: number | null;
   source?: 'BIM_MODEL' | 'MANUAL';
+  // Optional 3D placeholder for manual assets
+  placeholderX?: number;
+  placeholderY?: number;
+  placeholderZ?: number;
+  placeholderShape?: 'cube' | 'sphere';
+  // Conflict indicator
+  conflictWithId?: string;
 }
 
 interface SpaceRecord { 
@@ -247,6 +254,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   });
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '' });
   
+  // Deduplicate any pre-existing duplicates on initial load
+  useEffect(() => {
+    setRows(prev => {
+      const unique = Array.from(new Map(prev.map(a => [a.id, a])).values());
+      if (unique.length !== prev.length) {
+        save(K.assets(projectId), unique);
+        return unique;
+      }
+      return prev;
+    });
+  }, [projectId]);
+  
   // BIM Asset Extraction
   const extractAssetsFromBIM = async () => {
     if (!viewer || !viewer.model) {
@@ -265,29 +284,82 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         setExtractionProgress(progress);
       });
 
-      // Convert UniversalAsset to AssetRecord format
-      const newAssets: AssetRecord[] = universalAssets.map(asset => ({
-        id: asset.id,
-        dbId: asset.dbId,
-        assetCode: `BIM-${asset.dbId}`,
-        assetName: asset.name,
-        category: asset.category,
-        type: asset.type,
-        brand: asset.family || 'Unknown',
-        model: asset.type || 'Unknown',
-        material: asset.material,
-        location: asset.location,
-        description: `${asset.assetType} asset extracted from BIM model (${asset.confidence} confidence)`,
-        condition: 'Good', // Default for BIM assets
-        source: 'BIM_MODEL'
-      }));
+      // Helper to get property by display names
+      const getProp = (props: any[], names: string[]): string | undefined => {
+        const lower = names.map(n => n.toLowerCase());
+        const p = props?.find(p => {
+          const dn = p.displayName?.toLowerCase?.();
+          if (!dn) return false;
+          return lower.includes(dn) || lower.some(n => dn.includes(n));
+        });
+        return p?.displayValue?.toString();
+      };
+
+      // Convert UniversalAsset to AssetRecord format with enrichment
+      const newAssets: AssetRecord[] = universalAssets.map(asset => {
+        const props = (asset as any).properties || [];
+        const brand = getProp(props, ['Manufacturer', 'Brand', 'Manufacturer Name']) || asset.family || 'Unknown';
+        const model = getProp(props, ['Model', 'Type Name', 'Model Number']) || asset.type || 'Unknown';
+        const serial = getProp(props, ['Serial Number', 'Serial']) || undefined;
+        const installDate = getProp(props, ['Install Date', 'Installation Date']) || undefined;
+        const power = getProp(props, ['Power', 'Power Rating', 'kW']) || undefined;
+        const capacity = getProp(props, ['Capacity']) || undefined;
+        const weight = getProp(props, ['Weight']) || undefined;
+        const length = getProp(props, ['Length']) || undefined;
+        const width = getProp(props, ['Width']) || undefined;
+        const height = getProp(props, ['Height', 'Thickness']) || undefined;
+        const dimensions = (length || width || height) ? `${length||''} x ${width||''} x ${height||''}`.replace(/\s+x\s+x\s+/,'').trim() : undefined;
+
+        return {
+          id: asset.id,
+          dbId: asset.dbId,
+          assetCode: `BIM-${asset.dbId}`,
+          assetName: asset.name,
+          category: asset.category,
+          type: asset.type,
+          brand,
+          model,
+          serialNumber: serial,
+          installationDate: installDate,
+          powerRating: power,
+          capacity,
+          weight,
+          dimensions,
+          material: asset.material,
+          location: asset.location,
+          description: `${asset.assetType} asset extracted from BIM model (${asset.confidence} confidence)`,
+          condition: 'Good', // Default for BIM assets
+          source: 'BIM_MODEL'
+        } as AssetRecord;
+      });
 
       // Merge with existing manual assets
-      const existingManualAssets = rows.filter(r => !r.id.startsWith('universal-') && !r.id.startsWith('bim-asset-'));
-      const allAssets = [...existingManualAssets, ...newAssets];
-      
-      setRows(allAssets);
-      save(K.assets(projectId), allAssets);
+      const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
+      const keyOf = (a: AssetRecord) => `${(a.category||'').toLowerCase()}|${(a.location||'').toLowerCase()}|${(a.model||a.assetName||'').toLowerCase()}`;
+
+      // Basic conflict detection (manual vs BIM)
+      const manualMap = new Map<string, AssetRecord>();
+      existingManualAssets.forEach(a => manualMap.set(keyOf(a), a));
+      newAssets.forEach(a => {
+        const m = manualMap.get(keyOf(a));
+        if (m) {
+          a.conflictWithId = m.id;
+          m.conflictWithId = a.id;
+        }
+      });
+
+      // Keep existing non-manual (older BIM) assets separate to allow override by new extraction
+      const others = rows.filter(r => r.source !== 'MANUAL');
+
+      // Combine in order so that later entries override earlier ones for the same id
+      // Order: previous BIM/others -> manual -> newly extracted BIM
+      const combined = [...others, ...existingManualAssets, ...newAssets];
+
+      // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
+      const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
+
+      setRows(uniqueById);
+      save(K.assets(projectId), uniqueById);
       
       alert(`✅ Successfully extracted ${newAssets.length} assets from BIM model!\n\nBreakdown:\n${
         Object.entries(
@@ -339,6 +411,62 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       viewer.isolate?.(dbIds);
       viewer.fitToView?.(dbIds);
     }
+  };
+
+  // Export CSV of current assets
+  const exportCSV = () => {
+    const headers = [
+      'id','assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
+      'material','dimensions','weight','capacity','powerRating','location','condition','source'
+    ];
+    const lines = [headers.join(',')];
+    rows.forEach(r => {
+      const vals = headers.map(h => {
+        const v = (r as any)[h];
+        const s = (v==null?'' : String(v));
+        return '"' + s.replace(/"/g,'""') + '"';
+      });
+      lines.push(vals.join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'asset_register.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Manual asset placement (placeholder cube)
+  const placeManual = (r: AssetRecord) => {
+    if (!viewer) return;
+    const container = viewer.container as HTMLElement;
+    container.style.cursor = 'crosshair';
+    const onClick = (ev: MouseEvent) => {
+      container.removeEventListener('click', onClick, true);
+      container.style.cursor = 'default';
+      try {
+        const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (!res || !res.point) return;
+        const pt = res.point;
+        // draw cube overlay
+        const THREE = (window as any).THREE;
+        if (THREE) {
+          if (!(viewer as any)._fmOverlayCreated) {
+            viewer.impl.createOverlayScene('fm-placeholders');
+            (viewer as any)._fmOverlayCreated = true;
+          }
+          const geom = new THREE.BoxGeometry(0.3,0.3,0.3);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.set(pt.x, pt.y, pt.z);
+          viewer.impl.addOverlay('fm-placeholders', mesh);
+          viewer.impl.invalidate(true);
+        }
+        // store coordinates
+        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, placeholderShape: 'cube' } : a));
+        save(K.assets(projectId), rows);
+      } catch {}
+    };
+    container.addEventListener('click', onClick, true);
   };
   
   return (
@@ -432,6 +560,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           >
             Apply Filter to Model
           </button>
+          <button 
+            onClick={exportCSV}
+            className="mt-2 w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
+          >
+            Export CSV
+          </button>
         </details>
       </div>
       
@@ -446,6 +580,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                   <th className="text-left px-2 py-1.5">Type</th>
                   <th className="text-left px-2 py-1.5">Brand</th>
                   <th className="text-left px-2 py-1.5">Model</th>
+                  <th className="text-left px-2 py-1.5">Actions</th>
                 </>
               )}
               {visibleFields.identification && (
@@ -514,13 +649,24 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           ? 'bg-green-900/40 text-green-300' 
                           : 'bg-blue-900/40 text-blue-300'
                       }`}>
-                        {r.source === 'BIM_MODEL' ? '🏗️ BIM' : '✏️ Manual'}
+                        {r.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                       </span>
+                      {r.conflictWithId && <span className="ml-2 text-[10px] text-red-300">⚠ Conflict</span>}
                     </td>
                     <td className="px-2 py-1.5 text-gray-100">{r.category||'-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.type||'-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.brand||'-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model||'-'}</td>
+                    <td className="px-2 py-1.5">
+                      {r.source === 'MANUAL' && (
+                        <button 
+                          onClick={(e)=>{ e.stopPropagation(); placeManual(r); }}
+                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded"
+                        >
+                          {r.placeholderX==null ? 'Place' : 'Re-place'}
+                        </button>
+                      )}
+                    </td>
                   </>
                 )}
                 {visibleFields.identification && (
