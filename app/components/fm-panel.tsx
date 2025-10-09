@@ -572,15 +572,43 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       if (canvas) canvas.style.cursor = 'default';
       container.classList.remove('fm-placing');
     };
-    const onClick = (ev: MouseEvent) => {
+    const onClick = async (ev: MouseEvent) => {
       try {
+        let pt: any = null;
+        let locDbId: number | undefined;
+        let locModel: any | undefined;
         const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-        if (!res || !res.point) {
-          // keep placing until user clicks a valid spot
-          showToast('info', 'Click on a model surface to place the marker. Press ESC to cancel.');
-          return;
+        if (res && res.point) {
+          pt = res.point;
+          if (res.dbId != null && res.model) { locDbId = res.dbId; locModel = res.model; }
+        } else {
+          // Fallback: place on currently selected object center (aggregate safe)
+          let dbId: number | undefined; let model: any = viewer.model;
+          const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+          if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+          else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
+          if (dbId!=null && model) {
+            const THREE = (window as any).THREE;
+            const frags = model.getFragmentList?.();
+            if (THREE && frags) {
+              const box = new THREE.Box3();
+              frags.enumNodeFragments(dbId, (fid: number) => {
+                const fb = new THREE.Box3();
+                frags.getWorldBounds(fid, fb);
+                box.union(fb);
+              });
+              if (!box.isEmpty()) {
+                pt = box.getCenter(new THREE.Vector3());
+                locDbId = dbId; locModel = model;
+              }
+            }
+          }
+          if (!pt) {
+            // keep placing until user clicks a valid spot or select an object
+            showToast('info', 'Click a surface or select an object, then click to place. ESC to cancel.');
+            return;
+          }
         }
-        const pt = res.point;
         // draw overlay using chosen shape and size
         const THREE = (window as any).THREE;
         if (THREE) {
@@ -598,8 +626,26 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           viewer.impl.addOverlay('fm-placeholders', mesh);
           viewer.impl.invalidate(true);
         }
-        // store coordinates
-        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z } : a));
+        // derive location from properties if possible (Level / Room / Building)
+        let newLocation: string | undefined;
+        try {
+          if (locModel && locDbId!=null) {
+            const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
+            const getVal = (names: string[]): string | undefined => {
+              const lower = names.map(n=>n.toLowerCase());
+              const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+              return p?.displayValue?.toString();
+            };
+            const building = getVal(['Building']);
+            const level = getVal(['Level','Reference Level']);
+            const room = getVal(['Room','Space']);
+            const parts = [building, level, room].filter(Boolean) as string[];
+            if (parts.length) newLocation = parts.join(' - ');
+          }
+        } catch {}
+
+        // store coordinates (and location if found)
+        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? a.location } : a));
         finish();
       } catch {}
     };
