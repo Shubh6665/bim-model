@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
+import { sendEmail } from "@/app/lib/email";
 
 // WorkOrder doc shape in DB
 // {
@@ -107,7 +108,7 @@ export async function PATCH(
     if (!projectId) return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
 
     const payload = await req.json();
-    const { id, ...updates } = payload;
+    const { id, wasAssigned, wasResolved, ...updates } = payload;
     
     if (!id) return NextResponse.json({ error: 'Work Order ID is required' }, { status: 400 });
 
@@ -116,6 +117,9 @@ export async function PATCH(
 
     const objectId = safeObjectId(id);
     if (!objectId) return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 });
+
+    // Get the work order before update
+    const workOrder = await col.findOne({ _id: objectId, projectId });
 
     const result = await col.updateOne(
       { _id: objectId, projectId },
@@ -129,6 +133,33 @@ export async function PATCH(
     
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Work Order not found' }, { status: 404 });
+    }
+
+    // Send notifications
+    try {
+      // Notify technician when assigned
+      if (wasAssigned && updates.responsibleTechnician) {
+        // TODO: Get technician email from users collection
+        console.log(`[WorkOrders] Technician assigned: ${updates.responsibleTechnician}`);
+      }
+      
+      // Notify requester when resolved
+      if (wasResolved && workOrder?.contact) {
+        await sendEmail(
+          workOrder.contact,
+          `Work Order ${workOrder.requestId} - Resolved`,
+          `
+            <h2>Work Order Resolved</h2>
+            <p>Your maintenance request <strong>${workOrder.requestId}</strong> has been resolved.</p>
+            <p><strong>Description:</strong> ${workOrder.description || 'N/A'}</p>
+            <p><strong>Technician:</strong> ${updates.responsibleTechnician || workOrder.responsibleTechnician || 'N/A'}</p>
+            <p>Thank you for your patience.</p>
+          `
+        );
+        console.log(`[WorkOrders] Requester notified: ${workOrder.contact}`);
+      }
+    } catch (notifError) {
+      console.error('[WorkOrders] Notification error (non-blocking):', notifError);
     }
 
     return NextResponse.json({ ok: true });

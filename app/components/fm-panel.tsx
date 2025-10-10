@@ -135,7 +135,18 @@ interface WorkOrderItem {
   responsibleTechnician?: string;
   company?: string;
   status: "Open" | "Planned" | "In Progress" | "Resolved"; 
+  priority?: "High" | "Medium" | "Low";
   sourceTicketId?: string;
+  comments?: Array<{
+    id: string;
+    author: string;
+    text: string;
+    timestamp: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+  assignedAt?: string;
+  resolvedAt?: string;
 }
 
 type Section =
@@ -3948,6 +3959,24 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [rows,setRows]=useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState<WorkOrderItem | null>(null);
+  const [showCommentsModal, setShowCommentsModal] = useState<WorkOrderItem | null>(null);
+  const [newComment, setNewComment] = useState('');
+  
+  // Filters
+  const [filters, setFilters] = useState({
+    status: 'all',
+    discipline: 'all',
+    technician: 'all',
+    priority: 'all',
+    search: ''
+  });
+  
+  // Sorting
+  const [sortBy, setSortBy] = useState<'requestId' | 'status' | 'createdAt' | 'priority'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Cache to localStorage but prefer backend data when available
   useEffect(()=>save(K.workOrders(projectId), rows),[rows,projectId]);
@@ -3975,7 +4004,20 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const saveEdit = async () => {
     if (!editingId) return;
     
-    const updatedRow = { ...rows.find(r => r.id === editingId), ...editForm };
+    const oldRow = rows.find(r => r.id === editingId);
+    const updatedRow = { ...oldRow, ...editForm, updatedAt: new Date().toISOString() };
+    
+    // Check if technician was assigned
+    const wasAssigned = !oldRow?.responsibleTechnician && editForm.responsibleTechnician;
+    if (wasAssigned) {
+      updatedRow.assignedAt = new Date().toISOString();
+    }
+    
+    // Check if status changed to Resolved
+    const wasResolved = oldRow?.status !== 'Resolved' && editForm.status === 'Resolved';
+    if (wasResolved) {
+      updatedRow.resolvedAt = new Date().toISOString();
+    }
     
     // Update backend if projectId available
     if (projectId) {
@@ -3983,7 +4025,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         const res = await fetch(`/api/projects/${projectId}/work-orders`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingId, ...editForm })
+          body: JSON.stringify({ id: editingId, ...editForm, wasAssigned, wasResolved })
         });
         
         if (res.ok) {
@@ -3995,25 +4037,222 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           }
         } else {
           // Fallback to local update
-          setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
+          setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
         }
       } catch (err) {
         console.error('[WorkOrders] Save error', err);
         // Fallback to local update
-        setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
+        setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
       }
     } else {
       // No projectId, local update only
-      setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
+      setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
     }
     
     setEditingId(null);
     setEditForm({});
   };
   
-  const updateStatus = (id: string, status: WorkOrderItem['status']) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+  const addComment = async (workOrderId: string) => {
+    if (!newComment.trim()) return;
+    
+    const comment = {
+      id: `comment-${Date.now()}`,
+      author: 'Current User', // TODO: Get from session
+      text: newComment,
+      timestamp: new Date().toISOString()
+    };
+    
+    const updatedRow = rows.find(r => r.id === workOrderId);
+    if (!updatedRow) return;
+    
+    const comments = [...(updatedRow.comments || []), comment];
+    
+    if (projectId) {
+      try {
+        await fetch(`/api/projects/${projectId}/work-orders`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: workOrderId, comments })
+        });
+        
+        setRows(prev => prev.map(r => r.id === workOrderId ? { ...r, comments } : r));
+      } catch (err) {
+        console.error('[WorkOrders] Add comment error', err);
+      }
+    } else {
+      setRows(prev => prev.map(r => r.id === workOrderId ? { ...r, comments } : r));
+    }
+    
+    setNewComment('');
   };
+  
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredAndSortedRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredAndSortedRows.map(r => r.id)));
+    }
+  };
+  
+  const bulkAssignTechnician = async () => {
+    const technician = prompt('Enter technician name:');
+    if (!technician) return;
+    
+    const updates = Array.from(selectedIds).map(id => ({
+      id,
+      responsibleTechnician: technician,
+      assignedAt: new Date().toISOString()
+    }));
+    
+    if (projectId) {
+      try {
+        await fetch(`/api/projects/${projectId}/work-orders/bulk`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates })
+        });
+        
+        setRows(prev => prev.map(r => 
+          selectedIds.has(r.id) ? { ...r, responsibleTechnician: technician, assignedAt: new Date().toISOString() } : r
+        ));
+      } catch (err) {
+        console.error('[WorkOrders] Bulk assign error', err);
+      }
+    } else {
+      setRows(prev => prev.map(r => 
+        selectedIds.has(r.id) ? { ...r, responsibleTechnician: technician, assignedAt: new Date().toISOString() } : r
+      ));
+    }
+    
+    setSelectedIds(new Set());
+  };
+  
+  const bulkChangeStatus = async (status: WorkOrderItem['status']) => {
+    const updates = Array.from(selectedIds).map(id => ({
+      id,
+      status,
+      ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {})
+    }));
+    
+    if (projectId) {
+      try {
+        await fetch(`/api/projects/${projectId}/work-orders/bulk`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates })
+        });
+        
+        setRows(prev => prev.map(r => 
+          selectedIds.has(r.id) ? { ...r, status, ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {}) } : r
+        ));
+      } catch (err) {
+        console.error('[WorkOrders] Bulk status error', err);
+      }
+    } else {
+      setRows(prev => prev.map(r => 
+        selectedIds.has(r.id) ? { ...r, status, ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {}) } : r
+      ));
+    }
+    
+    setSelectedIds(new Set());
+  };
+  
+  const exportToCSV = () => {
+    const headers = ['Request ID', 'Requester', 'Contact', 'Location', 'Discipline', 'Category', 'Description', 'Asset', 'Technician', 'Company', 'Status', 'Priority', 'Created At'];
+    const csvRows = [
+      headers.join(','),
+      ...filteredAndSortedRows.map(r => [
+        r.requestId || '',
+        r.requester || '',
+        r.contact || '',
+        r.location || '',
+        r.discipline || '',
+        r.category || '',
+        r.description || '',
+        r.asset || '',
+        r.responsibleTechnician || '',
+        r.company || '',
+        r.status,
+        r.priority || '',
+        r.createdAt || ''
+      ].map(v => `"${v}"`).join(','))
+    ];
+    
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `work-orders-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
+  // Filter and sort rows
+  const filteredAndSortedRows = React.useMemo(() => {
+    let filtered = rows.filter(r => {
+      if (filters.status !== 'all' && r.status !== filters.status) return false;
+      if (filters.discipline !== 'all' && r.discipline !== filters.discipline) return false;
+      if (filters.technician !== 'all' && r.responsibleTechnician !== filters.technician) return false;
+      if (filters.priority !== 'all' && r.priority !== filters.priority) return false;
+      if (filters.search) {
+        const search = filters.search.toLowerCase();
+        return (
+          r.requestId?.toLowerCase().includes(search) ||
+          r.requester?.toLowerCase().includes(search) ||
+          r.description?.toLowerCase().includes(search) ||
+          r.asset?.toLowerCase().includes(search)
+        );
+      }
+      return true;
+    });
+    
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortBy) {
+        case 'requestId':
+          aVal = a.requestId || '';
+          bVal = b.requestId || '';
+          break;
+        case 'status':
+          aVal = a.status;
+          bVal = b.status;
+          break;
+        case 'createdAt':
+          aVal = new Date(a.createdAt || 0).getTime();
+          bVal = new Date(b.createdAt || 0).getTime();
+          break;
+        case 'priority':
+          const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          aVal = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+          bVal = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+          break;
+      }
+      
+      if (sortOrder === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+    
+    return filtered;
+  }, [rows, filters, sortBy, sortOrder]);
+  
+  // Get unique values for filters
+  const uniqueDisciplines = Array.from(new Set(rows.map(r => r.discipline).filter(Boolean)));
+  const uniqueTechnicians = Array.from(new Set(rows.map(r => r.responsibleTechnician).filter(Boolean)));
   
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
