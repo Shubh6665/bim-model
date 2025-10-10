@@ -4262,31 +4262,113 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <span className="text-blue-400 ml-2">Blue fields</span> are managed by Maintenance Team.
       </div>
       
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          type="text"
+          placeholder="Search..."
+          value={filters.search}
+          onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs flex-1 min-w-[200px]"
+        />
+        <select
+          value={filters.status}
+          onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+        >
+          <option value="all">All Status</option>
+          <option value="Open">Open</option>
+          <option value="Planned">Planned</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+        </select>
+        <select
+          value={filters.discipline}
+          onChange={e => setFilters(f => ({ ...f, discipline: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+        >
+          <option value="all">All Disciplines</option>
+          {uniqueDisciplines.map(d => (
+            <option key={String(d)} value={String(d)}>{String(d)}</option>
+          ))}
+        </select>
+        <select
+          value={filters.technician}
+          onChange={e => setFilters(f => ({ ...f, technician: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+        >
+          <option value="all">All Technicians</option>
+          {uniqueTechnicians.map(t => (
+            <option key={String(t)} value={String(t)}>{String(t)}</option>
+          ))}
+        </select>
+        <select
+          value={filters.priority}
+          onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+        >
+          <option value="all">All Priorities</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <button
+          onClick={() => setFilters({ status: 'all', discipline: 'all', technician: 'all', priority: 'all', search: '' })}
+          className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-xs"
+        >
+          Clear Filters
+        </button>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap gap-2 items-center p-2 bg-blue-900/20 border border-blue-500/50 rounded">
+          <span className="text-blue-300 text-sm">{selectedIds.size} selected</span>
+          <button onClick={exportToCSV} className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs">Export CSV</button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
-              <th className="text-left px-2 py-1.5">Request ID</th>
+              <th className="px-2 py-1.5 w-10">
+                <input type="checkbox" checked={filteredAndSortedRows.length > 0 && selectedIds.size === filteredAndSortedRows.length} onChange={toggleSelectAll} />
+              </th>
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+                if (sortBy === 'requestId') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('requestId'); setSortOrder('desc'); }
+              }}>Request ID {sortBy === 'requestId' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Requester</th>
               <th className="text-left px-2 py-1.5">Contact</th>
               <th className="text-left px-2 py-1.5">Location</th>
               <th className="text-left px-2 py-1.5">Discipline</th>
               <th className="text-left px-2 py-1.5">Category</th>
               <th className="text-left px-2 py-1.5">Description</th>
+              <th className="text-left px-2 py-1.5">Intervention Details</th>
+              <th className="text-left px-2 py-1.5">Attachments</th>
               <th className="text-left px-2 py-1.5">Asset</th>
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+                if (sortBy === 'priority') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('priority'); setSortOrder('desc'); }
+              }}>Priority {sortBy === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Technician</th>
               <th className="text-left px-2 py-1.5">Company</th>
-              <th className="text-left px-2 py-1.5">Status</th>
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+                if (sortBy === 'status') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('status'); setSortOrder('asc'); }
+              }}>Status {sortBy === 'status' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length===0 ? (
-              <tr><td colSpan={12} className="px-3 py-4 text-center text-gray-400">No work orders yet. Create tickets to generate work orders.</td></tr>
-            ) : rows.map(r=> {
+            {filteredAndSortedRows.length===0 ? (
+              <tr><td colSpan={16} className="px-3 py-4 text-center text-gray-400">No work orders yet. Create tickets to generate work orders.</td></tr>
+            ) : filteredAndSortedRows.map(r=> {
               const isEditing = editingId === r.id;
               return (
-                <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40">
+                <>
+                <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
+                  <td className="px-2 py-1.5 w-10" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                  </td>
                   {/* Gray-shaded: from ticket */}
                   <td className="px-2 py-1.5 text-gray-500">{r.requestId||'-'}</td>
                   <td className="px-2 py-1.5 text-gray-500">{r.requester||'-'}</td>
@@ -4295,7 +4377,37 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                   <td className="px-2 py-1.5 text-gray-500">{r.discipline||'-'}</td>
                   <td className="px-2 py-1.5 text-gray-500">{r.category||'-'}</td>
                   <td className="px-2 py-1.5 text-gray-500">{r.description||'-'}</td>
+                  <td className="px-2 py-1.5 text-gray-500">
+                    <div className="max-w-[220px] truncate" title={r.interventionDetails || ''}>{r.interventionDetails || '-'}</div>
+                  </td>
+                  <td className="px-2 py-1.5 text-gray-500" onClick={e => e.stopPropagation()}>
+                    {r.attachments && r.attachments.length > 0 ? (
+                      <button onClick={() => setShowAttachmentsModal(r)} className="text-blue-400 hover:text-blue-300">📎 {r.attachments.length}</button>
+                    ) : '-'}
+                  </td>
                   <td className="px-2 py-1.5 text-gray-500">{r.asset||'-'}</td>
+                  <td className="px-2 py-1.5">
+                    {isEditing ? (
+                      <select
+                        value={editForm.priority || r.priority || 'Medium'}
+                        onChange={e => setEditForm(f => ({ ...f, priority: e.target.value as WorkOrderItem['priority'] }))}
+                        className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        r.priority === 'High' ? 'bg-red-900/40 text-red-300' :
+                        r.priority === 'Medium' ? 'bg-yellow-900/40 text-yellow-300' :
+                        r.priority === 'Low' ? 'bg-green-900/40 text-green-300' :
+                        'bg-gray-900/40 text-gray-400'
+                      }`}>
+                        {r.priority || 'Not Set'}
+                      </span>
+                    )}
+                  </td>
                   
                   {/* Blue-shaded: managed by maintenance team */}
                   <td className="px-2 py-1.5">
@@ -4341,22 +4453,130 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       }`}>{r.status}</span>
                     )}
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                     {isEditing ? (
                       <div className="flex gap-1">
                         <button onClick={saveEdit} className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-xs">Save</button>
                         <button onClick={()=>{setEditingId(null);setEditForm({})}} className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-0.5 rounded text-xs">Cancel</button>
                       </div>
                     ) : (
-                      <button onClick={()=>startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">Edit</button>
+                      <div className="flex gap-1">
+                        <button onClick={()=>startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">Edit</button>
+                        <button onClick={()=>setShowCommentsModal(r)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">Comments</button>
+                        <button onClick={()=>setExpandedId(expandedId === r.id ? null : r.id)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">{expandedId === r.id ? 'Hide' : 'Details'}</button>
+                      </div>
                     )}
                   </td>
                 </tr>
+                {expandedId === r.id && (
+                  <tr className="border-b border-gray-800 bg-gray-900/30">
+                    <td colSpan={16} className="px-3 py-3">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <div className="text-xs text-gray-400">Full Description</div>
+                          <div className="text-gray-200">{r.description || '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400">Intervention Details</div>
+                          <div className="text-gray-200">{r.interventionDetails || '-'}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <div className="text-xs text-gray-400 mb-1">Attachments</div>
+                          <div className="flex flex-wrap gap-2">
+                            {r.attachments && r.attachments.length > 0 ? (
+                              r.attachments.map((a, idx) => (
+                                <span key={idx} className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-200">📄 {a}</span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 text-xs">No attachments</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400">Timestamps</div>
+                          <div className="text-gray-400 text-xs space-y-0.5">
+                            <div>Created: {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}</div>
+                            <div>Updated: {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</div>
+                            <div>Assigned: {r.assignedAt ? new Date(r.assignedAt).toLocaleString() : '-'}</div>
+                            <div>Resolved: {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : '-'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Attachments Modal */}
+      {showAttachmentsModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-white font-semibold text-lg">Attachments</h3>
+              <button onClick={() => setShowAttachmentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-2">
+              {showAttachmentsModal.attachments && showAttachmentsModal.attachments.length > 0 ? (
+                showAttachmentsModal.attachments.map((a, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-gray-900/60 rounded px-3 py-2">
+                    <span className="text-gray-200 text-sm">📄 {a}</span>
+                    <a href={a} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 text-xs">Open</a>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400 text-sm">No attachments</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Modal */}
+      {showCommentsModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-white font-semibold text-lg">Comments & Notes</h3>
+              <button onClick={() => setShowCommentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-3 mb-4">
+              {showCommentsModal.comments && showCommentsModal.comments.length > 0 ? (
+                showCommentsModal.comments.map(c => (
+                  <div key={c.id} className="bg-gray-900/60 rounded p-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-blue-400 font-semibold text-sm">{c.author}</span>
+                      <span className="text-gray-500 text-xs">{new Date(c.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div className="text-gray-300 text-sm">{c.text}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400 text-sm">No comments yet.</div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <textarea
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                rows={3}
+              />
+              <button
+                onClick={() => showCommentsModal && addComment(showCommentsModal.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm self-start"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
