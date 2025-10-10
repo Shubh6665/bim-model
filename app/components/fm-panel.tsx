@@ -656,6 +656,58 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       } else if (d.type === 'FM_PLACE_CANCEL') {
         try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch {}
         remotePlaceDetach();
+      } else if (d.type === 'FM_SELECT_OBJECT_START') {
+        // Handle object selection request from standalone ticket form
+        if (!viewer) {
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          return;
+        }
+        
+        try { childWinRef.current = (e.source as Window) || null; } catch {}
+        
+        // Get current selection
+        viewer.getAggregateSelection?.((selection: any) => {
+          if (!selection || selection.length === 0 || !selection[0].selection || selection[0].selection.length === 0) {
+            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+            return;
+          }
+          
+          const dbId = selection[0].selection[0];
+          const model = selection[0].model;
+          
+          // Get object properties
+          model.getProperties(dbId, (props: any) => {
+            const getProp = (names: string[]): string | undefined => {
+              const lower = names.map((n:string)=>n.toLowerCase());
+              const p = props?.properties?.find((p:any)=>{ 
+                const dn=p.displayName?.toLowerCase?.(); 
+                return dn && (lower.includes(dn) || lower.some((n:string)=> dn.includes(n))); 
+              });
+              return p?.displayValue?.toString();
+            };
+            
+            const name = props?.name || getProp(['Name']);
+            const level = getProp(['Level','Reference Level']);
+            const room = getProp(['Room','Space']);
+            const spaceCode = getProp(['Space Code','Number','Mark']);
+            const building = getProp(['Building']);
+            
+            // Send data back to standalone window
+            try {
+              (e.source as Window | null)?.postMessage?.({
+                type: 'FM_SELECTION_DATA',
+                item: name || `Object ${dbId}`,
+                itemDbId: dbId,
+                building: building || '',
+                level: level || '',
+                room: room || '',
+                spaceCode: spaceCode || ''
+              }, '*');
+            } catch (err) {
+              console.error('[Selection] Error sending data', err);
+            }
+          });
+        });
       }
     };
     window.addEventListener('message', onMsg);
@@ -781,7 +833,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
             {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />}
             {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
+            {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
             {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
             {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
             {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
@@ -839,7 +891,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
               {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} />}
               {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} />}
+              {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
               {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
@@ -3153,12 +3205,14 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   );
 };
 
-const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [tickets,setTickets]=useState<TicketItem[]>(()=>load(K.tickets(projectId), [] as TicketItem[]));
   const [workOrders,setWorkOrders]=useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [showQrModal, setShowQrModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>('');
+  const [waitingForSelection, setWaitingForSelection] = useState(false);
+  const isStandalone = typeof window !== 'undefined' && window.opener;
   
   // Cache to localStorage but prefer backend data when available
   useEffect(()=>save(K.tickets(projectId), tickets),[tickets,projectId]);
@@ -3186,6 +3240,34 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     loadData();
   }, [projectId]);
   
+  // Listen for selection data from main window (standalone mode)
+  useEffect(() => {
+    if (!isStandalone) return;
+    
+    const handleMessage = (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || typeof d !== 'object') return;
+      
+      if (d.type === 'FM_SELECTION_DATA') {
+        setForm(v => ({
+          ...v,
+          item: d.item || '',
+          itemDbId: d.itemDbId || null,
+          building: d.building || v.building,
+          level: d.level || v.level,
+          room: d.room || v.room,
+          spaceCode: d.spaceCode || v.spaceCode
+        }));
+        setWaitingForSelection(false);
+      } else if (d.type === 'FM_SELECTION_CANCELLED') {
+        setWaitingForSelection(false);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isStandalone]);
+  
   const [form,setForm]=useState({
     // Requester
     name:'', surname:'', contact:'',
@@ -3197,6 +3279,129 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   });
   
   const disciplines = ['Architecture','Structure','Mechanical','Electrical','Plumbing','Fire Protection','Elevator','Safety','IT/Technology','Other'];
+  
+  // Select item from model
+  const selectFromModel = async () => {
+    console.log('🎯 [Prefill] Button clicked');
+    
+    // Standalone mode: request main window to handle selection
+    if (isStandalone) {
+      console.log('📤 [Prefill] Standalone mode - requesting selection from main window');
+      try {
+        setWaitingForSelection(true);
+        (window as any).opener?.postMessage?.({ type: 'FM_SELECT_OBJECT_START' }, '*');
+      } catch (err) {
+        console.error('[Model Selection] Error sending message', err);
+        setWaitingForSelection(false);
+      }
+      return;
+    }
+    
+    // Modal mode: direct selection
+    console.log('🖥️ [Prefill] Modal mode - direct selection');
+    if (!viewer) {
+      console.error('❌ [Prefill] Viewer not available');
+      alert('Viewer not available. Please open a 3D model first.');
+      return;
+    }
+    
+    console.log('✅ [Prefill] Viewer available, getting selection...');
+    
+    try {
+      // Get current selection - use getAggregateSelection for multi-model support
+      viewer.getAggregateSelection((selectionData: any) => {
+        console.log('📦 [Prefill] Selection data received:', selectionData);
+        console.log('📦 [Prefill] Is array?', Array.isArray(selectionData));
+        
+        // Handle both array and single model object
+        let model: any;
+        let selectedIds: number[] = [];
+        
+        if (Array.isArray(selectionData)) {
+          // Array format: [{ model, selection: [dbIds] }]
+          console.log('📦 [Prefill] Array format detected');
+          if (selectionData.length === 0) {
+            console.warn('⚠️ [Prefill] Empty selection array');
+            alert('Please select an object in the 3D model first.');
+            return;
+          }
+          const firstItem = selectionData[0];
+          model = firstItem.model;
+          selectedIds = firstItem.selection || [];
+        } else if (selectionData && selectionData.selector) {
+          // Single model object with selector
+          console.log('📦 [Prefill] Single model object detected');
+          model = selectionData;
+          selectedIds = model.selector?.getSelection?.() || [];
+        } else {
+          console.warn('⚠️ [Prefill] Unexpected format');
+          alert('Unable to get selection. Please try again.');
+          return;
+        }
+        
+        console.log('📦 [Prefill] Model:', model);
+        console.log('📦 [Prefill] Selected IDs:', selectedIds);
+        
+        if (!selectedIds || selectedIds.length === 0) {
+          console.warn('⚠️ [Prefill] No objects selected');
+          alert('Please select an object in the 3D model first.');
+          return;
+        }
+        
+        const dbId = selectedIds[0];
+          
+          console.log('🔍 [Prefill] Selected dbId:', dbId, 'Model:', model);
+          
+          // Get object properties
+          model.getProperties(dbId, (props: any) => {
+            console.log('📋 [Prefill] Properties received:', props);
+            
+            const getProp = (names: string[]): string | undefined => {
+              const lower = names.map(n=>n.toLowerCase());
+              const p = props?.properties?.find((p:any)=>{ 
+                const dn=p.displayName?.toLowerCase?.(); 
+                return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); 
+              });
+              return p?.displayValue?.toString();
+            };
+            
+            const name = props?.name || getProp(['Name']);
+            const category = getProp(['Category']);
+            const level = getProp(['Level','Reference Level']);
+            const room = getProp(['Room','Space']);
+            const spaceCode = getProp(['Space Code','Number','Mark']);
+            const building = getProp(['Building']);
+            
+            console.log('✨ [Prefill] Extracted data:', {
+              name,
+              category,
+              level,
+              room,
+              spaceCode,
+              building,
+              dbId
+            });
+            
+            // Update form
+            setForm(v => ({
+              ...v,
+              item: name || `Object ${dbId}`,
+              itemDbId: dbId,
+              building: v.building || building || '',
+              level: v.level || level || '',
+              room: v.room || room || '',
+              spaceCode: v.spaceCode || spaceCode || ''
+            }));
+            
+            console.log('✅ [Prefill] Form updated successfully');
+            alert(`✓ Selected: ${name || `Object ${dbId}`}`);
+          });
+      });
+    } catch (err) {
+      console.error('❌ [Model Selection] Error', err);
+      alert('Error selecting from model. Please try again.');
+    }
+  };
   
   // Build category options from CATEGORY_MAPPING
   const categoryOptions: string[] = React.useMemo(()=>{
@@ -3419,7 +3624,30 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
             <option value="">Select Category (Categorie_Classi)</option>
             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
-          <input placeholder="Item (select from model)" value={form.item} onChange={e=>setForm(v=>({...v,item:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <div className="flex gap-1">
+            <input 
+              placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"} 
+              value={form.item} 
+              onChange={e=>setForm(v=>({...v,item:e.target.value}))} 
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" 
+              disabled={waitingForSelection}
+            />
+            {(viewer || isStandalone) && (
+              <button
+                type="button"
+                onClick={selectFromModel}
+                disabled={waitingForSelection}
+                className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${
+                  waitingForSelection 
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+                title={isStandalone ? "Select object from main window" : "Select object from 3D model"}
+              >
+                {waitingForSelection ? 'Waiting...' : 'Prefill from Selection'}
+              </button>
+            )}
+          </div>
           <input placeholder="Short Description" value={form.descriptionShort} onChange={e=>setForm(v=>({...v,descriptionShort:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
           <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e=>setForm(v=>({...v,descriptionDetailed:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
           
@@ -3443,9 +3671,9 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
+        <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs font-semibold" onClick={generateCode}>Generate Code & QR</button>
         <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-semibold" onClick={submit}>Submit Ticket</button>
         <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs" onClick={resetForm}>Reset</button>
-        <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs" onClick={()=>setShowQrModal(false)}>Close</button>
       </div>
       
       {/* QR Code Modal */}
