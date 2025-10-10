@@ -2685,6 +2685,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ frequency: '', timeHours: '' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id: string; item?: ScheduledItem }>({ show: false, id: '' });
 
   // Load scheduled maintenance from API
   useEffect(() => {
@@ -2845,8 +2846,14 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     setErrors({ frequency: '', timeHours: '' });
   };
 
-  const deleteItem = async (id: string) => {
-    if (!confirm('Delete this scheduled maintenance item?')) return;
+  const confirmDelete = (id: string) => {
+    const item = rows.find(r => r.id === id);
+    setDeleteConfirm({ show: true, id, item });
+  };
+
+  const deleteItem = async () => {
+    const { id } = deleteConfirm;
+    if (!id) return;
 
     if (projectId) {
       setLoading(true);
@@ -2871,6 +2878,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         return updated;
       });
     }
+    
+    setDeleteConfirm({ show: false, id: '' });
   };
 
   return (
@@ -3028,7 +3037,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
                     <div className="text-xs text-emerald-400 mt-1">{r.frequency}/year • {r.timeHours}h per intervention</div>
                   </div>
                   <button
-                    onClick={() => deleteItem(r.id)}
+                    onClick={() => confirmDelete(r.id)}
                     className="ml-2 text-red-400 hover:text-red-300 text-lg font-bold"
                     title="Delete"
                   >
@@ -3038,6 +3047,43 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setDeleteConfirm({ show: false, id: '' })}>
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-4">Delete Scheduled Maintenance?</h3>
+            
+            {deleteConfirm.item && (
+              <div className="bg-gray-900/60 rounded p-3 mb-4 border border-gray-700">
+                <div className="text-sm text-blue-300 font-semibold">[{deleteConfirm.item.discipline}] {deleteConfirm.item.category}</div>
+                <div className="text-xs text-gray-400 mt-1">Code: {deleteConfirm.item.code}</div>
+                <div className="text-xs text-gray-400">Asset: {deleteConfirm.item.asset}</div>
+                <div className="text-xs text-emerald-400 mt-1">{deleteConfirm.item.frequency}/year • {deleteConfirm.item.timeHours}h</div>
+              </div>
+            )}
+            
+            <p className="text-sm text-gray-300 mb-6">
+              Are you sure you want to delete this scheduled maintenance item? This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm({ show: false, id: '' })}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteItem}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -3110,9 +3156,35 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [tickets,setTickets]=useState<TicketItem[]>(()=>load(K.tickets(projectId), [] as TicketItem[]));
   const [workOrders,setWorkOrders]=useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string>('');
   
+  // Cache to localStorage but prefer backend data when available
   useEffect(()=>save(K.tickets(projectId), tickets),[tickets,projectId]);
   useEffect(()=>save(K.workOrders(projectId), workOrders),[workOrders,projectId]);
+  
+  // Load from backend
+  useEffect(()=>{
+    const loadData = async () => {
+      if (!projectId) return;
+      try {
+        const [ticketsRes, workOrdersRes] = await Promise.all([
+          fetch(`/api/projects/${projectId}/tickets`),
+          fetch(`/api/projects/${projectId}/work-orders`)
+        ]);
+        if (ticketsRes.ok) {
+          const ticketsData = await ticketsRes.json();
+          if (Array.isArray(ticketsData)) setTickets(ticketsData);
+        }
+        if (workOrdersRes.ok) {
+          const workOrdersData = await workOrdersRes.json();
+          if (Array.isArray(workOrdersData)) setWorkOrders(workOrdersData);
+        }
+      } catch (err) { console.error('[TicketForm] Load error', err); }
+    };
+    loadData();
+  }, [projectId]);
   
   const [form,setForm]=useState({
     // Requester
@@ -3120,16 +3192,48 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     // Location
     building:'', level:'', room:'', spaceCode:'',
     // Intervention
-    discipline:'', category:'', item:'', descriptionShort:'', descriptionDetailed:'',
+    discipline:'', category:'', item:'', itemDbId: null as number | null, descriptionShort:'', descriptionDetailed:'',
     attachments: [] as string[]
   });
   
   const disciplines = ['Architecture','Structure','Mechanical','Electrical','Plumbing','Fire Protection','Elevator','Safety','IT/Technology','Other'];
   
-  const generateCode = () => {
+  // Build category options from CATEGORY_MAPPING
+  const categoryOptions: string[] = React.useMemo(()=>{
+    const opts: string[] = [];
+    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+      opts.push(`${it} / ${m.english} (${m.ifc})`);
+    }
+    return opts.sort();
+  },[]);
+  
+  const generateCode = async () => {
     const timestamp = Date.now();
     const code = `TKT-${timestamp}`;
     const qrData = `TICKET:${code}|REQUESTER:${form.name} ${form.surname}|CONTACT:${form.contact}|LOCATION:${form.building}-${form.level}-${form.room}`;
+    
+    // Generate QR code using canvas (simple implementation)
+    try {
+      // Create a simple QR code data URL (you can replace this with a proper QR library)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        canvas.width = 200;
+        canvas.height = 200;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, 200, 200);
+        ctx.fillStyle = 'black';
+        ctx.font = '10px monospace';
+        ctx.fillText(code, 10, 100);
+        const dataUrl = canvas.toDataURL();
+        setQrCodeDataUrl(dataUrl);
+      }
+    } catch (err) {
+      console.error('[QR Generation] Error', err);
+    }
+    
+    setGeneratedCode(code);
+    setShowQrModal(true);
     return { code, qrData };
   };
   
@@ -3141,10 +3245,19 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     }
   };
   
-  const submit=()=>{ 
-    const { code, qrData } = generateCode();
+  const submit = async () => { 
+    // Validate required fields
+    if (!form.name || !form.surname || !form.contact) {
+      alert('Please fill in all requester information (Name, Surname, Contact)');
+      return;
+    }
+    
+    const timestamp = Date.now();
+    const code = `TKT-${timestamp}`;
+    const qrData = `TICKET:${code}|REQUESTER:${form.name} ${form.surname}|CONTACT:${form.contact}|LOCATION:${form.building}-${form.level}-${form.room}`;
+    
     const ticket: TicketItem = {
-      id: `ticket-${Date.now()}`,
+      id: `ticket-${timestamp}`,
       ticketCode: code,
       qrCode: qrData,
       requester: {
@@ -3170,28 +3283,89 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       createdAt: new Date().toISOString()
     };
     
-    setTickets(prev=>[ticket,...prev]);
+    // Save to backend if projectId available
+    if (projectId) {
+      try {
+        const ticketRes = await fetch(`/api/projects/${projectId}/tickets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ticket)
+        });
+        
+        if (ticketRes.ok) {
+          const ticketData = await ticketRes.json();
+          const savedTicket = ticketData.ticket;
+          
+          // Create corresponding work order
+          const workOrder: WorkOrderItem = {
+            id: `wo-${timestamp}`,
+            requestId: code,
+            requester: `${form.name} ${form.surname}`,
+            contact: form.contact,
+            location: `${form.building} - ${form.level} - ${form.room}`,
+            interventionDetails: form.descriptionDetailed,
+            discipline: form.discipline,
+            category: form.category,
+            description: form.descriptionShort,
+            attachments: form.attachments,
+            asset: form.item,
+            status: 'Open',
+            sourceTicketId: savedTicket.id
+          };
+          
+          const woRes = await fetch(`/api/projects/${projectId}/work-orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workOrder)
+          });
+          
+          if (woRes.ok) {
+            // Reload data from backend
+            const [ticketsRes, workOrdersRes] = await Promise.all([
+              fetch(`/api/projects/${projectId}/tickets`),
+              fetch(`/api/projects/${projectId}/work-orders`)
+            ]);
+            if (ticketsRes.ok) {
+              const ticketsData = await ticketsRes.json();
+              if (Array.isArray(ticketsData)) setTickets(ticketsData);
+            }
+            if (workOrdersRes.ok) {
+              const workOrdersData = await workOrdersRes.json();
+              if (Array.isArray(workOrdersData)) setWorkOrders(workOrdersData);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[TicketForm] Submit error', err);
+        alert('Error saving ticket to database. Saved locally.');
+        // Fallback to local storage
+        setTickets(prev=>[ticket,...prev]);
+      }
+    } else {
+      // No projectId, save to local storage only
+      setTickets(prev=>[ticket,...prev]);
+      const workOrder: WorkOrderItem = {
+        id: `wo-${timestamp}`,
+        requestId: code,
+        requester: `${form.name} ${form.surname}`,
+        contact: form.contact,
+        location: `${form.building} - ${form.level} - ${form.room}`,
+        interventionDetails: form.descriptionDetailed,
+        discipline: form.discipline,
+        category: form.category,
+        description: form.descriptionShort,
+        attachments: form.attachments,
+        asset: form.item,
+        status: 'Open',
+        sourceTicketId: ticket.id
+      };
+      setWorkOrders(prev=>[workOrder,...prev]);
+    }
     
-    // Create corresponding work order
-    const workOrder: WorkOrderItem = {
-      id: `wo-${Date.now()}`,
-      requestId: code,
-      requester: `${form.name} ${form.surname}`,
-      contact: form.contact,
-      location: `${form.building} - ${form.level} - ${form.room}`,
-      interventionDetails: form.descriptionDetailed,
-      discipline: form.discipline,
-      category: form.category,
-      description: form.descriptionShort,
-      attachments: form.attachments,
-      asset: form.item,
-      status: 'Open',
-      sourceTicketId: ticket.id
-    };
-    setWorkOrders(prev=>[workOrder,...prev]);
+    // Generate and show QR code
+    await generateCode();
     
-    // Show code to user
-    alert(`Ticket Created!\nCode: ${code}\nQR Data: ${qrData}\n\nThis ticket has been sent to the Maintenance Team.`);
+    alert(`✅ Ticket Created Successfully!\n\nTicket Code: ${code}\n\nThis ticket has been sent to the Maintenance Team.`);
     
     resetForm();
   };
@@ -3200,9 +3374,12 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     setForm({
       name:'', surname:'', contact:'',
       building:'', level:'', room:'', spaceCode:'',
-      discipline:'', category:'', item:'', descriptionShort:'', descriptionDetailed:'',
+      discipline:'', category:'', item:'', itemDbId: null, descriptionShort:'', descriptionDetailed:'',
       attachments: []
     });
+    setQrCodeDataUrl('');
+    setShowQrModal(false);
+    setGeneratedCode('');
   };
   
   return (
@@ -3238,7 +3415,10 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
             <option value="">Select Discipline</option>
             {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <input placeholder="Category (from Categorie_Classi)" value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <select value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <option value="">Select Category (Categorie_Classi)</option>
+            {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
           <input placeholder="Item (select from model)" value={form.item} onChange={e=>setForm(v=>({...v,item:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
           <input placeholder="Short Description" value={form.descriptionShort} onChange={e=>setForm(v=>({...v,descriptionShort:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
           <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e=>setForm(v=>({...v,descriptionDetailed:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
@@ -3263,14 +3443,63 @@ const TicketForm: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
-        <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs" onClick={generateCode}>Generate Code & QR</button>
-        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs" onClick={submit}>Submit Ticket</button>
+        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-semibold" onClick={submit}>Submit Ticket</button>
         <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs" onClick={resetForm}>Reset</button>
+        <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs" onClick={()=>setShowQrModal(false)}>Close</button>
       </div>
       
+      {/* QR Code Modal */}
+      {showQrModal && generatedCode && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={()=>setShowQrModal(false)}>
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700" onClick={e=>e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-4">Ticket Created Successfully!</h3>
+            <div className="bg-white p-4 rounded-lg mb-4 flex items-center justify-center">
+              {qrCodeDataUrl ? (
+                <img src={qrCodeDataUrl} alt="QR Code" className="w-48 h-48" />
+              ) : (
+                <div className="w-48 h-48 bg-gray-200 flex items-center justify-center text-gray-600 text-xs text-center p-4">
+                  QR Code<br/>{generatedCode}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="bg-gray-900/60 rounded px-3 py-2">
+                <span className="text-gray-400">Ticket Code:</span>
+                <span className="text-white font-mono ml-2">{generatedCode}</span>
+              </div>
+              <div className="text-xs text-gray-400 text-center mt-3">
+                This ticket has been sent to the Maintenance Team
+              </div>
+            </div>
+            <button 
+              onClick={()=>setShowQrModal(false)} 
+              className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Recent Tickets */}
       {tickets.length>0 && (
-        <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
-          Last ticket: {tickets[0].ticketCode} - {tickets[0].requester.name} {tickets[0].requester.surname}
+        <div className="border-t border-gray-700 pt-3">
+          <div className="text-xs text-gray-400 font-semibold mb-2">Recent Tickets</div>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {tickets.slice(0, 5).map(t => (
+              <div key={t.id} className="text-xs bg-gray-900/40 rounded px-2 py-1.5 flex justify-between items-center">
+                <span className="text-gray-300">
+                  <span className="font-mono text-blue-400">{t.ticketCode}</span> - {t.requester.name} {t.requester.surname}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                  t.status==='Open' ? 'bg-yellow-900/40 text-yellow-300' :
+                  t.status==='Planned' ? 'bg-blue-900/40 text-blue-300' :
+                  t.status==='In Progress' ? 'bg-purple-900/40 text-purple-300' :
+                  'bg-green-900/40 text-green-300'
+                }`}>{t.status}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -3282,19 +3511,66 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
   
+  // Cache to localStorage but prefer backend data when available
   useEffect(()=>save(K.workOrders(projectId), rows),[rows,projectId]);
+  
+  // Load from backend
+  useEffect(()=>{
+    const loadData = async () => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/work-orders`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setRows(data);
+        }
+      } catch (err) { console.error('[WorkOrders] Load error', err); }
+    };
+    loadData();
+  }, [projectId]);
   
   const startEdit = (row: WorkOrderItem) => {
     setEditingId(row.id);
     setEditForm(row);
   };
   
-  const saveEdit = () => {
-    if (editingId) {
+  const saveEdit = async () => {
+    if (!editingId) return;
+    
+    const updatedRow = { ...rows.find(r => r.id === editingId), ...editForm };
+    
+    // Update backend if projectId available
+    if (projectId) {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/work-orders`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingId, ...editForm })
+        });
+        
+        if (res.ok) {
+          // Reload from backend
+          const refreshRes = await fetch(`/api/projects/${projectId}/work-orders`);
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            if (Array.isArray(data)) setRows(data);
+          }
+        } else {
+          // Fallback to local update
+          setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
+        }
+      } catch (err) {
+        console.error('[WorkOrders] Save error', err);
+        // Fallback to local update
+        setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
+      }
+    } else {
+      // No projectId, local update only
       setRows(prev => prev.map(r => r.id === editingId ? { ...r, ...editForm } : r));
-      setEditingId(null);
-      setEditForm({});
     }
+    
+    setEditingId(null);
+    setEditForm({});
   };
   
   const updateStatus = (id: string, status: WorkOrderItem['status']) => {
