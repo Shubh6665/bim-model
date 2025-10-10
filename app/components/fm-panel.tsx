@@ -3283,18 +3283,62 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       if (!d || typeof d !== 'object') return;
       
       if (d.type === 'FM_SELECTION_DATA') {
+        // Auto-detect discipline based on category
+        let discipline = '';
+        if (d.category) {
+          const catLower = d.category.toLowerCase();
+          if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
+            discipline = 'Architecture';
+          } else if (catLower.includes('column') || catLower.includes('beam') || catLower.includes('foundation') || catLower.includes('structural')) {
+            discipline = 'Structure';
+          } else if (catLower.includes('mechanical') || catLower.includes('hvac') || catLower.includes('duct') || catLower.includes('pipe')) {
+            discipline = 'Mechanical';
+          } else if (catLower.includes('electrical') || catLower.includes('lighting') || catLower.includes('fixture')) {
+            discipline = 'Electrical';
+          } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
+            discipline = 'Plumbing';
+          } else if (catLower.includes('furniture') || catLower.includes('casework')) {
+            discipline = 'Architecture';
+          }
+        }
+        
+        // Find matching category option from CATEGORY_MAPPING
+        let matchedCategory = '';
+        if (d.category) {
+          const catLower = d.category.toLowerCase();
+          for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+            const englishLower = mapping.english.toLowerCase();
+            const ifcLower = mapping.ifc.toLowerCase();
+            const ifcWithoutPrefix = ifcLower.replace('ifc', '');
+            
+            if (
+              catLower.includes(englishLower) || 
+              englishLower.includes(catLower) || 
+              catLower.includes(ifcWithoutPrefix) || 
+              ifcWithoutPrefix.includes(catLower) ||
+              (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
+              (catLower.includes('furnishing') && englishLower.includes('furniture'))
+            ) {
+              matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
+              console.log('🎯 [Prefill] Standalone - Category matched:', d.category, '→', matchedCategory);
+              break;
+            }
+          }
+        }
+        
         setForm(v => ({
           ...v,
           item: d.item || '',
           itemDbId: d.itemDbId || null,
-          category: d.category || v.category,
+          discipline: discipline || v.discipline,
+          category: matchedCategory || v.category,
           building: d.building || v.building,
           level: d.level || v.level,
           room: d.room || v.room,
           spaceCode: d.spaceCode || v.spaceCode
         }));
         setWaitingForSelection(false);
-        console.log('✅ [Prefill] Standalone - Data received and form updated');
+        console.log('✅ [Prefill] Standalone - Data received and form updated', { discipline, matchedCategory });
       } else if (d.type === 'FM_SELECTION_CANCELLED') {
         setWaitingForSelection(false);
         console.log('⚠️ [Prefill] Standalone - Selection cancelled');
