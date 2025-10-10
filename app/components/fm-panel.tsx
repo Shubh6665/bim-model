@@ -88,9 +88,9 @@ interface ScheduledItem {
   category: string; 
   code: string; 
   asset: string; 
-  task: string; 
-  frequency: string; 
-  timeHours: string; 
+  tasks: string[]; 
+  frequency: number; 
+  timeHours: number; 
 }
 
 interface TicketItem { 
@@ -2667,24 +2667,442 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
 };
 
 const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [rows,setRows]=useState<ScheduledItem[]>(()=>load(K.scheduled(projectId), [] as ScheduledItem[]));
-  useEffect(()=>save(K.scheduled(projectId), rows),[rows,projectId]);
-  const [f,setF]=useState({ discipline:'', category:'', code:'', asset:'', task:'', frequency:'', timeHours:'' });
-  const add=()=>{ setRows(prev=>[{ id:`sched-${Date.now()}`, ...f },...prev]); setF({ discipline:'', category:'', code:'', asset:'', task:'', frequency:'', timeHours:'' }); };
+  // Prepare category options from CATEGORY_MAPPING
+  const categoryOptions = React.useMemo(() => {
+    return Object.entries(CATEGORY_MAPPING).map(([italian, mapping]) => ({
+      value: `${italian} / ${mapping.english} (${mapping.ifc})`,
+      label: `${italian} / ${mapping.english} (${mapping.ifc})`
+    }));
+  }, []);
+
+  const [rows,setRows]=useState<ScheduledItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [assetSearch, setAssetSearch] = useState('');
+  
+  const [f,setF]=useState({ discipline:'', category:'', code:'', asset:'', frequency:'', timeHours:'' });
+  const [currentTask, setCurrentTask] = useState('');
+  const [tasks, setTasks] = useState<string[]>([]);
+  const [errors, setErrors] = useState({ frequency: '', timeHours: '' });
+
+  // Load scheduled maintenance from API
+  useEffect(() => {
+    if (!projectId) {
+      // Fallback to localStorage for non-project mode
+      const loaded = load(K.scheduled(projectId), [] as ScheduledItem[]);
+      const migrated = loaded.map(item => {
+        if (!item.tasks && (item as any).task) {
+          const legacyTask = (item as any).task as string;
+          return { ...item, tasks: legacyTask.split(',').map(t => t.trim()).filter(Boolean) };
+        }
+        return item;
+      });
+      setRows(migrated);
+      return;
+    }
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance`);
+        if (res.ok) {
+          const data = await res.json();
+          setRows(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load scheduled maintenance:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [projectId]);
+
+  // Load assets from API for picker
+  useEffect(() => {
+    if (!projectId) return;
+    
+    const fetchAssets = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/assets`);
+        if (res.ok) {
+          const data = await res.json();
+          setAssets(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load assets:', err);
+      }
+    };
+    fetchAssets();
+  }, [projectId]);
+
+  // Filtered assets for picker
+  const filteredAssets = React.useMemo(() => {
+    if (!assetSearch.trim()) return assets;
+    const search = assetSearch.toLowerCase();
+    return assets.filter(a => 
+      a.assetName?.toLowerCase().includes(search) ||
+      a.assetCode?.toLowerCase().includes(search) ||
+      a.category?.toLowerCase().includes(search) ||
+      a.location?.toLowerCase().includes(search)
+    );
+  }, [assets, assetSearch]);
+
+  const addTask = () => {
+    if (currentTask.trim()) {
+      setTasks(prev => [...prev, currentTask.trim()]);
+      setCurrentTask('');
+    }
+  };
+
+  const removeTask = (index: number) => {
+    setTasks(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const selectAsset = (asset: AssetRecord) => {
+    setF(v => ({ ...v, asset: asset.assetName || asset.assetCode || `Asset ${asset.id}` }));
+    setShowAssetPicker(false);
+    setAssetSearch('');
+  };
+
+  const validateAndAdd = async () => {
+    const newErrors = { frequency: '', timeHours: '' };
+    let hasError = false;
+
+    // Validate frequency
+    const freq = parseFloat(f.frequency);
+    if (!f.frequency || isNaN(freq) || freq <= 0) {
+      newErrors.frequency = 'Required (n/year, must be > 0)';
+      hasError = true;
+    }
+
+    // Validate timeHours
+    const hours = parseFloat(f.timeHours);
+    if (!f.timeHours || isNaN(hours) || hours <= 0) {
+      newErrors.timeHours = 'Required (hours, must be > 0)';
+      hasError = true;
+    }
+
+    // Validate tasks
+    if (tasks.length === 0) {
+      alert('Please add at least one task.');
+      return;
+    }
+
+    setErrors(newErrors);
+    if (hasError) return;
+
+    // Add the scheduled maintenance item
+    const newItem: ScheduledItem = {
+      id: `sched-${Date.now()}`,
+      discipline: f.discipline,
+      category: f.category,
+      code: f.code,
+      asset: f.asset,
+      tasks: tasks,
+      frequency: freq,
+      timeHours: hours
+    };
+
+    // Save to API if projectId exists
+    if (projectId) {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newItem)
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          const saved = result?.item || newItem;
+          setRows(prev => [saved, ...prev]);
+        } else {
+          // Fallback to local state if API fails
+          setRows(prev => [newItem, ...prev]);
+        }
+      } catch (err) {
+        console.error('Failed to save scheduled maintenance:', err);
+        setRows(prev => [newItem, ...prev]);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // localStorage fallback for non-project mode
+      setRows(prev => {
+        const updated = [newItem, ...prev];
+        save(K.scheduled(projectId), updated);
+        return updated;
+      });
+    }
+    
+    // Reset form
+    setF({ discipline:'', category:'', code:'', asset:'', frequency:'', timeHours:'' });
+    setTasks([]);
+    setCurrentTask('');
+    setErrors({ frequency: '', timeHours: '' });
+  };
+
+  const deleteItem = async (id: string) => {
+    if (!confirm('Delete this scheduled maintenance item?')) return;
+
+    if (projectId) {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance?id=${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (res.ok) {
+          setRows(prev => prev.filter(r => r.id !== id));
+        }
+      } catch (err) {
+        console.error('Failed to delete scheduled maintenance:', err);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // localStorage fallback
+      setRows(prev => {
+        const updated = prev.filter(r => r.id !== id);
+        save(K.scheduled(projectId), updated);
+        return updated;
+      });
+    }
+  };
+
   return (
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Scheduled Maintenance</div>
       <div className="grid grid-cols-2 gap-2">
-        <select value={f.discipline} onChange={e=>setF(v=>({...v,discipline:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"><option value="">Discipline</option>{['Architecture','Structure','Mechanical System','Electrical System','Plumbing System','Fire Protection','Elevator System','Safety','IT/Technology','Other'].map(d=> <option key={d} value={d}>{d}</option>)}</select>
-        <input placeholder="Category (Categorie_Classi)" value={f.category} onChange={e=>setF(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-        <input placeholder="Code" value={f.code} onChange={e=>setF(v=>({...v,code:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-        <input placeholder="Asset" value={f.asset} onChange={e=>setF(v=>({...v,asset:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-        <div className="col-span-2"><input placeholder="Task (comma-separated)" value={f.task} onChange={e=>setF(v=>({...v,task:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <input placeholder="Frequency (n/year)" value={f.frequency} onChange={e=>setF(v=>({...v,frequency:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-        <input placeholder="Time (hours)" value={f.timeHours} onChange={e=>setF(v=>({...v,timeHours:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+        {/* Discipline Dropdown */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Discipline *</label>
+          <select 
+            value={f.discipline} 
+            onChange={e=>setF(v=>({...v,discipline:e.target.value}))} 
+            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+          >
+            <option value="">Select Discipline</option>
+            {['Architecture','Structure','Mechanical System','Electrical System','Plumbing System','Fire Protection','Elevator System','Safety','IT/Technology','Other'].map(d=> <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        {/* Category Dropdown (from CATEGORY_MAPPING) */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Category (Categorie_Classi) *</label>
+          <select 
+            value={f.category} 
+            onChange={e=>setF(v=>({...v,category:e.target.value}))} 
+            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+          >
+            <option value="">Select Category</option>
+            {categoryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+        </div>
+
+        {/* Code */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Code *</label>
+          <input 
+            placeholder="Alphanumeric code" 
+            value={f.code} 
+            onChange={e=>setF(v=>({...v,code:e.target.value}))} 
+            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+          />
+        </div>
+
+        {/* Asset with Picker */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Asset *</label>
+          <div className="flex gap-1">
+            <input 
+              placeholder="Component subject to maintenance" 
+              value={f.asset} 
+              onChange={e=>setF(v=>({...v,asset:e.target.value}))} 
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+            />
+            {projectId && assets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAssetPicker(true)}
+                className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                title="Pick from Asset Register"
+              >
+                📋
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Frequency (numeric) */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Frequency (n/year) *</label>
+          <input 
+            type="number"
+            min="0"
+            step="0.1"
+            placeholder="e.g., 12" 
+            value={f.frequency} 
+            onChange={e=>setF(v=>({...v,frequency:e.target.value}))} 
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.frequency ? 'border-red-500' : 'border-gray-700'}`}
+          />
+          {errors.frequency && <div className="text-[10px] text-red-400 mt-0.5">{errors.frequency}</div>}
+        </div>
+
+        {/* Time (hours, numeric) */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Time (hours) *</label>
+          <input 
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="e.g., 2" 
+            value={f.timeHours} 
+            onChange={e=>setF(v=>({...v,timeHours:e.target.value}))} 
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.timeHours ? 'border-red-500' : 'border-gray-700'}`}
+          />
+          {errors.timeHours && <div className="text-[10px] text-red-400 mt-0.5">{errors.timeHours}</div>}
+        </div>
       </div>
-      <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={add}>Add</button></div>
-      {rows.length>0 && <ul className="space-y-1 text-sm text-gray-200 max-h-48 overflow-auto">{rows.map(r=> <li key={r.id} className="bg-gray-900/60 rounded px-2 py-1">[{r.discipline}] {r.category} • {r.asset} • {r.task} • {r.frequency}/y • {r.timeHours}h</li>)}</ul>}
+
+      {/* Multi-Task Input */}
+      <div className="border-t border-gray-700 pt-3">
+        <label className="text-[11px] text-gray-400 block mb-1">Tasks (multiple allowed) *</label>
+        <div className="flex gap-2">
+          <input 
+            placeholder="Enter task description" 
+            value={currentTask} 
+            onChange={e=>setCurrentTask(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } }}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+          />
+          <button 
+            onClick={addTask}
+            disabled={!currentTask.trim()}
+            className={`px-3 py-1.5 rounded text-sm ${currentTask.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}
+          >
+            Add Task
+          </button>
+        </div>
+        {tasks.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {tasks.map((task, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-gray-900/60 rounded px-2 py-1.5 text-sm text-gray-200">
+                <span className="flex-1">{idx + 1}. {task}</span>
+                <button 
+                  onClick={() => removeTask(idx)}
+                  className="text-red-400 hover:text-red-300 ml-2 font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {tasks.length === 0 && <div className="text-[10px] text-gray-500 mt-1">No tasks added yet</div>}
+      </div>
+
+      <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={validateAndAdd}>Add Scheduled Maintenance</button></div>
+      
+      {/* Display saved items */}
+      {loading && <div className="text-center text-gray-400 text-sm py-4">Loading...</div>}
+      {!loading && rows.length>0 && (
+        <div className="border-t border-gray-700 pt-3">
+          <div className="text-xs text-gray-400 mb-2 font-semibold">Saved Scheduled Maintenance ({rows.length})</div>
+          <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
+            {rows.map(r=> (
+              <li key={r.id} className="bg-gray-900/60 rounded px-3 py-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="font-semibold text-blue-300">[{r.discipline}] {r.category}</div>
+                    <div className="text-xs text-gray-400 mt-1">Code: {r.code} | Asset: {r.asset}</div>
+                    <div className="text-xs text-gray-300 mt-1">
+                      <span className="font-semibold">Tasks:</span>
+                      <ul className="ml-3 mt-0.5">
+                        {r.tasks.map((task, idx) => <li key={idx}>• {task}</li>)}
+                      </ul>
+                    </div>
+                    <div className="text-xs text-emerald-400 mt-1">{r.frequency}/year • {r.timeHours}h per intervention</div>
+                  </div>
+                  <button
+                    onClick={() => deleteItem(r.id)}
+                    className="ml-2 text-red-400 hover:text-red-300 text-lg font-bold"
+                    title="Delete"
+                  >
+                    ×
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Asset Picker Modal */}
+      {showAssetPicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
+          <div className="bg-gray-800 rounded-lg p-4 max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold">Select Asset from Register</h3>
+              <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <input
+              type="text"
+              placeholder="Search assets by name, code, category, location..."
+              value={assetSearch}
+              onChange={e => setAssetSearch(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm mb-3"
+            />
+
+            <div className="flex-1 overflow-auto">
+              {filteredAssets.length === 0 ? (
+                <div className="text-gray-400 text-center py-8">
+                  {assetSearch ? 'No assets match your search' : 'No assets in register'}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredAssets.map(asset => (
+                    <div
+                      key={asset.id}
+                      onClick={() => selectAsset(asset)}
+                      className="bg-gray-700/50 hover:bg-gray-700 rounded p-3 cursor-pointer transition"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-white">
+                            {asset.assetName || asset.assetCode || `Asset ${asset.id}`}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {asset.assetCode && <span className="mr-3">Code: {asset.assetCode}</span>}
+                            {asset.category && <span className="mr-3">Category: {asset.category}</span>}
+                          </div>
+                          {asset.location && (
+                            <div className="text-xs text-gray-500 mt-1">📍 {asset.location}</div>
+                          )}
+                          {asset.description && (
+                            <div className="text-xs text-gray-500 mt-1">{asset.description}</div>
+                          )}
+                        </div>
+                        <div className="ml-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            asset.source === 'BIM_MODEL' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'
+                          }`}>
+                            {asset.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3073,7 +3491,7 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
           <ul className="space-y-1">
             {upcomingScheduled.map(s => (
               <li key={s.id} className="bg-blue-900/20 rounded px-2 py-1.5 text-xs text-gray-200">
-                <span className="font-semibold text-blue-300">[{s.discipline}]</span> {s.asset} • {s.task}
+                <span className="font-semibold text-blue-300">[{s.discipline}]</span> {s.asset} • {s.tasks.join(', ')}
                 <div className="text-xs text-gray-400 mt-0.5">{s.frequency}/year • {s.timeHours}h</div>
               </li>
             ))}
@@ -3163,7 +3581,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                 {items.map(item => (
                   <li key={item.id} className="text-xs text-gray-200 border-l-2 border-gray-700 pl-2 py-1">
                     <div className="font-semibold">{item.asset}</div>
-                    <div className="text-gray-400">{item.task}</div>
+                    <div className="text-gray-400">{item.tasks.join(', ')}</div>
                     <div className="text-gray-500 text-xs mt-0.5">
                       {item.frequency}/year • {item.timeHours}h • Code: {item.code}
                     </div>
