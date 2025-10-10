@@ -179,6 +179,14 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const remoteBaseZRef = useRef<number | null>(null);
   const remoteOverlay = 'fm-remote-footprint-preview';
   const remoteHoverRef = useRef<{ x:number; y:number; z:number } | null>(null);
+  // Remote placement (manual asset) bridge
+  const remotePlaceActiveRef = useRef(false);
+  const remotePlaceAssetRef = useRef<{ assetId: string; shape: 'cube'|'sphere'; size: number } | null>(null);
+  const remotePlaceOverlayElRef = useRef<HTMLElement | null>(null);
+  const remotePlaceOverlayChildRef = useRef<HTMLElement | null>(null);
+  const remotePlacePrevDisplayRef = useRef<string | null>(null);
+  const remotePlacePrevBackdropRef = useRef<string | null>(null);
+  const remotePlacePrevBgRef = useRef<string | null>(null);
   const remoteClearOverlay = () => {
     try {
       if (!viewer?.impl) return;
@@ -361,6 +369,169 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     } catch {}
   };
 
+  // Remote placement handlers (single-point manual asset)
+  const remotePlaceOnKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      try { (childWinRef.current as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch {}
+      // cleanup
+      try { if (viewer?.container) { (viewer.container as HTMLElement).style.cursor = 'default'; } } catch {}
+      viewer?.container?.removeEventListener('click', remotePlaceOnClick as any, true);
+      window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
+      remotePlaceActiveRef.current = false;
+      // restore overlay
+      try {
+        const ov = remotePlaceOverlayElRef.current;
+        const ovChild = remotePlaceOverlayChildRef.current;
+        if (ov) {
+          ov.style.pointerEvents = '';
+          if (remotePlacePrevBackdropRef.current != null) ov.style.backdropFilter = remotePlacePrevBackdropRef.current;
+          if (remotePlacePrevBgRef.current != null) ov.style.background = remotePlacePrevBgRef.current;
+          if (remotePlacePrevBgRef.current != null) ov.style.backgroundColor = remotePlacePrevBgRef.current;
+        }
+        if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
+      } catch {}
+    }
+  };
+  const remotePlaceOnClick = async (ev: MouseEvent) => {
+    try {
+      if (!viewer || !remotePlaceActiveRef.current) return;
+      const payload = remotePlaceAssetRef.current;
+      const container = viewer.container as HTMLElement;
+      const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
+      // determine point and clicked dbId/model
+      let pt: any = null;
+      let locDbId: number | undefined;
+      let locModel: any | undefined;
+      const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+      if (res && res.point) {
+        pt = res.point;
+        if (res.dbId != null && res.model) { locDbId = res.dbId; locModel = res.model; }
+      }
+      if (!pt) {
+        // Fallback: use current aggregate selection center
+        let dbId: number | undefined; let model: any = viewer.model;
+        const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+        if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+        else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
+        if (dbId!=null && model) {
+          const THREE = (window as any).THREE;
+          const frags = model.getFragmentList?.();
+          if (THREE && frags) {
+            const box = new THREE.Box3();
+            frags.enumNodeFragments(dbId, (fid: number) => {
+              const fb = new THREE.Box3();
+              frags.getWorldBounds(fid, fb);
+              box.union(fb);
+            });
+            if (!box.isEmpty()) {
+              pt = box.getCenter(new THREE.Vector3());
+              locDbId = dbId; locModel = model;
+            }
+          }
+        }
+      }
+      if (!pt) {
+        // keep placing until user clicks a valid spot or selects an object
+        return;
+      }
+      // Draw overlay in main viewer
+      const THREE = (window as any).THREE;
+      if (THREE) {
+        if (!(viewer as any)._fmOverlayCreated) {
+          viewer.impl.createOverlayScene('fm-placeholders');
+          (viewer as any)._fmOverlayCreated = true;
+        }
+        const size = payload?.size ?? 0.3;
+        const geom = (payload?.shape||'cube')==='sphere' 
+          ? new THREE.SphereGeometry(size/2, 12, 12)
+          : new THREE.BoxGeometry(size,size,size);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(pt.x, pt.y, pt.z);
+        viewer.impl.addOverlay('fm-placeholders', mesh);
+        viewer.impl.invalidate(true);
+      }
+      // derive human-friendly location
+      let newLocation: string | undefined;
+      try {
+        if (locModel && locDbId!=null) {
+          const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
+          const getVal = (names: string[]): string | undefined => {
+            const lower = names.map(n=>n.toLowerCase());
+            const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+            return p?.displayValue?.toString();
+          };
+          const building = getVal(['Building']);
+          const level = getVal(['Level','Reference Level']);
+          const room = getVal(['Room','Space']);
+          const parts = [building, level, room].filter(Boolean) as string[];
+          if (parts.length) newLocation = parts.join(' - ');
+        }
+      } catch {}
+      // Fallback: AEC LevelsExtension by Z if properties didn't yield a level
+      if (!newLocation) {
+        try {
+          const lev = await viewer.loadExtension?.('Autodesk.AEC.LevelsExtension');
+          const floorData = lev?.floorSelector?.floorData;
+          if (floorData && floorData.length) {
+            const z = pt.z;
+            const matched = floorData.find((f:any)=> (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
+            if (matched) newLocation = [matched.building || undefined, matched.name || matched.label || undefined].filter(Boolean).join(' - ');
+          }
+        } catch {}
+      }
+      // notify child window
+      try {
+        (childWinRef.current as Window | null)?.postMessage?.({
+          type: 'FM_PLACE_DONE',
+          assetId: payload?.assetId,
+          point: { x: pt.x, y: pt.y, z: pt.z },
+          location: newLocation
+        }, '*');
+      } catch {}
+      // cleanup
+      try { if (container) { container.style.cursor = 'default'; if (canvas) canvas.style.cursor = 'default'; } } catch {}
+      viewer.container?.removeEventListener('click', remotePlaceOnClick as any, true);
+      window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
+      remotePlaceActiveRef.current = false;
+      // restore overlay
+      try {
+        const ov = remotePlaceOverlayElRef.current;
+        const ovChild = remotePlaceOverlayChildRef.current;
+        if (ov) ov.style.pointerEvents = '';
+        if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
+      } catch {}
+    } catch {}
+  };
+  const remotePlaceAttach = (payload: { assetId: string; shape: 'cube'|'sphere'; size: number }) => {
+    try {
+      if (!viewer || remotePlaceActiveRef.current) return;
+      remotePlaceAssetRef.current = payload;
+      remotePlaceActiveRef.current = true;
+      // crosshair cursor
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch {}
+      viewer.container?.addEventListener('click', remotePlaceOnClick as any, true);
+      window.addEventListener('keydown', remotePlaceOnKeyDown as any, true);
+    } catch {}
+  };
+  const remotePlaceDetach = () => {
+    try {
+      if (!viewer) return;
+      viewer.container?.removeEventListener('click', remotePlaceOnClick as any, true);
+      window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch {}
+      remotePlaceActiveRef.current = false;
+      remotePlaceAssetRef.current = null;
+      // restore overlay
+      try {
+        const ov = remotePlaceOverlayElRef.current;
+        const ovChild = remotePlaceOverlayChildRef.current;
+        if (ov) ov.style.pointerEvents = '';
+        if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
+      } catch {}
+    } catch {}
+  };
+
   // Open FM controls in a new fullscreen-like window
   const openFmWindow = () => {
     try {
@@ -449,6 +620,42 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       } else if (d.type === 'FM_DRAW_CANCEL') {
         try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED' }, '*'); } catch {}
         remoteDetach();
+      } else if (d.type === 'FM_PLACE_START') {
+        if (!viewer) {
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          return;
+        }
+        try { childWinRef.current = (e.source as Window) || null; } catch {}
+        // Disable modal overlay interactions and hide modal panel while placing from child window
+        try {
+          const ov = document.getElementById('fm-modal-overlay') as HTMLElement | null;
+          remotePlaceOverlayElRef.current = ov;
+          if (ov) {
+            // store previous visual styles
+            remotePlacePrevBackdropRef.current = ov.style.backdropFilter || '';
+            remotePlacePrevBgRef.current = ov.style.background || ov.style.backgroundColor || '';
+            // make overlay click-through and remove blur/background
+            ov.style.pointerEvents = 'none';
+            ov.style.backdropFilter = 'none';
+            ov.style.background = 'transparent';
+            ov.style.backgroundColor = 'transparent';
+            const ovChild = ov.firstElementChild as HTMLElement | null;
+            remotePlaceOverlayChildRef.current = ovChild;
+            if (ovChild) {
+              remotePlacePrevDisplayRef.current = ovChild.style.display || '';
+              ovChild.style.display = 'none';
+            }
+          }
+        } catch {}
+        const payload = {
+          assetId: d.assetId as string,
+          shape: (d.shape as 'cube'|'sphere') || 'cube',
+          size: (typeof d.size === 'number' && d.size>0 ? d.size : 0.3)
+        };
+        remotePlaceAttach(payload);
+      } else if (d.type === 'FM_PLACE_CANCEL') {
+        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch {}
+        remotePlaceDetach();
       }
     };
     window.addEventListener('message', onMsg);
@@ -592,7 +799,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       {Sidebar}
 
       {showModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
+        <div id="fm-modal-overlay" className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
           <div
             ref={modalRef}
             className="absolute bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl mx-4 max-h-[92vh] flex flex-col border border-gray-700"
@@ -651,6 +858,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
+  const [placingAssetId, setPlacingAssetId] = useState<string | null>(null);
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -952,7 +1160,77 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   // Manual asset placement (placeholder geometry)
   const placeManual = (r: AssetRecord) => {
-    if (!viewer) return;
+    // Remote placement if we're in the standalone control window (no viewer)
+    if (!viewer) {
+      setPlacingAssetId(r.id);
+      try {
+        const opener = (window as any).opener as Window | null;
+        if (!opener) return;
+        // Temporarily minimize/slide this window to the side
+        const old = { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight };
+        try {
+          const sw = window.screen?.availWidth || 1280;
+          const sh = window.screen?.availHeight || 800;
+          const targetW = Math.max(360, Math.min(480, Math.floor(sw * 0.32)));
+          const targetH = Math.max(260, Math.min(420, Math.floor(sh * 0.35)));
+          window.resizeTo(targetW, targetH);
+          window.moveTo(sw - targetW - 10, 10);
+        } catch {}
+        // One-off listener for placement result
+        const onMsg = (e: MessageEvent) => {
+          const d: any = e.data;
+          if (!d || typeof d !== 'object') return;
+          if (d.type === 'FM_PLACE_DONE' && d.assetId === r.id && d.point) {
+            try {
+              setRows(prev => prev.map(a => a.id===r.id
+                ? { ...a, placeholderX: d.point.x, placeholderY: d.point.y, placeholderZ: d.point.z, location: d.location ?? a.location }
+                : a
+              ));
+            } finally {
+              window.removeEventListener('message', onMsg);
+              // restore window
+              try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+              setPlacingAssetId(null);
+            }
+          } else if (d.type === 'FM_PLACE_CANCELLED') {
+            window.removeEventListener('message', onMsg);
+            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+            setPlacingAssetId(null);
+          }
+        };
+        window.addEventListener('message', onMsg);
+        // Send start with preferred shape/size
+        const shape = (r.placeholderShape||'cube') as 'cube'|'sphere';
+        const size = (r.placeholderSize ?? 0.3) as number;
+        opener.postMessage({ type: 'FM_PLACE_START', assetId: r.id, shape, size }, '*');
+      } catch {}
+      return;
+    }
+    // In-viewer placement (main window)
+    setPlacingAssetId(r.id);
+    // Keep overlay visible but allow click-through, remove blur/backdrop, and hide modal content
+    let overlayEl: HTMLElement | null = null;
+    let overlayChildEl: HTMLElement | null = null;
+    let prevChildDisplay: string | null = null;
+    let prevBackdrop: string | null = null;
+    let prevBg: string | null = null;
+    try {
+      overlayEl = document.getElementById('fm-modal-overlay');
+      if (overlayEl) {
+        // store and clear visuals
+        prevBackdrop = overlayEl.style.backdropFilter || '';
+        prevBg = overlayEl.style.background || overlayEl.style.backgroundColor || '';
+        overlayEl.style.pointerEvents = 'none';
+        overlayEl.style.backdropFilter = 'none';
+        overlayEl.style.background = 'transparent';
+        overlayEl.style.backgroundColor = 'transparent';
+        overlayChildEl = overlayEl.firstElementChild as HTMLElement | null;
+        if (overlayChildEl) {
+          prevChildDisplay = overlayChildEl.style.display || '';
+          overlayChildEl.style.display = 'none';
+        }
+      }
+    } catch {}
     const container = viewer.container as HTMLElement;
     // Ensure crosshair cursor globally for the viewer container
     try {
@@ -974,6 +1252,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       container.style.cursor = 'default';
       if (canvas) canvas.style.cursor = 'default';
       container.classList.remove('fm-placing');
+      // Restore modal overlay and button state
+      try {
+        if (overlayEl) {
+          overlayEl.style.pointerEvents = '';
+          if (prevBackdrop != null) overlayEl.style.backdropFilter = prevBackdrop;
+          if (prevBg != null) { overlayEl.style.background = prevBg; overlayEl.style.backgroundColor = prevBg; }
+        }
+        if (overlayChildEl) overlayChildEl.style.display = prevChildDisplay ?? '';
+      } catch {}
+      setPlacingAssetId(null);
     };
     const onClick = async (ev: MouseEvent) => {
       try {
@@ -1046,6 +1334,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             if (parts.length) newLocation = parts.join(' - ');
           }
         } catch {}
+        // Fallback: AEC LevelsExtension by Z if properties didn't yield a level
+        if (!newLocation) {
+          try {
+            const lev = await viewer.loadExtension?.('Autodesk.AEC.LevelsExtension');
+            const floorData = lev?.floorSelector?.floorData;
+            if (floorData && floorData.length) {
+              const z = pt.z;
+              const matched = floorData.find((f:any)=> (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
+              if (matched) newLocation = [matched.building || undefined, matched.name || matched.label || undefined].filter(Boolean).join(' - ');
+            }
+          } catch {}
+        }
 
         // store coordinates (and location if found)
         setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? a.location } : a));
@@ -1059,6 +1359,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         container.style.cursor = 'default';
         if (canvas) canvas.style.cursor = 'default';
         container.classList.remove('fm-placing');
+        try {
+          if (overlayEl) {
+            overlayEl.style.pointerEvents = '';
+            if (prevBackdrop != null) overlayEl.style.backdropFilter = prevBackdrop;
+            if (prevBg != null) { overlayEl.style.background = prevBg; overlayEl.style.backgroundColor = prevBg; }
+          }
+          if (overlayChildEl) overlayChildEl.style.display = prevChildDisplay ?? '';
+        } catch {}
+        setPlacingAssetId(null);
       }
     };
     container.addEventListener('click', onClick, true);
@@ -1324,9 +1633,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           />
                           <button 
                             onClick={(e)=>{ e.stopPropagation(); placeManual(r); }}
-                            className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded"
+                            disabled={placingAssetId===r.id}
+                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId===r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
                           >
-                            {r.placeholderX==null ? 'Place' : 'Re-place'}
+                            {placingAssetId===r.id ? 'Placing…' : (r.placeholderX==null ? 'Place' : 'Re-place')}
                           </button>
                         </div>
                       )}
