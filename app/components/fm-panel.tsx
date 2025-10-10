@@ -3560,7 +3560,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     return opts.sort();
   },[]);
   
-  const generateCode = async (ticketCode: string) => {
+  const generateCode = async (ticketCode: string): Promise<string> => {
     const qrData = JSON.stringify({
       ticketCode,
       requester: `${form.name} ${form.surname}`,
@@ -3573,9 +3573,10 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     });
     
     // Generate QR code using QRCode library
+    let qrDataUrl = '';
     try {
       const QRCode = (await import('qrcode')).default;
-      const qrDataUrl = await QRCode.toDataURL(qrData, {
+      qrDataUrl = await QRCode.toDataURL(qrData, {
         width: 300,
         margin: 2,
         color: {
@@ -3597,12 +3598,14 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         ctx.fillStyle = 'black';
         ctx.font = '14px monospace';
         ctx.fillText(ticketCode, 50, 150);
-        setQrCodeDataUrl(canvas.toDataURL());
+        qrDataUrl = canvas.toDataURL();
+        setQrCodeDataUrl(qrDataUrl);
       }
     }
     
     setGeneratedCode(ticketCode);
     setShowQrModal(true);
+    return qrDataUrl;
   };
   
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3658,10 +3661,16 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     // Save to backend if projectId available
     if (projectId) {
       try {
+        // Generate QR code first and get the data URL
+        const generatedQrDataUrl = await generateCode(code);
+        
         const ticketRes = await fetch(`/api/projects/${projectId}/tickets`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ticket)
+          body: JSON.stringify({
+            ...ticket,
+            qrCodeDataUrl: generatedQrDataUrl // Pass QR code for email
+          })
         });
         
         if (ticketRes.ok) {

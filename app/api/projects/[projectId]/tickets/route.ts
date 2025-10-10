@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
+import { sendEmail } from "@/app/lib/email";
+import { generateTicketNotificationEmail } from "@/app/lib/email-templates";
 
 // Ticket doc shape in DB
 // {
@@ -114,6 +116,14 @@ export async function POST(
 
     const result = await col.insertOne(doc);
     
+    // Send notifications to Maintenance Team members
+    try {
+      await sendNotificationsToMaintenanceTeam(db, projectId, doc, payload.qrCodeDataUrl);
+    } catch (notifError) {
+      console.error('[Tickets][POST] Notification error (non-blocking):', notifError);
+      // Don't fail the ticket creation if notifications fail
+    }
+    
     return NextResponse.json({ 
       ok: true, 
       ticket: { id: result.insertedId.toString(), ...doc } 
@@ -198,4 +208,91 @@ export async function DELETE(
 
 function safeObjectId(id: string | undefined) {
   try { return id && ObjectId.createFromHexString(id); } catch { return undefined; }
+}
+
+// Helper function to send notifications to Maintenance Team members
+async function sendNotificationsToMaintenanceTeam(
+  db: any, 
+  projectId: string, 
+  ticket: any,
+  qrCodeDataUrl?: string
+) {
+  try {
+    // Get all accepted invites for this project with "Maintenance Team" role
+    const invites = await db.collection('invites').find({
+      projectId: new ObjectId(projectId),
+      status: 'accepted',
+      'invitee.role': { $regex: /maintenance\s*team/i }
+    }).toArray();
+    
+    console.log(`[Tickets] Found ${invites.length} Maintenance Team members for project ${projectId}`);
+    
+    if (invites.length === 0) {
+      console.log('[Tickets] No Maintenance Team members found, skipping notifications');
+      return;
+    }
+    
+    // Prepare email data
+    const emailData = {
+      ticketCode: ticket.ticketCode,
+      requester: ticket.requester,
+      location: ticket.location,
+      intervention: ticket.intervention,
+      createdAt: ticket.createdAt,
+      qrCodeDataUrl
+    };
+    
+    const emailHtml = generateTicketNotificationEmail(emailData);
+    const emailSubject = `🔧 New Maintenance Ticket: ${ticket.ticketCode}`;
+    
+    // Send email to each Maintenance Team member
+    const emailPromises = invites.map(async (invite: any) => {
+      const email = invite.invitee?.email;
+      if (!email) return;
+      
+      try {
+        await sendEmail(email, emailSubject, emailHtml);
+        console.log(`[Tickets] Email sent to ${email}`);
+      } catch (emailError) {
+        console.error(`[Tickets] Failed to send email to ${email}:`, emailError);
+      }
+    });
+    
+    // Create in-app notifications
+    const notificationPromises = invites.map(async (invite: any) => {
+      const email = invite.invitee?.email;
+      if (!email) return;
+      
+      try {
+        // Create notification in database
+        await db.collection('notifications').insertOne({
+          userEmail: email,
+          type: 'maintenance_ticket',
+          title: 'New Maintenance Ticket',
+          message: `Ticket ${ticket.ticketCode}: ${ticket.intervention?.descriptionShort || 'New maintenance request'} at ${ticket.location?.building || ''} ${ticket.location?.level || ''} ${ticket.location?.room || ''}`.trim(),
+          read: false,
+          timestamp: Date.now(),
+          meta: {
+            ticketCode: ticket.ticketCode,
+            projectId,
+            ticketId: ticket._id?.toString(),
+            discipline: ticket.intervention?.discipline,
+            location: `${ticket.location?.building || ''} - ${ticket.location?.level || ''} - ${ticket.location?.room || ''}`.replace(/^-\s*|-\s*$/g, '').trim()
+          },
+          createdAt: new Date().toISOString()
+        });
+        console.log(`[Tickets] In-app notification created for ${email}`);
+      } catch (notifError) {
+        console.error(`[Tickets] Failed to create notification for ${email}:`, notifError);
+      }
+    });
+    
+    // Wait for all notifications to complete (but don't fail if some fail)
+    await Promise.allSettled([...emailPromises, ...notificationPromises]);
+    
+    console.log('[Tickets] All notifications processed');
+  } catch (error) {
+    console.error('[Tickets] Error in sendNotificationsToMaintenanceTeam:', error);
+    throw error;
+  }
 }

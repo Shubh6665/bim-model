@@ -9,6 +9,7 @@ export type NotificationType =
   | "file_uploaded"
   | "user_added"
   | "file_modified"
+  | "maintenance_ticket"
   | "generic";
 
 export interface AppNotification {
@@ -53,21 +54,48 @@ export function NotificationProvider({ children, userEmail }: { children: React.
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const initialisedRef = useRef(false);
 
-  // Load from localStorage once
+  // Load from database and localStorage
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed: AppNotification[] = JSON.parse(raw);
-        setNotifications(parsed.sort((a, b) => b.timestamp - a.timestamp));
-      } else {
-        setNotifications([]);
+    const loadNotifications = async () => {
+      try {
+        // Try to fetch from database first
+        if (userEmail) {
+          const res = await fetch('/api/notifications');
+          if (res.ok) {
+            const dbNotifications: AppNotification[] = await res.json();
+            setNotifications(dbNotifications.sort((a, b) => b.timestamp - a.timestamp));
+            initialisedRef.current = true;
+            return;
+          }
+        }
+        
+        // Fallback to localStorage
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed: AppNotification[] = JSON.parse(raw);
+          setNotifications(parsed.sort((a, b) => b.timestamp - a.timestamp));
+        } else {
+          setNotifications([]);
+        }
+      } catch {
+        // Fallback to localStorage on error
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed: AppNotification[] = JSON.parse(raw);
+            setNotifications(parsed.sort((a, b) => b.timestamp - a.timestamp));
+          } else {
+            setNotifications([]);
+          }
+        } catch {
+          setNotifications([]);
+        }
       }
-    } catch {
-      setNotifications([]);
-    }
-    initialisedRef.current = true;
-  }, [storageKey]);
+      initialisedRef.current = true;
+    };
+    
+    loadNotifications();
+  }, [storageKey, userEmail]);
 
   // Persist to localStorage
   useEffect(() => {
