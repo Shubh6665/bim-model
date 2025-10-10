@@ -3560,34 +3560,49 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     return opts.sort();
   },[]);
   
-  const generateCode = async () => {
-    const timestamp = Date.now();
-    const code = `TKT-${timestamp}`;
-    const qrData = `TICKET:${code}|REQUESTER:${form.name} ${form.surname}|CONTACT:${form.contact}|LOCATION:${form.building}-${form.level}-${form.room}`;
+  const generateCode = async (ticketCode: string) => {
+    const qrData = JSON.stringify({
+      ticketCode,
+      requester: `${form.name} ${form.surname}`,
+      contact: form.contact,
+      location: `${form.building}-${form.level}-${form.room}`,
+      item: form.item,
+      category: form.category,
+      discipline: form.discipline,
+      timestamp: new Date().toISOString()
+    });
     
-    // Generate QR code using canvas (simple implementation)
+    // Generate QR code using QRCode library
     try {
-      // Create a simple QR code data URL (you can replace this with a proper QR library)
+      const QRCode = (await import('qrcode')).default;
+      const qrDataUrl = await QRCode.toDataURL(qrData, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeDataUrl(qrDataUrl);
+    } catch (err) {
+      console.error('[QR Generation] Error', err);
+      // Fallback to simple canvas
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        canvas.width = 200;
-        canvas.height = 200;
+        canvas.width = 300;
+        canvas.height = 300;
         ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, 200, 200);
+        ctx.fillRect(0, 0, 300, 300);
         ctx.fillStyle = 'black';
-        ctx.font = '10px monospace';
-        ctx.fillText(code, 10, 100);
-        const dataUrl = canvas.toDataURL();
-        setQrCodeDataUrl(dataUrl);
+        ctx.font = '14px monospace';
+        ctx.fillText(ticketCode, 50, 150);
+        setQrCodeDataUrl(canvas.toDataURL());
       }
-    } catch (err) {
-      console.error('[QR Generation] Error', err);
     }
     
-    setGeneratedCode(code);
+    setGeneratedCode(ticketCode);
     setShowQrModal(true);
-    return { code, qrData };
   };
   
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3598,12 +3613,16 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     }
   };
   
+  const [validationError, setValidationError] = useState<string>('');
+  
   const submit = async () => { 
     // Validate required fields
     if (!form.name || !form.surname || !form.contact) {
-      alert('Please fill in all requester information (Name, Surname, Contact)');
+      setValidationError('Please fill in all requester information (Name, Surname, Contact)');
+      setTimeout(() => setValidationError(''), 5000);
       return;
     }
+    setValidationError('');
     
     const timestamp = Date.now();
     const code = `TKT-${timestamp}`;
@@ -3715,12 +3734,8 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       setWorkOrders(prev=>[workOrder,...prev]);
     }
     
-    // Generate and show QR code
-    await generateCode();
-    
-    alert(`✅ Ticket Created Successfully!\n\nTicket Code: ${code}\n\nThis ticket has been sent to the Maintenance Team.`);
-    
-    resetForm();
+    // Generate and show QR code with success modal
+    await generateCode(code);
   };
   
   const resetForm = () => {
@@ -3817,39 +3832,77 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         </div>
       </div>
       
+      {/* Validation Error */}
+      {validationError && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
+          <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1">
+            <div className="text-red-400 text-sm font-semibold">Validation Error</div>
+            <div className="text-red-300 text-xs mt-1">{validationError}</div>
+          </div>
+        </div>
+      )}
+      
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
-        <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs font-semibold" onClick={generateCode}>Generate Code & QR</button>
-        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-xs font-semibold" onClick={submit}>Submit Ticket</button>
-        <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs" onClick={resetForm}>Reset</button>
+        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded text-sm font-semibold" onClick={submit}>Submit Ticket</button>
+        <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded text-sm" onClick={resetForm}>Reset</button>
       </div>
       
-      {/* QR Code Modal */}
+      {/* Success Modal with QR Code */}
       {showQrModal && generatedCode && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={()=>setShowQrModal(false)}>
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700" onClick={e=>e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-white mb-4">Ticket Created Successfully!</h3>
-            <div className="bg-white p-4 rounded-lg mb-4 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-lg w-full border border-gray-700 shadow-2xl" onClick={e=>e.stopPropagation()}>
+            {/* Success Header */}
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
+                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Ticket Created Successfully!</h3>
+              <p className="text-gray-400 text-sm">Your maintenance request has been submitted</p>
+            </div>
+            
+            {/* QR Code Display */}
+            <div className="bg-white rounded-xl p-6 mb-6 flex items-center justify-center shadow-lg">
               {qrCodeDataUrl ? (
-                <img src={qrCodeDataUrl} alt="QR Code" className="w-48 h-48" />
+                <img src={qrCodeDataUrl} alt="QR Code" className="w-64 h-64" />
               ) : (
-                <div className="w-48 h-48 bg-gray-200 flex items-center justify-center text-gray-600 text-xs text-center p-4">
-                  QR Code<br/>{generatedCode}
+                <div className="w-64 h-64 bg-gray-100 flex items-center justify-center text-gray-600 text-sm text-center p-4 rounded-lg">
+                  <div>
+                    <div className="text-2xl mb-2">📱</div>
+                    <div className="font-mono text-xs">{generatedCode}</div>
+                  </div>
                 </div>
               )}
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="bg-gray-900/60 rounded px-3 py-2">
-                <span className="text-gray-400">Ticket Code:</span>
-                <span className="text-white font-mono ml-2">{generatedCode}</span>
+            
+            {/* Ticket Info */}
+            <div className="space-y-3 mb-6">
+              <div className="bg-gray-900/60 rounded-lg px-4 py-3 border border-gray-700">
+                <div className="text-xs text-gray-400 mb-1">Ticket Code</div>
+                <div className="text-lg font-mono text-white font-semibold">{generatedCode}</div>
               </div>
-              <div className="text-xs text-gray-400 text-center mt-3">
-                This ticket has been sent to the Maintenance Team
+              <div className="text-center text-sm text-gray-400 py-2">
+                <span className="inline-flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  This ticket has been sent to the Maintenance Team
+                </span>
               </div>
             </div>
+            
+            {/* Close Button */}
             <button 
-              onClick={()=>setShowQrModal(false)} 
-              className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+              onClick={() => {
+                setShowQrModal(false);
+                resetForm();
+              }} 
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-3 rounded-lg text-sm font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
               Close
             </button>
