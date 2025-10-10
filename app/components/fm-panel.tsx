@@ -666,14 +666,33 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         try { childWinRef.current = (e.source as Window) || null; } catch {}
         
         // Get current selection
-        viewer.getAggregateSelection?.((selection: any) => {
-          if (!selection || selection.length === 0 || !selection[0].selection || selection[0].selection.length === 0) {
+        viewer.getAggregateSelection?.((selectionData: any) => {
+          // Handle both array and single model object
+          let model: any;
+          let selectedIds: number[] = [];
+          
+          if (Array.isArray(selectionData)) {
+            if (selectionData.length === 0) {
+              try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+              return;
+            }
+            const firstItem = selectionData[0];
+            model = firstItem.model;
+            selectedIds = firstItem.selection || [];
+          } else if (selectionData && selectionData.selector) {
+            model = selectionData;
+            selectedIds = model.selector?.getSelection?.() || [];
+          } else {
             try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
             return;
           }
           
-          const dbId = selection[0].selection[0];
-          const model = selection[0].model;
+          if (!selectedIds || selectedIds.length === 0) {
+            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+            return;
+          }
+          
+          const dbId = selectedIds[0];
           
           // Get object properties
           model.getProperties(dbId, (props: any) => {
@@ -687,10 +706,24 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             };
             
             const name = props?.name || getProp(['Name']);
+            const category = getProp(['Category']);
             const level = getProp(['Level','Reference Level']);
-            const room = getProp(['Room','Space']);
+            let room = getProp(['Room','Space']);
             const spaceCode = getProp(['Space Code','Number','Mark']);
             const building = getProp(['Building']);
+            
+            // Use spatial bounding as fallback for room detection (check for empty string too)
+            if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
+              try {
+                const roomData = (window as any).sensorContext.findRoomForObject(dbId);
+                if (roomData?.name) {
+                  room = roomData.name;
+                  console.log('🏠 [Prefill] Using spatial bounding room:', room);
+                }
+              } catch (err) {
+                console.warn('[Prefill] Spatial bounding fallback failed', err);
+              }
+            }
             
             // Send data back to standalone window
             try {
@@ -698,6 +731,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                 type: 'FM_SELECTION_DATA',
                 item: name || `Object ${dbId}`,
                 itemDbId: dbId,
+                category: category || '',
                 building: building || '',
                 level: level || '',
                 room: room || '',
@@ -3253,14 +3287,17 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           ...v,
           item: d.item || '',
           itemDbId: d.itemDbId || null,
+          category: d.category || v.category,
           building: d.building || v.building,
           level: d.level || v.level,
           room: d.room || v.room,
           spaceCode: d.spaceCode || v.spaceCode
         }));
         setWaitingForSelection(false);
+        console.log('✅ [Prefill] Standalone - Data received and form updated');
       } else if (d.type === 'FM_SELECTION_CANCELLED') {
         setWaitingForSelection(false);
+        console.log('⚠️ [Prefill] Standalone - Selection cancelled');
       }
     };
     
@@ -3368,13 +3405,79 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             const name = props?.name || getProp(['Name']);
             const category = getProp(['Category']);
             const level = getProp(['Level','Reference Level']);
-            const room = getProp(['Room','Space']);
+            let room = getProp(['Room','Space']);
             const spaceCode = getProp(['Space Code','Number','Mark']);
             const building = getProp(['Building']);
+            
+            // Use spatial bounding as fallback for room detection (check for empty string too)
+            if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
+              try {
+                const roomData = (window as any).sensorContext.findRoomForObject(dbId);
+                if (roomData?.name) {
+                  room = roomData.name;
+                  console.log('🏠 [Prefill] Using spatial bounding room:', room);
+                }
+              } catch (err) {
+                console.warn('[Prefill] Spatial bounding fallback failed', err);
+              }
+            }
+            
+            // Auto-detect discipline based on category
+            let discipline = '';
+            if (category) {
+              const catLower = category.toLowerCase();
+              if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
+                discipline = 'Architecture';
+              } else if (catLower.includes('column') || catLower.includes('beam') || catLower.includes('foundation') || catLower.includes('structural')) {
+                discipline = 'Structure';
+              } else if (catLower.includes('mechanical') || catLower.includes('hvac') || catLower.includes('duct') || catLower.includes('pipe')) {
+                discipline = 'Mechanical';
+              } else if (catLower.includes('electrical') || catLower.includes('lighting') || catLower.includes('fixture')) {
+                discipline = 'Electrical';
+              } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
+                discipline = 'Plumbing';
+              } else if (catLower.includes('furniture') || catLower.includes('casework')) {
+                discipline = 'Architecture';
+              }
+            }
+            
+            // Find matching category option from CATEGORY_MAPPING
+            let matchedCategory = '';
+            if (category) {
+              const catLower = category.toLowerCase();
+              
+              // Try exact and partial matches
+              for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+                const englishLower = mapping.english.toLowerCase();
+                const ifcLower = mapping.ifc.toLowerCase();
+                const ifcWithoutPrefix = ifcLower.replace('ifc', '');
+                
+                // Check various matching patterns
+                if (
+                  catLower.includes(englishLower) || 
+                  englishLower.includes(catLower) || 
+                  catLower.includes(ifcWithoutPrefix) || 
+                  ifcWithoutPrefix.includes(catLower) ||
+                  // Special case for Furniture -> Furnishing
+                  (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
+                  (catLower.includes('furnishing') && englishLower.includes('furniture'))
+                ) {
+                  matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
+                  console.log('🎯 [Prefill] Category matched:', category, '→', matchedCategory);
+                  break;
+                }
+              }
+              
+              if (!matchedCategory) {
+                console.warn('⚠️ [Prefill] No category match found for:', category);
+              }
+            }
             
             console.log('✨ [Prefill] Extracted data:', {
               name,
               category,
+              matchedCategory,
+              discipline,
               level,
               room,
               spaceCode,
@@ -3387,6 +3490,8 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               ...v,
               item: name || `Object ${dbId}`,
               itemDbId: dbId,
+              discipline: discipline || v.discipline,
+              category: matchedCategory || v.category,
               building: v.building || building || '',
               level: v.level || level || '',
               room: v.room || room || '',
@@ -3394,7 +3499,6 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             }));
             
             console.log('✅ [Prefill] Form updated successfully');
-            alert(`✓ Selected: ${name || `Object ${dbId}`}`);
           });
       });
     } catch (err) {
