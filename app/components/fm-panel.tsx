@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { X, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
 import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
@@ -152,7 +152,9 @@ interface WorkOrderItem {
 type Section =
   | { group: "assets"; item: "asset-list" | "create-asset" }
   | { group: "spaces"; item: "space-list" | "create-space" }
-  | { group: "maintenance"; item: "scheduled" | "ticket" | "work-orders" | "service-requests" | "reports" | "upcoming" | "ongoing" | "planned" };
+  | { group: "maintenance"; item: "scheduled" | "ticket" }
+  | { group: "work-orders"; item: "service-requests" | "reports" }
+  | { group: "upcoming-activities"; item: "ongoing" | "planned" };
 
 const K = {
   assets: (pid?: string) => `fm-assets-${pid || 'global'}`,
@@ -576,18 +578,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     if (!section) return 'FM';
     if (section.group === 'assets') return section.item === 'asset-list' ? 'Asset List' : 'Create New Asset';
     if (section.group === 'spaces') return section.item === 'space-list' ? 'Space List' : 'Create New Space';
-    // maintenance
-    switch (section.item) {
-      case 'scheduled': return 'Scheduled Maintenance';
-      case 'ticket': return 'Ticket-based Maintenance';
-      case 'work-orders': return 'Work Orders';
-      case 'service-requests': return 'Service Requests';
-      case 'reports': return 'Maintenance Reports';
-      case 'upcoming': return 'Upcoming Maintenance';
-      case 'ongoing': return 'Ongoing Maintenance';
-      case 'planned': return 'Planned Maintenance';
-      default: return 'FM';
+    if (section.group === 'maintenance') {
+      return section.item === 'scheduled' ? 'Scheduled Maintenance' : 'Ticket-based Maintenance';
     }
+    if (section.group === 'work-orders') {
+      return section.item === 'service-requests' ? 'Service Requests' : 'Maintenance Reports';
+    }
+    if (section.group === 'upcoming-activities') {
+      return section.item === 'ongoing' ? 'Ongoing Maintenance' : 'Planned Maintenance';
+    }
+    return 'FM';
   }, [section]);
 
   // Initialize defaults and modal position
@@ -804,62 +804,136 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       <div className="p-4 border-b border-gray-800">
         <h2 className="text-xl font-bold text-white mb-3 text-center">FM</h2>
-        <div className="flex flex-col gap-2">
-          {/* Assets Group */}
-          <div>
-            <button
-              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'assets' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
-              onClick={() => setSection(prev => ({ group: 'assets', item: (prev && prev.group === 'assets') ? prev.item : 'asset-list' }))}
-            >
-              Assets
-            </button>
-            {section?.group === 'assets' && (
-              <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Asset list" active={section?.item==='asset-list'} onClick={()=>{ setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Create new asset" active={section?.item==='create-asset'} onClick={()=>{ setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }} />
-              </div>
-            )}
-          </div>
-
-          {/* Spaces Group */}
-          <div>
-            <button
-              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'spaces' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
-              onClick={() => setSection(prev => ({ group: 'spaces', item: (prev && prev.group === 'spaces') ? prev.item : 'space-list' }))}
-            >
-              Spaces
-            </button>
-            {section?.group === 'spaces' && (
-              <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Space list" active={section?.item==='space-list'} onClick={()=>{ setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Create new space" active={section?.item==='create-space'} onClick={()=>{ setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }} />
-              </div>
-            )}
-          </div>
-
-          {/* Maintenance Group */}
-          <div>
-            <button
-              className={`w-full text-left py-2 px-3 text-sm rounded-md font-medium transition ${section?.group === 'maintenance' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-300 hover:bg-gray-600'}`}
-              onClick={() => setSection(prev => ({ group: 'maintenance', item: (prev && prev.group === 'maintenance') ? prev.item : 'scheduled' }))}
-            >
-              Maintenance
-            </button>
-            {section?.group === 'maintenance' && (
-              <div className="mt-2 ml-2 flex flex-col gap-2">
-                <MenuButton label="Scheduled maintenance" active={section?.item==='scheduled'} onClick={()=>{ setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Ticket-based maintenance" active={section?.item==='ticket'} onClick={()=>{ setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Work orders" active={section?.item==='work-orders'} onClick={()=>{ setSection({group:'maintenance',item:'work-orders'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Service requests" active={section?.item==='service-requests'} onClick={()=>{ setSection({group:'maintenance',item:'service-requests'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Maintenance reports" active={section?.item==='reports'} onClick={()=>{ setSection({group:'maintenance',item:'reports'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Upcoming maintenance" active={section?.item==='upcoming'} onClick={()=>{ setSection({group:'maintenance',item:'upcoming'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Ongoing maintenance" active={section?.item==='ongoing'} onClick={()=>{ setSection({group:'maintenance',item:'ongoing'}); if(!isStandalone) setShowModal(true); }} />
-                <MenuButton label="Planned maintenance" active={section?.item==='planned'} onClick={()=>{ setSection({group:'maintenance',item:'planned'}); if(!isStandalone) setShowModal(true); }} />
-              </div>
-            )}
-          </div>
-        </div>
       </div>
+
+      {/* Vertical menu (BIM-style) */}
+      <div className="p-3 space-y-1.5 border-b border-gray-800">
+        {/* Assets Group */}
+        <button
+          onClick={() => setSection(prev => ({ group: 'assets', item: (prev && prev.group === 'assets') ? prev.item : 'asset-list' }))}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Package className="h-4 w-4" />
+          <span className="font-medium">Assets</span>
+        </button>
+        {section?.group === 'assets' && (
+          <div className="ml-7 space-y-1">
+            <button
+              onClick={() => { setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='asset-list' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Asset list
+            </button>
+            <button
+              onClick={() => { setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='create-asset' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Create new asset
+            </button>
+          </div>
+        )}
+
+        {/* Spaces Group */}
+        <button
+          onClick={() => setSection(prev => ({ group: 'spaces', item: (prev && prev.group === 'spaces') ? prev.item : 'space-list' }))}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Square className="h-4 w-4" />
+          <span className="font-medium">Spaces</span>
+        </button>
+        {section?.group === 'spaces' && (
+          <div className="ml-7 space-y-1">
+            <button
+              onClick={() => { setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='space-list' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Space list
+            </button>
+            <button
+              onClick={() => { setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='create-space' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Create new space
+            </button>
+          </div>
+        )}
+
+        {/* Maintenance Group */}
+        <button
+          onClick={() => setSection(prev => ({ group: 'maintenance', item: (prev && prev.group === 'maintenance') ? prev.item : 'scheduled' }))}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <Wrench className="h-4 w-4" />
+          <span className="font-medium">Maintenance</span>
+        </button>
+        {section?.group === 'maintenance' && (
+          <div className="ml-7 space-y-1">
+            <button
+              onClick={() => { setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='scheduled' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Scheduled maintenance
+            </button>
+            <button
+              onClick={() => { setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='ticket' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Ticket-based maintenance
+            </button>
+          </div>
+        )}
+
+        {/* Work Orders Group */}
+        <button
+          onClick={() => setSection(prev => ({ group: 'work-orders', item: (prev && prev.group === 'work-orders') ? prev.item : 'service-requests' }))}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          <span className="font-medium">Work orders</span>
+        </button>
+        {section?.group === 'work-orders' && (
+          <div className="ml-7 space-y-1">
+            <button
+              onClick={() => { setSection({group:'work-orders',item:'service-requests'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='service-requests' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Service requests
+            </button>
+            <button
+              onClick={() => { setSection({group:'work-orders',item:'reports'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='reports' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Maintenance reports
+            </button>
+          </div>
+        )}
+
+        {/* Upcoming Maintenance Activities Group */}
+        <button
+          onClick={() => setSection(prev => ({ group: 'upcoming-activities', item: (prev && prev.group === 'upcoming-activities') ? prev.item : 'ongoing' }))}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+        >
+          <CalendarClock className="h-4 w-4" />
+          <span className="font-medium">Upcoming maintenance activities</span>
+        </button>
+        {section?.group === 'upcoming-activities' && (
+          <div className="ml-7 space-y-1">
+            <button
+              onClick={() => { setSection({group:'upcoming-activities',item:'ongoing'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='ongoing' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Ongoing maintenance
+            </button>
+            <button
+              onClick={() => { setSection({group:'upcoming-activities',item:'planned'}); if(!isStandalone) setShowModal(true); }}
+              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='planned' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
+            >
+              • Planned maintenance
+            </button>
+          </div>
+        )}
+      </div>
+      
       <div className="flex-1 overflow-hidden flex flex-col px-4"></div>
     </div>
   );
@@ -879,12 +953,10 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />}
             {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
             {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
-            {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='upcoming' && <UpcomingMaintenance projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+            {section?.group==='work-orders' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
+            {section?.group==='work-orders' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
+            {section?.group==='upcoming-activities' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
+            {section?.group==='upcoming-activities' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
           </div>
         </div>
       </div>
@@ -937,12 +1009,10 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} />}
               {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
               {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
-              {section?.group==='maintenance' && section?.item==='work-orders' && <WorkOrders projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='upcoming' && <UpcomingMaintenance projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+              {section?.group==='work-orders' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
+              {section?.group==='work-orders' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
+              {section?.group==='upcoming-activities' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
+              {section?.group==='upcoming-activities' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
             </div>
           </div>
         </div>
@@ -4635,19 +4705,313 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   );
 };
 
-// Service Requests (similar to Work Orders but can have different workflow)
+// Service Requests (Work Orders - Service Requests)
+// This section records all maintenance requests made over time
+// Gray-shaded data derive from "Maintenance Ticket" form
+// Blue-shaded data are managed by the Maintenance Team
 const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [rows] = useState<WorkOrderItem[]>(()=>load(K.serviceRequests(projectId), [] as WorkOrderItem[]));
+  const [rows, setRows] = useState<WorkOrderItem[]>(()=>load(K.serviceRequests(projectId), [] as WorkOrderItem[]));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  
+  // Cache to localStorage
+  useEffect(()=>save(K.serviceRequests(projectId), rows),[rows,projectId]);
+  
+  // Load from backend
+  useEffect(()=>{
+    const loadData = async () => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setRows(data);
+        }
+      } catch (err) { console.error('[ServiceRequests] Load error', err); }
+    };
+    loadData();
+  }, [projectId]);
+  
+  const startEdit = (row: WorkOrderItem) => {
+    setEditingId(row.id);
+    setEditForm(row);
+  };
+  
+  const saveEdit = async () => {
+    if (!editingId) return;
+    
+    const oldRow = rows.find(r => r.id === editingId);
+    const updatedRow = { ...oldRow, ...editForm, updatedAt: new Date().toISOString() };
+    
+    // Check if technician was assigned
+    const wasAssigned = !oldRow?.responsibleTechnician && editForm.responsibleTechnician;
+    if (wasAssigned) {
+      updatedRow.assignedAt = new Date().toISOString();
+    }
+    
+    // Check if status changed to Resolved
+    const wasResolved = oldRow?.status !== 'Resolved' && editForm.status === 'Resolved';
+    if (wasResolved) {
+      updatedRow.resolvedAt = new Date().toISOString();
+    }
+    
+    // Update backend if projectId available
+    if (projectId) {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/work-orders`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingId, ...editForm, wasAssigned, wasResolved })
+        });
+        
+        if (res.ok) {
+          // Reload from backend
+          const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            if (Array.isArray(data)) setRows(data);
+          }
+        } else {
+          // Fallback to local update
+          setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+        }
+      } catch (err) {
+        console.error('[ServiceRequests] Save error', err);
+        // Fallback to local update
+        setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+      }
+    } else {
+      // No projectId, local update only
+      setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+    }
+    
+    setEditingId(null);
+    setEditForm({});
+  };
+  
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Open': return 'bg-yellow-900/30 text-yellow-300';
+      case 'Planned': return 'bg-blue-900/30 text-blue-300';
+      case 'In Progress': return 'bg-purple-900/30 text-purple-300';
+      case 'Resolved': return 'bg-green-900/30 text-green-300';
+      default: return 'bg-gray-800/60 text-gray-300';
+    }
+  };
+  
   return (
-    <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Service Requests</div>
-      <div className="text-xs text-gray-400">Service requests are handled similarly to work orders.</div>
+    <div className="p-4 space-y-4">
+      <div>
+        <h3 className="text-white font-semibold text-lg mb-1">Work Orders – Service Requests</h3>
+        <p className="text-xs text-gray-400">
+          This section records all maintenance requests made over time.
+          <span className="block mt-1">
+            <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span> 
+            derive from "Maintenance Ticket" form
+          </span>
+          <span className="block mt-1">
+            <span className="inline-block bg-blue-900/40 px-1.5 py-0.5 rounded text-blue-300 mr-2">Blue fields</span> 
+            are managed by the Maintenance Team
+          </span>
+        </p>
+      </div>
+
       {rows.length === 0 ? (
-        <div className="text-gray-400 text-sm">No service requests yet.</div>
+        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-6 text-center">
+          No service requests yet. Requests will appear here when submitted through the Maintenance Ticket form.
+        </div>
       ) : (
-        <ul className="space-y-1 text-sm text-gray-200">
-          {rows.map(r => <li key={r.id} className="bg-gray-900/60 rounded px-2 py-1">{r.requestId} • {r.status}</li>)}
-        </ul>
+        <div className="space-y-3">
+          {rows.map(row => {
+            const isEditing = editingId === row.id;
+            const isExpanded = expandedId === row.id;
+            
+            return (
+              <div key={row.id} className="bg-gray-800/40 rounded-lg border border-gray-700/50 overflow-hidden">
+                {/* Header Row */}
+                <div 
+                  className="p-3 cursor-pointer hover:bg-gray-700/30 transition-colors"
+                  onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(row.status)}`}>
+                        {row.status}
+                      </span>
+                      <span className="text-white font-semibold">{row.requestId || row.id}</span>
+                      <span className="text-gray-400 text-sm">•</span>
+                      <span className="text-gray-300 text-sm">{row.requester}</span>
+                    </div>
+                    <button className="text-gray-400 hover:text-white">
+                      {isExpanded ? '▼' : '▶'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="border-t border-gray-700/50 p-4 space-y-4">
+                    {!isEditing ? (
+                      <>
+                        {/* Gray-shaded fields (from Ticket form) */}
+                        <div className="grid grid-cols-2 gap-3 bg-gray-700/20 rounded-lg p-3">
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Request ID</div>
+                            <div className="text-sm text-gray-300">{row.requestId || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Requester</div>
+                            <div className="text-sm text-gray-300">{row.requester || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Contact</div>
+                            <div className="text-sm text-gray-300">{row.contact || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Location</div>
+                            <div className="text-sm text-gray-300">{row.location || 'N/A'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-xs text-gray-500 mb-1">Intervention Details</div>
+                            <div className="text-sm text-gray-300">{row.interventionDetails || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Discipline</div>
+                            <div className="text-sm text-gray-300">{row.discipline || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Category</div>
+                            <div className="text-sm text-gray-300">{row.category || 'N/A'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-xs text-gray-500 mb-1">Description</div>
+                            <div className="text-sm text-gray-300">{row.description || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Attachments</div>
+                            <div className="text-sm text-gray-300">
+                              {row.attachments && row.attachments.length > 0 
+                                ? `${row.attachments.length} file(s)` 
+                                : 'None'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Asset</div>
+                            <div className="text-sm text-gray-300">{row.asset || 'N/A'}</div>
+                          </div>
+                        </div>
+
+                        {/* Blue-shaded fields (Maintenance Team managed) */}
+                        <div className="grid grid-cols-2 gap-3 bg-blue-900/10 rounded-lg p-3 border border-blue-900/20">
+                          <div>
+                            <div className="text-xs text-blue-400 mb-1">Responsible Technician</div>
+                            <div className="text-sm text-blue-200">{row.responsibleTechnician || 'Unassigned'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-400 mb-1">Company</div>
+                            <div className="text-sm text-blue-200">{row.company || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-400 mb-1">Status</div>
+                            <div className={`text-sm font-semibold ${getStatusColor(row.status)} inline-block px-2 py-0.5 rounded`}>
+                              {row.status}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-400 mb-1">Priority</div>
+                            <div className="text-sm text-blue-200">{row.priority || 'N/A'}</div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => startEdit(row)}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Edit Form - Only Blue fields are editable */}
+                        <div className="space-y-3">
+                          <div className="text-sm text-gray-400 mb-3">
+                            Edit Maintenance Team fields (blue-shaded):
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-blue-400 block mb-1">Responsible Technician</label>
+                              <input
+                                type="text"
+                                value={editForm.responsibleTechnician || ''}
+                                onChange={e => setEditForm(prev => ({ ...prev, responsibleTechnician: e.target.value }))}
+                                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-blue-400 block mb-1">Company</label>
+                              <input
+                                type="text"
+                                value={editForm.company || ''}
+                                onChange={e => setEditForm(prev => ({ ...prev, company: e.target.value }))}
+                                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-blue-400 block mb-1">Status</label>
+                              <select
+                                value={editForm.status || row.status}
+                                onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value as any }))}
+                                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+                              >
+                                <option value="Open">Open</option>
+                                <option value="Planned">Planned</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Resolved">Resolved</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-blue-400 block mb-1">Priority</label>
+                              <select
+                                value={editForm.priority || row.priority || 'Medium'}
+                                onChange={e => setEditForm(prev => ({ ...prev, priority: e.target.value as any }))}
+                                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+                              >
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={saveEdit}
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => { setEditingId(null); setEditForm({}); }}
+                              className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
