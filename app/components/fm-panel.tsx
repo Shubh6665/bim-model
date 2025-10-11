@@ -978,6 +978,31 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setToast({ type, text });
     window.setTimeout(()=> setToast(null), 3500);
   };
+
+  // Load assets from backend (preferred), fallback to localStorage
+  useEffect(() => {
+    const loadFromBackend = async () => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/assets`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          setRows(list);
+          save(K.assets(projectId), list);
+          return;
+        }
+      } catch (e) {
+        console.warn('[AssetList] Backend load failed, using local cache', e);
+      }
+      // fallback to local cache
+      try {
+        const cached = load(K.assets(projectId), [] as AssetRecord[]);
+        setRows(cached);
+      } catch {}
+    };
+    loadFromBackend();
+  }, [projectId]);
   
   // Deduplicate any pre-existing duplicates on initial load
   useEffect(() => {
@@ -1084,8 +1109,37 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
 
-      setRows(uniqueById);
-      save(K.assets(projectId), uniqueById);
+      // Persist to backend for the selected project, then refresh from API so new windows see the same data
+      if (projectId) {
+        try {
+          // Upsert only the newly extracted BIM assets; backend deduplicates by (projectId, source, dbId)
+          await fetch(`/api/projects/${projectId}/assets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upsertMany', assets: newAssets })
+          });
+          // Reload from backend to get normalized ids and timestamps
+          const res = await fetch(`/api/projects/${projectId}/assets`);
+          if (res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : [];
+            setRows(list);
+            save(K.assets(projectId), list);
+          } else {
+            // fallback: keep local state
+            setRows(uniqueById);
+            save(K.assets(projectId), uniqueById);
+          }
+        } catch (e) {
+          console.error('[AssetList] Persist extracted assets failed, caching locally', e);
+          setRows(uniqueById);
+          save(K.assets(projectId), uniqueById);
+        }
+      } else {
+        // No project id; keep local only
+        setRows(uniqueById);
+        save(K.assets(projectId), uniqueById);
+      }
       const breakdown = Object.entries(
         newAssets.reduce((acc, asset) => {
           const type = asset.description?.includes('STRUCTURAL') ? 'Structural' :
