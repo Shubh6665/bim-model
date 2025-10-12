@@ -182,8 +182,11 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const [showModal, setShowModal] = useState(false);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
   const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
   const dragRef = React.useRef({ startMouseX: 0, startMouseY: 0, startX: 0, startY: 0 });
+  const resizeRef = React.useRef({ startMouseX: 0, startMouseY: 0, startWidth: 0, startHeight: 0 });
   const isStandalone = !!standalone;
   const childWinRef = useRef<Window | null>(null);
 
@@ -800,6 +803,34 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Resize handlers
+  const handleResizeMove = (ev: MouseEvent) => {
+    const { startMouseX, startMouseY, startWidth, startHeight } = resizeRef.current;
+    const dx = ev.clientX - startMouseX;
+    const dy = ev.clientY - startMouseY;
+    const newWidth = Math.max(400, Math.min(window.innerWidth - 100, startWidth + dx));
+    const newHeight = Math.max(300, Math.min(window.innerHeight - 100, startHeight + dy));
+    setModalSize({ width: newWidth, height: newHeight });
+  };
+
+  const handleResizeUp = () => {
+    setResizing(false);
+    window.removeEventListener('mousemove', handleResizeMove);
+    window.removeEventListener('mouseup', handleResizeUp);
+  };
+
+  const onResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current.startMouseX = e.clientX;
+    resizeRef.current.startMouseY = e.clientY;
+    resizeRef.current.startWidth = modalSize.width;
+    resizeRef.current.startHeight = modalSize.height;
+    setResizing(true);
+    window.addEventListener('mousemove', handleResizeMove);
+    window.addEventListener('mouseup', handleResizeUp);
+  };
+
   // Sidebar menu (shared)
   const Sidebar = (
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
@@ -972,8 +1003,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         <div id="fm-modal-overlay" className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
           <div
             ref={modalRef}
-            className="absolute bg-gray-800 rounded-lg shadow-xl w-full max-w-5xl mx-4 max-h-[92vh] flex flex-col border border-gray-700"
-            style={{ left: modalPos.x, top: modalPos.y, transform: 'translate(-50%, -50%)' }}
+            className="absolute bg-gray-800 rounded-lg shadow-xl mx-4 flex flex-col border border-gray-700"
+            style={{ 
+              left: modalPos.x, 
+              top: modalPos.y, 
+              transform: 'translate(-50%, -50%)',
+              width: `${modalSize.width}px`,
+              height: `${modalSize.height}px`,
+              maxWidth: '95vw',
+              maxHeight: '95vh'
+            }}
           >
             {/* Header */}
             <div
@@ -1003,7 +1042,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               </div>
             </div>
             {/* Body */}
-            <div className="p-4 flex-1 flex flex-col min-h-0">
+            <div className="p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
               {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
               {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
               {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
@@ -1014,6 +1053,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section?.group==='work-orders' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
               {section?.group==='upcoming-activities' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
               {section?.group==='upcoming-activities' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+            </div>
+            {/* Resize Handle */}
+            <div
+              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize group"
+              onMouseDown={onResizeMouseDown}
+              title="Drag to resize"
+            >
+              <svg className="absolute bottom-1 right-1 w-4 h-4 text-gray-500 group-hover:text-gray-300" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M14 14L14 10M14 14L10 14M14 14L9 9M14 6L14 4M14 6L12 6M14 6L10 2M6 14L4 14M6 14L6 12M6 14L2 10" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+              </svg>
             </div>
           </div>
         </div>
@@ -1928,7 +1977,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       {/* Conflict Resolution Modal */}
       {conflictModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-72">
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 resize overflow-auto" style={{ width: '320px', minWidth: '280px', minHeight: '200px' }}>
             <div className="text-white text-sm font-semibold mb-2">Resolve Conflict</div>
             <div className="text-xs text-gray-300 mb-2">Choose how to resolve the BIM vs Manual conflict.</div>
             <div className="grid grid-cols-1 gap-2">
@@ -3204,7 +3253,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       {/* Asset Picker Modal */}
       {showAssetPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
-          <div className="bg-gray-800 rounded-lg p-4 max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-3xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white font-semibold">Select Asset from Register</h3>
               <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
@@ -3892,7 +3941,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       {/* Success Modal with QR Code */}
       {showQrModal && generatedCode && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-lg w-full border border-gray-700 shadow-2xl" onClick={e=>e.stopPropagation()}>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-2xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: '90vh' }} onClick={e=>e.stopPropagation()}>
             {/* Success Header */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
@@ -4533,7 +4582,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {/* Attachments Modal */}
       {showAttachmentsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-3xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '300px', maxHeight: '90vh' }}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white font-semibold text-lg">Attachments</h3>
               <button onClick={() => setShowAttachmentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
@@ -4557,12 +4606,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {/* Comments Modal */}
       {showCommentsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-3xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: '90vh' }}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white font-semibold text-lg">Comments & Notes</h3>
               <button onClick={() => setShowCommentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
             </div>
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3 mb-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
               {showCommentsModal.comments && showCommentsModal.comments.length > 0 ? (
                 showCommentsModal.comments.map(c => (
                   <div key={c.id} className="bg-gray-900/60 rounded p-3">
@@ -5076,7 +5125,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   }, {} as Record<string, ScheduledItem[]>);
   
   return (
-    <div className="p-3 space-y-3">
+    <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
       <div className="text-xs text-gray-400 mb-2">Organized by discipline</div>
       
@@ -5087,8 +5136,8 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
           No planned maintenance tasks.
         </div>
       ) : (
-        <div className="space-y-2">
-          {Object.entries(byDiscipline).map(([discipline, items]) => (
+        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
+          {Object.entries(byDiscipline).sort(([a], [b]) => a.localeCompare(b)).map(([discipline, items]) => (
             <div key={discipline} className="bg-gray-800/60 rounded-lg border border-gray-700/50 overflow-hidden">
               {/* Discipline Header */}
               <div className="bg-gray-900/60 px-3 py-2 border-b border-gray-700/50">
