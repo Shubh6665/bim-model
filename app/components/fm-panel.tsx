@@ -580,7 +580,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     if (section.group === 'assets') return section.item === 'asset-list' ? 'Asset List' : 'Create New Asset';
     if (section.group === 'spaces') return section.item === 'space-list' ? 'Space List' : 'Create New Space';
     if (section.group === 'maintenance') {
-      return section.item === 'scheduled' ? 'Scheduled Maintenance' : 'Ticket-based Maintenance';
+      return section.item === 'scheduled' ? 'Maintenance' : 'Ticket-based Maintenance';
     }
     if (section.group === 'work-orders') {
       return section.item === 'service-requests' ? 'Service Requests' : 'Maintenance Reports';
@@ -4806,7 +4806,6 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       <div>
         <h3 className="text-white font-semibold text-lg mb-1">Work Orders – Service Requests</h3>
         <p className="text-xs text-gray-400">
-          This section records all maintenance requests made over time.
           <span className="block mt-1">
             <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span> 
             derive from "Maintenance Ticket" form
@@ -4852,7 +4851,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="border-t border-gray-700/50 p-4 space-y-4">
+                  <div className="border-t border-gray-700/50 p-4 space-y-4 max-h-96 overflow-y-auto">
                     {!isEditing ? (
                       <>
                         {/* Gray-shaded fields (from Ticket form) */}
