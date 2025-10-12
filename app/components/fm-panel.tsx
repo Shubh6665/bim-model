@@ -2984,6 +2984,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [rows,setRows]=useState<ScheduledItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearch, setAssetSearch] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState('');
@@ -3029,21 +3031,25 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
   // Load assets from API for picker
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || assetsLoaded) return;
     
     const fetchAssets = async () => {
+      setAssetsLoading(true);
       try {
         const res = await fetch(`/api/projects/${projectId}/assets`);
         if (res.ok) {
           const data = await res.json();
           setAssets(Array.isArray(data) ? data : []);
+          setAssetsLoaded(true);
         }
       } catch (err) {
         console.error('Failed to load assets:', err);
+      } finally {
+        setAssetsLoading(false);
       }
     };
     fetchAssets();
-  }, [projectId]);
+  }, [projectId, assetsLoaded]);
 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
@@ -3239,10 +3245,16 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               onChange={e=>setF(v=>({...v,asset:e.target.value}))} 
               className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
             />
-            {projectId && assets.length > 0 && (
+            {projectId && (
               <button
                 type="button"
-                onClick={() => setShowAssetPicker(true)}
+                onClick={() => {
+                  // If assets not loaded yet, trigger load
+                  if (!assetsLoaded && !assetsLoading) {
+                    setAssetsLoaded(false); // Force reload
+                  }
+                  setShowAssetPicker(true);
+                }}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
                 title="Pick from Asset Register"
               >
@@ -3383,7 +3395,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
             {/* Asset List */}
             <div className="flex-1 overflow-auto">
-              {filteredAssets.length === 0 ? (
+              {assetsLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                  <div className="text-gray-400 text-sm">Loading assets...</div>
+                </div>
+              ) : filteredAssets.length === 0 ? (
                 <div className="text-gray-400 text-center py-8">
                   {assetSearch || assetCategoryFilter ? 'No assets match your filters' : 'No assets in register'}
                 </div>
