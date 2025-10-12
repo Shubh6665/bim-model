@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -3122,7 +3123,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
         {/* Category Dropdown (from CATEGORY_MAPPING) */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Category (Categorie_Classi) *</label>
+          <label className="text-[11px] text-gray-400 block mb-1">Category *</label>
           <select 
             value={f.category} 
             onChange={e=>setF(v=>({...v,category:e.target.value}))} 
@@ -3928,7 +3929,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
           <select value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
-            <option value="">Select Category (Categorie_Classi)</option>
+            <option value="">Select Category</option>
             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
           <div className="flex gap-1">
