@@ -4657,6 +4657,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Filters
   const [filters, setFilters] = useState({
@@ -4688,6 +4689,8 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     };
     loadData();
   }, [projectId]);
+  
+
   
   const startEdit = (row: WorkOrderItem) => {
     setEditingId(row.id);
@@ -4807,8 +4810,31 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const uniqueTechnicians = Array.from(new Set(rows.map(r => r.responsibleTechnician).filter(Boolean)));
   const uniquePriorities = Array.from(new Set(rows.map(r => r.priority).filter(Boolean)));
 
-  // Export to CSV
+  // Selection handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRows.map(r => r.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  // Export to CSV - only selected rows
   const exportToCSV = () => {
+    const rowsToExport = selectedIds.size > 0 
+      ? filteredRows.filter(r => selectedIds.has(r.id))
+      : filteredRows;
+
     const headers = [
       'Request ID', 'Requester', 'Contact', 'Location', 'Intervention Details',
       'Discipline', 'Category', 'Description', 'Attachments', 'Asset',
@@ -4817,7 +4843,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     
     const csvRows = [
       headers.join(','),
-      ...filteredRows.map(row => [
+      ...rowsToExport.map(row => [
         row.requestId || '',
         row.requester || '',
         row.contact || '',
@@ -4935,16 +4961,21 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
         <button
           onClick={exportToCSV}
-          disabled={filteredRows.length === 0}
-          className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+          disabled={selectedIds.size === 0}
+          className={`px-3 py-1.5 text-white text-sm rounded transition-colors ${
+            selectedIds.size > 0 
+              ? 'bg-green-600 hover:bg-green-700' 
+              : 'bg-gray-600 cursor-not-allowed'
+          }`}
         >
-          Export to CSV
+          Export to CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
         </button>
       </div>
 
       {/* Results count */}
       <div className="text-xs text-gray-400">
         Showing {filteredRows.length} of {rows.length} request{rows.length !== 1 ? 's' : ''}
+        {selectedIds.size > 0 && ` • ${selectedIds.size} selected`}
       </div>
 
       {rows.length === 0 ? (
@@ -4957,11 +4988,16 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 bg-gray-900 z-10">
               <tr className="border-b border-gray-700">
                 <th className="px-3 py-2 text-left">
-                  <input type="checkbox" className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded" 
+                    checked={selectedIds.size === filteredRows.length && filteredRows.length > 0}
+                    onChange={toggleSelectAll}
+                  />
                 </th>
                 <th 
                   className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
@@ -4980,7 +5016,6 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Discipline</th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Category</th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Description</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Intervention Details</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Technician</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Company</th>
                 <th 
@@ -4996,171 +5031,255 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
               {filteredRows.map(row => {
                 const isEditing = editingId === row.id;
                 const isExpanded = expandedId === row.id;
+                const isSelected = selectedIds.has(row.id);
                 
                 return (
                   <React.Fragment key={row.id}>
-                    <tr className="border-b border-gray-800 hover:bg-gray-800/40 transition-colors">
+                    <tr className={`border-b border-gray-800 hover:bg-gray-800/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
                       <td className="px-3 py-2">
-                        <input type="checkbox" className="rounded" />
+                        <input 
+                          type="checkbox" 
+                          className="rounded" 
+                          checked={isSelected}
+                          onChange={() => toggleSelect(row.id)}
+                        />
                       </td>
-                      <td className="px-3 py-2 text-gray-300 font-mono text-xs">
+                      <td className="px-3 py-2 text-blue-400 font-mono text-xs">
                         {row.requestId || row.id.slice(0, 12)}
                       </td>
                       <td className="px-3 py-2 text-gray-300">{row.requester || '-'}</td>
                       <td className="px-3 py-2 text-gray-400 text-xs">{row.contact || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs">{row.location || '-'}</td>
+                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.location}>
+                        {row.location || '-'}
+                      </td>
                       <td className="px-3 py-2 text-gray-300">{row.discipline || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[150px] truncate" title={row.category}>
+                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.category}>
                         {row.category || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[200px] truncate" title={row.description}>
+                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[150px] truncate" title={row.description}>
                         {row.description || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[200px] truncate" title={row.interventionDetails}>
-                        {row.interventionDetails || '-'}
+                      <td className="px-3 py-2 text-blue-300 text-xs">
+                        {row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>}
                       </td>
-                      <td className="px-3 py-2 text-blue-300">{row.responsibleTechnician || 'Unassigned'}</td>
-                      <td className="px-3 py-2 text-blue-300">{row.company || '-'}</td>
+                      <td className="px-3 py-2 text-blue-300 text-xs">{row.company || '-'}</td>
                       <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded text-xs ${getStatusColor(row.status)}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap ${getStatusColor(row.status)}`}>
                           {row.status}
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        {!isEditing ? (
-                          <div className="flex gap-1">
-                            <button 
-                              onClick={() => startEdit(row)} 
-                              className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              onClick={() => setExpandedId(isExpanded ? null : row.id)} 
-                              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
-                            >
-                              {isExpanded ? 'Hide' : 'Details'}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex gap-1">
-                            <button 
-                              onClick={saveEdit} 
-                              className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
-                            >
-                              Save
-                            </button>
-                            <button 
-                              onClick={() => { setEditingId(null); setEditForm({}); }} 
-                              className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
+                        <button 
+                          onClick={() => setExpandedId(isExpanded ? null : row.id)} 
+                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs whitespace-nowrap"
+                        >
+                          {isExpanded ? 'Hide ▲' : 'Expand ▼'}
+                        </button>
                       </td>
                     </tr>
                     
-                    {/* Expanded/Edit Row */}
-                    {(isExpanded || isEditing) && (
-                      <tr className="border-b border-gray-800 bg-gray-900/40">
-                        <td colSpan={13} className="p-4">
-                          {isEditing ? (
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className="text-xs text-blue-400 block mb-1">Responsible Technician *</label>
-                                <input
-                                  type="text"
-                                  value={editForm.responsibleTechnician || ''}
-                                  onChange={e => setEditForm(prev => ({ ...prev, responsibleTechnician: e.target.value }))}
-                                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
-                                  placeholder="Assign technician"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-blue-400 block mb-1">Company</label>
-                                <input
-                                  type="text"
-                                  value={editForm.company || ''}
-                                  onChange={e => setEditForm(prev => ({ ...prev, company: e.target.value }))}
-                                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
-                                  placeholder="Company name"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-blue-400 block mb-1">Status *</label>
-                                <select
-                                  value={editForm.status || row.status}
-                                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value as any }))}
-                                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
-                                >
-                                  <option value="Open">Open</option>
-                                  <option value="Planned">Planned</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Resolved">Resolved</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs text-blue-400 block mb-1">Priority</label>
-                                <select
-                                  value={editForm.priority || row.priority || 'Medium'}
-                                  onChange={e => setEditForm(prev => ({ ...prev, priority: e.target.value as any }))}
-                                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
-                                >
-                                  <option value="Low">Low</option>
-                                  <option value="Medium">Medium</option>
-                                  <option value="High">High</option>
-                                  <option value="Critical">Critical</option>
-                                </select>
-                              </div>
-                              <div className="col-span-2 text-xs text-gray-400 mt-2">
-                                * Blue-shaded fields are editable by Maintenance Team
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <div className="text-xs font-semibold text-gray-400 mb-2">📋 From Ticket (Gray)</div>
-                                <div>
-                                  <div className="text-xs text-gray-500">Asset</div>
-                                  <div className="text-sm text-gray-300">{row.asset || 'N/A'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-gray-500">Attachments</div>
-                                  <div className="text-sm text-gray-300">
-                                    {row.attachments && row.attachments.length > 0 
-                                      ? `${row.attachments.length} file(s)` 
-                                      : 'None'}
+                    {/* Expanded Row with Full Details */}
+                    {isExpanded && (
+                      <tr className="border-b border-gray-800 bg-gray-900/60">
+                        <td colSpan={12} className="p-0">
+                          <div className="p-4 space-y-4">
+                            {!isEditing ? (
+                              <>
+                                {/* Gray Fields - From Ticket */}
+                                <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
+                                  <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                    <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
+                                    Full Request Details
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Request ID</div>
+                                      <div className="text-sm text-white font-mono">{row.requestId || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Requester</div>
+                                      <div className="text-sm text-gray-200">{row.requester || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Contact</div>
+                                      <div className="text-sm text-gray-200">{row.contact || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Location</div>
+                                      <div className="text-sm text-gray-200">{row.location || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Discipline</div>
+                                      <div className="text-sm text-gray-200">{row.discipline || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Category</div>
+                                      <div className="text-sm text-gray-200">{row.category || 'N/A'}</div>
+                                    </div>
+                                    <div className="col-span-3">
+                                      <div className="text-xs text-gray-500 mb-1">Short Description</div>
+                                      <div className="text-sm text-gray-200">{row.description || 'N/A'}</div>
+                                    </div>
+                                    <div className="col-span-3">
+                                      <div className="text-xs text-gray-500 mb-1">Detailed Intervention Description</div>
+                                      <div className="text-sm text-gray-200 whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Asset</div>
+                                      <div className="text-sm text-gray-200">{row.asset || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Attachments</div>
+                                      <div className="text-sm text-gray-200">
+                                        {row.attachments && row.attachments.length > 0 
+                                          ? `${row.attachments.length} file(s)` 
+                                          : 'None'}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">Created At</div>
+                                      <div className="text-sm text-gray-400">
+                                        {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                                <div>
-                                  <div className="text-xs text-gray-500">Created</div>
-                                  <div className="text-sm text-gray-400">
-                                    {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
+
+                                {/* Blue Fields - Maintenance Team Managed */}
+                                <div className="bg-blue-900/10 rounded-lg p-4 border border-blue-900/30">
+                                  <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-blue-900/40 px-2 py-1 rounded text-xs">Maintenance Team</span>
+                                      Management Fields
+                                    </div>
+                                    <button
+                                      onClick={() => startEdit(row)}
+                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                                    >
+                                      Edit Blue Fields
+                                    </button>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Responsible Technician</div>
+                                      <div className="text-sm text-blue-200 font-semibold">
+                                        {row.responsibleTechnician || <span className="text-gray-500">Not Assigned</span>}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Company</div>
+                                      <div className="text-sm text-blue-200">{row.company || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Status</div>
+                                      <div>
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(row.status)}`}>
+                                          {row.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Priority</div>
+                                      <div className="text-sm text-blue-200">{row.priority || 'Not Set'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Assigned At</div>
+                                      <div className="text-sm text-blue-300">
+                                        {row.assignedAt ? new Date(row.assignedAt).toLocaleString() : 'Not yet assigned'}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-blue-400 mb-1">Resolved At</div>
+                                      <div className="text-sm text-blue-300">
+                                        {row.resolvedAt ? new Date(row.resolvedAt).toLocaleString() : 'Not yet resolved'}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="text-xs font-semibold text-blue-400 mb-2">👤 Managed by Team (Blue)</div>
-                                <div>
-                                  <div className="text-xs text-blue-400">Priority</div>
-                                  <div className="text-sm text-blue-200">{row.priority || 'Not set'}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-blue-400">Assigned</div>
-                                  <div className="text-sm text-blue-300">
-                                    {row.assignedAt ? new Date(row.assignedAt).toLocaleString() : 'Not yet'}
+                              </>
+                            ) : (
+                              <>
+                                {/* Edit Mode - Blue Fields Only */}
+                                <div className="bg-blue-900/20 rounded-lg p-4 border-2 border-blue-600">
+                                  <div className="text-sm font-semibold text-blue-300 mb-4">
+                                    Edit Maintenance Team Fields
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
+                                        Responsible Technician *
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editForm.responsibleTechnician || ''}
+                                        onChange={e => setEditForm(prev => ({ ...prev, responsibleTechnician: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        placeholder="Assign technician name"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
+                                        Company
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={editForm.company || ''}
+                                        onChange={e => setEditForm(prev => ({ ...prev, company: e.target.value }))}
+                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        placeholder="Company name"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
+                                        Status *
+                                      </label>
+                                      <select
+                                        value={editForm.status || row.status}
+                                        onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value as any }))}
+                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                      >
+                                        <option value="Open">Open</option>
+                                        <option value="Planned">Planned</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Resolved">Resolved</option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
+                                        Priority
+                                      </label>
+                                      <select
+                                        value={editForm.priority || row.priority || 'Medium'}
+                                        onChange={e => setEditForm(prev => ({ ...prev, priority: e.target.value as any }))}
+                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                      >
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Critical">Critical</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Action Buttons */}
+                                  <div className="flex gap-3 mt-4 pt-4 border-t border-blue-800">
+                                    <button
+                                      onClick={saveEdit}
+                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors"
+                                    >
+                                       Save Changes
+                                    </button>
+                                    <button
+                                      onClick={() => { setEditingId(null); setEditForm({}); }}
+                                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
                                   </div>
                                 </div>
-                                <div>
-                                  <div className="text-xs text-blue-400">Resolved</div>
-                                  <div className="text-sm text-blue-300">
-                                    {row.resolvedAt ? new Date(row.resolvedAt).toLocaleString() : 'Not yet'}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}
