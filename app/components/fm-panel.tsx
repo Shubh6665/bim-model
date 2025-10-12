@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { X, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
-import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
+import { ImprovedAssetExtractor, ImprovedAsset } from "../services/improved-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 // Extended models
@@ -1143,10 +1143,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setExtractionProgress(0);
 
     try {
-      const { UniversalAssetExtractor } = await import('../services/universal-asset-extractor');
-      const extractor = new UniversalAssetExtractor(viewer);
+      const { ImprovedAssetExtractor } = await import('../services/improved-asset-extractor');
+      const extractor = new ImprovedAssetExtractor(viewer);
       
-      const universalAssets = await extractor.extractUniversalAssets((progress, found, total) => {
+      const improvedAssets = await extractor.extractAllAssets((progress, found, total) => {
         setExtractionProgress(progress);
       });
 
@@ -1161,12 +1161,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         return p?.displayValue?.toString();
       };
 
-      // Convert UniversalAsset to AssetRecord format with enrichment
-      const newAssets: AssetRecord[] = universalAssets.map(asset => {
+      // Convert ImprovedAsset to AssetRecord format with enrichment
+      const newAssets: AssetRecord[] = improvedAssets.map(asset => {
         const props = (asset as any).properties || [];
-        const brand = getProp(props, ['Manufacturer', 'Brand', 'Manufacturer Name']) || asset.family || 'Unknown';
-        const model = getProp(props, ['Model', 'Type Name', 'Model Number']) || asset.type || 'Unknown';
-        const serial = getProp(props, ['Serial Number', 'Serial']) || undefined;
+        const brand = asset.brand || getProp(props, ['Manufacturer', 'Brand', 'Manufacturer Name']) || asset.family || 'Unknown';
+        const model = asset.model || getProp(props, ['Model', 'Type Name', 'Model Number']) || asset.type || 'Unknown';
+        const serial = asset.serialNumber || getProp(props, ['Serial Number', 'Serial']) || undefined;
         const installDate = getProp(props, ['Install Date', 'Installation Date']) || undefined;
         const power = getProp(props, ['Power', 'Power Rating', 'kW']) || undefined;
         const capacity = getProp(props, ['Capacity']) || undefined;
@@ -1187,14 +1187,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           model,
           serialNumber: serial,
           installationDate: installDate,
-          assetClassification: (asset as any).assetType,
+          assetClassification: asset.assetClassification,
           powerRating: power,
           capacity,
           weight,
           dimensions,
           material: asset.material,
           location: asset.location,
-          description: `${asset.assetType} asset extracted from BIM model (${asset.confidence} confidence)`,
+          description: asset.description || `${asset.assetClassification} asset extracted from BIM model`,
           condition: 'Good', // Default for BIM assets
           source: 'BIM_MODEL'
         } as AssetRecord;
