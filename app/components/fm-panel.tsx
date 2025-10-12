@@ -1098,15 +1098,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Load assets from backend (preferred), fallback to localStorage
   useEffect(() => {
     const loadFromBackend = async () => {
-      if (!projectId) return;
+      if (!projectId) {
+        console.log('📭 [AssetList] No projectId, skipping backend load');
+        return;
+      }
+      
+      console.log(`🔄 [AssetList] Loading assets from backend for project: ${projectId}`);
       try {
         const res = await fetch(`/api/projects/${projectId}/assets`);
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : [];
+          console.log(`✅ [AssetList] Loaded ${list.length} assets from backend`);
           setRows(list);
           save(K.assets(projectId), list);
           return;
+        } else {
+          console.warn(`⚠️ [AssetList] Backend returned status ${res.status}`);
         }
       } catch (e) {
         console.warn('[AssetList] Backend load failed, using local cache', e);
@@ -1114,6 +1122,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // fallback to local cache
       try {
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
+        console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage`);
         setRows(cached);
       } catch {}
     };
@@ -1143,12 +1152,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setExtractionProgress(0);
 
     try {
+      console.log('🚀 [AssetList] Starting asset extraction...');
       const { ImprovedAssetExtractor } = await import('../services/improved-asset-extractor');
       const extractor = new ImprovedAssetExtractor(viewer);
       
       const improvedAssets = await extractor.extractAllAssets((progress, found, total) => {
         setExtractionProgress(progress);
       });
+
+      console.log(`✅ [AssetList] Extraction complete: ${improvedAssets.length} assets`);
 
       // Helper to get property by display names
       const getProp = (props: any[], names: string[]): string | undefined => {
@@ -1161,6 +1173,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         return p?.displayValue?.toString();
       };
 
+      console.log('🔄 [AssetList] Converting assets to AssetRecord format...');
       // Convert ImprovedAsset to AssetRecord format with enrichment
       const newAssets: AssetRecord[] = improvedAssets.map(asset => {
         const props = (asset as any).properties || [];
@@ -1200,7 +1213,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         } as AssetRecord;
       });
 
+      console.log(`✅ [AssetList] Converted ${newAssets.length} assets`);
+
       // Merge with existing manual assets
+      console.log('🔄 [AssetList] Merging with existing assets...');
       const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
       const keyOf = (a: AssetRecord) => `${(a.category||'').toLowerCase()}|${(a.location||'').toLowerCase()}|${(a.model||a.assetName||'').toLowerCase()}`;
 
@@ -1225,54 +1241,77 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
 
+      console.log(`✅ [AssetList] Merged: ${uniqueById.length} total assets (${existingManualAssets.length} manual, ${newAssets.length} new BIM)`);
+
       // Persist to backend for the selected project, then refresh from API so new windows see the same data
       if (projectId) {
         try {
+          console.log(`💾 [AssetList] Saving ${newAssets.length} assets to backend (projectId: ${projectId})...`);
           // Upsert only the newly extracted BIM assets; backend deduplicates by (projectId, source, dbId)
-          await fetch(`/api/projects/${projectId}/assets`, {
+          const saveRes = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'upsertMany', assets: newAssets })
           });
+          
+          if (!saveRes.ok) {
+            const errorText = await saveRes.text();
+            console.error('❌ [AssetList] Backend save failed:', saveRes.status, errorText);
+            throw new Error(`Save failed with status ${saveRes.status}`);
+          }
+          
+          const saveResult = await saveRes.json();
+          console.log('✅ [AssetList] Assets saved to backend successfully:', saveResult);
+          
+          // Wait a bit to ensure database write is complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           // Reload from backend to get normalized ids and timestamps
+          console.log('🔄 [AssetList] Reloading assets from backend...');
           const res = await fetch(`/api/projects/${projectId}/assets`);
           if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : [];
+            console.log(`✅ [AssetList] Loaded ${list.length} assets from backend (${list.filter(a => a.source === 'BIM_MODEL').length} BIM, ${list.filter(a => a.source === 'MANUAL').length} manual)`);
             setRows(list);
             save(K.assets(projectId), list);
           } else {
+            const errorText = await res.text();
+            console.error('❌ [AssetList] Backend reload failed:', res.status, errorText);
             // fallback: keep local state
+            console.warn('⚠️ [AssetList] Using local state as fallback');
             setRows(uniqueById);
             save(K.assets(projectId), uniqueById);
           }
         } catch (e) {
-          console.error('[AssetList] Persist extracted assets failed, caching locally', e);
+          console.error('❌ [AssetList] Persist extracted assets failed, caching locally', e);
           setRows(uniqueById);
           save(K.assets(projectId), uniqueById);
         }
       } else {
         // No project id; keep local only
+        console.warn('⚠️ [AssetList] No projectId provided, saving locally only');
         setRows(uniqueById);
         save(K.assets(projectId), uniqueById);
       }
+      
+      console.log('✅ [AssetList] Asset extraction and save complete!');
+      
       const breakdown = Object.entries(
         newAssets.reduce((acc, asset) => {
-          const type = asset.description?.includes('STRUCTURAL') ? 'Structural' :
-                      asset.description?.includes('ARCHITECTURAL') ? 'Architectural' :
-                      asset.description?.includes('MEP') ? 'MEP' :
-                      asset.description?.includes('EQUIPMENT') ? 'Equipment' :
-                      asset.description?.includes('FURNITURE') ? 'Furniture' : 'Other';
+          const type = asset.assetClassification || 'Other';
           acc[type] = (acc[type] || 0) + 1;
           return acc;
         }, {} as Record<string, number>)
       ).map(([type, count]) => `${type}: ${count}`).join(' • ');
+      
       showToast('success', `Extracted ${newAssets.length} assets. ${breakdown}`);
 
     } catch (error) {
-      console.error('Asset extraction failed:', error);
+      console.error('❌ [AssetList] Asset extraction failed:', error);
       showToast('error', 'Failed to extract assets. Check console for details.');
     } finally {
+      console.log('🏁 [AssetList] Extraction process finished');
       setIsExtracting(false);
       setExtractionProgress(0);
     }

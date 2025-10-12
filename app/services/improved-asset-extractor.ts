@@ -132,18 +132,32 @@ export class ImprovedAssetExtractor {
         
         const pdb = this.model.getPropertyDb();
         if (!pdb) {
+            console.error("❌ [Improved Extractor] Property database not available");
             throw new Error("Property database not available");
         }
 
         // Step 1: Get all object IDs using PropertyDatabase
+        console.log("📋 [Improved Extractor] Step 1: Getting all object IDs...");
         const allDbIds = await this.getAllObjectIds();
         console.log(`📊 [Improved Extractor] Found ${allDbIds.length} total objects in model`);
 
+        if (allDbIds.length === 0) {
+            console.warn("⚠️ [Improved Extractor] No objects found in model!");
+            return [];
+        }
+
         // Step 2: Get bulk properties for all objects (more efficient than one-by-one)
+        console.log("📦 [Improved Extractor] Step 2: Fetching bulk properties...");
         const propertyResults = await this.getBulkPropertiesForAll(allDbIds);
-        console.log(`📦 [Improved Extractor] Retrieved properties for ${propertyResults.length} objects`);
+        console.log(`✅ [Improved Extractor] Retrieved properties for ${propertyResults.length} objects`);
+
+        if (propertyResults.length === 0) {
+            console.warn("⚠️ [Improved Extractor] getBulkProperties returned 0 results! Falling back to individual property fetching...");
+            return await this.fallbackExtraction(allDbIds, progressCallback);
+        }
 
         // Step 3: Filter and convert to assets
+        console.log("🔄 [Improved Extractor] Step 3: Converting to assets...");
         const assets: ImprovedAsset[] = [];
         let processed = 0;
 
@@ -167,11 +181,75 @@ export class ImprovedAssetExtractor {
     }
 
     /**
+     * Fallback method: Extract using individual getProperties calls
+     * Used when getBulkProperties2 fails or returns empty
+     */
+    private async fallbackExtraction(
+        dbIds: number[],
+        progressCallback?: (progress: number, found: number, total: number) => void
+    ): Promise<ImprovedAsset[]> {
+        console.log("🔄 [Improved Extractor - Fallback] Using individual property fetching for", dbIds.length, "objects");
+        
+        const assets: ImprovedAsset[] = [];
+        const batchSize = 100; // Process in batches to avoid blocking
+        
+        for (let i = 0; i < dbIds.length; i += batchSize) {
+            const batch = dbIds.slice(i, Math.min(i + batchSize, dbIds.length));
+            const batchResults = await Promise.all(
+                batch.map(dbId => this.getPropertiesForObject(dbId))
+            );
+            
+            for (const propResult of batchResults) {
+                if (propResult) {
+                    const asset = this.convertToAsset(propResult);
+                    if (asset) {
+                        assets.push(asset);
+                    }
+                }
+            }
+            
+            // Report progress
+            if (progressCallback) {
+                const progress = ((i + batch.length) / dbIds.length) * 100;
+                progressCallback(progress, assets.length, i + batch.length);
+            }
+            
+            // Log progress every 500 objects
+            if ((i + batch.length) % 500 === 0 || i + batch.length >= dbIds.length) {
+                console.log(`📊 [Improved Extractor - Fallback] Processed ${i + batch.length}/${dbIds.length}, Found ${assets.length} assets`);
+            }
+        }
+        
+        console.log(`✅ [Improved Extractor - Fallback] Extracted ${assets.length} real assets`);
+        return assets;
+    }
+
+    /**
+     * Get properties for a single object
+     */
+    private async getPropertiesForObject(dbId: number): Promise<any> {
+        return new Promise((resolve) => {
+            this.model.getProperties(dbId, 
+                (result: any) => resolve(result),
+                () => resolve(null) // Resolve with null on error
+            );
+        });
+    }
+
+    /**
      * Get all object IDs from the model using PropertyDatabase
      */
     private async getAllObjectIds(): Promise<number[]> {
         return new Promise((resolve, reject) => {
             const pdb = this.model.getPropertyDb();
+            
+            if (!pdb) {
+                console.error("❌ [getAllObjectIds] PropertyDb not available");
+                reject(new Error("PropertyDb not available"));
+                return;
+            }
+            
+            console.log("🔍 [getAllObjectIds] Executing user function to enumerate objects...");
             
             // Use executeUserFunction to run code in the worker thread where PropertyDb lives
             pdb.executeUserFunction((pdb: any) => {
@@ -184,9 +262,10 @@ export class ImprovedAssetExtractor {
                 
                 return dbIds;
             }).then((dbIds: number[]) => {
+                console.log(`✅ [getAllObjectIds] Successfully enumerated ${dbIds.length} object IDs`);
                 resolve(dbIds);
             }).catch((error: any) => {
-                console.error("Error getting object IDs:", error);
+                console.error("❌ [getAllObjectIds] Error:", error);
                 reject(error);
             });
         });
@@ -196,23 +275,59 @@ export class ImprovedAssetExtractor {
      * Get bulk properties for all objects efficiently
      */
     private async getBulkPropertiesForAll(dbIds: number[]): Promise<any[]> {
+        console.log(`🔍 [getBulkProperties] Attempting to fetch properties for ${dbIds.length} objects...`);
+        
         return new Promise((resolve, reject) => {
-            // Use getBulkProperties2 for better performance
-            this.model.getBulkProperties2(
-                dbIds,
-                {
-                    propFilter: [], // Empty array means get ALL properties
-                    ignoreHidden: false, // Include all objects
-                    needsExternalId: false
-                },
-                (results: any[]) => {
-                    resolve(results);
-                },
-                (error: any) => {
-                    console.error("Error getting bulk properties:", error);
-                    reject(error);
+            // Check if getBulkProperties2 is available
+            if (!this.model.getBulkProperties2) {
+                console.warn("⚠️ [getBulkProperties] getBulkProperties2 not available, trying getBulkProperties");
+                
+                // Fallback to getBulkProperties
+                if (this.model.getBulkProperties) {
+                    this.model.getBulkProperties(
+                        dbIds,
+                        {},
+                        (results: any[]) => {
+                            console.log(`✅ [getBulkProperties] Success with getBulkProperties: ${results.length} results`);
+                            resolve(results);
+                        },
+                        (error: any) => {
+                            console.error("❌ [getBulkProperties] Error:", error);
+                            resolve([]); // Resolve with empty array to trigger fallback
+                        }
+                    );
+                } else {
+                    console.error("❌ [getBulkProperties] Neither getBulkProperties2 nor getBulkProperties available");
+                    resolve([]); // Trigger fallback
                 }
-            );
+                return;
+            }
+            
+            // Use getBulkProperties2 for better performance
+            try {
+                this.model.getBulkProperties2(
+                    dbIds,
+                    {
+                        propFilter: [], // Empty array means get ALL properties
+                        ignoreHidden: false, // Include all objects
+                        needsExternalId: false
+                    },
+                    (results: any[]) => {
+                        console.log(`✅ [getBulkProperties2] Success: ${results.length} results`);
+                        if (results.length === 0) {
+                            console.warn("⚠️ [getBulkProperties2] Returned 0 results for", dbIds.length, "input IDs");
+                        }
+                        resolve(results);
+                    },
+                    (error: any) => {
+                        console.error("❌ [getBulkProperties2] Error:", error);
+                        resolve([]); // Resolve with empty array to trigger fallback
+                    }
+                );
+            } catch (error) {
+                console.error("❌ [getBulkProperties2] Exception:", error);
+                resolve([]); // Trigger fallback
+            }
         });
     }
 
@@ -220,9 +335,22 @@ export class ImprovedAssetExtractor {
      * Convert property result to Asset object
      */
     private convertToAsset(propResult: any): ImprovedAsset | null {
+        if (!propResult) {
+            return null;
+        }
+        
         const dbId = propResult.dbId;
         const name = propResult.name || `Object ${dbId}`;
         const properties = propResult.properties || [];
+        
+        // Debug log for first few objects
+        if (dbId <= 5) {
+            console.log(`🔍 [convertToAsset] dbId ${dbId}:`, {
+                name,
+                propertiesCount: properties.length,
+                hasProperties: properties.length > 0
+            });
+        }
         
         // Extract key properties
         const category = this.getPropertyValue(properties, 'Category') || 'Unknown';
@@ -231,7 +359,19 @@ export class ImprovedAssetExtractor {
                     this.getPropertyValue(properties, 'Family');
         
         // Check if this is a real asset or metadata/annotation
-        if (this.shouldExcludeObject(name, category, properties)) {
+        const shouldExclude = this.shouldExcludeObject(name, category, properties);
+        
+        // Debug log for exclusion decisions on first few objects
+        if (dbId <= 5) {
+            console.log(`🔍 [convertToAsset] dbId ${dbId} exclusion check:`, {
+                name,
+                category,
+                shouldExclude,
+                reason: shouldExclude ? 'Excluded (metadata/annotation)' : 'Included (real asset)'
+            });
+        }
+        
+        if (shouldExclude) {
             return null;
         }
 
