@@ -178,7 +178,7 @@ const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => voi
 );
 
 export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps) {
-  const [section, setSection] = useState<Section | null>(null);
+  const [section, setSection] = useState<Section | null>({ group: 'assets', item: null });
   const [showModal, setShowModal] = useState(false);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -833,13 +833,23 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
   // Render content based on selected section
   const renderSectionContent = () => {
-    if (!section || !section.item) return (
-      <div className="text-center py-8">
-        <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-        <h3 className="text-lg font-semibold text-gray-300 mb-2">FM Tools</h3>
-        <p className="text-gray-500">Select a command from the submenu to get started</p>
-      </div>
-    );
+    if (!section || !section.item) {
+      // Show which menu is selected
+      const menuName = section?.group === 'assets' ? 'Assets' :
+                       section?.group === 'spaces' ? 'Spaces' :
+                       section?.group === 'maintenance' ? 'Maintenance' :
+                       section?.group === 'work-orders' ? 'Work Orders' :
+                       section?.group === 'upcoming-activities' ? 'Upcoming Maintenance Activities' :
+                       'FM Tools';
+      
+      return (
+        <div className="text-center py-8">
+          <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">{menuName}</h3>
+          <p className="text-gray-500">Select a command from the submenu to get started</p>
+        </div>
+      );
+    }
 
     if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
@@ -867,7 +877,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Assets */}
         <button
           onClick={() => { 
-            setSection(prev => prev?.group === 'assets' ? null : { group: 'assets', item: null });
+            setSection({ group: 'assets', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -878,7 +888,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Spaces */}
         <button
           onClick={() => { 
-            setSection(prev => prev?.group === 'spaces' ? null : { group: 'spaces', item: null });
+            setSection({ group: 'spaces', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -889,7 +899,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Maintenance */}
         <button
           onClick={() => { 
-            setSection(prev => prev?.group === 'maintenance' ? null : { group: 'maintenance', item: null });
+            setSection({ group: 'maintenance', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -900,7 +910,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Work Orders */}
         <button
           onClick={() => { 
-            setSection(prev => prev?.group === 'work-orders' ? null : { group: 'work-orders', item: null });
+            setSection({ group: 'work-orders', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -911,7 +921,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Upcoming Maintenance Activities */}
         <button
           onClick={() => { 
-            setSection(prev => prev?.group === 'upcoming-activities' ? null : { group: 'upcoming-activities', item: null });
+            setSection({ group: 'upcoming-activities', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
