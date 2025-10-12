@@ -151,11 +151,11 @@ interface WorkOrderItem {
 }
 
 type Section =
-  | { group: "assets"; item: "asset-list" | "create-asset" }
-  | { group: "spaces"; item: "space-list" | "create-space" }
-  | { group: "maintenance"; item: "scheduled" | "ticket" }
-  | { group: "work-orders"; item: "service-requests" | "reports" }
-  | { group: "upcoming-activities"; item: "ongoing" | "planned" };
+  | { group: "assets"; item: "asset-list" | "create-asset" | null }
+  | { group: "spaces"; item: "space-list" | "create-space" | null }
+  | { group: "maintenance"; item: "scheduled" | "ticket" | null }
+  | { group: "work-orders"; item: "service-requests" | "reports" | null }
+  | { group: "upcoming-activities"; item: "ongoing" | "planned" | null };
 
 const K = {
   assets: (pid?: string) => `fm-assets-${pid || 'global'}`,
@@ -831,6 +831,30 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     window.addEventListener('mouseup', handleResizeUp);
   };
 
+  // Render content based on selected section
+  const renderSectionContent = () => {
+    if (!section || !section.item) return (
+      <div className="text-center py-8">
+        <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+        <h3 className="text-lg font-semibold text-gray-300 mb-2">FM Tools</h3>
+        <p className="text-gray-500">Select a command from the submenu to get started</p>
+      </div>
+    );
+
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} />;
+    if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
+    if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
+    if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
+    if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} />;
+    if (section.group === 'maintenance' && section.item === 'ticket') return <TicketForm projectId={projectId} viewer={viewer} />;
+    if (section.group === 'work-orders' && section.item === 'service-requests') return <ServiceRequests projectId={projectId} />;
+    if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
+    if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
+    if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} />;
+    
+    return null;
+  };
+
   // Sidebar menu (shared)
   const Sidebar = (
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
@@ -838,135 +862,154 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         <h2 className="text-xl font-bold text-white mb-3 text-center">FM</h2>
       </div>
 
-      {/* Vertical menu (BIM-style) */}
+      {/* Vertical menu (BIM-style) - Top 5 headings only */}
       <div className="p-3 space-y-1.5 border-b border-gray-800">
-        {/* Assets Group */}
+        {/* Assets */}
         <button
-          onClick={() => setSection(prev => ({ group: 'assets', item: (prev && prev.group === 'assets') ? prev.item : 'asset-list' }))}
+          onClick={() => { 
+            setSection(prev => prev?.group === 'assets' ? null : { group: 'assets', item: null });
+          }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <Package className="h-4 w-4" />
           <span className="font-medium">Assets</span>
         </button>
-        {section?.group === 'assets' && (
-          <div className="ml-7 space-y-1">
-            <button
-              onClick={() => { setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='asset-list' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Asset list
-            </button>
-            <button
-              onClick={() => { setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='create-asset' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Create new asset
-            </button>
-          </div>
-        )}
 
-        {/* Spaces Group */}
+        {/* Spaces */}
         <button
-          onClick={() => setSection(prev => ({ group: 'spaces', item: (prev && prev.group === 'spaces') ? prev.item : 'space-list' }))}
+          onClick={() => { 
+            setSection(prev => prev?.group === 'spaces' ? null : { group: 'spaces', item: null });
+          }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <Square className="h-4 w-4" />
           <span className="font-medium">Spaces</span>
         </button>
-        {section?.group === 'spaces' && (
-          <div className="ml-7 space-y-1">
-            <button
-              onClick={() => { setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='space-list' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Space list
-            </button>
-            <button
-              onClick={() => { setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='create-space' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Create new space
-            </button>
-          </div>
-        )}
 
-        {/* Maintenance Group */}
+        {/* Maintenance */}
         <button
-          onClick={() => setSection(prev => ({ group: 'maintenance', item: (prev && prev.group === 'maintenance') ? prev.item : 'scheduled' }))}
+          onClick={() => { 
+            setSection(prev => prev?.group === 'maintenance' ? null : { group: 'maintenance', item: null });
+          }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <Wrench className="h-4 w-4" />
           <span className="font-medium">Maintenance</span>
         </button>
-        {section?.group === 'maintenance' && (
-          <div className="ml-7 space-y-1">
-            <button
-              onClick={() => { setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='scheduled' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Scheduled maintenance
-            </button>
-            <button
-              onClick={() => { setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='ticket' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Ticket-based maintenance
-            </button>
-          </div>
-        )}
 
-        {/* Work Orders Group */}
+        {/* Work Orders */}
         <button
-          onClick={() => setSection(prev => ({ group: 'work-orders', item: (prev && prev.group === 'work-orders') ? prev.item : 'service-requests' }))}
+          onClick={() => { 
+            setSection(prev => prev?.group === 'work-orders' ? null : { group: 'work-orders', item: null });
+          }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <ClipboardList className="h-4 w-4" />
           <span className="font-medium">Work orders</span>
         </button>
-        {section?.group === 'work-orders' && (
-          <div className="ml-7 space-y-1">
-            <button
-              onClick={() => { setSection({group:'work-orders',item:'service-requests'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='service-requests' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Service requests
-            </button>
-            <button
-              onClick={() => { setSection({group:'work-orders',item:'reports'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='reports' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Maintenance reports
-            </button>
-          </div>
-        )}
 
-        {/* Upcoming Maintenance Activities Group */}
+        {/* Upcoming Maintenance Activities */}
         <button
-          onClick={() => setSection(prev => ({ group: 'upcoming-activities', item: (prev && prev.group === 'upcoming-activities') ? prev.item : 'ongoing' }))}
+          onClick={() => { 
+            setSection(prev => prev?.group === 'upcoming-activities' ? null : { group: 'upcoming-activities', item: null });
+          }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <CalendarClock className="h-4 w-4" />
           <span className="font-medium">Upcoming maintenance activities</span>
         </button>
-        {section?.group === 'upcoming-activities' && (
-          <div className="ml-7 space-y-1">
-            <button
-              onClick={() => { setSection({group:'upcoming-activities',item:'ongoing'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='ongoing' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Ongoing maintenance
-            </button>
-            <button
-              onClick={() => { setSection({group:'upcoming-activities',item:'planned'}); if(!isStandalone) setShowModal(true); }}
-              className={`w-full text-left px-3 py-1.5 rounded text-xs transition-colors ${section?.item==='planned' ? 'text-blue-300 bg-gray-800/50' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/30'}`}
-            >
-              • Planned maintenance
-            </button>
+      </div>
+
+      {/* Content area - Shows submenu and content below the line */}
+      <div className="flex-1 p-4 overflow-y-auto min-h-0">
+        {section && (
+          <div className="space-y-3">
+            {/* Submenu for selected group */}
+            <div className="space-y-1">
+              {section.group === 'assets' && (
+                <>
+                  <button
+                    onClick={() => { setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='asset-list' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Asset list
+                  </button>
+                  <button
+                    onClick={() => { setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='create-asset' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Create new asset
+                  </button>
+                </>
+              )}
+              {section.group === 'spaces' && (
+                <>
+                  <button
+                    onClick={() => { setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='space-list' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Space list
+                  </button>
+                  <button
+                    onClick={() => { setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='create-space' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Create new space
+                  </button>
+                </>
+              )}
+              {section.group === 'maintenance' && (
+                <>
+                  <button
+                    onClick={() => { setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='scheduled' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Scheduled maintenance
+                  </button>
+                  <button
+                    onClick={() => { setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='ticket' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Ticket-based maintenance
+                  </button>
+                </>
+              )}
+              {section.group === 'work-orders' && (
+                <>
+                  <button
+                    onClick={() => { setSection({group:'work-orders',item:'service-requests'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='service-requests' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Service requests
+                  </button>
+                  <button
+                    onClick={() => { setSection({group:'work-orders',item:'reports'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='reports' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Maintenance reports
+                  </button>
+                </>
+              )}
+              {section.group === 'upcoming-activities' && (
+                <>
+                  <button
+                    onClick={() => { setSection({group:'upcoming-activities',item:'ongoing'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='ongoing' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Ongoing maintenance
+                  </button>
+                  <button
+                    onClick={() => { setSection({group:'upcoming-activities',item:'planned'}); if(!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${section.item==='planned' ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}
+                  >
+                    • Planned maintenance
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
-      
-      <div className="flex-1 overflow-hidden flex flex-col px-4"></div>
     </div>
   );
 
@@ -979,16 +1022,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
           </div>
           <div className="p-4 flex-1 flex flex-col min-h-0 overflow-auto">
-            {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
-            {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
-            {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
-            {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />}
-            {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
-            {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
-            {section?.group==='work-orders' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
-            {section?.group==='work-orders' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
-            {section?.group==='upcoming-activities' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
-            {section?.group==='upcoming-activities' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+            {renderSectionContent()}
           </div>
         </div>
       </div>
@@ -1043,27 +1077,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             </div>
             {/* Body */}
             <div className="p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-              {section?.group==='assets' && section?.item==='asset-list' && <AssetList projectId={projectId} viewer={viewer} />}
-              {section?.group==='assets' && section?.item==='create-asset' && <CreateAsset projectId={projectId} viewer={viewer} />}
-              {section?.group==='spaces' && section?.item==='space-list' && <SpaceList projectId={projectId} viewer={viewer} />}
-              {section?.group==='spaces' && section?.item==='create-space' && <CreateSpace projectId={projectId} viewer={viewer} />}
-              {section?.group==='maintenance' && section?.item==='scheduled' && <ScheduledMaintenance projectId={projectId} />}
-              {section?.group==='maintenance' && section?.item==='ticket' && <TicketForm projectId={projectId} viewer={viewer} />}
-              {section?.group==='work-orders' && section?.item==='service-requests' && <ServiceRequests projectId={projectId} />}
-              {section?.group==='work-orders' && section?.item==='reports' && <MaintenanceReports projectId={projectId} />}
-              {section?.group==='upcoming-activities' && section?.item==='ongoing' && <OngoingMaintenance projectId={projectId} />}
-              {section?.group==='upcoming-activities' && section?.item==='planned' && <PlannedMaintenance projectId={projectId} />}
+              {renderSectionContent()}
             </div>
             {/* Resize Handle */}
             <div
-              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize group"
               onMouseDown={onResizeMouseDown}
-              title="Drag to resize"
-            >
-              <svg className="absolute bottom-1 right-1 w-4 h-4 text-gray-500 group-hover:text-gray-300" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M14 14L14 10M14 14L10 14M14 14L9 9M14 6L14 4M14 6L12 6M14 6L10 2M6 14L4 14M6 14L6 12M6 14L2 10" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-              </svg>
-            </div>
+              className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
+              style={{
+                background: 'linear-gradient(135deg, transparent 50%, rgba(156, 163, 175, 0.5) 50%)',
+              }}
+            />
           </div>
         </div>
       )}
