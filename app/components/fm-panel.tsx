@@ -586,7 +586,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       return section.item === 'scheduled' ? 'Maintenance' : 'Ticket-based Maintenance';
     }
     if (section.group === 'work-orders') {
-      return section.item === 'service-requests' ? 'Service Requests' : 'Maintenance Reports';
+      return section.item === 'service-requests' ? 'Work Orders' : 'Work Orders';
     }
     if (section.group === 'upcoming-activities') {
       return section.item === 'ongoing' ? 'Ongoing Maintenance' : 'Planned Maintenance';
@@ -4894,10 +4894,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   return (
     <div className="p-4 space-y-4 h-full flex flex-col overflow-hidden">
       <div>
-        <h3 className="text-white font-semibold text-lg mb-1">Work Orders – Service Requests</h3>
-        <p className="text-xs text-gray-400 mb-2">
-          This section records all maintenance requests made over time.
-        </p>
+        <h3 className="text-white font-semibold text-lg mb-1">Service Requests</h3>
         <p className="text-xs text-gray-400">
           <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span> 
           are from tickets. 
