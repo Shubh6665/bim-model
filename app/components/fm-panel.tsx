@@ -2947,6 +2947,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearch, setAssetSearch] = useState('');
+  const [assetCategoryFilter, setAssetCategoryFilter] = useState('');
+  const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
   
   const [f,setF]=useState({ discipline:'', category:'', code:'', asset:'', frequency:'', timeHours:'' });
   const [currentTask, setCurrentTask] = useState('');
@@ -3006,15 +3008,48 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
-    if (!assetSearch.trim()) return assets;
-    const search = assetSearch.toLowerCase();
-    return assets.filter(a => 
-      a.assetName?.toLowerCase().includes(search) ||
-      a.assetCode?.toLowerCase().includes(search) ||
-      a.category?.toLowerCase().includes(search) ||
-      a.location?.toLowerCase().includes(search)
-    );
-  }, [assets, assetSearch]);
+    let result = assets;
+    
+    // Apply search filter
+    if (assetSearch.trim()) {
+      const search = assetSearch.toLowerCase();
+      result = result.filter(a => 
+        a.assetName?.toLowerCase().includes(search) ||
+        a.assetCode?.toLowerCase().includes(search) ||
+        a.category?.toLowerCase().includes(search) ||
+        a.location?.toLowerCase().includes(search) ||
+        a.type?.toLowerCase().includes(search) ||
+        a.brand?.toLowerCase().includes(search)
+      );
+    }
+    
+    // Apply category filter
+    if (assetCategoryFilter) {
+      result = result.filter(a => a.category === assetCategoryFilter);
+    }
+    
+    // Apply sorting
+    result = [...result].sort((a, b) => {
+      switch (assetSortBy) {
+        case 'name':
+          return (a.assetName || '').localeCompare(b.assetName || '');
+        case 'category':
+          return (a.category || '').localeCompare(b.category || '');
+        case 'location':
+          return (a.location || '').localeCompare(b.location || '');
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [assets, assetSearch, assetCategoryFilter, assetSortBy]);
+
+  // Get unique categories for filter
+  const assetCategories = React.useMemo(() => {
+    const cats = new Set(assets.map(a => a.category).filter(Boolean));
+    return Array.from(cats).sort();
+  }, [assets]);
 
   const addTask = () => {
     if (currentTask.trim()) {
@@ -3031,6 +3066,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     setF(v => ({ ...v, asset: asset.assetName || asset.assetCode || `Asset ${asset.id}` }));
     setShowAssetPicker(false);
     setAssetSearch('');
+    setAssetCategoryFilter('');
+    setAssetSortBy('name');
   };
 
   const validateAndAdd = async () => {
@@ -3156,9 +3193,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         {/* Asset with Picker */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Asset *</label>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <input 
-              placeholder="Component subject to maintenance" 
+              placeholder="Asset name or code" 
               value={f.asset} 
               onChange={e=>setF(v=>({...v,asset:e.target.value}))} 
               className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
@@ -3167,10 +3204,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               <button
                 type="button"
                 onClick={() => setShowAssetPicker(true)}
-                className="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
                 title="Pick from Asset Register"
               >
-                📋
+                Select from List
               </button>
             )}
           </div>
@@ -3249,24 +3286,67 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       {/* Asset Picker Modal */}
       {showAssetPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
-          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-5xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
+          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-5xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white font-semibold">Select Asset from Register</h3>
               <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
             </div>
             
+            {/* Search Input */}
             <input
               type="text"
-              placeholder="Search assets by name, code, category, location..."
+              placeholder="Search assets by name, code, category, location, type, brand..."
               value={assetSearch}
               onChange={e => setAssetSearch(e.target.value)}
               className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm mb-3"
             />
 
+            {/* Filter and Sort Controls */}
+            <div className="flex gap-2 mb-3">
+              {/* Category Filter */}
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-400 block mb-1">Filter by Category</label>
+                <select
+                  value={assetCategoryFilter}
+                  onChange={e => setAssetCategoryFilter(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
+                >
+                  <option value="">All Categories ({assets.length})</option>
+                  {assetCategories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat} ({assets.filter(a => a.category === cat).length})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-400 block mb-1">Sort By</label>
+                <select
+                  value={assetSortBy}
+                  onChange={e => setAssetSortBy(e.target.value as 'name' | 'category' | 'location')}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
+                >
+                  <option value="name">Name (A-Z)</option>
+                  <option value="category">Category (A-Z)</option>
+                  <option value="location">Location (A-Z)</option>
+                </select>
+              </div>
+
+              {/* Results Count */}
+              <div className="flex items-end">
+                <div className="px-3 py-1.5 bg-gray-700/50 rounded text-xs text-gray-300">
+                  {filteredAssets.length} asset{filteredAssets.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* Asset List */}
             <div className="flex-1 overflow-auto">
               {filteredAssets.length === 0 ? (
                 <div className="text-gray-400 text-center py-8">
-                  {assetSearch ? 'No assets match your search' : 'No assets in register'}
+                  {assetSearch || assetCategoryFilter ? 'No assets match your filters' : 'No assets in register'}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -3282,14 +3362,15 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
                             {asset.assetName || asset.assetCode || `Asset ${asset.id}`}
                           </div>
                           <div className="text-xs text-gray-400 mt-1">
-                            {asset.assetCode && <span className="mr-3">Code: {asset.assetCode}</span>}
-                            {asset.category && <span className="mr-3">Category: {asset.category}</span>}
+                            {asset.assetCode && <span className="mr-3">Code: <span className="text-blue-300">{asset.assetCode}</span></span>}
+                            {asset.category && <span className="mr-3">Category: <span className="text-emerald-300">{asset.category}</span></span>}
+                            {asset.type && <span className="mr-3">Type: <span className="text-purple-300">{asset.type}</span></span>}
                           </div>
-                          {asset.location && (
-                            <div className="text-xs text-gray-500 mt-1">📍 {asset.location}</div>
+                          {asset.brand && (
+                            <div className="text-xs text-gray-500 mt-1">Brand: {asset.brand}</div>
                           )}
-                          {asset.description && (
-                            <div className="text-xs text-gray-500 mt-1">{asset.description}</div>
+                          {asset.location && (
+                            <div className="text-xs text-gray-500 mt-1">Location: {asset.location}</div>
                           )}
                         </div>
                         <div className="ml-2">
