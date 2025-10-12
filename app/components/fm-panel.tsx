@@ -3801,29 +3801,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         </div>
       </div>
       
-      {/* Location Section */}
-      <div className="border-b border-gray-700 pb-3">
-        <div className="text-xs text-gray-400 mb-2">Location of Intervention</div>
-        <div className="grid grid-cols-2 gap-2">
-          <input placeholder="Building" value={form.building} onChange={e=>setForm(v=>({...v,building:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Level" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Room" value={form.room} onChange={e=>setForm(v=>({...v,room:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Space Code" value={form.spaceCode} onChange={e=>setForm(v=>({...v,spaceCode:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-        </div>
-      </div>
-      
-      {/* Intervention Section */}
+      {/* Intervention Section - Moved under Requester */}
       <div className="border-b border-gray-700 pb-3">
         <div className="text-xs text-gray-400 mb-2">Intervention Identification</div>
         <div className="grid grid-cols-1 gap-2">
-          <select value={form.discipline} onChange={e=>setForm(v=>({...v,discipline:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
-            <option value="">Select Discipline</option>
-            {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
-            <option value="">Select Category</option>
-            {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
+          {/* Item - Now first field with Prefill from Selection */}
           <div className="flex gap-1">
             <input 
               placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"} 
@@ -3848,6 +3830,14 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               </button>
             )}
           </div>
+          <select value={form.discipline} onChange={e=>setForm(v=>({...v,discipline:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <option value="">Select Discipline</option>
+            {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <option value="">Select Category</option>
+            {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
           <input placeholder="Short Description" value={form.descriptionShort} onChange={e=>setForm(v=>({...v,descriptionShort:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
           <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e=>setForm(v=>({...v,descriptionDetailed:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
           
@@ -3866,6 +3856,17 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               </div>
             )}
           </div>
+        </div>
+      </div>
+      
+      {/* Location Section - Now after Intervention */}
+      <div className="border-b border-gray-700 pb-3">
+        <div className="text-xs text-gray-400 mb-2">Location of Intervention</div>
+        <div className="grid grid-cols-2 gap-2">
+          <input placeholder="Building" value={form.building} onChange={e=>setForm(v=>({...v,building:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Level" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Room" value={form.room} onChange={e=>setForm(v=>({...v,room:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Space Code" value={form.spaceCode} onChange={e=>setForm(v=>({...v,spaceCode:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
         </div>
       </div>
       
@@ -5077,31 +5078,61 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   return (
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
-      <div className="text-xs text-gray-400">Organized by discipline</div>
+      <div className="text-xs text-gray-400 mb-2">Organized by discipline</div>
       
       {loading ? (
         <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
       ) : Object.keys(byDiscipline).length === 0 ? (
-        <div className="text-gray-400 text-sm">No planned maintenance tasks.</div>
+        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-4 text-center">
+          No planned maintenance tasks.
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {Object.entries(byDiscipline).map(([discipline, items]) => (
-            <details key={discipline} className="bg-gray-800/40 rounded p-2">
-              <summary className="cursor-pointer text-sm text-blue-300 font-semibold">
-                {discipline} ({items.length})
-              </summary>
-              <ul className="mt-2 space-y-1 pl-3">
+            <div key={discipline} className="bg-gray-800/60 rounded-lg border border-gray-700/50 overflow-hidden">
+              {/* Discipline Header */}
+              <div className="bg-gray-900/60 px-3 py-2 border-b border-gray-700/50">
+                <div className="text-sm font-semibold text-blue-300">
+                  [{discipline}] ({items.length})
+                </div>
+              </div>
+              
+              {/* Maintenance Items */}
+              <div className="divide-y divide-gray-700/30">
                 {items.map(item => (
-                  <li key={item.id} className="text-xs text-gray-200 border-l-2 border-gray-700 pl-2 py-1">
-                    <div className="font-semibold">{item.asset}</div>
-                    <div className="text-gray-400">{item.tasks.join(', ')}</div>
-                    <div className="text-gray-500 text-xs mt-0.5">
-                      {item.frequency}/year • {item.timeHours}h • Code: {item.code}
+                  <div key={item.id} className="p-3 hover:bg-gray-700/20 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* Title/Category */}
+                        <div className="font-semibold text-white text-sm mb-1">
+                          {item.category}
+                        </div>
+                        
+                        {/* Code and Asset */}
+                        <div className="text-xs text-gray-400 mb-1">
+                          Code: <span className="text-gray-300">{item.code}</span> | Asset: <span className="text-gray-300">{item.asset}</span>
+                        </div>
+                        
+                        {/* Tasks */}
+                        <div className="text-xs text-gray-300 mt-1">
+                          <span className="font-semibold text-gray-400">Tasks:</span>
+                          <ul className="ml-3 mt-0.5">
+                            {item.tasks.map((task, idx) => (
+                              <li key={idx} className="text-gray-300">• {task}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        {/* Frequency and Time */}
+                        <div className="text-xs text-emerald-400 mt-2">
+                          {item.frequency}/year • {item.timeHours}h per intervention
+                        </div>
+                      </div>
                     </div>
-                  </li>
+                  </div>
                 ))}
-              </ul>
-            </details>
+              </div>
+            </div>
           ))}
         </div>
       )}
