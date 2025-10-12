@@ -808,8 +808,8 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     const { startMouseX, startMouseY, startWidth, startHeight } = resizeRef.current;
     const dx = ev.clientX - startMouseX;
     const dy = ev.clientY - startMouseY;
-    const newWidth = Math.max(400, Math.min(window.innerWidth - 100, startWidth + dx));
-    const newHeight = Math.max(300, Math.min(window.innerHeight - 100, startHeight + dy));
+    const newWidth = Math.max(400, Math.min(window.innerWidth - 20, startWidth + dx));
+    const newHeight = Math.max(300, Math.min(window.innerHeight - 20, startHeight + dy));
     setModalSize({ width: newWidth, height: newHeight });
   };
 
@@ -1010,8 +1010,8 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               transform: 'translate(-50%, -50%)',
               width: `${modalSize.width}px`,
               height: `${modalSize.height}px`,
-              maxWidth: '95vw',
-              maxHeight: '95vh'
+              maxWidth: 'calc(100vw - 20px)',
+              maxHeight: 'calc(100vh - 20px)'
             }}
           >
             {/* Header */}
@@ -3253,7 +3253,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       {/* Asset Picker Modal */}
       {showAssetPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
-          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-3xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-5xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white font-semibold">Select Asset from Register</h3>
               <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
@@ -3941,7 +3941,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       {/* Success Modal with QR Code */}
       {showQrModal && generatedCode && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-2xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: '90vh' }} onClick={e=>e.stopPropagation()}>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-4xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e=>e.stopPropagation()}>
             {/* Success Header */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
@@ -4582,7 +4582,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {/* Attachments Modal */}
       {showAttachmentsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-3xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '300px', maxHeight: '90vh' }}>
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '300px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white font-semibold text-lg">Attachments</h3>
               <button onClick={() => setShowAttachmentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
@@ -4606,12 +4606,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {/* Comments Modal */}
       {showCommentsModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-3xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: '90vh' }}>
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-white font-semibold text-lg">Comments & Notes</h3>
               <button onClick={() => setShowCommentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
             </div>
-            <div className="space-y-3 mb-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
+            <div className="space-y-3 mb-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
               {showCommentsModal.comments && showCommentsModal.comments.length > 0 ? (
                 showCommentsModal.comments.map(c => (
                   <div key={c.id} className="bg-gray-900/60 rounded p-3">
