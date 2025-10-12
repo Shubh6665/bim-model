@@ -2907,7 +2907,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ frequency: '', timeHours: '' });
-  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id: string; item?: ScheduledItem }>({ show: false, id: '' });
 
   // Load scheduled maintenance from API
   useEffect(() => {
@@ -3068,45 +3067,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     setErrors({ frequency: '', timeHours: '' });
   };
 
-  const confirmDelete = (id: string) => {
-    const item = rows.find(r => r.id === id);
-    setDeleteConfirm({ show: true, id, item });
-  };
-
-  const deleteItem = async () => {
-    const { id } = deleteConfirm;
-    if (!id) return;
-
-    if (projectId) {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance?id=${id}`, {
-          method: 'DELETE'
-        });
-        
-        if (res.ok) {
-          setRows(prev => prev.filter(r => r.id !== id));
-        }
-      } catch (err) {
-        console.error('Failed to delete scheduled maintenance:', err);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // localStorage fallback
-      setRows(prev => {
-        const updated = prev.filter(r => r.id !== id);
-        save(K.scheduled(projectId), updated);
-        return updated;
-      });
-    }
-    
-    setDeleteConfirm({ show: false, id: '' });
-  };
-
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Scheduled Maintenance</div>
+      <div className="text-white font-semibold text-sm">Maintenance</div>
       <div className="grid grid-cols-2 gap-2">
         {/* Discipline Dropdown */}
         <div>
@@ -3238,77 +3201,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={validateAndAdd}>Add Scheduled Maintenance</button></div>
       
-      {/* Display saved items */}
-      {loading && <div className="text-center text-gray-400 text-sm py-4">Loading...</div>}
-      {!loading && rows.length>0 && (
-        <div className="border-t border-gray-700 pt-3">
-          <div className="text-xs text-gray-400 mb-2 font-semibold">Saved Scheduled Maintenance ({rows.length})</div>
-          <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
-            {rows.map(r=> (
-              <li key={r.id} className="bg-gray-900/60 rounded px-3 py-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="font-semibold text-blue-300">[{r.discipline}] {r.category}</div>
-                    <div className="text-xs text-gray-400 mt-1">Code: {r.code} | Asset: {r.asset}</div>
-                    <div className="text-xs text-gray-300 mt-1">
-                      <span className="font-semibold">Tasks:</span>
-                      <ul className="ml-3 mt-0.5">
-                        {r.tasks.map((task, idx) => <li key={idx}>• {task}</li>)}
-                      </ul>
-                    </div>
-                    <div className="text-xs text-emerald-400 mt-1">{r.frequency}/year • {r.timeHours}h per intervention</div>
-                  </div>
-                  <button
-                    onClick={() => confirmDelete(r.id)}
-                    className="ml-2 text-red-400 hover:text-red-300 text-lg font-bold"
-                    title="Delete"
-                  >
-                    ×
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm.show && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setDeleteConfirm({ show: false, id: '' })}>
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-white mb-4">Delete Scheduled Maintenance?</h3>
-            
-            {deleteConfirm.item && (
-              <div className="bg-gray-900/60 rounded p-3 mb-4 border border-gray-700">
-                <div className="text-sm text-blue-300 font-semibold">[{deleteConfirm.item.discipline}] {deleteConfirm.item.category}</div>
-                <div className="text-xs text-gray-400 mt-1">Code: {deleteConfirm.item.code}</div>
-                <div className="text-xs text-gray-400">Asset: {deleteConfirm.item.asset}</div>
-                <div className="text-xs text-emerald-400 mt-1">{deleteConfirm.item.frequency}/year • {deleteConfirm.item.timeHours}h</div>
-              </div>
-            )}
-            
-            <p className="text-sm text-gray-300 mb-6">
-              Are you sure you want to delete this scheduled maintenance item? This action cannot be undone.
-            </p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm({ show: false, id: '' })}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={deleteItem}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Asset Picker Modal */}
       {showAssetPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
@@ -5144,7 +5036,35 @@ const OngoingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
 // Planned Maintenance
 const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [scheduled] = useState<ScheduledItem[]>(()=>load(K.scheduled(projectId), [] as ScheduledItem[]));
+  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load scheduled maintenance from database
+  useEffect(() => {
+    if (!projectId) {
+      // Fallback to localStorage for non-project mode
+      const loaded = load(K.scheduled(projectId), [] as ScheduledItem[]);
+      setScheduled(loaded);
+      return;
+    }
+
+    const fetchScheduledMaintenance = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance`);
+        if (res.ok) {
+          const data = await res.json();
+          setScheduled(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load scheduled maintenance for planned view:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchScheduledMaintenance();
+  }, [projectId]);
   
   // Group by discipline
   const byDiscipline = scheduled.reduce((acc, item) => {
@@ -5159,7 +5079,9 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
       <div className="text-xs text-gray-400">Organized by discipline</div>
       
-      {Object.keys(byDiscipline).length === 0 ? (
+      {loading ? (
+        <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
+      ) : Object.keys(byDiscipline).length === 0 ? (
         <div className="text-gray-400 text-sm">No planned maintenance tasks.</div>
       ) : (
         <div className="space-y-3">
