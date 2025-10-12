@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { X, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
+import { X, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
 import { UniversalAssetExtractor, UniversalAsset } from "../services/universal-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
@@ -549,35 +549,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     } catch {}
   };
 
-  // Open FM controls in a new fullscreen-like window
-  const openFmWindow = () => {
-    try {
-      const params = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
-      const url = `/fm-control${params}`;
-      const w = (window.screen?.availWidth || window.innerWidth || 1280);
-      const h = (window.screen?.availHeight || window.innerHeight || 800);
-      const features = [
-        'popup=yes',
-        'toolbar=no',
-        'location=no',
-        'status=no',
-        'menubar=no',
-        'scrollbars=yes',
-        'resizable=yes',
-        'left=0',
-        'top=0',
-        `width=${w}`,
-        `height=${h}`
-      ].join(',');
-      const win = window.open(url, 'FMControlsWindow', features);
-      childWinRef.current = win || null;
-      // Attempt to enforce sizing for browsers that ignore features
-      try { win?.moveTo?.(0, 0); } catch {}
-      try { win?.resizeTo?.(w, h); } catch {}
-      try { win?.focus?.(); } catch {}
-    } catch {}
-  };
-
   const modalTitle = React.useMemo(() => {
     if (!section) return 'FM';
     if (section.group === 'assets') return section.item === 'asset-list' ? 'Asset List' : 'Create New Asset';
@@ -1067,14 +1038,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
               </div>
               <div className="flex items-center gap-2" onMouseDown={(e)=> e.stopPropagation()}>
-                <button
-                  onClick={openFmWindow}
-                  className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
-                  aria-label="Open controls in new window"
-                  title="Open controls in new window"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </button>
                 <button
                   onClick={()=>setShowModal(false)}
                   className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
