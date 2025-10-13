@@ -1190,6 +1190,46 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     });
   }, [projectId]);
 
+  // Refresh assets from localStorage when component becomes visible (to sync with CreateAsset)
+  useEffect(() => {
+    const refreshFromStorage = () => {
+      try {
+        const cached = load(K.assets(projectId), [] as AssetRecord[]);
+        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}`);
+        setRows(prevRows => {
+          // Only update if there are actually new assets
+          if (cached.length !== prevRows.length ||
+            JSON.stringify(cached.map(a => a.id).sort()) !== JSON.stringify(prevRows.map(a => a.id).sort())) {
+            console.log(`✅ [AssetList] Refreshed from localStorage: ${cached.length} assets`);
+            console.log('📋 [AssetList] New assets:', cached.slice(0, 3)); // Log first 3 for debugging
+            return cached;
+          }
+          return prevRows;
+        });
+      } catch (e) {
+        console.error('❌ [AssetList] Error refreshing from storage:', e);
+      }
+    };
+
+    // Listen for custom asset-created events
+    const handleAssetCreated = () => {
+      console.log('🔔 [AssetList] Received asset-created event, refreshing...');
+      refreshFromStorage();
+    };
+
+    // Refresh immediately and listen for events
+    refreshFromStorage();
+    window.addEventListener('asset-created', handleAssetCreated);
+
+    // Also refresh every 3 seconds as fallback
+    const interval = setInterval(refreshFromStorage, 3000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('asset-created', handleAssetCreated);
+    };
+  }, [projectId, rows.length]);
+
   // BIM Asset Extraction
   const extractAssetsFromBIM = async () => {
     if (!viewer || !viewer.model) {
@@ -2176,9 +2216,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
         condition: f.condition || 'Good'
       };
 
+      console.log('🔍 [CreateAsset] Form data being saved:', f);
+      console.log('🔍 [CreateAsset] Asset record being created:', rec);
+
       // Save to backend if projectId is available
       if (projectId) {
-        console.log(`💾 [CreateAsset] Saving asset to backend for project: ${projectId}`);
+        console.log(`💾 [CreateAsset] Saving asset to backend for project: ${projectId}`, rec);
         try {
           const res = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
@@ -2190,13 +2233,29 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
             const result = await res.json();
             console.log('✅ [CreateAsset] Asset saved to backend successfully:', result);
 
-            // Update local state with backend response (may have updated ID)
-            const savedAsset = result?.asset || result || rec;
+            // Merge backend response with original record to preserve all form data
+            const backendAsset = result?.asset || result || {};
+            const savedAsset = {
+              ...rec, // Keep all form data
+              ...backendAsset, // Override with backend fields (id, timestamps, etc.)
+              id: backendAsset.id || backendAsset._id || rec.id // Ensure we have an ID
+            };
+
+            console.log('🔄 [CreateAsset] Merged asset for display:', savedAsset);
+
             setRows(prev => [savedAsset, ...prev]);
+
+            // Also update localStorage to sync with AssetList
+            const currentAssets = load(K.assets(projectId), [] as AssetRecord[]);
+            const updatedAssets = [savedAsset, ...currentAssets.filter(a => a.id !== savedAsset.id)];
+            save(K.assets(projectId), updatedAssets);
 
             // Show success message
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
+
+            // Dispatch custom event to notify AssetList
+            window.dispatchEvent(new CustomEvent('asset-created'));
           } else {
             const errorText = await res.text();
             console.error('❌ [CreateAsset] Backend save failed:', res.status, errorText);
@@ -2206,15 +2265,33 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
           console.error('❌ [CreateAsset] Backend error, falling back to local storage:', backendError);
           // Fallback to local storage
           setRows(prev => [rec, ...prev]);
+
+          // Update localStorage to sync with AssetList
+          const currentAssets = load(K.assets(projectId), [] as AssetRecord[]);
+          const updatedAssets = [rec, ...currentAssets.filter(a => a.id !== rec.id)];
+          save(K.assets(projectId), updatedAssets);
+
           setSaveError('Saved locally (backend unavailable)');
           setTimeout(() => setSaveError(null), 3000);
+
+          // Dispatch custom event to notify AssetList
+          window.dispatchEvent(new CustomEvent('asset-created'));
         }
       } else {
         // No projectId, save locally only
-        console.log('💾 [CreateAsset] No projectId, saving locally only');
+        console.log('💾 [CreateAsset] No projectId, saving locally only', rec);
         setRows(prev => [rec, ...prev]);
+
+        // Update localStorage to sync with AssetList
+        const currentAssets = load(K.assets(projectId), [] as AssetRecord[]);
+        const updatedAssets = [rec, ...currentAssets.filter(a => a.id !== rec.id)];
+        save(K.assets(projectId), updatedAssets);
+
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+
+        // Dispatch custom event to notify AssetList
+        window.dispatchEvent(new CustomEvent('asset-created'));
       }
 
       // Clear draft after successful save
@@ -2446,8 +2523,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       {/* Success/Error Messages */}
       {(saveSuccess || saveError) && (
         <div className={`p-3 rounded-lg border ${saveSuccess
-            ? 'bg-green-500/10 border-green-500/50 text-green-400'
-            : 'bg-red-500/10 border-red-500/50 text-red-400'
+          ? 'bg-green-500/10 border-green-500/50 text-green-400'
+          : 'bg-red-500/10 border-red-500/50 text-red-400'
           }`}>
           <div className="flex items-center gap-2">
             {saveSuccess ? (
@@ -2480,8 +2557,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       <div className="border-t border-gray-800 pt-3">
         <button
           className={`w-full px-4 py-2 rounded text-sm font-semibold transition-colors ${isSaving
-              ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
+            ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           onClick={onSave}
           disabled={isSaving}
