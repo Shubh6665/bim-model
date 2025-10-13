@@ -10,15 +10,15 @@ import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; }
 
 // Extended Asset Record with all fields from asset_register_facility_manager_template_extended
-interface AssetRecord { 
-  id: string; 
+interface AssetRecord {
+  id: string;
   // Identification and Registry
   assetCode?: string;
   assetName?: string;
-  category?: string; 
-  type?: string; 
-  brand?: string; 
-  model?: string; 
+  category?: string;
+  type?: string;
+  brand?: string;
+  model?: string;
   serialNumber?: string;
   installationDate?: string;
   // Classification (from universal extractor)
@@ -51,7 +51,7 @@ interface AssetRecord {
   parentAsset?: string;
   location?: string;
   suppliers?: string;
-  description?: string; 
+  description?: string;
   dbId?: number | null;
   source?: 'BIM_MODEL' | 'MANUAL';
   // Optional 3D placeholder for manual assets
@@ -67,14 +67,14 @@ interface AssetRecord {
   hidden?: boolean;
 }
 
-interface SpaceRecord { 
-  id: string; 
-  level?: string; 
-  name?: string; 
-  area?: number; 
+interface SpaceRecord {
+  id: string;
+  level?: string;
+  name?: string;
+  area?: number;
   spaceCode?: string;
   building?: string;
-  description?: string; 
+  description?: string;
   source?: 'BIM_MODEL' | 'MANUAL';
   dbId?: number | null;
   // Optional 2D footprint to simulate a room in the model (planar polygon at a given Z)
@@ -83,25 +83,25 @@ interface SpaceRecord {
   conflictWithId?: string;
 }
 
-interface ScheduledItem { 
-  id: string; 
-  discipline: string; 
-  category: string; 
-  code: string; 
-  asset: string; 
-  tasks: string[]; 
-  frequency: number; 
-  timeHours: number; 
+interface ScheduledItem {
+  id: string;
+  discipline: string;
+  category: string;
+  code: string;
+  asset: string;
+  tasks: string[];
+  frequency: number;
+  timeHours: number;
 }
 
-interface TicketItem { 
-  id: string; 
+interface TicketItem {
+  id: string;
   ticketCode?: string;
   qrCode?: string;
-  requester: { 
-    name: string; 
-    surname: string; 
-    contact: string; 
+  requester: {
+    name: string;
+    surname: string;
+    contact: string;
   };
   location?: {
     building?: string;
@@ -121,8 +121,8 @@ interface TicketItem {
   createdAt?: string;
 }
 
-interface WorkOrderItem { 
-  id: string; 
+interface WorkOrderItem {
+  id: string;
   requestId?: string;
   requester?: string;
   contact?: string;
@@ -135,7 +135,7 @@ interface WorkOrderItem {
   asset?: string;
   responsibleTechnician?: string;
   company?: string;
-  status: "Open" | "Planned" | "In Progress" | "Resolved"; 
+  status: "Open" | "Planned" | "In Progress" | "Resolved";
   priority?: "High" | "Medium" | "Low";
   sourceTicketId?: string;
   comments?: Array<{
@@ -171,9 +171,9 @@ const K = {
 };
 
 function load<T>(key: string, def: T): T { if (typeof window === 'undefined') return def; try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : def; } catch { return def; } }
-function save<T>(key: string, val: T) { if (typeof window === 'undefined') return; try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function save<T>(key: string, val: T) { if (typeof window === 'undefined') return; try { localStorage.setItem(key, JSON.stringify(val)); } catch { } }
 
-const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => void }>=({label,onClick})=> (
+const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => void }> = ({ label, onClick }) => (
   <button onClick={onClick} className={"w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-300 hover:text-white hover:bg-gray-800"}>{label}</button>
 );
 
@@ -192,13 +192,13 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
   // Remote drawing bridge (main window only)
   const remoteActiveRef = useRef(false);
-  const remotePointsRef = useRef<{ x:number; y:number; z:number }[]>([]);
+  const remotePointsRef = useRef<{ x: number; y: number; z: number }[]>([]);
   const remoteBaseZRef = useRef<number | null>(null);
   const remoteOverlay = 'fm-remote-footprint-preview';
-  const remoteHoverRef = useRef<{ x:number; y:number; z:number } | null>(null);
+  const remoteHoverRef = useRef<{ x: number; y: number; z: number } | null>(null);
   // Remote placement (manual asset) bridge
   const remotePlaceActiveRef = useRef(false);
-  const remotePlaceAssetRef = useRef<{ assetId: string; shape: 'cube'|'sphere'; size: number } | null>(null);
+  const remotePlaceAssetRef = useRef<{ assetId: string; shape: 'cube' | 'sphere'; size: number } | null>(null);
   const remotePlaceOverlayElRef = useRef<HTMLElement | null>(null);
   const remotePlaceOverlayChildRef = useRef<HTMLElement | null>(null);
   const remotePlacePrevDisplayRef = useRef<string | null>(null);
@@ -214,41 +214,41 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         children.forEach(ch => scene.remove(ch));
         viewer.impl.invalidate(true);
       }
-    } catch {}
+    } catch { }
   };
   // Remote helpers
   const remoteWorldOnZ = (clientX: number, clientY: number, z: number) => {
     const THREE = (window as any).THREE;
     if (!THREE || !viewer?.impl?.camera) return null;
-    
+
     // Get proper canvas bounds
     const canvas = viewer.impl.canvas || viewer.container;
     const rect = canvas.getBoundingClientRect();
-    
+
     // Normalize to [-1, 1] NDC space
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    
+
     const camera = viewer.impl.camera;
-    
+
     // Create ray from camera through mouse position
     const mouse = new THREE.Vector3(x, y, 0.5);
     mouse.unproject(camera);
-    
+
     const origin = camera.position.clone();
     const dir = mouse.sub(origin).normalize();
-    
+
     // Intersect ray with horizontal plane at z
     const EPS = 1e-6;
     if (Math.abs(dir.z) < EPS) return null; // parallel to plane
-    
+
     const t = (z - origin.z) / dir.z;
     if (!isFinite(t) || t < 0) return null; // behind camera
-    
+
     const point = origin.clone().add(dir.clone().multiplyScalar(t));
     return point;
   };
-  const remoteIsNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
+  const remoteIsNearFirst = (p: { x: number; y: number; z: number }, eps = 0.4) => {
     if (remotePointsRef.current.length < 1) return false;
     const a = remotePointsRef.current[0];
     const dx = p.x - a.x, dy = p.y - a.y;
@@ -303,7 +303,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         viewer.impl.addOverlay(remoteOverlay, mesh);
       }
       viewer.impl.invalidate(true);
-    } catch {}
+    } catch { }
   };
   const remoteOnViewerMove = (ev: MouseEvent) => {
     try {
@@ -324,7 +324,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         remoteHoverRef.current = { x: p.x, y: p.y, z };
       }
       remoteDrawPreview();
-    } catch {}
+    } catch { }
   };
   const remoteOnViewerClick = (ev: MouseEvent) => {
     try {
@@ -340,7 +340,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       if (!p) return;
       if (remotePointsRef.current.length >= 3 && remoteIsNearFirst(p)) {
         // auto finish
-        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch {}
+        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch { }
         remoteDetach();
         return;
       }
@@ -348,16 +348,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       remotePointsRef.current.push(point);
       childWinRef.current?.postMessage?.({ type: 'FM_DRAW_POINT', point }, '*');
       remoteDrawPreview();
-    } catch {}
+    } catch { }
   };
   const remoteOnViewerDblClick = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !remoteActiveRef.current) return;
       if (remotePointsRef.current.length >= 3) {
-        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch {}
+        try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch { }
         remoteDetach();
       }
-    } catch {}
+    } catch { }
   };
   const remoteAttach = () => {
     try {
@@ -369,9 +369,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       viewer.container?.addEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', remoteOnViewerMove as any, true);
       viewer.container?.addEventListener('dblclick', remoteOnViewerDblClick as any, true);
-      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch {}
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch { }
       if (!viewer.impl.overlayScenes?.[remoteOverlay]) viewer.impl.createOverlayScene(remoteOverlay);
-    } catch {}
+    } catch { }
   };
   const remoteDetach = () => {
     try {
@@ -379,19 +379,19 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       viewer.container?.removeEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.removeEventListener('mousemove', remoteOnViewerMove as any, true);
       viewer.container?.removeEventListener('dblclick', remoteOnViewerDblClick as any, true);
-      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch {}
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch { }
       remoteActiveRef.current = false;
       remoteHoverRef.current = null;
       remoteClearOverlay();
-    } catch {}
+    } catch { }
   };
 
   // Remote placement handlers (single-point manual asset)
   const remotePlaceOnKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      try { (childWinRef.current as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch {}
+      try { (childWinRef.current as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch { }
       // cleanup
-      try { if (viewer?.container) { (viewer.container as HTMLElement).style.cursor = 'default'; } } catch {}
+      try { if (viewer?.container) { (viewer.container as HTMLElement).style.cursor = 'default'; } } catch { }
       viewer?.container?.removeEventListener('click', remotePlaceOnClick as any, true);
       window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
       remotePlaceActiveRef.current = false;
@@ -406,7 +406,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
           if (remotePlacePrevBgRef.current != null) ov.style.backgroundColor = remotePlacePrevBgRef.current;
         }
         if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
-      } catch {}
+      } catch { }
     }
   };
   const remotePlaceOnClick = async (ev: MouseEvent) => {
@@ -428,9 +428,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         // Fallback: use current aggregate selection center
         let dbId: number | undefined; let model: any = viewer.model;
         const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
-        if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
-        else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
-        if (dbId!=null && model) {
+        if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+        else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
+        if (dbId != null && model) {
           const THREE = (window as any).THREE;
           const frags = model.getFragmentList?.();
           if (THREE && frags) {
@@ -459,9 +459,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
           (viewer as any)._fmOverlayCreated = true;
         }
         const size = payload?.size ?? 0.3;
-        const geom = (payload?.shape||'cube')==='sphere' 
-          ? new THREE.SphereGeometry(size/2, 12, 12)
-          : new THREE.BoxGeometry(size,size,size);
+        const geom = (payload?.shape || 'cube') === 'sphere'
+          ? new THREE.SphereGeometry(size / 2, 12, 12)
+          : new THREE.BoxGeometry(size, size, size);
         const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
         const mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(pt.x, pt.y, pt.z);
@@ -471,20 +471,20 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       // derive human-friendly location
       let newLocation: string | undefined;
       try {
-        if (locModel && locDbId!=null) {
+        if (locModel && locDbId != null) {
           const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
           const getVal = (names: string[]): string | undefined => {
-            const lower = names.map(n=>n.toLowerCase());
-            const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+            const lower = names.map(n => n.toLowerCase());
+            const p = props?.properties?.find((p: any) => { const dn = p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n => dn.includes(n))); });
             return p?.displayValue?.toString();
           };
           const building = getVal(['Building']);
-          const level = getVal(['Level','Reference Level']);
-          const room = getVal(['Room','Space']);
+          const level = getVal(['Level', 'Reference Level']);
+          const room = getVal(['Room', 'Space']);
           const parts = [building, level, room].filter(Boolean) as string[];
           if (parts.length) newLocation = parts.join(' - ');
         }
-      } catch {}
+      } catch { }
       // Fallback: AEC LevelsExtension by Z if properties didn't yield a level
       if (!newLocation) {
         try {
@@ -492,10 +492,10 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
           const floorData = lev?.floorSelector?.floorData;
           if (floorData && floorData.length) {
             const z = pt.z;
-            const matched = floorData.find((f:any)=> (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
+            const matched = floorData.find((f: any) => (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
             if (matched) newLocation = [matched.building || undefined, matched.name || matched.label || undefined].filter(Boolean).join(' - ');
           }
-        } catch {}
+        } catch { }
       }
       // notify child window
       try {
@@ -505,9 +505,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
           point: { x: pt.x, y: pt.y, z: pt.z },
           location: newLocation
         }, '*');
-      } catch {}
+      } catch { }
       // cleanup
-      try { if (container) { container.style.cursor = 'default'; if (canvas) canvas.style.cursor = 'default'; } } catch {}
+      try { if (container) { container.style.cursor = 'default'; if (canvas) canvas.style.cursor = 'default'; } } catch { }
       viewer.container?.removeEventListener('click', remotePlaceOnClick as any, true);
       window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
       remotePlaceActiveRef.current = false;
@@ -517,26 +517,26 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         const ovChild = remotePlaceOverlayChildRef.current;
         if (ov) ov.style.pointerEvents = '';
         if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
-      } catch {}
-    } catch {}
+      } catch { }
+    } catch { }
   };
-  const remotePlaceAttach = (payload: { assetId: string; shape: 'cube'|'sphere'; size: number }) => {
+  const remotePlaceAttach = (payload: { assetId: string; shape: 'cube' | 'sphere'; size: number }) => {
     try {
       if (!viewer || remotePlaceActiveRef.current) return;
       remotePlaceAssetRef.current = payload;
       remotePlaceActiveRef.current = true;
       // crosshair cursor
-      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch {}
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch { }
       viewer.container?.addEventListener('click', remotePlaceOnClick as any, true);
       window.addEventListener('keydown', remotePlaceOnKeyDown as any, true);
-    } catch {}
+    } catch { }
   };
   const remotePlaceDetach = () => {
     try {
       if (!viewer) return;
       viewer.container?.removeEventListener('click', remotePlaceOnClick as any, true);
       window.removeEventListener('keydown', remotePlaceOnKeyDown as any, true);
-      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch {}
+      try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch { }
       remotePlaceActiveRef.current = false;
       remotePlaceAssetRef.current = null;
       // restore overlay
@@ -545,8 +545,8 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         const ovChild = remotePlaceOverlayChildRef.current;
         if (ov) ov.style.pointerEvents = '';
         if (ovChild) ovChild.style.display = remotePlacePrevDisplayRef.current ?? '';
-      } catch {}
-    } catch {}
+      } catch { }
+    } catch { }
   };
 
   const modalTitle = React.useMemo(() => {
@@ -572,7 +572,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       setSection({ group: 'spaces', item: 'space-list' });
     }
     if (showModal) {
-      try { setModalPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); } catch {}
+      try { setModalPos({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); } catch { }
     }
   }, [showModal, isStandalone, section]);
 
@@ -584,11 +584,11 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       if (!d || typeof d !== 'object') return;
       if (d.type === 'FM_DRAW_START') {
         if (!viewer) {
-          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch { }
           return;
         }
         // Remember sender as our child window for point streaming
-        try { childWinRef.current = (e.source as Window) || null; } catch {}
+        try { childWinRef.current = (e.source as Window) || null; } catch { }
         remoteAttach();
       } else if (d.type === 'FM_DRAW_UNDO') {
         // Remove last point and update preview
@@ -598,20 +598,20 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         if (!viewer) return;
         const pts = remotePointsRef.current;
         if (pts.length >= 3) {
-          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_DONE', points: pts }, '*'); } catch {}
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_DONE', points: pts }, '*'); } catch { }
         } else {
-          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NOT_ENOUGH_POINTS' }, '*'); } catch {}
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NOT_ENOUGH_POINTS' }, '*'); } catch { }
         }
         remoteDetach();
       } else if (d.type === 'FM_DRAW_CANCEL') {
-        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED' }, '*'); } catch {}
+        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED' }, '*'); } catch { }
         remoteDetach();
       } else if (d.type === 'FM_PLACE_START') {
         if (!viewer) {
-          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch { }
           return;
         }
-        try { childWinRef.current = (e.source as Window) || null; } catch {}
+        try { childWinRef.current = (e.source as Window) || null; } catch { }
         // Disable modal overlay interactions and hide modal panel while placing from child window
         try {
           const ov = document.getElementById('fm-modal-overlay') as HTMLElement | null;
@@ -632,34 +632,34 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               ovChild.style.display = 'none';
             }
           }
-        } catch {}
+        } catch { }
         const payload = {
           assetId: d.assetId as string,
-          shape: (d.shape as 'cube'|'sphere') || 'cube',
-          size: (typeof d.size === 'number' && d.size>0 ? d.size : 0.3)
+          shape: (d.shape as 'cube' | 'sphere') || 'cube',
+          size: (typeof d.size === 'number' && d.size > 0 ? d.size : 0.3)
         };
         remotePlaceAttach(payload);
       } else if (d.type === 'FM_PLACE_CANCEL') {
-        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch {}
+        try { (e.source as Window | null)?.postMessage?.({ type: 'FM_PLACE_CANCELLED' }, '*'); } catch { }
         remotePlaceDetach();
       } else if (d.type === 'FM_SELECT_OBJECT_START') {
         // Handle object selection request from standalone ticket form
         if (!viewer) {
-          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch {}
+          try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch { }
           return;
         }
-        
-        try { childWinRef.current = (e.source as Window) || null; } catch {}
-        
+
+        try { childWinRef.current = (e.source as Window) || null; } catch { }
+
         // Get current selection
         viewer.getAggregateSelection?.((selectionData: any) => {
           // Handle both array and single model object
           let model: any;
           let selectedIds: number[] = [];
-          
+
           if (Array.isArray(selectionData)) {
             if (selectionData.length === 0) {
-              try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+              try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch { }
               return;
             }
             const firstItem = selectionData[0];
@@ -669,35 +669,35 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             model = selectionData;
             selectedIds = model.selector?.getSelection?.() || [];
           } else {
-            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch { }
             return;
           }
-          
+
           if (!selectedIds || selectedIds.length === 0) {
-            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch {}
+            try { (e.source as Window | null)?.postMessage?.({ type: 'FM_SELECTION_CANCELLED', reason: 'NO_SELECTION' }, '*'); } catch { }
             return;
           }
-          
+
           const dbId = selectedIds[0];
-          
+
           // Get object properties
           model.getProperties(dbId, (props: any) => {
             const getProp = (names: string[]): string | undefined => {
-              const lower = names.map((n:string)=>n.toLowerCase());
-              const p = props?.properties?.find((p:any)=>{ 
-                const dn=p.displayName?.toLowerCase?.(); 
-                return dn && (lower.includes(dn) || lower.some((n:string)=> dn.includes(n))); 
+              const lower = names.map((n: string) => n.toLowerCase());
+              const p = props?.properties?.find((p: any) => {
+                const dn = p.displayName?.toLowerCase?.();
+                return dn && (lower.includes(dn) || lower.some((n: string) => dn.includes(n)));
               });
               return p?.displayValue?.toString();
             };
-            
+
             const name = props?.name || getProp(['Name']);
             const category = getProp(['Category']);
-            const level = getProp(['Level','Reference Level']);
-            let room = getProp(['Room','Space']);
-            const spaceCode = getProp(['Space Code','Number','Mark']);
+            const level = getProp(['Level', 'Reference Level']);
+            let room = getProp(['Room', 'Space']);
+            const spaceCode = getProp(['Space Code', 'Number', 'Mark']);
             const building = getProp(['Building']);
-            
+
             // Use spatial bounding as fallback for room detection (check for empty string too)
             if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
               try {
@@ -710,7 +710,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                 console.warn('[Prefill] Spatial bounding fallback failed', err);
               }
             }
-            
+
             // Send data back to standalone window
             try {
               (e.source as Window | null)?.postMessage?.({
@@ -807,12 +807,12 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     if (!section || !section.item) {
       // Show which menu is selected
       const menuName = section?.group === 'assets' ? 'Assets' :
-                       section?.group === 'spaces' ? 'Spaces' :
-                       section?.group === 'maintenance' ? 'Maintenance' :
-                       section?.group === 'work-orders' ? 'Work Orders' :
-                       section?.group === 'upcoming-activities' ? 'Upcoming Maintenance Activities' :
-                       'FM Tools';
-      
+        section?.group === 'spaces' ? 'Spaces' :
+          section?.group === 'maintenance' ? 'Maintenance' :
+            section?.group === 'work-orders' ? 'Work Orders' :
+              section?.group === 'upcoming-activities' ? 'Upcoming Maintenance Activities' :
+                'FM Tools';
+
       return (
         <div className="text-center py-8">
           <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-600" />
@@ -832,7 +832,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
     if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
     if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} />;
-    
+
     return null;
   };
 
@@ -847,7 +847,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       <div className="p-3 space-y-1.5 border-b border-gray-800">
         {/* Assets */}
         <button
-          onClick={() => { 
+          onClick={() => {
             setSection({ group: 'assets', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
@@ -858,7 +858,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
         {/* Spaces */}
         <button
-          onClick={() => { 
+          onClick={() => {
             setSection({ group: 'spaces', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
@@ -869,7 +869,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
         {/* Maintenance */}
         <button
-          onClick={() => { 
+          onClick={() => {
             setSection({ group: 'maintenance', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
@@ -880,7 +880,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
         {/* Work Orders */}
         <button
-          onClick={() => { 
+          onClick={() => {
             setSection({ group: 'work-orders', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
@@ -891,7 +891,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
         {/* Upcoming Maintenance Activities */}
         <button
-          onClick={() => { 
+          onClick={() => {
             setSection({ group: 'upcoming-activities', item: null });
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
@@ -913,29 +913,27 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section.group === 'work-orders' && 'Work Order Management'}
               {section.group === 'upcoming-activities' && 'Activity Planning'}
             </div>
-            
+
             {/* Submenu for selected group */}
             <div className="space-y-1.5">
               {section.group === 'assets' && (
                 <>
                   <button
-                    onClick={() => { setSection({group:'assets',item:'asset-list'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='asset-list' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'assets', item: 'asset-list' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'asset-list'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Asset list
                   </button>
                   <button
-                    onClick={() => { setSection({group:'assets',item:'create-asset'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='create-asset' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'assets', item: 'create-asset' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'create-asset'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Create new asset
@@ -945,23 +943,21 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section.group === 'spaces' && (
                 <>
                   <button
-                    onClick={() => { setSection({group:'spaces',item:'space-list'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='space-list' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'spaces', item: 'space-list' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'space-list'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Space list
                   </button>
                   <button
-                    onClick={() => { setSection({group:'spaces',item:'create-space'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='create-space' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'spaces', item: 'create-space' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'create-space'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Create new space
@@ -971,23 +967,21 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section.group === 'maintenance' && (
                 <>
                   <button
-                    onClick={() => { setSection({group:'maintenance',item:'scheduled'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='scheduled' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'maintenance', item: 'scheduled' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'scheduled'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Scheduled maintenance
                   </button>
                   <button
-                    onClick={() => { setSection({group:'maintenance',item:'ticket'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='ticket' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'maintenance', item: 'ticket' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'ticket'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Ticket-based maintenance
@@ -997,23 +991,21 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section.group === 'work-orders' && (
                 <>
                   <button
-                    onClick={() => { setSection({group:'work-orders',item:'service-requests'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='service-requests' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'work-orders', item: 'service-requests' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'service-requests'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Service requests
                   </button>
                   <button
-                    onClick={() => { setSection({group:'work-orders',item:'reports'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='reports' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'work-orders', item: 'reports' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'reports'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Maintenance reports
@@ -1023,23 +1015,21 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               {section.group === 'upcoming-activities' && (
                 <>
                   <button
-                    onClick={() => { setSection({group:'upcoming-activities',item:'ongoing'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='ongoing' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'upcoming-activities', item: 'ongoing' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'ongoing'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Ongoing maintenance
                   </button>
                   <button
-                    onClick={() => { setSection({group:'upcoming-activities',item:'planned'}); if(!isStandalone) setShowModal(true); }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                      section.item==='planned' 
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                        : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
-                    }`}
+                    onClick={() => { setSection({ group: 'upcoming-activities', item: 'planned' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${section.item === 'planned'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Planned maintenance
@@ -1078,9 +1068,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
           <div
             ref={modalRef}
             className="absolute bg-gray-800 rounded-lg shadow-xl mx-4 flex flex-col border border-gray-700"
-            style={{ 
-              left: modalPos.x, 
-              top: modalPos.y, 
+            style={{
+              left: modalPos.x,
+              top: modalPos.y,
               transform: 'translate(-50%, -50%)',
               width: `${modalSize.width}px`,
               height: `${modalSize.height}px`,
@@ -1096,9 +1086,9 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               <div>
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
               </div>
-              <div className="flex items-center gap-2" onMouseDown={(e)=> e.stopPropagation()}>
+              <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
                 <button
-                  onClick={()=>setShowModal(false)}
+                  onClick={() => setShowModal(false)}
                   className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
                   aria-label="Close"
                   title="Close"
@@ -1148,10 +1138,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '' });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [toast, setToast] = useState<{type:'success'|'error'|'info', text:string}|null>(null);
-  const showToast = (type: 'success'|'error'|'info', text: string) => {
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
+  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
     setToast({ type, text });
-    window.setTimeout(()=> setToast(null), 3500);
+    window.setTimeout(() => setToast(null), 3500);
   };
 
   // Load assets from backend (preferred), fallback to localStorage
@@ -1161,7 +1151,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         console.log('📭 [AssetList] No projectId, skipping backend load');
         return;
       }
-      
+
       console.log(`🔄 [AssetList] Loading assets from backend for project: ${projectId}`);
       try {
         const res = await fetch(`/api/projects/${projectId}/assets`);
@@ -1183,11 +1173,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
         console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage`);
         setRows(cached);
-      } catch {}
+      } catch { }
     };
     loadFromBackend();
   }, [projectId]);
-  
+
   // Deduplicate any pre-existing duplicates on initial load
   useEffect(() => {
     setRows(prev => {
@@ -1199,7 +1189,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       return prev;
     });
   }, [projectId]);
-  
+
   // BIM Asset Extraction
   const extractAssetsFromBIM = async () => {
     if (!viewer || !viewer.model) {
@@ -1214,7 +1204,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       console.log('🚀 [AssetList] Starting asset extraction...');
       const { ImprovedAssetExtractor } = await import('../services/improved-asset-extractor');
       const extractor = new ImprovedAssetExtractor(viewer);
-      
+
       const improvedAssets = await extractor.extractAllAssets((progress, found, total) => {
         setExtractionProgress(progress);
       });
@@ -1246,7 +1236,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const length = getProp(props, ['Length']) || undefined;
         const width = getProp(props, ['Width']) || undefined;
         const height = getProp(props, ['Height', 'Thickness']) || undefined;
-        const dimensions = (length || width || height) ? `${length||''} x ${width||''} x ${height||''}`.replace(/\s+x\s+x\s+/,'').trim() : undefined;
+        const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
         return {
           id: asset.id,
@@ -1277,7 +1267,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // Merge with existing manual assets
       console.log('🔄 [AssetList] Merging with existing assets...');
       const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
-      const keyOf = (a: AssetRecord) => `${(a.category||'').toLowerCase()}|${(a.location||'').toLowerCase()}|${(a.model||a.assetName||'').toLowerCase()}`;
+      const keyOf = (a: AssetRecord) => `${(a.category || '').toLowerCase()}|${(a.location || '').toLowerCase()}|${(a.model || a.assetName || '').toLowerCase()}`;
 
       // Basic conflict detection (manual vs BIM)
       const manualMap = new Map<string, AssetRecord>();
@@ -1312,19 +1302,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'upsertMany', assets: newAssets })
           });
-          
+
           if (!saveRes.ok) {
             const errorText = await saveRes.text();
             console.error('❌ [AssetList] Backend save failed:', saveRes.status, errorText);
             throw new Error(`Save failed with status ${saveRes.status}`);
           }
-          
+
           const saveResult = await saveRes.json();
           console.log('✅ [AssetList] Assets saved to backend successfully:', saveResult);
-          
+
           // Wait a bit to ensure database write is complete
           await new Promise(resolve => setTimeout(resolve, 500));
-          
+
           // Reload from backend to get normalized ids and timestamps
           console.log('🔄 [AssetList] Reloading assets from backend...');
           const res = await fetch(`/api/projects/${projectId}/assets`);
@@ -1353,9 +1343,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         setRows(uniqueById);
         save(K.assets(projectId), uniqueById);
       }
-      
+
       console.log('✅ [AssetList] Asset extraction and save complete!');
-      
+
       const breakdown = Object.entries(
         newAssets.reduce((acc, asset) => {
           const type = asset.assetClassification || 'Other';
@@ -1363,7 +1353,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           return acc;
         }, {} as Record<string, number>)
       ).map(([type, count]) => `${type}: ${count}`).join(' • ');
-      
+
       showToast('success', `Extracted ${newAssets.length} assets. ${breakdown}`);
 
     } catch (error) {
@@ -1375,13 +1365,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       setExtractionProgress(0);
     }
   };
-  
-  const onRowClick = (r: AssetRecord) => { 
-    try { 
+
+  const onRowClick = (r: AssetRecord) => {
+    try {
       if (!viewer) return;
       if (r.dbId != null) {
-        viewer.select?.([r.dbId]); 
-        viewer.fitToView?.([r.dbId]); 
+        viewer.select?.([r.dbId]);
+        viewer.fitToView?.([r.dbId]);
         return;
       }
       // Manual asset: frame placeholder if available
@@ -1397,72 +1387,72 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           viewer.impl?.invalidate(true);
         }
       }
-    } catch {} 
+    } catch { }
   };
 
   // Conflict resolution modal state
-  const [conflictModal, setConflictModal] = useState<{open:boolean; manualId?:string; bimId?:string}>({open:false});
+  const [conflictModal, setConflictModal] = useState<{ open: boolean; manualId?: string; bimId?: string }>({ open: false });
 
   const openConflictResolver = (row: AssetRecord) => {
     const otherId = row.conflictWithId;
     if (!otherId) return;
-    const other = rows.find(x=>x.id===otherId);
+    const other = rows.find(x => x.id === otherId);
     if (!other) return;
-    const manual = row.source==='MANUAL' ? row : (other.source==='MANUAL'? other : undefined);
-    const bim = row.source==='BIM_MODEL' ? row : (other.source==='BIM_MODEL'? other : undefined);
+    const manual = row.source === 'MANUAL' ? row : (other.source === 'MANUAL' ? other : undefined);
+    const bim = row.source === 'BIM_MODEL' ? row : (other.source === 'BIM_MODEL' ? other : undefined);
     if (!manual || !bim) return;
-    setConflictModal({open:true, manualId: manual.id, bimId: bim.id});
+    setConflictModal({ open: true, manualId: manual.id, bimId: bim.id });
   };
 
   const resolveLink = () => {
     if (!conflictModal.manualId || !conflictModal.bimId) return;
-    setRows(prev=>prev.map(r=>{
-      if (r.id===conflictModal.manualId) return {...r, linkedAssetId: conflictModal.bimId, conflictWithId: undefined};
-      if (r.id===conflictModal.bimId) return {...r, conflictWithId: undefined};
+    setRows(prev => prev.map(r => {
+      if (r.id === conflictModal.manualId) return { ...r, linkedAssetId: conflictModal.bimId, conflictWithId: undefined };
+      if (r.id === conflictModal.bimId) return { ...r, conflictWithId: undefined };
       return r;
     }));
-    setConflictModal({open:false});
+    setConflictModal({ open: false });
   };
 
   const resolveMerge = () => {
     if (!conflictModal.manualId || !conflictModal.bimId) return;
-    setRows(prev=>{
-      const manual = prev.find(r=>r.id===conflictModal.manualId)!;
-      const bim = prev.find(r=>r.id===conflictModal.bimId)!;
+    setRows(prev => {
+      const manual = prev.find(r => r.id === conflictModal.manualId)!;
+      const bim = prev.find(r => r.id === conflictModal.bimId)!;
       const merged: AssetRecord = {
         ...manual,
-        brand: manual.brand||bim.brand,
-        model: manual.model||bim.model,
-        serialNumber: manual.serialNumber||bim.serialNumber,
-        installationDate: manual.installationDate||bim.installationDate,
-        material: manual.material||bim.material,
-        dimensions: manual.dimensions||bim.dimensions,
-        weight: manual.weight||bim.weight,
-        capacity: manual.capacity||bim.capacity,
-        powerRating: manual.powerRating||bim.powerRating,
+        brand: manual.brand || bim.brand,
+        model: manual.model || bim.model,
+        serialNumber: manual.serialNumber || bim.serialNumber,
+        installationDate: manual.installationDate || bim.installationDate,
+        material: manual.material || bim.material,
+        dimensions: manual.dimensions || bim.dimensions,
+        weight: manual.weight || bim.weight,
+        capacity: manual.capacity || bim.capacity,
+        powerRating: manual.powerRating || bim.powerRating,
         description: manual.description || bim.description,
         conflictWithId: undefined,
         linkedAssetId: bim.id
       };
-      return prev.map(r=>{
-        if (r.id===manual.id) return merged;
-        if (r.id===bim.id) return {...r, hidden:true, conflictWithId: undefined};
+      return prev.map(r => {
+        if (r.id === manual.id) return merged;
+        if (r.id === bim.id) return { ...r, hidden: true, conflictWithId: undefined };
         return r;
       });
     });
-    setConflictModal({open:false});
+    setConflictModal({ open: false });
   };
 
   const resolveKeepBoth = () => {
     if (!conflictModal.manualId || !conflictModal.bimId) return;
-    setRows(prev=>prev.map(r=> (r.id===conflictModal.manualId || r.id===conflictModal.bimId) ? {...r, conflictWithId: undefined} : r));
-    setConflictModal({open:false});
+    setRows(prev => prev.map(r => (r.id === conflictModal.manualId || r.id === conflictModal.bimId) ? { ...r, conflictWithId: undefined } : r));
+    setConflictModal({ open: false });
   };
-  
+
   const toggleField = (field: keyof typeof visibleFields) => {
     setVisibleFields(prev => ({ ...prev, [field]: !prev[field] }));
   };
-  
+
   // Build distinct option lists for dropdown filters
   const distinct = {
     categories: Array.from(new Set(rows.map(r => r.category).filter(Boolean))).sort() as string[],
@@ -1478,7 +1468,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
     if (filter.location && !r.location?.toLowerCase().includes(filter.location.toLowerCase())) return false;
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
-    if (filter.classification && (r.assetClassification||'').toLowerCase() !== filter.classification.toLowerCase()) return false;
+    if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
   });
 
@@ -1491,7 +1481,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const paginatedRows = filteredRows.slice(startIndex, endIndex);
-  
+
   const applyFilterToViewer = () => {
     if (!viewer || filteredRows.length === 0) return;
     const dbIds = filteredRows.filter(r => r.dbId != null).map(r => r.dbId as number);
@@ -1504,15 +1494,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Export CSV of current assets
   const exportCSV = () => {
     const headers = [
-      'id','assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
-      'material','dimensions','weight','capacity','powerRating','location','condition','source'
+      'id', 'assetCode', 'assetName', 'category', 'type', 'brand', 'model', 'serialNumber', 'installationDate',
+      'material', 'dimensions', 'weight', 'capacity', 'powerRating', 'location', 'condition', 'source'
     ];
     const lines = [headers.join(',')];
     rows.forEach(r => {
       const vals = headers.map(h => {
         const v = (r as any)[h];
-        const s = (v==null?'' : String(v));
-        return '"' + s.replace(/"/g,'""') + '"';
+        const s = (v == null ? '' : String(v));
+        return '"' + s.replace(/"/g, '""') + '"';
       });
       lines.push(vals.join(','));
     });
@@ -1540,35 +1530,35 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const targetH = Math.max(260, Math.min(420, Math.floor(sh * 0.35)));
           window.resizeTo(targetW, targetH);
           window.moveTo(sw - targetW - 10, 10);
-        } catch {}
+        } catch { }
         // One-off listener for placement result
         const onMsg = (e: MessageEvent) => {
           const d: any = e.data;
           if (!d || typeof d !== 'object') return;
           if (d.type === 'FM_PLACE_DONE' && d.assetId === r.id && d.point) {
             try {
-              setRows(prev => prev.map(a => a.id===r.id
+              setRows(prev => prev.map(a => a.id === r.id
                 ? { ...a, placeholderX: d.point.x, placeholderY: d.point.y, placeholderZ: d.point.z, location: d.location ?? a.location }
                 : a
               ));
             } finally {
               window.removeEventListener('message', onMsg);
               // restore window
-              try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+              try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch { }
               setPlacingAssetId(null);
             }
           } else if (d.type === 'FM_PLACE_CANCELLED') {
             window.removeEventListener('message', onMsg);
-            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch { }
             setPlacingAssetId(null);
           }
         };
         window.addEventListener('message', onMsg);
         // Send start with preferred shape/size
-        const shape = (r.placeholderShape||'cube') as 'cube'|'sphere';
+        const shape = (r.placeholderShape || 'cube') as 'cube' | 'sphere';
         const size = (r.placeholderSize ?? 0.3) as number;
         opener.postMessage({ type: 'FM_PLACE_START', assetId: r.id, shape, size }, '*');
-      } catch {}
+      } catch { }
       return;
     }
     // In-viewer placement (main window)
@@ -1595,7 +1585,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           overlayChildEl.style.display = 'none';
         }
       }
-    } catch {}
+    } catch { }
     const container = viewer.container as HTMLElement;
     // Ensure crosshair cursor globally for the viewer container
     try {
@@ -1605,7 +1595,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         style.textContent = `.fm-placing, .fm-placing * { cursor: crosshair !important; }`;
         document.head.appendChild(style);
       }
-    } catch {}
+    } catch { }
     container.classList.add('fm-placing');
     container.style.cursor = 'crosshair';
     const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
@@ -1625,7 +1615,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (prevBg != null) { overlayEl.style.background = prevBg; overlayEl.style.backgroundColor = prevBg; }
         }
         if (overlayChildEl) overlayChildEl.style.display = prevChildDisplay ?? '';
-      } catch {}
+      } catch { }
       setPlacingAssetId(null);
     };
     const onClick = async (ev: MouseEvent) => {
@@ -1641,9 +1631,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           // Fallback: place on currently selected object center (aggregate safe)
           let dbId: number | undefined; let model: any = viewer.model;
           const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
-          if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
-          else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
-          if (dbId!=null && model) {
+          if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+          else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
+          if (dbId != null && model) {
             const THREE = (window as any).THREE;
             const frags = model.getFragmentList?.();
             if (THREE && frags) {
@@ -1673,9 +1663,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             (viewer as any)._fmOverlayCreated = true;
           }
           const size = r.placeholderSize ?? 0.3;
-          const geom = (r.placeholderShape||'cube')==='sphere' 
-            ? new THREE.SphereGeometry(size/2, 12, 12)
-            : new THREE.BoxGeometry(size,size,size);
+          const geom = (r.placeholderShape || 'cube') === 'sphere'
+            ? new THREE.SphereGeometry(size / 2, 12, 12)
+            : new THREE.BoxGeometry(size, size, size);
           const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.set(pt.x, pt.y, pt.z);
@@ -1685,20 +1675,20 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         // derive location from properties if possible (Level / Room / Building)
         let newLocation: string | undefined;
         try {
-          if (locModel && locDbId!=null) {
+          if (locModel && locDbId != null) {
             const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
             const getVal = (names: string[]): string | undefined => {
-              const lower = names.map(n=>n.toLowerCase());
-              const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+              const lower = names.map(n => n.toLowerCase());
+              const p = props?.properties?.find((p: any) => { const dn = p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n => dn.includes(n))); });
               return p?.displayValue?.toString();
             };
             const building = getVal(['Building']);
-            const level = getVal(['Level','Reference Level']);
-            const room = getVal(['Room','Space']);
+            const level = getVal(['Level', 'Reference Level']);
+            const room = getVal(['Room', 'Space']);
             const parts = [building, level, room].filter(Boolean) as string[];
             if (parts.length) newLocation = parts.join(' - ');
           }
-        } catch {}
+        } catch { }
         // Fallback: AEC LevelsExtension by Z if properties didn't yield a level
         if (!newLocation) {
           try {
@@ -1706,16 +1696,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             const floorData = lev?.floorSelector?.floorData;
             if (floorData && floorData.length) {
               const z = pt.z;
-              const matched = floorData.find((f:any)=> (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
+              const matched = floorData.find((f: any) => (z >= (f.zMin ?? -Infinity)) && (z <= (f.zMax ?? Infinity)));
               if (matched) newLocation = [matched.building || undefined, matched.name || matched.label || undefined].filter(Boolean).join(' - ');
             }
-          } catch {}
+          } catch { }
         }
 
         // store coordinates (and location if found)
-        setRows(prev => prev.map(a => a.id===r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? a.location } : a));
+        setRows(prev => prev.map(a => a.id === r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? a.location } : a));
         finish();
-      } catch {}
+      } catch { }
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -1731,7 +1721,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             if (prevBg != null) { overlayEl.style.background = prevBg; overlayEl.style.backgroundColor = prevBg; }
           }
           if (overlayChildEl) overlayChildEl.style.display = prevChildDisplay ?? '';
-        } catch {}
+        } catch { }
         setPlacingAssetId(null);
       }
     };
@@ -1740,12 +1730,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   };
 
   // Persist asset rows on change (dedicated effect avoids stale saves)
-  useEffect(()=>{
+  useEffect(() => {
     save(K.assets(projectId), rows);
-  },[rows, projectId]);
+  }, [rows, projectId]);
 
   // Rehydrate overlays from saved rows (after refresh or any change)
-  useEffect(()=>{
+  useEffect(() => {
     if (!viewer) return;
     const THREE = (window as any).THREE;
     if (!THREE) return;
@@ -1755,12 +1745,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         (viewer as any)._fmOverlayCreated = true;
       }
       viewer.impl.clearOverlay('fm-placeholders');
-      rows.forEach(r=>{
-        if (r.placeholderX!=null && r.placeholderY!=null && r.placeholderZ!=null) {
+      rows.forEach(r => {
+        if (r.placeholderX != null && r.placeholderY != null && r.placeholderZ != null) {
           const size = r.placeholderSize ?? 0.3;
-          const geom = (r.placeholderShape||'cube')==='sphere' 
-            ? new THREE.SphereGeometry(size/2, 12, 12)
-            : new THREE.BoxGeometry(size,size,size);
+          const geom = (r.placeholderShape || 'cube') === 'sphere'
+            ? new THREE.SphereGeometry(size / 2, 12, 12)
+            : new THREE.BoxGeometry(size, size, size);
           const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
@@ -1768,9 +1758,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         }
       });
       viewer.impl.invalidate(true);
-    } catch {}
+    } catch { }
   }, [viewer, rows]);
-  
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
@@ -1778,23 +1768,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <div className="text-white font-semibold text-sm">Asset List</div>
           <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
         </div>
-        
+
         {/* BIM Asset Extraction */}
         <div className="mb-2">
-          <button 
+          <button
             onClick={extractAssetsFromBIM}
             disabled={isExtracting}
-            className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${
-              isExtracting 
-                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
+            className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${isExtracting
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
           >
             {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract from BIM'}
           </button>
           {isExtracting && (
             <div className="mt-1 bg-gray-800 rounded-full h-1">
-              <div 
+              <div
                 className="bg-green-500 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${extractionProgress}%` }}
               />
@@ -1850,35 +1839,35 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         {filtersOpen && (
           <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-800 w-full">
             <div className="grid grid-cols-2 gap-2">
-              <select value={filter.category} onChange={e=>setFilter(f=>({...f,category:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Categories</option>
-                {distinct.categories.map(v=> <option key={v} value={v}>{v}</option>)}
+                {distinct.categories.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Types</option>
-                {distinct.types.map(v=> <option key={v} value={v}>{v}</option>)}
+                {distinct.types.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.location} onChange={e=>setFilter(f=>({...f,location:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.location} onChange={e => setFilter(f => ({ ...f, location: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Locations</option>
-                {distinct.locations.map(v=> <option key={v} value={v}>{v}</option>)}
+                {distinct.locations.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.condition} onChange={e=>setFilter(f=>({...f,condition:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.condition} onChange={e => setFilter(f => ({ ...f, condition: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Conditions</option>
-                {distinct.conditions.map(v=> <option key={v} value={v}>{v}</option>)}
+                {distinct.conditions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.classification} onChange={e=>setFilter(f=>({...f,classification:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
+              <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
                 <option value="">All Classifications</option>
-                {distinct.classifications.map(v=> <option key={v} value={v}>{v}</option>)}
+                {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 w-full">
-              <button 
+              <button
                 onClick={applyFilterToViewer}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
               >
                 Apply to Model
               </button>
-              <button 
+              <button
                 onClick={exportCSV}
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
               >
@@ -1888,7 +1877,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
@@ -1957,109 +1946,108 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             </tr>
           </thead>
           <tbody>
-            {filteredRows.length===0 ? (
+            {filteredRows.length === 0 ? (
               <tr><td colSpan={20} className="px-3 py-4 text-center text-gray-400">No assets. Use "Create new asset".</td></tr>
-            ) : paginatedRows.map(r=> (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={()=>onRowClick(r)}>
+            ) : paginatedRows.map(r => (
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
                 {visibleFields.basic && (
                   <>
                     <td className="px-2 py-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded ${
-                        r.source === 'BIM_MODEL' 
-                          ? 'bg-green-900/40 text-green-300' 
-                          : 'bg-blue-900/40 text-blue-300'
-                      }`}>
+                      <span className={`text-xs px-2 py-0.5 rounded ${r.source === 'BIM_MODEL'
+                        ? 'bg-green-900/40 text-green-300'
+                        : 'bg-blue-900/40 text-blue-300'
+                        }`}>
                         {r.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                       </span>
                       {r.conflictWithId && <span className="ml-2 text-[10px] text-red-300">⚠ Conflict</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-100">{r.category||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.type||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.brand||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.model||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-100">{r.category || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.type || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
                     <td className="px-2 py-1.5">
                       {r.source === 'MANUAL' && (
                         <div className="flex items-center gap-1">
                           <select
-                            value={r.placeholderShape||'cube'}
-                            onClick={e=>e.stopPropagation()}
-                            onChange={e=>{ e.stopPropagation(); const val=e.target.value as 'cube'|'sphere'; setRows(prev=>prev.map(x=>x.id===r.id?{...x, placeholderShape: val}:x)); }}
+                            value={r.placeholderShape || 'cube'}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
                             className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
                           >
                             <option value="cube">Cube</option>
                             <option value="sphere">Sphere</option>
                           </select>
                           <input
-                            onClick={e=>e.stopPropagation()}
+                            onClick={e => e.stopPropagation()}
                             value={r.placeholderSize ?? 0.3}
-                            onChange={e=>{ const n=Number(e.target.value)||0.3; setRows(prev=>prev.map(x=>x.id===r.id?{...x, placeholderSize: n}:x)); }}
+                            onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
                             className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
                             placeholder="m"
                           />
-                          <button 
-                            onClick={(e)=>{ e.stopPropagation(); placeManual(r); }}
-                            disabled={placingAssetId===r.id}
-                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId===r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); placeManual(r); }}
+                            disabled={placingAssetId === r.id}
+                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
                           >
-                            {placingAssetId===r.id ? 'Placing…' : (r.placeholderX==null ? 'Place' : 'Re-place')}
+                            {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
                           </button>
                         </div>
                       )}
                       {r.conflictWithId && (
-                        <button onClick={(e)=>{e.stopPropagation(); openConflictResolver(r);}} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
+                        <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
                       )}
                     </td>
                   </>
                 )}
                 {visibleFields.identification && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.assetCode||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.assetName||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.serialNumber||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.installationDate||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.assetCode || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.assetName || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.serialNumber || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.installationDate || '-'}</td>
                   </>
                 )}
                 {visibleFields.technical && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.material||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.dimensions||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.capacity||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.material || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.dimensions || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.capacity || '-'}</td>
                   </>
                 )}
                 {visibleFields.documentation && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.manuals||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.warranties||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.manuals || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.warranties || '-'}</td>
                   </>
                 )}
                 {visibleFields.lifecycle && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.condition||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.expectedLife||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.condition || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.expectedLife || '-'}</td>
                   </>
                 )}
                 {visibleFields.maintenance && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.lastService||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.nextService||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.lastService || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.nextService || '-'}</td>
                   </>
                 )}
                 {visibleFields.economic && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.purchaseCost||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.maintenanceCost||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.purchaseCost || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.maintenanceCost || '-'}</td>
                   </>
                 )}
                 {visibleFields.compliance && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.regulations||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.safetyNotes||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.regulations || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.safetyNotes || '-'}</td>
                   </>
                 )}
                 {visibleFields.relationships && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.location||'-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.suppliers||'-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.location || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.suppliers || '-'}</td>
                   </>
                 )}
               </tr>
@@ -2078,7 +2066,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               <button className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1 rounded" onClick={resolveLink}>Link (keep both)</button>
               <button className="bg-blue-700 hover:bg-blue-600 text-white text-xs py-1 rounded" onClick={resolveMerge}>Merge into Manual (hide BIM)</button>
               <button className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded" onClick={resolveKeepBoth}>Keep both (dismiss)</button>
-              <button className="bg-red-800 hover:bg-red-700 text-white text-xs py-1 rounded" onClick={()=>setConflictModal({open:false})}>Cancel</button>
+              <button className="bg-red-800 hover:bg-red-700 text-white text-xs py-1 rounded" onClick={() => setConflictModal({ open: false })}>Cancel</button>
             </div>
           </div>
         </div>
@@ -2087,11 +2075,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-[1000]">
-          <div className={`px-3 py-2 rounded text-xs shadow border ${
-            toast.type==='success' ? 'bg-emerald-800/80 text-emerald-100 border-emerald-700' :
-            toast.type==='error' ? 'bg-red-800/80 text-red-100 border-red-700' :
-                                   'bg-gray-800/80 text-gray-100 border-gray-700'
-          }`}>
+          <div className={`px-3 py-2 rounded text-xs shadow border ${toast.type === 'success' ? 'bg-emerald-800/80 text-emerald-100 border-emerald-700' :
+            toast.type === 'error' ? 'bg-red-800/80 text-red-100 border-red-700' :
+              'bg-gray-800/80 text-gray-100 border-gray-700'
+            }`}>
             {toast.text}
           </div>
         </div>
@@ -2101,31 +2088,31 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="whitespace-nowrap">Rows:</span>
-          <select 
-            value={pageSize} 
-            onChange={e=>setPageSize(parseInt(e.target.value,10))} 
+          <select
+            value={pageSize}
+            onChange={e => setPageSize(parseInt(e.target.value, 10))}
             className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
           >
-            {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
         <div className="flex-1 text-center text-gray-400 truncate">
-          {filteredRows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}
+          {filteredRows.length === 0 ? '0' : `${startIndex + 1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}
         </div>
         <div className="flex items-center gap-1">
-          <button 
-            onClick={()=>setPage(p=>Math.max(1,p-1))} 
-            disabled={pageClamped<=1} 
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={pageClamped <= 1}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Previous page"
           >
             &#8249;
           </button>
           <span className="mx-1 whitespace-nowrap">{pageClamped}/{totalPages}</span>
-          <button 
-            onClick={()=>setPage(p=>Math.min(totalPages,p+1))} 
-            disabled={pageClamped>=totalPages} 
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={pageClamped >= totalPages}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Next page"
           >
             &#8250;
@@ -2139,55 +2126,121 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
-  const [f,setF]=useState<Partial<AssetRecord>>(() => {
+  const [f, setF] = useState<Partial<AssetRecord>>(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-asset-draft-${projectId || 'global'}`, {});
-    return { 
-      category:'', type:'', brand:'', model:'', description:'', location:'',
-      assetCode:'', assetName:'', serialNumber:'', installationDate:'',
-      material:'', dimensions:'', weight:'', capacity:'', powerRating:'',
-      manuals:'', warranties:'', certifications:'',
-      condition:'', serviceDate:'', expectedLife:'',
-      maintenanceSchedule:'', lastService:'', nextService:'',
-      purchaseCost:'', maintenanceCost:'',
-      regulations:'', safetyNotes:'',
-      parentAsset:'', suppliers:'',
+    return {
+      category: '', type: '', brand: '', model: '', description: '', location: '',
+      assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+      material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
+      manuals: '', warranties: '', certifications: '',
+      condition: '', serviceDate: '', expectedLife: '',
+      maintenanceSchedule: '', lastService: '', nextService: '',
+      purchaseCost: '', maintenanceCost: '',
+      regulations: '', safetyNotes: '',
+      parentAsset: '', suppliers: '',
       ...saved
     };
   });
-  const [isPlacing, setIsPlacing] = useState(false);
-  
+
+
   // Auto-save draft to localStorage on every field change
   useEffect(() => {
     save(`fm-create-asset-draft-${projectId || 'global'}`, f);
   }, [f, projectId]);
-  
-  useEffect(()=>save(K.assets(projectId), rows),[rows,projectId]);
-  
-  const onSave=()=>{ 
-    const rec: AssetRecord = { 
-      ...f as AssetRecord,
-      id:`asset-${Date.now()}`,
-      dbId:null,
-      source: 'MANUAL'
-    }; 
-    setRows(prev=>[rec,...prev]); 
-    // Clear draft after successful save
-    const emptyForm = { 
-      category:'', type:'', brand:'', model:'', description:'', location:'',
-      assetCode:'', assetName:'', serialNumber:'', installationDate:'',
-      material:'', dimensions:'', weight:'', capacity:'', powerRating:'',
-      manuals:'', warranties:'', certifications:'',
-      condition:'', serviceDate:'', expectedLife:'',
-      maintenanceSchedule:'', lastService:'', nextService:'',
-      purchaseCost:'', maintenanceCost:'',
-      regulations:'', safetyNotes:'',
-      parentAsset:'', suppliers:''
-    };
-    setF(emptyForm); 
-    save(`fm-create-asset-draft-${projectId || 'global'}`, emptyForm);
+
+  useEffect(() => save(K.assets(projectId), rows), [rows, projectId]);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const onSave = async () => {
+    // Validate required fields
+    if (!f.assetName && !f.brand && !f.model) {
+      setSaveError('Please provide at least Asset Name, Brand, or Model');
+      setTimeout(() => setSaveError(null), 3000);
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const rec: AssetRecord = {
+        ...f as AssetRecord,
+        id: `asset-${Date.now()}`,
+        dbId: null,
+        source: 'MANUAL',
+        // Set default condition if not provided
+        condition: f.condition || 'Good'
+      };
+
+      // Save to backend if projectId is available
+      if (projectId) {
+        console.log(`💾 [CreateAsset] Saving asset to backend for project: ${projectId}`);
+        try {
+          const res = await fetch(`/api/projects/${projectId}/assets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upsert', asset: rec })
+          });
+
+          if (res.ok) {
+            const result = await res.json();
+            console.log('✅ [CreateAsset] Asset saved to backend successfully:', result);
+
+            // Update local state with backend response (may have updated ID)
+            const savedAsset = result?.asset || result || rec;
+            setRows(prev => [savedAsset, ...prev]);
+
+            // Show success message
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
+          } else {
+            const errorText = await res.text();
+            console.error('❌ [CreateAsset] Backend save failed:', res.status, errorText);
+            throw new Error(`Save failed: ${res.status}`);
+          }
+        } catch (backendError) {
+          console.error('❌ [CreateAsset] Backend error, falling back to local storage:', backendError);
+          // Fallback to local storage
+          setRows(prev => [rec, ...prev]);
+          setSaveError('Saved locally (backend unavailable)');
+          setTimeout(() => setSaveError(null), 3000);
+        }
+      } else {
+        // No projectId, save locally only
+        console.log('💾 [CreateAsset] No projectId, saving locally only');
+        setRows(prev => [rec, ...prev]);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+
+      // Clear draft after successful save
+      const emptyForm = {
+        category: '', type: '', brand: '', model: '', description: '', location: '',
+        assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+        material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
+        manuals: '', warranties: '', certifications: '',
+        condition: '', serviceDate: '', expectedLife: '',
+        maintenanceSchedule: '', lastService: '', nextService: '',
+        purchaseCost: '', maintenanceCost: '',
+        regulations: '', safetyNotes: '',
+        parentAsset: '', suppliers: ''
+      };
+      setF(emptyForm);
+      save(`fm-create-asset-draft-${projectId || 'global'}`, emptyForm);
+
+    } catch (error) {
+      console.error('❌ [CreateAsset] Save error:', error);
+      setSaveError('Failed to save asset. Please try again.');
+      setTimeout(() => setSaveError(null), 3000);
+    } finally {
+      setIsSaving(false);
+    }
   };
-  
+
   const sections = [
     { key: 'identification' as const, label: 'Identification & Registry' },
     { key: 'technical' as const, label: 'Technical & Construction' },
@@ -2198,19 +2251,19 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
     { key: 'compliance' as const, label: 'Compliance & Safety' },
     { key: 'relationships' as const, label: 'Links & Relationships' }
   ];
-  
+
   const updateField = (key: keyof AssetRecord, value: string) => {
     setF(v => ({ ...v, [key]: value }));
   };
-  
+
   // Build category options from CATEGORY_MAPPING in Italian / English (IFC)
-  const categoryOptions: string[] = React.useMemo(()=>{
+  const categoryOptions: string[] = React.useMemo(() => {
     const opts: string[] = [];
     for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
       opts.push(`${it} / ${m.english} (${m.ifc})`);
     }
     return opts.sort();
-  },[]);
+  }, []);
 
   const mapToStandardCategory = (category?: string): string | undefined => {
     if (!category) return undefined;
@@ -2227,264 +2280,125 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
   const prefillFromSelection = async () => {
     try {
       if (!viewer) return;
-      const getAgg = () => new Promise<any>((resolve)=> viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+      const getAgg = () => new Promise<any>((resolve) => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
       let dbId: number | undefined; let model: any = viewer.model;
       const agg = await getAgg();
-      if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
-      else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
-      if (dbId==null || !model) return;
+      if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+      else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
+      if (dbId == null || !model) return;
       const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
       const getProp = (names: string[]): string | undefined => {
-        const lower = names.map(n=>n.toLowerCase());
-        const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+        const lower = names.map(n => n.toLowerCase());
+        const p = props?.properties?.find((p: any) => { const dn = p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n => dn.includes(n))); });
         return p?.displayValue?.toString();
       };
-      const brand = getProp(['Manufacturer','Brand','Manufacturer Name']);
-      const modelName = getProp(['Model','Type Name','Model Number']);
-      const serial = getProp(['Serial Number','Serial']);
-      const installDate = getProp(['Install Date','Installation Date']);
-      const power = getProp(['Power','Power Rating','kW']);
+      const brand = getProp(['Manufacturer', 'Brand', 'Manufacturer Name']);
+      const modelName = getProp(['Model', 'Type Name', 'Model Number']);
+      const serial = getProp(['Serial Number', 'Serial']);
+      const installDate = getProp(['Install Date', 'Installation Date']);
+      const power = getProp(['Power', 'Power Rating', 'kW']);
       const capacity = getProp(['Capacity']);
       const weight = getProp(['Weight']);
       const length = getProp(['Length']);
       const width = getProp(['Width']);
-      const height = getProp(['Height','Thickness']);
-      const material = getProp(['Material','Structural Material']);
-      const level = getProp(['Level','Reference Level']);
-      const room = getProp(['Room','Space']);
+      const height = getProp(['Height', 'Thickness']);
+      const material = getProp(['Material', 'Structural Material']);
+      const level = getProp(['Level', 'Reference Level']);
+      const room = getProp(['Room', 'Space']);
       const rawCategory = getProp(['Category']);
       const category = mapToStandardCategory(rawCategory);
-      const dimensions = (length||width||height) ? `${length||''} x ${width||''} x ${height||''}`.replace(/\s+x\s+x\s+/,'').trim() : undefined;
+      const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
-      setF(v=>({
+      setF(v => ({
         ...v,
-        brand: v.brand||brand,
-        model: v.model||modelName,
-        serialNumber: v.serialNumber||serial,
-        installationDate: v.installationDate||installDate,
-        powerRating: v.powerRating||power,
-        capacity: v.capacity||capacity,
-        weight: v.weight||weight,
-        dimensions: v.dimensions||dimensions,
-        material: v.material||material,
+        brand: v.brand || brand,
+        model: v.model || modelName,
+        serialNumber: v.serialNumber || serial,
+        installationDate: v.installationDate || installDate,
+        powerRating: v.powerRating || power,
+        capacity: v.capacity || capacity,
+        weight: v.weight || weight,
+        dimensions: v.dimensions || dimensions,
+        material: v.material || material,
         location: v.location || [level, room].filter(Boolean).join(' - '),
         category: v.category || category
       }));
-    } catch {}
+    } catch { }
   };
 
-  // Place object functionality
-  const placeObject = () => {
-    if (!viewer) {
-      // Remote placement for standalone window
-      setIsPlacing(true);
-      try {
-        const opener = (window as any).opener as Window | null;
-        if (!opener) return;
-        
-        // Minimize window temporarily
-        const old = { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight };
-        try {
-          const sw = window.screen?.availWidth || 1280;
-          const sh = window.screen?.availHeight || 800;
-          const targetW = Math.max(360, Math.min(480, Math.floor(sw * 0.32)));
-          const targetH = Math.max(260, Math.min(420, Math.floor(sh * 0.35)));
-          window.resizeTo(targetW, targetH);
-          window.moveTo(sw - targetW - 10, 10);
-        } catch {}
 
-        // Listen for placement result
-        const onMsg = (e: MessageEvent) => {
-          const d: any = e.data;
-          if (!d || typeof d !== 'object') return;
-          if (d.type === 'FM_PLACE_DONE' && d.point) {
-            setF(prev => ({ ...prev, location: d.location || prev.location }));
-            window.removeEventListener('message', onMsg);
-            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
-            setIsPlacing(false);
-          } else if (d.type === 'FM_PLACE_CANCELLED') {
-            window.removeEventListener('message', onMsg);
-            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
-            setIsPlacing(false);
-          }
-        };
-        window.addEventListener('message', onMsg);
-        
-        // Send placement request
-        opener.postMessage({ 
-          type: 'FM_PLACE_START', 
-          assetId: `temp-${Date.now()}`, 
-          shape: 'cube', 
-          size: 0.3 
-        }, '*');
-      } catch {}
-      return;
-    }
 
-    // Direct placement in main window
-    setIsPlacing(true);
-    const container = viewer.container as HTMLElement;
-    container.style.cursor = 'crosshair';
-    
-    const onClick = async (ev: MouseEvent) => {
-      try {
-        let pt: any = null;
-        let locDbId: number | undefined;
-        let locModel: any | undefined;
-        const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
-        if (res && res.point) {
-          pt = res.point;
-          if (res.dbId != null && res.model) { locDbId = res.dbId; locModel = res.model; }
-        }
-        
-        if (!pt) {
-          // Fallback to selected object center
-          let dbId: number | undefined; let model: any = viewer.model;
-          const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
-          if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
-          else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
-          if (dbId!=null && model) {
-            const THREE = (window as any).THREE;
-            const frags = model.getFragmentList?.();
-            if (THREE && frags) {
-              const box = new THREE.Box3();
-              frags.enumNodeFragments(dbId, (fid: number) => {
-                const fb = new THREE.Box3();
-                frags.getWorldBounds(fid, fb);
-                box.union(fb);
-              });
-              if (!box.isEmpty()) {
-                pt = box.getCenter(new THREE.Vector3());
-                locDbId = dbId; locModel = model;
-              }
-            }
-          }
-          if (!pt) return; // Keep trying until valid placement
-        }
-
-        // Get location from properties
-        let newLocation: string | undefined;
-        try {
-          if (locModel && locDbId!=null) {
-            const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
-            const getVal = (names: string[]): string | undefined => {
-              const lower = names.map(n=>n.toLowerCase());
-              const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
-              return p?.displayValue?.toString();
-            };
-            const building = getVal(['Building']);
-            const level = getVal(['Level','Reference Level']);
-            const room = getVal(['Room','Space']);
-            const parts = [building, level, room].filter(Boolean) as string[];
-            if (parts.length) newLocation = parts.join(' - ');
-          }
-        } catch {}
-
-        // Update location field
-        setF(prev => ({ ...prev, location: newLocation || prev.location }));
-        
-        // Cleanup
-        container.removeEventListener('click', onClick, true);
-        window.removeEventListener('keydown', onKeyDown, true);
-        container.style.cursor = 'default';
-        setIsPlacing(false);
-      } catch {}
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        container.removeEventListener('click', onClick, true);
-        window.removeEventListener('keydown', onKeyDown, true);
-        container.style.cursor = 'default';
-        setIsPlacing(false);
-      }
-    };
-
-    container.addEventListener('click', onClick, true);
-    window.addEventListener('keydown', onKeyDown, true);
-  };
-  
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">Create New Asset</div>
-        <div className="flex gap-2">
-          <button 
-            className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200" 
-            onClick={prefillFromSelection}
-          >
-            Prefill from Selection
-          </button>
-          <button 
-            className={`text-[11px] px-2 py-1 rounded border ${isPlacing ? 'border-purple-500 bg-purple-600 text-white cursor-not-allowed' : 'border-gray-700 bg-purple-600 hover:bg-purple-700 text-white'}`}
-            onClick={placeObject}
-            disabled={isPlacing}
-          >
-            {isPlacing ? 'Placing...' : 'Place Object'}
-          </button>
-        </div>
+        <button
+          className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
+          onClick={prefillFromSelection}
+        >
+          Prefill from Selection
+        </button>
       </div>
-      
+
       {/* Section selector */}
       <div className="flex gap-1 overflow-x-auto pb-2">
         {sections.map(sec => (
           <button
             key={sec.key}
             onClick={() => setActiveSection(sec.key)}
-            className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
-              activeSection === sec.key 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
+            className={`text-xs px-2 py-1 rounded whitespace-nowrap ${activeSection === sec.key
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
           >
             {sec.label}
           </button>
         ))}
       </div>
-      
+
       {/* Fields by section */}
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input value={f.assetCode||''} onChange={e=>updateField('assetCode',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name</label><input value={f.assetName||''} onChange={e=>updateField('assetName',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name</label><input value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
-              <select value={f.category||''} onChange={e=>updateField('category',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+              <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select category</option>
-                {categoryOptions.map(opt=> <option key={opt} value={opt}>{opt}</option>)}
+                {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type||''} onChange={e=>updateField('type',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input value={f.brand||''} onChange={e=>updateField('brand',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input value={f.model||''} onChange={e=>updateField('model',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Serial Number</label><input value={f.serialNumber||''} onChange={e=>updateField('serialNumber',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Installation Date</label><input type="date" value={f.installationDate||''} onChange={e=>updateField('installationDate',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description||''} onChange={e=>updateField('description',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
           </div>
         )}
-        
+
         {activeSection === 'technical' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Material</label><input value={f.material||''} onChange={e=>updateField('material',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Dimensions</label><input value={f.dimensions||''} onChange={e=>updateField('dimensions',e.target.value)} placeholder="L x W x H" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Weight</label><input value={f.weight||''} onChange={e=>updateField('weight',e.target.value)} placeholder="kg" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Capacity</label><input value={f.capacity||''} onChange={e=>updateField('capacity',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Power Rating</label><input value={f.powerRating||''} onChange={e=>updateField('powerRating',e.target.value)} placeholder="kW" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Material</label><input value={f.material || ''} onChange={e => updateField('material', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Dimensions</label><input value={f.dimensions || ''} onChange={e => updateField('dimensions', e.target.value)} placeholder="L x W x H" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Weight</label><input value={f.weight || ''} onChange={e => updateField('weight', e.target.value)} placeholder="kg" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Capacity</label><input value={f.capacity || ''} onChange={e => updateField('capacity', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Power Rating</label><input value={f.powerRating || ''} onChange={e => updateField('powerRating', e.target.value)} placeholder="kW" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
-        
+
         {activeSection === 'documentation' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Manuals</label><input value={f.manuals||''} onChange={e=>updateField('manuals',e.target.value)} placeholder="Link or file reference" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Warranties</label><input value={f.warranties||''} onChange={e=>updateField('warranties',e.target.value)} placeholder="Expiry date / terms" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Certifications</label><input value={f.certifications||''} onChange={e=>updateField('certifications',e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Manuals</label><input value={f.manuals || ''} onChange={e => updateField('manuals', e.target.value)} placeholder="Link or file reference" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
-        
+
         {activeSection === 'lifecycle' && (
           <div className="grid grid-cols-2 gap-2">
             <div><label className="text-[11px] text-gray-300 block mb-1">Condition</label>
-              <select value={f.condition||''} onChange={e=>updateField('condition',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+              <select value={f.condition || ''} onChange={e => updateField('condition', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select</option>
                 <option value="Excellent">Excellent</option>
                 <option value="Good">Good</option>
@@ -2493,44 +2407,94 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
                 <option value="Critical">Critical</option>
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Service Date</label><input type="date" value={f.serviceDate||''} onChange={e=>updateField('serviceDate',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Expected Life</label><input value={f.expectedLife||''} onChange={e=>updateField('expectedLife',e.target.value)} placeholder="Years" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Service Date</label><input type="date" value={f.serviceDate || ''} onChange={e => updateField('serviceDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Expected Life</label><input value={f.expectedLife || ''} onChange={e => updateField('expectedLife', e.target.value)} placeholder="Years" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
-        
+
         {activeSection === 'maintenance' && (
           <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Maintenance Schedule</label><input value={f.maintenanceSchedule||''} onChange={e=>updateField('maintenanceSchedule',e.target.value)} placeholder="Weekly, Monthly, Annually" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Last Service</label><input type="date" value={f.lastService||''} onChange={e=>updateField('lastService',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Next Service</label><input type="date" value={f.nextService||''} onChange={e=>updateField('nextService',e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Maintenance Schedule</label><input value={f.maintenanceSchedule || ''} onChange={e => updateField('maintenanceSchedule', e.target.value)} placeholder="Weekly, Monthly, Annually" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Last Service</label><input type="date" value={f.lastService || ''} onChange={e => updateField('lastService', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Next Service</label><input type="date" value={f.nextService || ''} onChange={e => updateField('nextService', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
-        
+
         {activeSection === 'economic' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Purchase Cost</label><input value={f.purchaseCost||''} onChange={e=>updateField('purchaseCost',e.target.value)} placeholder="€" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Maintenance Cost</label><input value={f.maintenanceCost||''} onChange={e=>updateField('maintenanceCost',e.target.value)} placeholder="€/year" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Maintenance Cost</label><input value={f.maintenanceCost || ''} onChange={e => updateField('maintenanceCost', e.target.value)} placeholder="€/year" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
-        
+
         {activeSection === 'compliance' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Regulations</label><input value={f.regulations||''} onChange={e=>updateField('regulations',e.target.value)} placeholder="Regulatory requirements" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Safety Notes</label><textarea value={f.safetyNotes||''} onChange={e=>updateField('safetyNotes',e.target.value)} placeholder="Safety precautions" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Regulations</label><input value={f.regulations || ''} onChange={e => updateField('regulations', e.target.value)} placeholder="Regulatory requirements" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Safety Notes</label><textarea value={f.safetyNotes || ''} onChange={e => updateField('safetyNotes', e.target.value)} placeholder="Safety precautions" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} /></div>
           </div>
         )}
-        
+
         {activeSection === 'relationships' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset||''} onChange={e=>updateField('parentAsset',e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Location</label><input value={f.location||''} onChange={e=>updateField('location',e.target.value)} placeholder="Building, Floor, Room" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers||''} onChange={e=>updateField('suppliers',e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Location</label><input value={f.location || ''} onChange={e => updateField('location', e.target.value)} placeholder="Building, Floor, Room" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
       </div>
-      
+
+      {/* Success/Error Messages */}
+      {(saveSuccess || saveError) && (
+        <div className={`p-3 rounded-lg border ${saveSuccess
+            ? 'bg-green-500/10 border-green-500/50 text-green-400'
+            : 'bg-red-500/10 border-red-500/50 text-red-400'
+          }`}>
+          <div className="flex items-center gap-2">
+            {saveSuccess ? (
+              <>
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <div>
+                  <div className="font-semibold text-sm">Asset Created Successfully!</div>
+                  <div className="text-xs mt-1 opacity-90">
+                    {projectId ? 'Asset saved to project and available in Asset List' : 'Asset saved locally'}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <div className="font-semibold text-sm">Save Error</div>
+                  <div className="text-xs mt-1 opacity-90">{saveError}</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-gray-800 pt-3">
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm w-full" onClick={onSave}>Save Asset</button>
+        <button
+          className={`w-full px-4 py-2 rounded text-sm font-semibold transition-colors ${isSaving
+              ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          onClick={onSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+              Saving Asset...
+            </div>
+          ) : (
+            'Save Asset'
+          )}
+        </button>
       </div>
     </div>
   );
@@ -2544,10 +2508,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [pageSize, setPageSize] = useState(10);
 
   // Cache to localStorage but prefer backend data when available
-  useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
+  useEffect(() => save(K.spaces(projectId), rows), [rows, projectId]);
 
   // Load from backend
-  useEffect(()=>{
+  useEffect(() => {
     const run = async () => {
       if (!projectId) return;
       try {
@@ -2556,8 +2520,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const data = await res.json();
         if (Array.isArray(data)) {
           // Normalize ids
-          const normalized: SpaceRecord[] = data.map((d:any)=>({
-            id: d.id || d._id || d.idStr || `${d.source||'MANUAL'}-${d.dbId||d.name||Math.random()}`,
+          const normalized: SpaceRecord[] = data.map((d: any) => ({
+            id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
             level: d.level,
             name: d.name,
             area: d.area,
@@ -2592,7 +2556,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // eslint-disable-next-line no-await-in-loop
       const ids: number[] = await new Promise(resolve => {
         try {
-          viewer.search(q, (dbids: number[]) => resolve(dbids||[]), () => resolve([]), ['Category'], { searchHidden: true });
+          viewer.search(q, (dbids: number[]) => resolve(dbids || []), () => resolve([]), ['Category'], { searchHidden: true });
         } catch { resolve([]); }
       });
       ids.forEach(id => all.add(id));
@@ -2609,13 +2573,13 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         setIsExtracting(false);
         return;
       }
-      const propsList = await Promise.all(dbids.map((id:number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
-      const newRows: SpaceRecord[] = propsList.map((p:any) => {
+      const propsList = await Promise.all(dbids.map((id: number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
+      const newRows: SpaceRecord[] = propsList.map((p: any) => {
         const get = (names: string[]): string | undefined => {
-          const lower = names.map(n=>n.toLowerCase());
-          const prop = p?.properties?.find((x:any)=>{
+          const lower = names.map(n => n.toLowerCase());
+          const prop = p?.properties?.find((x: any) => {
             const dn = x.displayName?.toLowerCase?.();
-            return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n)));
+            return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
           });
           return prop?.displayValue?.toString();
         };
@@ -2623,11 +2587,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const cat = category?.toString()?.trim()?.toLowerCase?.();
         const isRoomCat = !!cat && (/^rooms?$/.test(cat) || /^revit rooms$/.test(cat));
         const isSpaceCat = !!cat && /^spaces?$/.test(cat);
-        const level = get(['Level','Reference Level']);
-        const name = p?.name || get(['Name','Room Name']);
-        const desc = get(['Comments','Description']);
+        const level = get(['Level', 'Reference Level']);
+        const name = p?.name || get(['Name', 'Room Name']);
+        const desc = get(['Comments', 'Description']);
         const areaStr = get(['Area']);
-        const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g,'')) : undefined;
+        const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g, '')) : undefined;
 
         // Filter strictly: must be Rooms/Spaces category and have a Level
         if (!(level && (isRoomCat || isSpaceCat))) return null as any;
@@ -2655,8 +2619,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d:any)=>({
-                id: d.id || d._id || d.idStr || `${d.source||'BIM_MODEL'}-${d.dbId||d.name||Math.random()}`,
+              const normalized: SpaceRecord[] = data.map((d: any) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
                 level: d.level,
                 name: d.name,
                 area: d.area,
@@ -2676,12 +2640,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         }
       } else {
         // Fallback: local merge (prefer manual entries, then add BIM not already present by name+level)
-        const manual = rows.filter(r=>r.source!== 'BIM_MODEL');
-        const keyOf = (r: SpaceRecord) => `${(r.level||'').toLowerCase()}|${(r.name||'').toLowerCase()}`;
-        const existing = new Map(manual.map(r=>[keyOf(r), true] as const));
+        const manual = rows.filter(r => r.source !== 'BIM_MODEL');
+        const keyOf = (r: SpaceRecord) => `${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}`;
+        const existing = new Map(manual.map(r => [keyOf(r), true] as const));
         const merged = [
           ...manual,
-          ...newRows.filter(r=>!existing.get(keyOf(r)))
+          ...newRows.filter(r => !existing.get(keyOf(r)))
         ];
         setRows(merged);
       }
@@ -2696,7 +2660,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // Isolate and fit to view the room
       if (viewer.isolate) viewer.isolate([r.dbId]);
       if (viewer.fitToView) viewer.fitToView([r.dbId]);
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -2708,7 +2672,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <button
             onClick={extractRoomsFromBIM}
             disabled={isExtracting}
-            className={`w-full ${isExtracting? 'bg-green-700/70':'bg-green-600 hover:bg-green-700'} text-white text-xs py-1.5 rounded`}
+            className={`w-full ${isExtracting ? 'bg-green-700/70' : 'bg-green-600 hover:bg-green-700'} text-white text-xs py-1.5 rounded`}
           >
             {isExtracting ? 'Extracting Rooms…' : 'Extract Rooms from BIM'}
           </button>
@@ -2726,14 +2690,14 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             </tr>
           </thead>
           <tbody>
-            {rows.length===0? (
+            {rows.length === 0 ? (
               <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
-            ) : paginatedRows.map(r=> (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={()=>onRowClick(r)}>
-                <td className="px-3 py-2 text-gray-100">{r.level||'-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.name||'-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.area!=null?r.area:'-'}</td>
-                <td className="px-3 py-2 text-gray-300">{r.description||'-'}</td>
+            ) : paginatedRows.map(r => (
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={() => onRowClick(r)}>
+                <td className="px-3 py-2 text-gray-100">{r.level || '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.name || '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.area != null ? r.area : '-'}</td>
+                <td className="px-3 py-2 text-gray-300">{r.description || '-'}</td>
               </tr>
             ))}
           </tbody>
@@ -2744,31 +2708,31 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2 border-t border-gray-800">
         <div className="flex items-center gap-2 min-w-0">
           <span className="whitespace-nowrap">Rows:</span>
-          <select 
-            value={pageSize} 
-            onChange={e=>{ setPageSize(parseInt(e.target.value,10)); setPage(1); }} 
+          <select
+            value={pageSize}
+            onChange={e => { setPageSize(parseInt(e.target.value, 10)); setPage(1); }}
             className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
           >
-            {[10,20,50,100].map(n=> <option key={n} value={n}>{n}</option>)}
+            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
         <div className="flex-1 text-center text-gray-400 truncate">
-          {rows.length===0? '0' : `${startIndex+1}-${Math.min(endIndex, rows.length)}`} of {rows.length}
+          {rows.length === 0 ? '0' : `${startIndex + 1}-${Math.min(endIndex, rows.length)}`} of {rows.length}
         </div>
         <div className="flex items-center gap-1">
-          <button 
-            onClick={()=>setPage(p=>Math.max(1,p-1))} 
-            disabled={pageClamped<=1} 
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped<=1?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={pageClamped <= 1}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Previous page"
           >
             &#8249;
           </button>
           <span className="mx-1 whitespace-nowrap">{pageClamped}/{totalPages}</span>
-          <button 
-            onClick={()=>setPage(p=>Math.min(totalPages,p+1))} 
-            disabled={pageClamped>=totalPages} 
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped>=totalPages?'text-gray-500 border-gray-700':'text-white border-gray-600 hover:bg-gray-700'}`}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={pageClamped >= totalPages}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Next page"
           >
             &#8250;
@@ -2780,13 +2744,13 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 };
 
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
-  const [rows,setRows]=useState<SpaceRecord[]>(()=>load(K.spaces(projectId), [] as SpaceRecord[]));
-  useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
-  const [f,setF]=useState(() => {
+  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
+  useEffect(() => save(K.spaces(projectId), rows), [rows, projectId]);
+  const [f, setF] = useState(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
-    return { 
-      building:'', level:'', name:'', spaceCode:'', area:'', description:'',
+    return {
+      building: '', level: '', name: '', spaceCode: '', area: '', description: '',
       ...saved
     };
   });
@@ -2797,12 +2761,12 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   }, [f, projectId]);
   // Footprint drawing state
   const [drawing, setDrawing] = useState(false);
-  const [footprint, setFootprint] = useState<{ points: { x:number; y:number; z:number }[]; z?: number; levelIndex?: number } | null>(null);
-  const pointsRef = useRef<{ x:number; y:number; z:number }[]>([]);
+  const [footprint, setFootprint] = useState<{ points: { x: number; y: number; z: number }[]; z?: number; levelIndex?: number } | null>(null);
+  const pointsRef = useRef<{ x: number; y: number; z: number }[]>([]);
   const baseZRef = useRef<number | null>(null);
   const overlayName = 'fm-footprint-editor';
   const isRemote = !viewer && !!standalone; // standalone window without viewer
-  const hoverRef = useRef<{ x:number; y:number; z:number } | null>(null);
+  const hoverRef = useRef<{ x: number; y: number; z: number } | null>(null);
 
   const clearOverlay = () => {
     try {
@@ -2814,17 +2778,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         children.forEach(ch => scene.remove(ch));
         viewer.impl.invalidate(true);
       }
-    } catch {}
+    } catch { }
   };
 
-  const drawFinalPolygon = (pts: { x:number; y:number; z:number }[]) => {
+  const drawFinalPolygon = (pts: { x: number; y: number; z: number }[]) => {
     try {
       if (!viewer?.impl || pts.length < 3) return;
       if (!(viewer.impl.overlayScenes || {})[overlayName]) viewer.impl.createOverlayScene(overlayName);
       clearOverlay();
       const THREE = (window as any).THREE;
       if (!THREE) return;
-      
+
       // Draw final closed polygon with THICK DARK GREEN lines
       const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
       const geom = new THREE.BufferGeometry().setFromPoints(closedPts);
@@ -2832,7 +2796,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       const line = new THREE.Line(geom, mat);
       line.renderOrder = 999;
       viewer.impl.addOverlay(overlayName, line);
-      
+
       // Filled polygon (darker green)
       const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.y)));
       const fillGeom = new THREE.ShapeGeometry(shape);
@@ -2841,9 +2805,9 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       if (baseZRef.current != null) mesh.position.z = baseZRef.current;
       mesh.renderOrder = 998;
       viewer.impl.addOverlay(overlayName, mesh);
-      
+
       viewer.impl.invalidate(true);
-    } catch {}
+    } catch { }
   };
 
   const drawPreview = () => {
@@ -2897,43 +2861,43 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         viewer.impl.addOverlay(overlayName, mesh);
       }
       viewer.impl.invalidate(true);
-    } catch {}
+    } catch { }
   };
 
   // Compute world point on constant Z plane from screen xy
   const worldOnZ = (clientX: number, clientY: number, z: number) => {
     const THREE = (window as any).THREE;
     if (!THREE || !viewer?.impl?.camera) return null;
-    
+
     // Get proper canvas bounds
     const canvas = viewer.impl.canvas || viewer.container;
     const rect = canvas.getBoundingClientRect();
-    
+
     // Normalize to [-1, 1] NDC space
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    
+
     const camera = viewer.impl.camera;
-    
+
     // Create ray from camera through mouse position
     const mouse = new THREE.Vector3(x, y, 0.5);
     mouse.unproject(camera);
-    
+
     const origin = camera.position.clone();
     const dir = mouse.sub(origin).normalize();
-    
+
     // Intersect ray with horizontal plane at z
     const EPS = 1e-6;
     if (Math.abs(dir.z) < EPS) return null; // parallel to plane
-    
+
     const t = (z - origin.z) / dir.z;
     if (!isFinite(t) || t < 0) return null; // behind camera
-    
+
     const point = origin.clone().add(dir.multiplyScalar(t));
     return point;
   };
 
-  const isNearFirst = (p: {x:number;y:number;z:number}, eps=0.4) => {
+  const isNearFirst = (p: { x: number; y: number; z: number }, eps = 0.4) => {
     if (pointsRef.current.length < 1) return false;
     const a = pointsRef.current[0];
     const dx = p.x - a.x, dy = p.y - a.y;
@@ -2959,7 +2923,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       }
       pointsRef.current.push({ x: p.x, y: p.y, z });
       drawPreview();
-    } catch {}
+    } catch { }
   };
 
   const onViewerMove = (ev: MouseEvent) => {
@@ -2982,14 +2946,14 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         hoverRef.current = { x: p.x, y: p.y, z };
       }
       drawPreview();
-    } catch {}
+    } catch { }
   };
 
   const onViewerDblClick = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !drawing) return;
       if (pointsRef.current.length >= 3) finishDrawing();
-    } catch {}
+    } catch { }
   };
 
   const onKeyDown = (ev: KeyboardEvent) => {
@@ -3011,7 +2975,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         pointsRef.current = [];
         baseZRef.current = null;
         setDrawing(true);
-      } catch {}
+      } catch { }
       return;
     }
     try {
@@ -3031,7 +2995,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         container.style.cursor = 'crosshair';
         container.style.setProperty('cursor', 'crosshair', 'important');
       }
-    } catch {}
+    } catch { }
   };
 
   const finishDrawing = () => {
@@ -3063,7 +3027,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         setFootprint(null);
         clearOverlay();
       }
-    } catch {}
+    } catch { }
   };
 
   const cancelDrawing = () => {
@@ -3079,8 +3043,8 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
       clearOverlay();
-      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch {}
-    } catch {}
+      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch { }
+    } catch { }
   };
 
   const undoLastPoint = () => {
@@ -3094,7 +3058,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       }
       pointsRef.current.pop();
       drawPreview();
-    } catch {}
+    } catch { }
   };
 
   // Cleanup on unmount or viewer change
@@ -3105,7 +3069,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
         window.removeEventListener('keydown', onKeyDown as any, true);
         clearOverlay();
-      } catch {}
+      } catch { }
     };
   }, [viewer]);
 
@@ -3117,11 +3081,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       if (!d || typeof d !== 'object') return;
       if (d.type === 'FM_DRAW_POINT' && d.point) {
         try {
-          const p = d.point as { x:number; y:number; z:number };
+          const p = d.point as { x: number; y: number; z: number };
           pointsRef.current.push(p);
           // keep latest summary for UI
           setFootprint(prev => ({ points: [...pointsRef.current], z: pointsRef.current[0]?.z, levelIndex: undefined }));
-        } catch {}
+        } catch { }
       } else if (d.type === 'FM_DRAW_DONE' && Array.isArray(d.points)) {
         setDrawing(false);
         pointsRef.current = d.points;
@@ -3135,68 +3099,68 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [isRemote]);
-  const onSave = async () => { 
-    const rec: SpaceRecord = { 
-      id:`space-${Date.now()}`, 
-      building:f.building||undefined,
-      level:f.level||undefined, 
-      name:f.name||undefined, 
-      spaceCode:f.spaceCode||undefined,
-      area: f.area?Number(f.area):undefined, 
-      description:f.description||undefined,
+  const onSave = async () => {
+    const rec: SpaceRecord = {
+      id: `space-${Date.now()}`,
+      building: f.building || undefined,
+      level: f.level || undefined,
+      name: f.name || undefined,
+      spaceCode: f.spaceCode || undefined,
+      area: f.area ? Number(f.area) : undefined,
+      description: f.description || undefined,
       source: 'MANUAL',
       dbId: null
-    }; 
+    };
     try {
       if (projectId) {
-        const res = await fetch(`/api/projects/${projectId}/spaces`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...rec, footprint: footprint || null }) });
+        const res = await fetch(`/api/projects/${projectId}/spaces`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...rec, footprint: footprint || null }) });
         if (res.ok) {
           const result = await res.json();
           const saved = result?.space || result; // API returns { ok, space }
           const id = saved?.id || saved?._id || rec.id;
-          setRows(prev=>[{ ...rec, id }, ...prev]);
+          setRows(prev => [{ ...rec, id }, ...prev]);
           // Clear footprint and overlay after save
           setFootprint(null);
           cancelDrawing();
         } else {
-          setRows(prev=>[rec,...prev]);
+          setRows(prev => [rec, ...prev]);
         }
       } else {
-        setRows(prev=>[rec,...prev]);
+        setRows(prev => [rec, ...prev]);
       }
     } catch {
-      setRows(prev=>[rec,...prev]);
+      setRows(prev => [rec, ...prev]);
     }
     // Clear draft after successful save
-    const emptyForm = { building:'', level:'', name:'', spaceCode:'', area:'', description:'' };
+    const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', description: '' };
     setF(emptyForm);
-    save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm); 
+    save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
   };
   return (
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Create New Space</div>
       <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e=>setF(v=>({...v,building:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e=>setF(v=>({...v,level:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Room name</label><input value={f.name} onChange={e=>setF(v=>({...v,name:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e=>setF(v=>({...v,spaceCode:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e=>setF(v=>({...v,area:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e=>setF(v=>({...v,description:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => setF(v => ({ ...v, building: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => setF(v => ({ ...v, level: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e => setF(v => ({ ...v, area: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
       </div>
       {/* Footprint Editor */}
       <div className="border-t border-gray-700 pt-3">
         <div className="text-xs text-gray-400 mb-2">2D Footprint (optional)</div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={startDrawing} disabled={(!!viewer===false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer===false)&&!isRemote)||drawing)?'bg-gray-700 text-gray-400':'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
-          <button onClick={finishDrawing} disabled={!drawing || pointsRef.current.length<3} className={`px-3 py-1.5 rounded text-xs ${(!drawing||pointsRef.current.length<3)?'bg-gray-700 text-gray-400':'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
-          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length===0} className={`px-3 py-1.5 rounded text-xs ${(!drawing||pointsRef.current.length===0)?'bg-gray-700 text-gray-400':'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
-          <button onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing&&!footprint)?'bg-gray-700 text-gray-400':'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
+          <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-gray-700 text-gray-400' : 'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
+          <button onClick={finishDrawing} disabled={!drawing || pointsRef.current.length < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
+          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-gray-700 text-gray-400' : 'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
+          <button onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
         </div>
         <div className="text-[11px] text-gray-500 mt-2">
           {drawing
             ? 'Click on the model to add points. Press Enter to finish, ESC to cancel.'
             : footprint
-              ? `${footprint.points.length} points captured at z=${(footprint.z??0).toFixed?.(2)}`
+              ? `${footprint.points.length} points captured at z=${(footprint.z ?? 0).toFixed?.(2)}`
               : 'No footprint set.'}
         </div>
       </div>
@@ -3214,7 +3178,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     }));
   }, []);
 
-  const [rows,setRows]=useState<ScheduledItem[]>([]);
+  const [rows, setRows] = useState<ScheduledItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(false);
@@ -3223,8 +3187,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [assetSearch, setAssetSearch] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState('');
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
-  
-  const [f,setF]=useState({ discipline:'', category:'', code:'', asset:'', frequency:'', timeHours:'' });
+
+  const [f, setF] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ frequency: '', timeHours: '' });
@@ -3265,7 +3229,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   // Load assets from API for picker
   useEffect(() => {
     if (!projectId || assetsLoaded) return;
-    
+
     const fetchAssets = async () => {
       setAssetsLoading(true);
       try {
@@ -3287,11 +3251,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
     let result = assets;
-    
+
     // Apply search filter
     if (assetSearch.trim()) {
       const search = assetSearch.toLowerCase();
-      result = result.filter(a => 
+      result = result.filter(a =>
         a.assetName?.toLowerCase().includes(search) ||
         a.assetCode?.toLowerCase().includes(search) ||
         a.category?.toLowerCase().includes(search) ||
@@ -3300,12 +3264,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         a.brand?.toLowerCase().includes(search)
       );
     }
-    
+
     // Apply category filter
     if (assetCategoryFilter) {
       result = result.filter(a => a.category === assetCategoryFilter);
     }
-    
+
     // Apply sorting
     result = [...result].sort((a, b) => {
       switch (assetSortBy) {
@@ -3319,7 +3283,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           return 0;
       }
     });
-    
+
     return result;
   }, [assets, assetSearch, assetCategoryFilter, assetSortBy]);
 
@@ -3396,7 +3360,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newItem)
         });
-        
+
         if (res.ok) {
           const result = await res.json();
           const saved = result?.item || newItem;
@@ -3419,9 +3383,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         return updated;
       });
     }
-    
+
     // Reset form
-    setF({ discipline:'', category:'', code:'', asset:'', frequency:'', timeHours:'' });
+    setF({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
     setTasks([]);
     setCurrentTask('');
     setErrors({ frequency: '', timeHours: '' });
@@ -3434,22 +3398,22 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         {/* Discipline Dropdown */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Discipline *</label>
-          <select 
-            value={f.discipline} 
-            onChange={e=>setF(v=>({...v,discipline:e.target.value}))} 
+          <select
+            value={f.discipline}
+            onChange={e => setF(v => ({ ...v, discipline: e.target.value }))}
             className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
           >
             <option value="">Select Discipline</option>
-            {['Architecture','Structure','Mechanical System','Electrical System','Plumbing System','Fire Protection','Elevator System','Safety','IT/Technology','Other'].map(d=> <option key={d} value={d}>{d}</option>)}
+            {['Architecture', 'Structure', 'Mechanical System', 'Electrical System', 'Plumbing System', 'Fire Protection', 'Elevator System', 'Safety', 'IT/Technology', 'Other'].map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
 
         {/* Category Dropdown (from CATEGORY_MAPPING) */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Category *</label>
-          <select 
-            value={f.category} 
-            onChange={e=>setF(v=>({...v,category:e.target.value}))} 
+          <select
+            value={f.category}
+            onChange={e => setF(v => ({ ...v, category: e.target.value }))}
             className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
           >
             <option value="">Select Category</option>
@@ -3460,11 +3424,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         {/* Code */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Code *</label>
-          <input 
-            placeholder="Alphanumeric code" 
-            value={f.code} 
-            onChange={e=>setF(v=>({...v,code:e.target.value}))} 
-            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+          <input
+            placeholder="Alphanumeric code"
+            value={f.code}
+            onChange={e => setF(v => ({ ...v, code: e.target.value }))}
+            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
           />
         </div>
 
@@ -3472,11 +3436,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Asset *</label>
           <div className="flex gap-1.5">
-            <input 
-              placeholder="Asset name or code" 
-              value={f.asset} 
-              onChange={e=>setF(v=>({...v,asset:e.target.value}))} 
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+            <input
+              placeholder="Asset name or code"
+              value={f.asset}
+              onChange={e => setF(v => ({ ...v, asset: e.target.value }))}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
             />
             {projectId && (
               <button
@@ -3500,13 +3464,13 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         {/* Frequency (numeric) */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Frequency (n/year) *</label>
-          <input 
+          <input
             type="number"
             min="0"
             step="0.1"
-            placeholder="e.g., 12" 
-            value={f.frequency} 
-            onChange={e=>setF(v=>({...v,frequency:e.target.value}))} 
+            placeholder="e.g., 12"
+            value={f.frequency}
+            onChange={e => setF(v => ({ ...v, frequency: e.target.value }))}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.frequency ? 'border-red-500' : 'border-gray-700'}`}
           />
           {errors.frequency && <div className="text-[10px] text-red-400 mt-0.5">{errors.frequency}</div>}
@@ -3515,13 +3479,13 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
         {/* Time (hours, numeric) */}
         <div>
           <label className="text-[11px] text-gray-400 block mb-1">Time (hours) *</label>
-          <input 
+          <input
             type="number"
             min="0"
             step="0.5"
-            placeholder="e.g., 2" 
-            value={f.timeHours} 
-            onChange={e=>setF(v=>({...v,timeHours:e.target.value}))} 
+            placeholder="e.g., 2"
+            value={f.timeHours}
+            onChange={e => setF(v => ({ ...v, timeHours: e.target.value }))}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.timeHours ? 'border-red-500' : 'border-gray-700'}`}
           />
           {errors.timeHours && <div className="text-[10px] text-red-400 mt-0.5">{errors.timeHours}</div>}
@@ -3532,14 +3496,14 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       <div className="border-t border-gray-700 pt-3">
         <label className="text-[11px] text-gray-400 block mb-1">Tasks (multiple allowed) *</label>
         <div className="flex gap-2">
-          <input 
-            placeholder="Enter task description" 
-            value={currentTask} 
-            onChange={e=>setCurrentTask(e.target.value)}
+          <input
+            placeholder="Enter task description"
+            value={currentTask}
+            onChange={e => setCurrentTask(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } }}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" 
+            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
           />
-          <button 
+          <button
             onClick={addTask}
             disabled={!currentTask.trim()}
             className={`px-3 py-1.5 rounded text-sm ${currentTask.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}
@@ -3552,7 +3516,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             {tasks.map((task, idx) => (
               <div key={idx} className="flex items-center justify-between bg-gray-900/60 rounded px-2 py-1.5 text-sm text-gray-200">
                 <span className="flex-1">{idx + 1}. {task}</span>
-                <button 
+                <button
                   onClick={() => removeTask(idx)}
                   className="text-red-400 hover:text-red-300 ml-2 font-bold"
                 >
@@ -3566,7 +3530,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       </div>
 
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={validateAndAdd}>Add Scheduled Maintenance</button></div>
-      
+
       {/* Asset Picker Modal */}
       {showAssetPicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
@@ -3575,7 +3539,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               <h3 className="text-white font-semibold">Select Asset from Register</h3>
               <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
             </div>
-            
+
             {/* Search Input */}
             <input
               type="text"
@@ -3663,9 +3627,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
                           )}
                         </div>
                         <div className="ml-2">
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            asset.source === 'BIM_MODEL' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'
-                          }`}>
+                          <span className={`text-xs px-2 py-1 rounded ${asset.source === 'BIM_MODEL' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'
+                            }`}>
                             {asset.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                           </span>
                         </div>
@@ -3683,20 +3646,20 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 };
 
 const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
-  const [tickets,setTickets]=useState<TicketItem[]>(()=>load(K.tickets(projectId), [] as TicketItem[]));
-  const [workOrders,setWorkOrders]=useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
+  const [tickets, setTickets] = useState<TicketItem[]>(() => load(K.tickets(projectId), [] as TicketItem[]));
+  const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [showQrModal, setShowQrModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [waitingForSelection, setWaitingForSelection] = useState(false);
   const isStandalone = typeof window !== 'undefined' && window.opener;
-  
+
   // Cache to localStorage but prefer backend data when available
-  useEffect(()=>save(K.tickets(projectId), tickets),[tickets,projectId]);
-  useEffect(()=>save(K.workOrders(projectId), workOrders),[workOrders,projectId]);
-  
+  useEffect(() => save(K.tickets(projectId), tickets), [tickets, projectId]);
+  useEffect(() => save(K.workOrders(projectId), workOrders), [workOrders, projectId]);
+
   // Load from backend
-  useEffect(()=>{
+  useEffect(() => {
     const loadData = async () => {
       if (!projectId) return;
       try {
@@ -3716,15 +3679,15 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     };
     loadData();
   }, [projectId]);
-  
+
   // Listen for selection data from main window (standalone mode)
   useEffect(() => {
     if (!isStandalone) return;
-    
+
     const handleMessage = (e: MessageEvent) => {
       const d = e.data;
       if (!d || typeof d !== 'object') return;
-      
+
       if (d.type === 'FM_SELECTION_DATA') {
         // Auto-detect discipline based on category
         let discipline = '';
@@ -3744,7 +3707,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             discipline = 'Architecture';
           }
         }
-        
+
         // Find matching category option from CATEGORY_MAPPING
         let matchedCategory = '';
         if (d.category) {
@@ -3753,11 +3716,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             const englishLower = mapping.english.toLowerCase();
             const ifcLower = mapping.ifc.toLowerCase();
             const ifcWithoutPrefix = ifcLower.replace('ifc', '');
-            
+
             if (
-              catLower.includes(englishLower) || 
-              englishLower.includes(catLower) || 
-              catLower.includes(ifcWithoutPrefix) || 
+              catLower.includes(englishLower) ||
+              englishLower.includes(catLower) ||
+              catLower.includes(ifcWithoutPrefix) ||
               ifcWithoutPrefix.includes(catLower) ||
               (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
               (catLower.includes('furnishing') && englishLower.includes('furniture'))
@@ -3768,7 +3731,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             }
           }
         }
-        
+
         setForm(v => ({
           ...v,
           item: d.item || '',
@@ -3787,21 +3750,21 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         console.log('⚠️ [Prefill] Standalone - Selection cancelled');
       }
     };
-    
+
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [isStandalone]);
-  
-  const [form,setForm]=useState(() => {
+
+  const [form, setForm] = useState(() => {
     // Load from localStorage on init
     const saved = load(`fm-ticket-form-draft-${projectId || 'global'}`, {});
     return {
       // Requester
-      name:'', surname:'', contact:'',
+      name: '', surname: '', contact: '',
       // Location
-      building:'', level:'', room:'', spaceCode:'',
+      building: '', level: '', room: '', spaceCode: '',
       // Intervention
-      discipline:'', category:'', item:'', itemDbId: null as number | null, descriptionShort:'', descriptionDetailed:'',
+      discipline: '', category: '', item: '', itemDbId: null as number | null, descriptionShort: '', descriptionDetailed: '',
       attachments: [] as string[],
       ...saved
     };
@@ -3811,13 +3774,13 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
   useEffect(() => {
     save(`fm-ticket-form-draft-${projectId || 'global'}`, form);
   }, [form, projectId]);
-  
-  const disciplines = ['Architecture','Structure','Mechanical','Electrical','Plumbing','Fire Protection','Elevator','Safety','IT/Technology','Other'];
-  
+
+  const disciplines = ['Architecture', 'Structure', 'Mechanical', 'Electrical', 'Plumbing', 'Fire Protection', 'Elevator', 'Safety', 'IT/Technology', 'Other'];
+
   // Select item from model
   const selectFromModel = async () => {
     console.log('🎯 [Prefill] Button clicked');
-    
+
     // Standalone mode: request main window to handle selection
     if (isStandalone) {
       console.log('📤 [Prefill] Standalone mode - requesting selection from main window');
@@ -3830,7 +3793,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       }
       return;
     }
-    
+
     // Modal mode: direct selection
     console.log('🖥️ [Prefill] Modal mode - direct selection');
     if (!viewer) {
@@ -3838,19 +3801,19 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       alert('Viewer not available. Please open a 3D model first.');
       return;
     }
-    
+
     console.log('✅ [Prefill] Viewer available, getting selection...');
-    
+
     try {
       // Get current selection - use getAggregateSelection for multi-model support
       viewer.getAggregateSelection((selectionData: any) => {
         console.log('📦 [Prefill] Selection data received:', selectionData);
         console.log('📦 [Prefill] Is array?', Array.isArray(selectionData));
-        
+
         // Handle both array and single model object
         let model: any;
         let selectedIds: number[] = [];
-        
+
         if (Array.isArray(selectionData)) {
           // Array format: [{ model, selection: [dbIds] }]
           console.log('📦 [Prefill] Array format detected');
@@ -3872,147 +3835,147 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           alert('Unable to get selection. Please try again.');
           return;
         }
-        
+
         console.log('📦 [Prefill] Model:', model);
         console.log('📦 [Prefill] Selected IDs:', selectedIds);
-        
+
         if (!selectedIds || selectedIds.length === 0) {
           console.warn('⚠️ [Prefill] No objects selected');
           alert('Please select an object in the 3D model first.');
           return;
         }
-        
+
         const dbId = selectedIds[0];
-          
-          console.log('🔍 [Prefill] Selected dbId:', dbId, 'Model:', model);
-          
-          // Get object properties
-          model.getProperties(dbId, (props: any) => {
-            console.log('📋 [Prefill] Properties received:', props);
-            
-            const getProp = (names: string[]): string | undefined => {
-              const lower = names.map(n=>n.toLowerCase());
-              const p = props?.properties?.find((p:any)=>{ 
-                const dn=p.displayName?.toLowerCase?.(); 
-                return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); 
-              });
-              return p?.displayValue?.toString();
-            };
-            
-            const name = props?.name || getProp(['Name']);
-            const category = getProp(['Category']);
-            const level = getProp(['Level','Reference Level']);
-            let room = getProp(['Room','Space']);
-            const spaceCode = getProp(['Space Code','Number','Mark']);
-            const building = getProp(['Building']);
-            
-            // Use spatial bounding as fallback for room detection (check for empty string too)
-            if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
-              try {
-                const roomData = (window as any).sensorContext.findRoomForObject(dbId);
-                if (roomData?.name) {
-                  room = roomData.name;
-                  console.log('🏠 [Prefill] Using spatial bounding room:', room);
-                }
-              } catch (err) {
-                console.warn('[Prefill] Spatial bounding fallback failed', err);
-              }
-            }
-            
-            // Auto-detect discipline based on category
-            let discipline = '';
-            if (category) {
-              const catLower = category.toLowerCase();
-              if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
-                discipline = 'Architecture';
-              } else if (catLower.includes('column') || catLower.includes('beam') || catLower.includes('foundation') || catLower.includes('structural')) {
-                discipline = 'Structure';
-              } else if (catLower.includes('mechanical') || catLower.includes('hvac') || catLower.includes('duct') || catLower.includes('pipe')) {
-                discipline = 'Mechanical';
-              } else if (catLower.includes('electrical') || catLower.includes('lighting') || catLower.includes('fixture')) {
-                discipline = 'Electrical';
-              } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
-                discipline = 'Plumbing';
-              } else if (catLower.includes('furniture') || catLower.includes('casework')) {
-                discipline = 'Architecture';
-              }
-            }
-            
-            // Find matching category option from CATEGORY_MAPPING
-            let matchedCategory = '';
-            if (category) {
-              const catLower = category.toLowerCase();
-              
-              // Try exact and partial matches
-              for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
-                const englishLower = mapping.english.toLowerCase();
-                const ifcLower = mapping.ifc.toLowerCase();
-                const ifcWithoutPrefix = ifcLower.replace('ifc', '');
-                
-                // Check various matching patterns
-                if (
-                  catLower.includes(englishLower) || 
-                  englishLower.includes(catLower) || 
-                  catLower.includes(ifcWithoutPrefix) || 
-                  ifcWithoutPrefix.includes(catLower) ||
-                  // Special case for Furniture -> Furnishing
-                  (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
-                  (catLower.includes('furnishing') && englishLower.includes('furniture'))
-                ) {
-                  matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
-                  console.log('🎯 [Prefill] Category matched:', category, '→', matchedCategory);
-                  break;
-                }
-              }
-              
-              if (!matchedCategory) {
-                console.warn('⚠️ [Prefill] No category match found for:', category);
-              }
-            }
-            
-            console.log('✨ [Prefill] Extracted data:', {
-              name,
-              category,
-              matchedCategory,
-              discipline,
-              level,
-              room,
-              spaceCode,
-              building,
-              dbId
+
+        console.log('🔍 [Prefill] Selected dbId:', dbId, 'Model:', model);
+
+        // Get object properties
+        model.getProperties(dbId, (props: any) => {
+          console.log('📋 [Prefill] Properties received:', props);
+
+          const getProp = (names: string[]): string | undefined => {
+            const lower = names.map(n => n.toLowerCase());
+            const p = props?.properties?.find((p: any) => {
+              const dn = p.displayName?.toLowerCase?.();
+              return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
             });
-            
-            // Update form
-            setForm(v => ({
-              ...v,
-              item: name || `Object ${dbId}`,
-              itemDbId: dbId,
-              discipline: discipline || v.discipline,
-              category: matchedCategory || v.category,
-              building: v.building || building || '',
-              level: v.level || level || '',
-              room: v.room || room || '',
-              spaceCode: v.spaceCode || spaceCode || ''
-            }));
-            
-            console.log('✅ [Prefill] Form updated successfully');
+            return p?.displayValue?.toString();
+          };
+
+          const name = props?.name || getProp(['Name']);
+          const category = getProp(['Category']);
+          const level = getProp(['Level', 'Reference Level']);
+          let room = getProp(['Room', 'Space']);
+          const spaceCode = getProp(['Space Code', 'Number', 'Mark']);
+          const building = getProp(['Building']);
+
+          // Use spatial bounding as fallback for room detection (check for empty string too)
+          if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
+            try {
+              const roomData = (window as any).sensorContext.findRoomForObject(dbId);
+              if (roomData?.name) {
+                room = roomData.name;
+                console.log('🏠 [Prefill] Using spatial bounding room:', room);
+              }
+            } catch (err) {
+              console.warn('[Prefill] Spatial bounding fallback failed', err);
+            }
+          }
+
+          // Auto-detect discipline based on category
+          let discipline = '';
+          if (category) {
+            const catLower = category.toLowerCase();
+            if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
+              discipline = 'Architecture';
+            } else if (catLower.includes('column') || catLower.includes('beam') || catLower.includes('foundation') || catLower.includes('structural')) {
+              discipline = 'Structure';
+            } else if (catLower.includes('mechanical') || catLower.includes('hvac') || catLower.includes('duct') || catLower.includes('pipe')) {
+              discipline = 'Mechanical';
+            } else if (catLower.includes('electrical') || catLower.includes('lighting') || catLower.includes('fixture')) {
+              discipline = 'Electrical';
+            } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
+              discipline = 'Plumbing';
+            } else if (catLower.includes('furniture') || catLower.includes('casework')) {
+              discipline = 'Architecture';
+            }
+          }
+
+          // Find matching category option from CATEGORY_MAPPING
+          let matchedCategory = '';
+          if (category) {
+            const catLower = category.toLowerCase();
+
+            // Try exact and partial matches
+            for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+              const englishLower = mapping.english.toLowerCase();
+              const ifcLower = mapping.ifc.toLowerCase();
+              const ifcWithoutPrefix = ifcLower.replace('ifc', '');
+
+              // Check various matching patterns
+              if (
+                catLower.includes(englishLower) ||
+                englishLower.includes(catLower) ||
+                catLower.includes(ifcWithoutPrefix) ||
+                ifcWithoutPrefix.includes(catLower) ||
+                // Special case for Furniture -> Furnishing
+                (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
+                (catLower.includes('furnishing') && englishLower.includes('furniture'))
+              ) {
+                matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
+                console.log('🎯 [Prefill] Category matched:', category, '→', matchedCategory);
+                break;
+              }
+            }
+
+            if (!matchedCategory) {
+              console.warn('⚠️ [Prefill] No category match found for:', category);
+            }
+          }
+
+          console.log('✨ [Prefill] Extracted data:', {
+            name,
+            category,
+            matchedCategory,
+            discipline,
+            level,
+            room,
+            spaceCode,
+            building,
+            dbId
           });
+
+          // Update form
+          setForm(v => ({
+            ...v,
+            item: name || `Object ${dbId}`,
+            itemDbId: dbId,
+            discipline: discipline || v.discipline,
+            category: matchedCategory || v.category,
+            building: v.building || building || '',
+            level: v.level || level || '',
+            room: v.room || room || '',
+            spaceCode: v.spaceCode || spaceCode || ''
+          }));
+
+          console.log('✅ [Prefill] Form updated successfully');
+        });
       });
     } catch (err) {
       console.error('❌ [Model Selection] Error', err);
       alert('Error selecting from model. Please try again.');
     }
   };
-  
+
   // Build category options from CATEGORY_MAPPING
-  const categoryOptions: string[] = React.useMemo(()=>{
+  const categoryOptions: string[] = React.useMemo(() => {
     const opts: string[] = [];
     for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
       opts.push(`${it} / ${m.english} (${m.ifc})`);
     }
     return opts.sort();
-  },[]);
-  
+  }, []);
+
   const generateCode = async (ticketCode: string): Promise<string> => {
     const qrData = JSON.stringify({
       ticketCode,
@@ -4024,7 +3987,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       discipline: form.discipline,
       timestamp: new Date().toISOString()
     });
-    
+
     // Generate QR code using QRCode library
     let qrDataUrl = '';
     try {
@@ -4055,12 +4018,12 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         setQrCodeDataUrl(qrDataUrl);
       }
     }
-    
+
     setGeneratedCode(ticketCode);
     setShowQrModal(true);
     return qrDataUrl;
   };
-  
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -4068,10 +4031,10 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       setForm(v => ({ ...v, attachments: [...v.attachments, ...fileNames] }));
     }
   };
-  
+
   const [validationError, setValidationError] = useState<string>('');
-  
-  const submit = async () => { 
+
+  const submit = async () => {
     // Validate required fields
     if (!form.name || !form.surname || !form.contact) {
       setValidationError('Please fill in all requester information (Name, Surname, Contact)');
@@ -4079,11 +4042,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       return;
     }
     setValidationError('');
-    
+
     const timestamp = Date.now();
     const code = `TKT-${timestamp}`;
     const qrData = `TICKET:${code}|REQUESTER:${form.name} ${form.surname}|CONTACT:${form.contact}|LOCATION:${form.building}-${form.level}-${form.room}`;
-    
+
     const ticket: TicketItem = {
       id: `ticket-${timestamp}`,
       ticketCode: code,
@@ -4110,13 +4073,13 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       status: 'Open',
       createdAt: new Date().toISOString()
     };
-    
+
     // Save to backend if projectId available
     if (projectId) {
       try {
         // Generate QR code first and get the data URL
         const generatedQrDataUrl = await generateCode(code);
-        
+
         const ticketRes = await fetch(`/api/projects/${projectId}/tickets`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4125,11 +4088,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             qrCodeDataUrl: generatedQrDataUrl // Pass QR code for email
           })
         });
-        
+
         if (ticketRes.ok) {
           const ticketData = await ticketRes.json();
           const savedTicket = ticketData.ticket;
-          
+
           // Create corresponding work order
           const workOrder: WorkOrderItem = {
             id: `wo-${timestamp}`,
@@ -4146,13 +4109,13 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             status: 'Open',
             sourceTicketId: savedTicket.id
           };
-          
+
           const woRes = await fetch(`/api/projects/${projectId}/work-orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(workOrder)
           });
-          
+
           if (woRes.ok) {
             // Reload data from backend
             const [ticketsRes, workOrdersRes] = await Promise.all([
@@ -4173,11 +4136,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         console.error('[TicketForm] Submit error', err);
         alert('Error saving ticket to database. Saved locally.');
         // Fallback to local storage
-        setTickets(prev=>[ticket,...prev]);
+        setTickets(prev => [ticket, ...prev]);
       }
     } else {
       // No projectId, save to local storage only
-      setTickets(prev=>[ticket,...prev]);
+      setTickets(prev => [ticket, ...prev]);
       const workOrder: WorkOrderItem = {
         id: `wo-${timestamp}`,
         requestId: code,
@@ -4193,28 +4156,28 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         status: 'Open',
         sourceTicketId: ticket.id
       };
-      setWorkOrders(prev=>[workOrder,...prev]);
+      setWorkOrders(prev => [workOrder, ...prev]);
     }
-    
+
     // Generate and show QR code with success modal
     await generateCode(code);
-    
+
     // Clear draft after successful submission
     const emptyForm = {
-      name:'', surname:'', contact:'',
-      building:'', level:'', room:'', spaceCode:'',
-      discipline:'', category:'', item:'', itemDbId: null, descriptionShort:'', descriptionDetailed:'',
+      name: '', surname: '', contact: '',
+      building: '', level: '', room: '', spaceCode: '',
+      discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
     setForm(emptyForm);
     save(`fm-ticket-form-draft-${projectId || 'global'}`, emptyForm);
   };
-  
+
   const resetForm = () => {
     const emptyForm = {
-      name:'', surname:'', contact:'',
-      building:'', level:'', room:'', spaceCode:'',
-      discipline:'', category:'', item:'', itemDbId: null, descriptionShort:'', descriptionDetailed:'',
+      name: '', surname: '', contact: '',
+      building: '', level: '', room: '', spaceCode: '',
+      discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
     setForm(emptyForm);
@@ -4223,32 +4186,32 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     setShowQrModal(false);
     setGeneratedCode('');
   };
-  
+
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-y-auto">
       <div className="text-white font-semibold text-sm">Maintenance Ticket</div>
-      
+
       {/* Requester Section */}
       <div className="border-b border-gray-700 pb-3">
         <div className="text-xs text-gray-400 mb-2">Requester</div>
         <div className="grid grid-cols-2 gap-2">
-          <input placeholder="Name" value={form.name} onChange={e=>setForm(v=>({...v,name:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Surname" value={form.surname} onChange={e=>setForm(v=>({...v,surname:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <div className="col-span-2"><input placeholder="Contact (email / phone)" value={form.contact} onChange={e=>setForm(v=>({...v,contact:e.target.value}))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+          <input placeholder="Name" value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Surname" value={form.surname} onChange={e => setForm(v => ({ ...v, surname: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <div className="col-span-2"><input placeholder="Contact (email / phone)" value={form.contact} onChange={e => setForm(v => ({ ...v, contact: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
         </div>
       </div>
-      
+
       {/* Intervention Section - Moved under Requester */}
       <div className="border-b border-gray-700 pb-3">
         <div className="text-xs text-gray-400 mb-2">Intervention Identification</div>
         <div className="grid grid-cols-1 gap-2">
           {/* Item - Now first field with Prefill from Selection */}
           <div className="flex gap-1">
-            <input 
-              placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"} 
-              value={form.item} 
-              onChange={e=>setForm(v=>({...v,item:e.target.value}))} 
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" 
+            <input
+              placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"}
+              value={form.item}
+              onChange={e => setForm(v => ({ ...v, item: e.target.value }))}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
               disabled={waitingForSelection}
             />
             {(viewer || isStandalone) && (
@@ -4256,28 +4219,27 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                 type="button"
                 onClick={selectFromModel}
                 disabled={waitingForSelection}
-                className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${
-                  waitingForSelection 
-                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
-                }`}
+                className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${waitingForSelection
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
                 title={isStandalone ? "Select object from main window" : "Select object from 3D model"}
               >
                 {waitingForSelection ? 'Waiting...' : 'Prefill from Selection'}
               </button>
             )}
           </div>
-          <select value={form.discipline} onChange={e=>setForm(v=>({...v,discipline:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+          <select value={form.discipline} onChange={e => setForm(v => ({ ...v, discipline: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
             <option value="">Select Discipline</option>
             {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={form.category} onChange={e=>setForm(v=>({...v,category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+          <select value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
             <option value="">Select Category</option>
             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
-          <input placeholder="Short Description" value={form.descriptionShort} onChange={e=>setForm(v=>({...v,descriptionShort:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e=>setForm(v=>({...v,descriptionDetailed:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
-          
+          <input placeholder="Short Description" value={form.descriptionShort} onChange={e => setForm(v => ({ ...v, descriptionShort: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e => setForm(v => ({ ...v, descriptionDetailed: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
+
           {/* File Attachments */}
           <div>
             <label className="text-xs text-gray-400 block mb-1">Attached Files</label>
@@ -4295,18 +4257,18 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           </div>
         </div>
       </div>
-      
+
       {/* Location Section - Now after Intervention */}
       <div className="border-b border-gray-700 pb-3">
         <div className="text-xs text-gray-400 mb-2">Location of Intervention</div>
         <div className="grid grid-cols-2 gap-2">
-          <input placeholder="Building" value={form.building} onChange={e=>setForm(v=>({...v,building:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Level" value={form.level} onChange={e=>setForm(v=>({...v,level:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Room" value={form.room} onChange={e=>setForm(v=>({...v,room:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Space Code" value={form.spaceCode} onChange={e=>setForm(v=>({...v,spaceCode:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Building" value={form.building} onChange={e => setForm(v => ({ ...v, building: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Level" value={form.level} onChange={e => setForm(v => ({ ...v, level: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Room" value={form.room} onChange={e => setForm(v => ({ ...v, room: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Space Code" value={form.spaceCode} onChange={e => setForm(v => ({ ...v, spaceCode: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
         </div>
       </div>
-      
+
       {/* Validation Error */}
       {validationError && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-start gap-2">
@@ -4319,17 +4281,17 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           </div>
         </div>
       )}
-      
+
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
         <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded text-sm font-semibold" onClick={submit}>Submit Ticket</button>
         <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded text-sm" onClick={resetForm}>Reset</button>
       </div>
-      
+
       {/* Success Modal with QR Code */}
       {showQrModal && generatedCode && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-4xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e=>e.stopPropagation()}>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-4xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
             {/* Success Header */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
@@ -4340,7 +4302,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               <h3 className="text-2xl font-bold text-white mb-2">Ticket Created Successfully!</h3>
               <p className="text-gray-400 text-sm">Your maintenance request has been submitted</p>
             </div>
-            
+
             {/* QR Code Display */}
             <div className="bg-white rounded-xl p-6 mb-6 flex items-center justify-center shadow-lg">
               {qrCodeDataUrl ? (
@@ -4354,7 +4316,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                 </div>
               )}
             </div>
-            
+
             {/* Ticket Info */}
             <div className="space-y-3 mb-6">
               <div className="bg-gray-900/60 rounded-lg px-4 py-3 border border-gray-700">
@@ -4370,13 +4332,13 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                 </span>
               </div>
             </div>
-            
+
             {/* Close Button */}
-            <button 
+            <button
               onClick={() => {
                 setShowQrModal(false);
                 resetForm();
-              }} 
+              }}
               className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-3 rounded-lg text-sm font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
               Close
@@ -4384,9 +4346,9 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           </div>
         </div>
       )}
-      
+
       {/* Recent Tickets */}
-      {tickets.length>0 && (
+      {tickets.length > 0 && (
         <div className="border-t border-gray-700 pt-3">
           <div className="text-xs text-gray-400 font-semibold mb-2">Recent Tickets</div>
           <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -4395,12 +4357,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                 <span className="text-gray-300">
                   <span className="font-mono text-blue-400">{t.ticketCode}</span> - {t.requester.name} {t.requester.surname}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                  t.status==='Open' ? 'bg-yellow-900/40 text-yellow-300' :
-                  t.status==='Planned' ? 'bg-blue-900/40 text-blue-300' :
-                  t.status==='In Progress' ? 'bg-purple-900/40 text-purple-300' :
-                  'bg-green-900/40 text-green-300'
-                }`}>{t.status}</span>
+                <span className={`px-2 py-0.5 rounded text-xs ${t.status === 'Open' ? 'bg-yellow-900/40 text-yellow-300' :
+                  t.status === 'Planned' ? 'bg-blue-900/40 text-blue-300' :
+                    t.status === 'In Progress' ? 'bg-purple-900/40 text-purple-300' :
+                      'bg-green-900/40 text-green-300'
+                  }`}>{t.status}</span>
               </div>
             ))}
           </div>
@@ -4411,7 +4372,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
 };
 
 const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [rows,setRows]=useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
+  const [rows, setRows] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -4419,7 +4380,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [showAttachmentsModal, setShowAttachmentsModal] = useState<WorkOrderItem | null>(null);
   const [showCommentsModal, setShowCommentsModal] = useState<WorkOrderItem | null>(null);
   const [newComment, setNewComment] = useState('');
-  
+
   // Filters
   const [filters, setFilters] = useState({
     status: 'all',
@@ -4428,16 +4389,16 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     priority: 'all',
     search: ''
   });
-  
+
   // Sorting
   const [sortBy, setSortBy] = useState<'requestId' | 'status' | 'createdAt' | 'priority'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
+
   // Cache to localStorage but prefer backend data when available
-  useEffect(()=>save(K.workOrders(projectId), rows),[rows,projectId]);
-  
+  useEffect(() => save(K.workOrders(projectId), rows), [rows, projectId]);
+
   // Load from backend
-  useEffect(()=>{
+  useEffect(() => {
     const loadData = async () => {
       if (!projectId) return;
       try {
@@ -4450,30 +4411,30 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     };
     loadData();
   }, [projectId]);
-  
+
   const startEdit = (row: WorkOrderItem) => {
     setEditingId(row.id);
     setEditForm(row);
   };
-  
+
   const saveEdit = async () => {
     if (!editingId) return;
-    
+
     const oldRow = rows.find(r => r.id === editingId);
     const updatedRow = { ...oldRow, ...editForm, updatedAt: new Date().toISOString() };
-    
+
     // Check if technician was assigned
     const wasAssigned = !oldRow?.responsibleTechnician && editForm.responsibleTechnician;
     if (wasAssigned) {
       updatedRow.assignedAt = new Date().toISOString();
     }
-    
+
     // Check if status changed to Resolved
     const wasResolved = oldRow?.status !== 'Resolved' && editForm.status === 'Resolved';
     if (wasResolved) {
       updatedRow.resolvedAt = new Date().toISOString();
     }
-    
+
     // Update backend if projectId available
     if (projectId) {
       try {
@@ -4482,7 +4443,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingId, ...editForm, wasAssigned, wasResolved })
         });
-        
+
         if (res.ok) {
           // Reload from backend
           const refreshRes = await fetch(`/api/projects/${projectId}/work-orders`);
@@ -4503,26 +4464,26 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       // No projectId, local update only
       setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
     }
-    
+
     setEditingId(null);
     setEditForm({});
   };
-  
+
   const addComment = async (workOrderId: string) => {
     if (!newComment.trim()) return;
-    
+
     const comment = {
       id: `comment-${Date.now()}`,
       author: 'Current User', // TODO: Get from session
       text: newComment,
       timestamp: new Date().toISOString()
     };
-    
+
     const updatedRow = rows.find(r => r.id === workOrderId);
     if (!updatedRow) return;
-    
+
     const comments = [...(updatedRow.comments || []), comment];
-    
+
     if (projectId) {
       try {
         await fetch(`/api/projects/${projectId}/work-orders`, {
@@ -4530,7 +4491,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: workOrderId, comments })
         });
-        
+
         setRows(prev => prev.map(r => r.id === workOrderId ? { ...r, comments } : r));
       } catch (err) {
         console.error('[WorkOrders] Add comment error', err);
@@ -4538,10 +4499,10 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     } else {
       setRows(prev => prev.map(r => r.id === workOrderId ? { ...r, comments } : r));
     }
-    
+
     setNewComment('');
   };
-  
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -4550,7 +4511,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       return next;
     });
   };
-  
+
   const toggleSelectAll = () => {
     if (selectedIds.size === filteredAndSortedRows.length) {
       setSelectedIds(new Set());
@@ -4558,17 +4519,17 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       setSelectedIds(new Set(filteredAndSortedRows.map(r => r.id)));
     }
   };
-  
+
   const bulkAssignTechnician = async () => {
     const technician = prompt('Enter technician name:');
     if (!technician) return;
-    
+
     const updates = Array.from(selectedIds).map(id => ({
       id,
       responsibleTechnician: technician,
       assignedAt: new Date().toISOString()
     }));
-    
+
     if (projectId) {
       try {
         await fetch(`/api/projects/${projectId}/work-orders/bulk`, {
@@ -4576,29 +4537,29 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ updates })
         });
-        
-        setRows(prev => prev.map(r => 
+
+        setRows(prev => prev.map(r =>
           selectedIds.has(r.id) ? { ...r, responsibleTechnician: technician, assignedAt: new Date().toISOString() } : r
         ));
       } catch (err) {
         console.error('[WorkOrders] Bulk assign error', err);
       }
     } else {
-      setRows(prev => prev.map(r => 
+      setRows(prev => prev.map(r =>
         selectedIds.has(r.id) ? { ...r, responsibleTechnician: technician, assignedAt: new Date().toISOString() } : r
       ));
     }
-    
+
     setSelectedIds(new Set());
   };
-  
+
   const bulkChangeStatus = async (status: WorkOrderItem['status']) => {
     const updates = Array.from(selectedIds).map(id => ({
       id,
       status,
       ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {})
     }));
-    
+
     if (projectId) {
       try {
         await fetch(`/api/projects/${projectId}/work-orders/bulk`, {
@@ -4606,22 +4567,22 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ updates })
         });
-        
-        setRows(prev => prev.map(r => 
+
+        setRows(prev => prev.map(r =>
           selectedIds.has(r.id) ? { ...r, status, ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {}) } : r
         ));
       } catch (err) {
         console.error('[WorkOrders] Bulk status error', err);
       }
     } else {
-      setRows(prev => prev.map(r => 
+      setRows(prev => prev.map(r =>
         selectedIds.has(r.id) ? { ...r, status, ...(status === 'Resolved' ? { resolvedAt: new Date().toISOString() } : {}) } : r
       ));
     }
-    
+
     setSelectedIds(new Set());
   };
-  
+
   const exportToCSV = () => {
     const headers = ['Request ID', 'Requester', 'Contact', 'Location', 'Discipline', 'Category', 'Description', 'Asset', 'Technician', 'Company', 'Status', 'Priority', 'Created At'];
     const csvRows = [
@@ -4642,7 +4603,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         r.createdAt || ''
       ].map(v => `"${v}"`).join(','))
     ];
-    
+
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -4651,7 +4612,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     a.click();
     URL.revokeObjectURL(url);
   };
-  
+
   // Filter and sort rows
   const filteredAndSortedRows = React.useMemo(() => {
     let filtered = rows.filter(r => {
@@ -4670,11 +4631,11 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       }
       return true;
     });
-    
+
     // Sort
     filtered.sort((a, b) => {
       let aVal: any, bVal: any;
-      
+
       switch (sortBy) {
         case 'requestId':
           aVal = a.requestId || '';
@@ -4694,29 +4655,29 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           bVal = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
           break;
       }
-      
+
       if (sortOrder === 'asc') {
         return aVal > bVal ? 1 : -1;
       } else {
         return aVal < bVal ? 1 : -1;
       }
     });
-    
+
     return filtered;
   }, [rows, filters, sortBy, sortOrder]);
-  
+
   // Get unique values for filters
   const uniqueDisciplines = Array.from(new Set(rows.map(r => r.discipline).filter(Boolean)));
   const uniqueTechnicians = Array.from(new Set(rows.map(r => r.responsibleTechnician).filter(Boolean)));
-  
+
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="text-white font-semibold text-sm">Work Orders / Service Requests</div>
       <div className="text-xs text-gray-400">
-        <span className="text-gray-500">Gray fields</span> are from tickets. 
+        <span className="text-gray-500">Gray fields</span> are from tickets.
         <span className="text-blue-400 ml-2">Blue fields</span> are managed by Maintenance Team.
       </div>
-      
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
@@ -4814,152 +4775,150 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedRows.length===0 ? (
+            {filteredAndSortedRows.length === 0 ? (
               <tr><td colSpan={16} className="px-3 py-4 text-center text-gray-400">No work orders yet. Create tickets to generate work orders.</td></tr>
-            ) : filteredAndSortedRows.map(r=> {
+            ) : filteredAndSortedRows.map(r => {
               const isEditing = editingId === r.id;
               return (
                 <>
-                <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
-                  <td className="px-2 py-1.5 w-10" onClick={e => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
-                  </td>
-                  {/* Gray-shaded: from ticket */}
-                  <td className="px-2 py-1.5 text-gray-500">{r.requestId||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.requester||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.contact||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.location||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.discipline||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.category||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.description||'-'}</td>
-                  <td className="px-2 py-1.5 text-gray-500">
-                    <div className="max-w-[220px] truncate" title={r.interventionDetails || ''}>{r.interventionDetails || '-'}</div>
-                  </td>
-                  <td className="px-2 py-1.5 text-gray-500" onClick={e => e.stopPropagation()}>
-                    {r.attachments && r.attachments.length > 0 ? (
-                      <button onClick={() => setShowAttachmentsModal(r)} className="text-blue-400 hover:text-blue-300">📎 {r.attachments.length}</button>
-                    ) : '-'}
-                  </td>
-                  <td className="px-2 py-1.5 text-gray-500">{r.asset||'-'}</td>
-                  <td className="px-2 py-1.5">
-                    {isEditing ? (
-                      <select
-                        value={editForm.priority || r.priority || 'Medium'}
-                        onChange={e => setEditForm(f => ({ ...f, priority: e.target.value as WorkOrderItem['priority'] }))}
-                        className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
-                      >
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                      </select>
-                    ) : (
-                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                        r.priority === 'High' ? 'bg-red-900/40 text-red-300' :
-                        r.priority === 'Medium' ? 'bg-yellow-900/40 text-yellow-300' :
-                        r.priority === 'Low' ? 'bg-green-900/40 text-green-300' :
-                        'bg-gray-900/40 text-gray-400'
-                      }`}>
-                        {r.priority || 'Not Set'}
-                      </span>
-                    )}
-                  </td>
-                  
-                  {/* Blue-shaded: managed by maintenance team */}
-                  <td className="px-2 py-1.5">
-                    {isEditing ? (
-                      <input 
-                        value={editForm.responsibleTechnician||''} 
-                        onChange={e=>setEditForm(f=>({...f,responsibleTechnician:e.target.value}))}
-                        className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
-                      />
-                    ) : (
-                      <span className="text-blue-300">{r.responsibleTechnician||'-'}</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {isEditing ? (
-                      <input 
-                        value={editForm.company||''} 
-                        onChange={e=>setEditForm(f=>({...f,company:e.target.value}))}
-                        className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
-                      />
-                    ) : (
-                      <span className="text-blue-300">{r.company||'-'}</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    {isEditing ? (
-                      <select 
-                        value={editForm.status||r.status} 
-                        onChange={e=>setEditForm(f=>({...f,status:e.target.value as WorkOrderItem['status']}))}
-                        className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
-                      >
-                        <option value="Open">Open</option>
-                        <option value="Planned">Planned</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Resolved">Resolved</option>
-                      </select>
-                    ) : (
-                      <span className={`px-2 py-0.5 rounded text-xs ${
-                        r.status==='Open' ? 'bg-yellow-900/40 text-yellow-300' :
-                        r.status==='Planned' ? 'bg-blue-900/40 text-blue-300' :
-                        r.status==='In Progress' ? 'bg-purple-900/40 text-purple-300' :
-                        'bg-green-900/40 text-green-300'
-                      }`}>{r.status}</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
-                    {isEditing ? (
-                      <div className="flex gap-1">
-                        <button onClick={saveEdit} className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-xs">Save</button>
-                        <button onClick={()=>{setEditingId(null);setEditForm({})}} className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-0.5 rounded text-xs">Cancel</button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-1">
-                        <button onClick={()=>startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">Edit</button>
-                        <button onClick={()=>setShowCommentsModal(r)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">Comments</button>
-                        <button onClick={()=>setExpandedId(expandedId === r.id ? null : r.id)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">{expandedId === r.id ? 'Hide' : 'Details'}</button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-                {expandedId === r.id && (
-                  <tr className="border-b border-gray-800 bg-gray-900/30">
-                    <td colSpan={16} className="px-3 py-3">
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <div className="text-xs text-gray-400">Full Description</div>
-                          <div className="text-gray-200">{r.description || '-'}</div>
+                  <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
+                    <td className="px-2 py-1.5 w-10" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                    </td>
+                    {/* Gray-shaded: from ticket */}
+                    <td className="px-2 py-1.5 text-gray-500">{r.requestId || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.requester || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.contact || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.location || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.discipline || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.category || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.description || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">
+                      <div className="max-w-[220px] truncate" title={r.interventionDetails || ''}>{r.interventionDetails || '-'}</div>
+                    </td>
+                    <td className="px-2 py-1.5 text-gray-500" onClick={e => e.stopPropagation()}>
+                      {r.attachments && r.attachments.length > 0 ? (
+                        <button onClick={() => setShowAttachmentsModal(r)} className="text-blue-400 hover:text-blue-300">📎 {r.attachments.length}</button>
+                      ) : '-'}
+                    </td>
+                    <td className="px-2 py-1.5 text-gray-500">{r.asset || '-'}</td>
+                    <td className="px-2 py-1.5">
+                      {isEditing ? (
+                        <select
+                          value={editForm.priority || r.priority || 'Medium'}
+                          onChange={e => setEditForm(f => ({ ...f, priority: e.target.value as WorkOrderItem['priority'] }))}
+                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                        >
+                          <option value="High">High</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Low">Low</option>
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.priority === 'High' ? 'bg-red-900/40 text-red-300' :
+                          r.priority === 'Medium' ? 'bg-yellow-900/40 text-yellow-300' :
+                            r.priority === 'Low' ? 'bg-green-900/40 text-green-300' :
+                              'bg-gray-900/40 text-gray-400'
+                          }`}>
+                          {r.priority || 'Not Set'}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Blue-shaded: managed by maintenance team */}
+                    <td className="px-2 py-1.5">
+                      {isEditing ? (
+                        <input
+                          value={editForm.responsibleTechnician || ''}
+                          onChange={e => setEditForm(f => ({ ...f, responsibleTechnician: e.target.value }))}
+                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                        />
+                      ) : (
+                        <span className="text-blue-300">{r.responsibleTechnician || '-'}</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {isEditing ? (
+                        <input
+                          value={editForm.company || ''}
+                          onChange={e => setEditForm(f => ({ ...f, company: e.target.value }))}
+                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                        />
+                      ) : (
+                        <span className="text-blue-300">{r.company || '-'}</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {isEditing ? (
+                        <select
+                          value={editForm.status || r.status}
+                          onChange={e => setEditForm(f => ({ ...f, status: e.target.value as WorkOrderItem['status'] }))}
+                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                        >
+                          <option value="Open">Open</option>
+                          <option value="Planned">Planned</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Resolved">Resolved</option>
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded text-xs ${r.status === 'Open' ? 'bg-yellow-900/40 text-yellow-300' :
+                          r.status === 'Planned' ? 'bg-blue-900/40 text-blue-300' :
+                            r.status === 'In Progress' ? 'bg-purple-900/40 text-purple-300' :
+                              'bg-green-900/40 text-green-300'
+                          }`}>{r.status}</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                      {isEditing ? (
+                        <div className="flex gap-1">
+                          <button onClick={saveEdit} className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-xs">Save</button>
+                          <button onClick={() => { setEditingId(null); setEditForm({}) }} className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-0.5 rounded text-xs">Cancel</button>
                         </div>
-                        <div>
-                          <div className="text-xs text-gray-400">Intervention Details</div>
-                          <div className="text-gray-200">{r.interventionDetails || '-'}</div>
+                      ) : (
+                        <div className="flex gap-1">
+                          <button onClick={() => startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">Edit</button>
+                          <button onClick={() => setShowCommentsModal(r)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">Comments</button>
+                          <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">{expandedId === r.id ? 'Hide' : 'Details'}</button>
                         </div>
-                        <div className="col-span-2">
-                          <div className="text-xs text-gray-400 mb-1">Attachments</div>
-                          <div className="flex flex-wrap gap-2">
-                            {r.attachments && r.attachments.length > 0 ? (
-                              r.attachments.map((a, idx) => (
-                                <span key={idx} className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-200">📄 {a}</span>
-                              ))
-                            ) : (
-                              <span className="text-gray-500 text-xs">No attachments</span>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-400">Timestamps</div>
-                          <div className="text-gray-400 text-xs space-y-0.5">
-                            <div>Created: {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}</div>
-                            <div>Updated: {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</div>
-                            <div>Assigned: {r.assignedAt ? new Date(r.assignedAt).toLocaleString() : '-'}</div>
-                            <div>Resolved: {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : '-'}</div>
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </td>
                   </tr>
-                )}
+                  {expandedId === r.id && (
+                    <tr className="border-b border-gray-800 bg-gray-900/30">
+                      <td colSpan={16} className="px-3 py-3">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className="text-xs text-gray-400">Full Description</div>
+                            <div className="text-gray-200">{r.description || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-400">Intervention Details</div>
+                            <div className="text-gray-200">{r.interventionDetails || '-'}</div>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="text-xs text-gray-400 mb-1">Attachments</div>
+                            <div className="flex flex-wrap gap-2">
+                              {r.attachments && r.attachments.length > 0 ? (
+                                r.attachments.map((a, idx) => (
+                                  <span key={idx} className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-200">📄 {a}</span>
+                                ))
+                              ) : (
+                                <span className="text-gray-500 text-xs">No attachments</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-400">Timestamps</div>
+                            <div className="text-gray-400 text-xs space-y-0.5">
+                              <div>Created: {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}</div>
+                              <div>Updated: {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</div>
+                              <div>Assigned: {r.assignedAt ? new Date(r.assignedAt).toLocaleString() : '-'}</div>
+                              <div>Resolved: {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : '-'}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </>
               );
             })}
@@ -5041,12 +5000,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 // Gray-shaded data derive from "Maintenance Ticket" form
 // Blue-shaded data are managed by the Maintenance Team
 const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [rows, setRows] = useState<WorkOrderItem[]>(()=>load(K.serviceRequests(projectId), [] as WorkOrderItem[]));
+  const [rows, setRows] = useState<WorkOrderItem[]>(() => load(K.serviceRequests(projectId), [] as WorkOrderItem[]));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
+
   // Filters
   const [filters, setFilters] = useState({
     status: 'all',
@@ -5055,16 +5014,16 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     priority: 'all',
     search: ''
   });
-  
+
   // Sorting
   const [sortBy, setSortBy] = useState<'requestId' | 'status' | 'createdAt' | 'requester'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
+
   // Cache to localStorage
-  useEffect(()=>save(K.serviceRequests(projectId), rows),[rows,projectId]);
-  
+  useEffect(() => save(K.serviceRequests(projectId), rows), [rows, projectId]);
+
   // Load from backend
-  useEffect(()=>{
+  useEffect(() => {
     const loadData = async () => {
       if (!projectId) return;
       try {
@@ -5077,32 +5036,32 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     };
     loadData();
   }, [projectId]);
-  
 
-  
+
+
   const startEdit = (row: WorkOrderItem) => {
     setEditingId(row.id);
     setEditForm(row);
   };
-  
+
   const saveEdit = async () => {
     if (!editingId) return;
-    
+
     const oldRow = rows.find(r => r.id === editingId);
     const updatedRow = { ...oldRow, ...editForm, updatedAt: new Date().toISOString() };
-    
+
     // Check if technician was assigned
     const wasAssigned = !oldRow?.responsibleTechnician && editForm.responsibleTechnician;
     if (wasAssigned) {
       updatedRow.assignedAt = new Date().toISOString();
     }
-    
+
     // Check if status changed to Resolved
     const wasResolved = oldRow?.status !== 'Resolved' && editForm.status === 'Resolved';
     if (wasResolved) {
       updatedRow.resolvedAt = new Date().toISOString();
     }
-    
+
     // Update backend if projectId available
     if (projectId) {
       try {
@@ -5111,7 +5070,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: editingId, ...editForm, wasAssigned, wasResolved })
         });
-        
+
         if (res.ok) {
           // Reload from backend
           const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
@@ -5132,11 +5091,11 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       // No projectId, local update only
       setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
     }
-    
+
     setEditingId(null);
     setEditForm({});
   };
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Open': return 'bg-yellow-900/30 text-yellow-300';
@@ -5165,7 +5124,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     return true;
   }).sort((a, b) => {
     let aVal: any, bVal: any;
-    
+
     switch (sortBy) {
       case 'requestId':
         aVal = a.requestId || '';
@@ -5186,7 +5145,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       default:
         return 0;
     }
-    
+
     if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
     return 0;
@@ -5219,7 +5178,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
   // Export to CSV - only selected rows
   const exportToCSV = () => {
-    const rowsToExport = selectedIds.size > 0 
+    const rowsToExport = selectedIds.size > 0
       ? filteredRows.filter(r => selectedIds.has(r.id))
       : filteredRows;
 
@@ -5228,7 +5187,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       'Discipline', 'Category', 'Description', 'Attachments', 'Asset',
       'Responsible Technician', 'Company', 'Status', 'Priority', 'Created At'
     ];
-    
+
     const csvRows = [
       headers.join(','),
       ...rowsToExport.map(row => [
@@ -5249,7 +5208,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         row.createdAt ? new Date(row.createdAt).toLocaleString() : ''
       ].map(val => `"${val}"`).join(','))
     ];
-    
+
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -5278,15 +5237,15 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       search: ''
     });
   };
-  
+
   return (
     <div className="p-4 space-y-4 h-full flex flex-col overflow-hidden">
       <div>
         <h3 className="text-white font-semibold text-lg mb-1">Service Requests</h3>
         <p className="text-xs text-gray-400">
-          <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span> 
-          are from tickets. 
-          <span className="inline-block bg-blue-900/40 px-1.5 py-0.5 rounded text-blue-300 ml-2">Blue fields</span> 
+          <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span>
+          are from tickets.
+          <span className="inline-block bg-blue-900/40 px-1.5 py-0.5 rounded text-blue-300 ml-2">Blue fields</span>
           are managed by Maintenance Team.
         </p>
       </div>
@@ -5300,7 +5259,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
           className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white flex-1 min-w-[200px]"
         />
-        
+
         <select
           value={filters.status}
           onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
@@ -5347,11 +5306,10 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <button
           onClick={exportToCSV}
           disabled={selectedIds.size === 0}
-          className={`px-3 py-1.5 text-white text-sm rounded transition-colors ${
-            selectedIds.size > 0 
-              ? 'bg-green-600 hover:bg-green-700' 
-              : 'bg-gray-600 cursor-not-allowed'
-          }`}
+          className={`px-3 py-1.5 text-white text-sm rounded transition-colors ${selectedIds.size > 0
+            ? 'bg-green-600 hover:bg-green-700'
+            : 'bg-gray-600 cursor-not-allowed'
+            }`}
         >
           Export to CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
         </button>
@@ -5377,20 +5335,20 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
             <thead className="sticky top-0 bg-gray-900 z-10">
               <tr className="border-b border-gray-700">
                 <th className="px-3 py-2 text-left">
-                  <input 
-                    type="checkbox" 
-                    className="rounded" 
+                  <input
+                    type="checkbox"
+                    className="rounded"
                     checked={selectedIds.size === filteredRows.length && filteredRows.length > 0}
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th 
+                <th
                   className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
                   onClick={() => toggleSort('requestId')}
                 >
                   Request ID {sortBy === 'requestId' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th 
+                <th
                   className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
                   onClick={() => toggleSort('requester')}
                 >
@@ -5403,7 +5361,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Description</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Technician</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Company</th>
-                <th 
+                <th
                   className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-white whitespace-nowrap"
                   onClick={() => toggleSort('status')}
                 >
@@ -5417,14 +5375,14 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                 const isEditing = editingId === row.id;
                 const isExpanded = expandedId === row.id;
                 const isSelected = selectedIds.has(row.id);
-                
+
                 return (
                   <React.Fragment key={row.id}>
                     <tr className={`border-b border-gray-800 hover:bg-gray-800/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
                       <td className="px-3 py-2">
-                        <input 
-                          type="checkbox" 
-                          className="rounded" 
+                        <input
+                          type="checkbox"
+                          className="rounded"
                           checked={isSelected}
                           onChange={() => toggleSelect(row.id)}
                         />
@@ -5454,15 +5412,15 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        <button 
-                          onClick={() => setExpandedId(isExpanded ? null : row.id)} 
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : row.id)}
                           className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs whitespace-nowrap"
                         >
                           {isExpanded ? 'Hide ▲' : 'Expand ▼'}
                         </button>
                       </td>
                     </tr>
-                    
+
                     {/* Expanded Row with Full Details */}
                     {isExpanded && (
                       <tr className="border-b border-gray-800 bg-gray-900/60">
@@ -5516,8 +5474,8 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                     <div>
                                       <div className="text-xs text-gray-500 mb-1">Attachments</div>
                                       <div className="text-sm text-gray-200">
-                                        {row.attachments && row.attachments.length > 0 
-                                          ? `${row.attachments.length} file(s)` 
+                                        {row.attachments && row.attachments.length > 0
+                                          ? `${row.attachments.length} file(s)`
                                           : 'None'}
                                       </div>
                                     </div>
@@ -5645,14 +5603,14 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       </select>
                                     </div>
                                   </div>
-                                  
+
                                   {/* Action Buttons */}
                                   <div className="flex gap-3 mt-4 pt-4 border-t border-blue-800">
                                     <button
                                       onClick={saveEdit}
                                       className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors"
                                     >
-                                       Save Changes
+                                      Save Changes
                                     </button>
                                     <button
                                       onClick={() => { setEditingId(null); setEditForm({}); }}
@@ -5681,19 +5639,19 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
 // Maintenance Reports
 const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [scheduled] = useState<ScheduledItem[]>(()=>load(K.scheduled(projectId), [] as ScheduledItem[]));
-  const [workOrders] = useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
-  
+  const [scheduled] = useState<ScheduledItem[]>(() => load(K.scheduled(projectId), [] as ScheduledItem[]));
+  const [workOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
+
   const totalScheduled = scheduled.length;
   const totalWorkOrders = workOrders.length;
   const openOrders = workOrders.filter(w => w.status === 'Open').length;
   const inProgressOrders = workOrders.filter(w => w.status === 'In Progress').length;
   const resolvedOrders = workOrders.filter(w => w.status === 'Resolved').length;
-  
+
   return (
     <div className="p-3 space-y-4">
       <div className="text-white font-semibold text-sm">Maintenance Reports</div>
-      
+
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-800/60 rounded p-3">
           <div className="text-xs text-gray-400">Scheduled Tasks</div>
@@ -5716,7 +5674,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
           <div className="text-2xl text-green-300 font-bold">{resolvedOrders}</div>
         </div>
       </div>
-      
+
       <div className="border-t border-gray-700 pt-3">
         <div className="text-xs text-gray-400">Reports generated at: {new Date().toLocaleString()}</div>
       </div>
@@ -5726,16 +5684,16 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
 // Upcoming Maintenance Activities
 const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [scheduled] = useState<ScheduledItem[]>(()=>load(K.scheduled(projectId), [] as ScheduledItem[]));
-  const [workOrders] = useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
-  
+  const [scheduled] = useState<ScheduledItem[]>(() => load(K.scheduled(projectId), [] as ScheduledItem[]));
+  const [workOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
+
   const upcomingScheduled = scheduled.slice(0, 10); // Show next 10
   const plannedOrders = workOrders.filter(w => w.status === 'Planned');
-  
+
   return (
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Upcoming Maintenance Activities</div>
-      
+
       <div className="space-y-2">
         <div className="text-xs text-gray-400 font-semibold">Scheduled Maintenance</div>
         {upcomingScheduled.length === 0 ? (
@@ -5751,7 +5709,7 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
           </ul>
         )}
       </div>
-      
+
       <div className="space-y-2 border-t border-gray-700 pt-3">
         <div className="text-xs text-gray-400 font-semibold">Planned Work Orders</div>
         {plannedOrders.length === 0 ? (
@@ -5773,13 +5731,13 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
 
 // Ongoing Maintenance
 const OngoingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [workOrders] = useState<WorkOrderItem[]>(()=>load(K.workOrders(projectId), [] as WorkOrderItem[]));
+  const [workOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
   const ongoingOrders = workOrders.filter(w => w.status === 'In Progress');
-  
+
   return (
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Ongoing Maintenance</div>
-      
+
       {ongoingOrders.length === 0 ? (
         <div className="text-gray-400 text-sm">No ongoing maintenance activities.</div>
       ) : (
@@ -5835,7 +5793,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
     fetchScheduledMaintenance();
   }, [projectId]);
-  
+
   // Group by discipline
   const byDiscipline = scheduled.reduce((acc, item) => {
     const disc = item.discipline || 'Other';
@@ -5843,12 +5801,12 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     acc[disc].push(item);
     return acc;
   }, {} as Record<string, ScheduledItem[]>);
-  
+
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
       <div className="text-xs text-gray-400 mb-2">Organized by discipline</div>
-      
+
       {loading ? (
         <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
       ) : Object.keys(byDiscipline).length === 0 ? (
@@ -5865,7 +5823,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                   [{discipline}] ({items.length})
                 </div>
               </div>
-              
+
               {/* Maintenance Items */}
               <div className="divide-y divide-gray-700/30">
                 {items.map(item => (
@@ -5876,12 +5834,12 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                         <div className="font-semibold text-white text-sm mb-1">
                           {item.category}
                         </div>
-                        
+
                         {/* Code and Asset */}
                         <div className="text-xs text-gray-400 mb-1">
                           Code: <span className="text-gray-300">{item.code}</span> | Asset: <span className="text-gray-300">{item.asset}</span>
                         </div>
-                        
+
                         {/* Tasks */}
                         <div className="text-xs text-gray-300 mt-1">
                           <span className="font-semibold text-gray-400">Tasks:</span>
@@ -5891,7 +5849,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                             ))}
                           </ul>
                         </div>
-                        
+
                         {/* Frequency and Time */}
                         <div className="text-xs text-emerald-400 mt-2">
                           {item.frequency}/year • {item.timeHours}h per intervention
