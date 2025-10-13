@@ -2139,17 +2139,28 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
-  const [f,setF]=useState<Partial<AssetRecord>>({ 
-    category:'', type:'', brand:'', model:'', description:'', location:'',
-    assetCode:'', assetName:'', serialNumber:'', installationDate:'',
-    material:'', dimensions:'', weight:'', capacity:'', powerRating:'',
-    manuals:'', warranties:'', certifications:'',
-    condition:'', serviceDate:'', expectedLife:'',
-    maintenanceSchedule:'', lastService:'', nextService:'',
-    purchaseCost:'', maintenanceCost:'',
-    regulations:'', safetyNotes:'',
-    parentAsset:'', suppliers:''
+  const [f,setF]=useState<Partial<AssetRecord>>(() => {
+    // Load from localStorage on init
+    const saved = load(`fm-create-asset-draft-${projectId || 'global'}`, {});
+    return { 
+      category:'', type:'', brand:'', model:'', description:'', location:'',
+      assetCode:'', assetName:'', serialNumber:'', installationDate:'',
+      material:'', dimensions:'', weight:'', capacity:'', powerRating:'',
+      manuals:'', warranties:'', certifications:'',
+      condition:'', serviceDate:'', expectedLife:'',
+      maintenanceSchedule:'', lastService:'', nextService:'',
+      purchaseCost:'', maintenanceCost:'',
+      regulations:'', safetyNotes:'',
+      parentAsset:'', suppliers:'',
+      ...saved
+    };
   });
+  const [isPlacing, setIsPlacing] = useState(false);
+  
+  // Auto-save draft to localStorage on every field change
+  useEffect(() => {
+    save(`fm-create-asset-draft-${projectId || 'global'}`, f);
+  }, [f, projectId]);
   
   useEffect(()=>save(K.assets(projectId), rows),[rows,projectId]);
   
@@ -2161,7 +2172,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       source: 'MANUAL'
     }; 
     setRows(prev=>[rec,...prev]); 
-    setF({ 
+    // Clear draft after successful save
+    const emptyForm = { 
       category:'', type:'', brand:'', model:'', description:'', location:'',
       assetCode:'', assetName:'', serialNumber:'', installationDate:'',
       material:'', dimensions:'', weight:'', capacity:'', powerRating:'',
@@ -2171,7 +2183,9 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       purchaseCost:'', maintenanceCost:'',
       regulations:'', safetyNotes:'',
       parentAsset:'', suppliers:''
-    }); 
+    };
+    setF(emptyForm); 
+    save(`fm-create-asset-draft-${projectId || 'global'}`, emptyForm);
   };
   
   const sections = [
@@ -2258,12 +2272,157 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       }));
     } catch {}
   };
+
+  // Place object functionality
+  const placeObject = () => {
+    if (!viewer) {
+      // Remote placement for standalone window
+      setIsPlacing(true);
+      try {
+        const opener = (window as any).opener as Window | null;
+        if (!opener) return;
+        
+        // Minimize window temporarily
+        const old = { x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight };
+        try {
+          const sw = window.screen?.availWidth || 1280;
+          const sh = window.screen?.availHeight || 800;
+          const targetW = Math.max(360, Math.min(480, Math.floor(sw * 0.32)));
+          const targetH = Math.max(260, Math.min(420, Math.floor(sh * 0.35)));
+          window.resizeTo(targetW, targetH);
+          window.moveTo(sw - targetW - 10, 10);
+        } catch {}
+
+        // Listen for placement result
+        const onMsg = (e: MessageEvent) => {
+          const d: any = e.data;
+          if (!d || typeof d !== 'object') return;
+          if (d.type === 'FM_PLACE_DONE' && d.point) {
+            setF(prev => ({ ...prev, location: d.location || prev.location }));
+            window.removeEventListener('message', onMsg);
+            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+            setIsPlacing(false);
+          } else if (d.type === 'FM_PLACE_CANCELLED') {
+            window.removeEventListener('message', onMsg);
+            try { window.resizeTo(old.w, old.h); window.moveTo(old.x, old.y); window.focus(); } catch {}
+            setIsPlacing(false);
+          }
+        };
+        window.addEventListener('message', onMsg);
+        
+        // Send placement request
+        opener.postMessage({ 
+          type: 'FM_PLACE_START', 
+          assetId: `temp-${Date.now()}`, 
+          shape: 'cube', 
+          size: 0.3 
+        }, '*');
+      } catch {}
+      return;
+    }
+
+    // Direct placement in main window
+    setIsPlacing(true);
+    const container = viewer.container as HTMLElement;
+    container.style.cursor = 'crosshair';
+    
+    const onClick = async (ev: MouseEvent) => {
+      try {
+        let pt: any = null;
+        let locDbId: number | undefined;
+        let locModel: any | undefined;
+        const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        if (res && res.point) {
+          pt = res.point;
+          if (res.dbId != null && res.model) { locDbId = res.dbId; locModel = res.model; }
+        }
+        
+        if (!pt) {
+          // Fallback to selected object center
+          let dbId: number | undefined; let model: any = viewer.model;
+          const agg: any[] | null = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+          if (agg && agg.length>0 && agg[0].selection?.length>0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+          else { const sel = viewer.getSelection?.(); if (sel && sel.length>0) dbId = sel[0]; }
+          if (dbId!=null && model) {
+            const THREE = (window as any).THREE;
+            const frags = model.getFragmentList?.();
+            if (THREE && frags) {
+              const box = new THREE.Box3();
+              frags.enumNodeFragments(dbId, (fid: number) => {
+                const fb = new THREE.Box3();
+                frags.getWorldBounds(fid, fb);
+                box.union(fb);
+              });
+              if (!box.isEmpty()) {
+                pt = box.getCenter(new THREE.Vector3());
+                locDbId = dbId; locModel = model;
+              }
+            }
+          }
+          if (!pt) return; // Keep trying until valid placement
+        }
+
+        // Get location from properties
+        let newLocation: string | undefined;
+        try {
+          if (locModel && locDbId!=null) {
+            const props: any = await new Promise(resolve => locModel.getProperties(locDbId!, resolve));
+            const getVal = (names: string[]): string | undefined => {
+              const lower = names.map(n=>n.toLowerCase());
+              const p = props?.properties?.find((p:any)=>{ const dn=p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n=> dn.includes(n))); });
+              return p?.displayValue?.toString();
+            };
+            const building = getVal(['Building']);
+            const level = getVal(['Level','Reference Level']);
+            const room = getVal(['Room','Space']);
+            const parts = [building, level, room].filter(Boolean) as string[];
+            if (parts.length) newLocation = parts.join(' - ');
+          }
+        } catch {}
+
+        // Update location field
+        setF(prev => ({ ...prev, location: newLocation || prev.location }));
+        
+        // Cleanup
+        container.removeEventListener('click', onClick, true);
+        window.removeEventListener('keydown', onKeyDown, true);
+        container.style.cursor = 'default';
+        setIsPlacing(false);
+      } catch {}
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        container.removeEventListener('click', onClick, true);
+        window.removeEventListener('keydown', onKeyDown, true);
+        container.style.cursor = 'default';
+        setIsPlacing(false);
+      }
+    };
+
+    container.addEventListener('click', onClick, true);
+    window.addEventListener('keydown', onKeyDown, true);
+  };
   
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">Create New Asset</div>
-        <button className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200" onClick={prefillFromSelection}>Prefill from Selection</button>
+        <div className="flex gap-2">
+          <button 
+            className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200" 
+            onClick={prefillFromSelection}
+          >
+            Prefill from Selection
+          </button>
+          <button 
+            className={`text-[11px] px-2 py-1 rounded border ${isPlacing ? 'border-purple-500 bg-purple-600 text-white cursor-not-allowed' : 'border-gray-700 bg-purple-600 hover:bg-purple-700 text-white'}`}
+            onClick={placeObject}
+            disabled={isPlacing}
+          >
+            {isPlacing ? 'Placing...' : 'Place Object'}
+          </button>
+        </div>
       </div>
       
       {/* Section selector */}
@@ -2623,7 +2782,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows,setRows]=useState<SpaceRecord[]>(()=>load(K.spaces(projectId), [] as SpaceRecord[]));
   useEffect(()=>save(K.spaces(projectId), rows),[rows,projectId]);
-  const [f,setF]=useState({ building:'', level:'', name:'', spaceCode:'', area:'', description:'' });
+  const [f,setF]=useState(() => {
+    // Load from localStorage on init
+    const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
+    return { 
+      building:'', level:'', name:'', spaceCode:'', area:'', description:'',
+      ...saved
+    };
+  });
+
+  // Auto-save draft to localStorage on every field change
+  useEffect(() => {
+    save(`fm-create-space-draft-${projectId || 'global'}`, f);
+  }, [f, projectId]);
   // Footprint drawing state
   const [drawing, setDrawing] = useState(false);
   const [footprint, setFootprint] = useState<{ points: { x:number; y:number; z:number }[]; z?: number; levelIndex?: number } | null>(null);
@@ -2996,7 +3167,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     } catch {
       setRows(prev=>[rec,...prev]);
     }
-    setF({ building:'', level:'', name:'', spaceCode:'', area:'', description:'' }); 
+    // Clear draft after successful save
+    const emptyForm = { building:'', level:'', name:'', spaceCode:'', area:'', description:'' };
+    setF(emptyForm);
+    save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm); 
   };
   return (
     <div className="p-3 space-y-3">
@@ -3618,15 +3792,25 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     return () => window.removeEventListener('message', handleMessage);
   }, [isStandalone]);
   
-  const [form,setForm]=useState({
-    // Requester
-    name:'', surname:'', contact:'',
-    // Location
-    building:'', level:'', room:'', spaceCode:'',
-    // Intervention
-    discipline:'', category:'', item:'', itemDbId: null as number | null, descriptionShort:'', descriptionDetailed:'',
-    attachments: [] as string[]
+  const [form,setForm]=useState(() => {
+    // Load from localStorage on init
+    const saved = load(`fm-ticket-form-draft-${projectId || 'global'}`, {});
+    return {
+      // Requester
+      name:'', surname:'', contact:'',
+      // Location
+      building:'', level:'', room:'', spaceCode:'',
+      // Intervention
+      discipline:'', category:'', item:'', itemDbId: null as number | null, descriptionShort:'', descriptionDetailed:'',
+      attachments: [] as string[],
+      ...saved
+    };
   });
+
+  // Auto-save draft to localStorage on every field change
+  useEffect(() => {
+    save(`fm-ticket-form-draft-${projectId || 'global'}`, form);
+  }, [form, projectId]);
   
   const disciplines = ['Architecture','Structure','Mechanical','Electrical','Plumbing','Fire Protection','Elevator','Safety','IT/Technology','Other'];
   
@@ -4014,15 +4198,27 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     
     // Generate and show QR code with success modal
     await generateCode(code);
-  };
-  
-  const resetForm = () => {
-    setForm({
+    
+    // Clear draft after successful submission
+    const emptyForm = {
       name:'', surname:'', contact:'',
       building:'', level:'', room:'', spaceCode:'',
       discipline:'', category:'', item:'', itemDbId: null, descriptionShort:'', descriptionDetailed:'',
       attachments: []
-    });
+    };
+    setForm(emptyForm);
+    save(`fm-ticket-form-draft-${projectId || 'global'}`, emptyForm);
+  };
+  
+  const resetForm = () => {
+    const emptyForm = {
+      name:'', surname:'', contact:'',
+      building:'', level:'', room:'', spaceCode:'',
+      discipline:'', category:'', item:'', itemDbId: null, descriptionShort:'', descriptionDetailed:'',
+      attachments: []
+    };
+    setForm(emptyForm);
+    save(`fm-ticket-form-draft-${projectId || 'global'}`, emptyForm);
     setQrCodeDataUrl('');
     setShowQrModal(false);
     setGeneratedCode('');

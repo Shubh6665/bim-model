@@ -136,20 +136,20 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to remove administrator');
-      
+
       // Optimistically remove the entry from the list
       setAdministrators((prev) => prev.filter((admin) => !(admin.email === email && admin.company === company)));
-      
+
       // Trigger a global refresh of user permissions by dispatching a custom event
       // This will be caught by the dashboard header to refresh canCreate state
-      window.dispatchEvent(new CustomEvent('admin-permissions-changed', { 
+      window.dispatchEvent(new CustomEvent('admin-permissions-changed', {
         detail: { removedEmail: email, removedCompany: company }
       }));
-      
+
       // If the removed admin is the current user, show a notification that they need to refresh
       // We can't force a sign-out here since we don't have access to the session
       // The dashboard header will handle the session refresh
-      
+
       // Refresh from server (non-blocking)
       load();
     } catch (e: any) {
@@ -221,7 +221,7 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
           )}
           {!loading && administrators.length > 0 && (
             <div className="space-y-4">
-              
+
               <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="text-gray-400 border-b border-gray-700">
