@@ -2388,17 +2388,18 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
 
       setF(v => ({
         ...v,
-        brand: v.brand || brand,
-        model: v.model || modelName,
-        serialNumber: v.serialNumber || serial,
-        installationDate: v.installationDate || installDate,
-        powerRating: v.powerRating || power,
-        capacity: v.capacity || capacity,
-        weight: v.weight || weight,
-        dimensions: v.dimensions || dimensions,
-        material: v.material || material,
-        location: v.location || [level, room].filter(Boolean).join(' - '),
-        category: v.category || category
+        // Replace with new selection data (clear fields if not present in new selection)
+        brand: brand || '',
+        model: modelName || '',
+        serialNumber: serial || '',
+        installationDate: installDate || '',
+        powerRating: power || '',
+        capacity: capacity || '',
+        weight: weight || '',
+        dimensions: dimensions || '',
+        material: material || '',
+        location: [level, room].filter(Boolean).join(' - ') || '',
+        category: category || ''
       }));
     } catch { }
   };
