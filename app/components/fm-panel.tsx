@@ -3975,70 +3975,77 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             }
           }
 
-          // Auto-detect discipline: try explicit Discipline property, then infer from category
+          // Auto-detect discipline: robust multi-step detection
           let discipline = '';
-          const disciplineProp = getProp(['Discipline', 'Discipline Type', 'Category Type']);
-          if (disciplineProp) {
-            // If multiple disciplines are present, choose the first matching known discipline
-            const parts = disciplineProp.split(/[,;/|]+/).map(s => s.trim()).filter(Boolean);
-            for (const p of parts) {
-              const match = disciplines.find(d => d.toLowerCase() === p.toLowerCase() || p.toLowerCase().includes(d.toLowerCase()));
-              if (match) { discipline = match; break; }
+
+          // Helper: try to match a text against known disciplines
+          const matchKnownDiscipline = (text: string | undefined) => {
+            if (!text) return '';
+            const t = text.toLowerCase();
+            const mapping: Record<string, string[]> = {
+              'Architecture': ['wall', 'window', 'door', 'roof', 'floor', 'muro', 'finestra', 'porta', 'floor', 'pavimento', 'architettura'],
+              'Structure': ['column', 'beam', 'foundation', 'structural', 'colonna', 'trave', 'fondazione', 'struttura'],
+              'Mechanical': ['mechanical', 'hvac', 'duct', 'pipe', 'meccanico', 'ventil', 'convettore', 'pump', 'fan', 'meccanica'],
+              'Electrical': ['electrical', 'lighting', 'fixture', 'elettrico', 'quadro', 'circuito', 'panel', 'elettrica'],
+              'Plumbing': ['plumbing', 'sanitary', 'idraul', 'plumbing', 'plumbing'],
+              'Fire Protection': ['fire', 'antincendio', 'sprinkler'],
+              'Elevator': ['elevator', 'lift', 'ascensore'],
+              'Safety': ['safety', 'protezione'],
+              'IT/Technology': ['it', 'network', 'data', 'tecnologia']
+            };
+            for (const [disc, keywords] of Object.entries(mapping)) {
+              for (const kw of keywords) {
+                if (t.includes(kw)) return disc;
+              }
             }
-            if (!discipline && parts.length > 0) discipline = parts[0];
-          }
-          if (!discipline && category) {
-            const catLower = category.toLowerCase();
-            if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
-              discipline = 'Architecture';
-            } else if (catLower.includes('column') || catLower.includes('beam') || catLower.includes('foundation') || catLower.includes('structural')) {
-              discipline = 'Structure';
-            } else if (catLower.includes('mechanical') || catLower.includes('hvac') || catLower.includes('duct') || catLower.includes('pipe')) {
-              discipline = 'Mechanical';
-            } else if (catLower.includes('electrical') || catLower.includes('lighting') || catLower.includes('fixture')) {
-              discipline = 'Electrical';
-            } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
-              discipline = 'Plumbing';
-            } else if (catLower.includes('furniture') || catLower.includes('casework') || catLower.includes('furnishing')) {
-              discipline = 'Architecture';
-            }
-          }
+            return '';
+          };
 
-          // Find matching category option from CATEGORY_MAPPING
-          let matchedCategory = '';
-          if (category) {
-            const catLower = category.toLowerCase();
+          // 1) Explicit discipline-like properties (including Italian names)
+          const disciplineCandidates = [
+            'Discipline', 'Discipline Type', 'Category Type', 'System Classification', 'System Name',
+            'Classification', 'Classificazione', 'Category', 'Family', 'Type', 'Type Name', 'Dati identità', 'Description'
+          ];
 
-            // Try to match against Italian keys first (to support Italian client labels), then english/ifc
-            for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
-              const italianLower = italian.toLowerCase();
-              const englishLower = mapping.english.toLowerCase();
-              const ifcLower = mapping.ifc.toLowerCase();
-              const ifcWithoutPrefix = ifcLower.replace('ifc', '');
-
-              if (
-                catLower.includes(italianLower) ||
-                italianLower.includes(catLower) ||
-                catLower.includes(englishLower) ||
-                englishLower.includes(catLower) ||
-                catLower.includes(ifcWithoutPrefix) ||
-                ifcWithoutPrefix.includes(catLower) ||
-                (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
-                (catLower.includes('furnishing') && englishLower.includes('furniture'))
-              ) {
-                // Prefer showing Italian label for Italian clients, but keep english + ifc for clarity
-                matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
-                console.log('🎯 [Prefill] Category matched:', category, '→', matchedCategory);
+          let found = '';
+          for (const cand of disciplineCandidates) {
+            const v = getProp([cand]);
+            if (v) {
+              // try matching known disciplines inside the value
+              found = matchKnownDiscipline(v) || found || v.split(/[,;/|]+/)[0]?.trim();
+              if (found) {
+                console.log('🎯 [Prefill] Discipline found from prop', cand, '→', found);
+                discipline = found;
                 break;
               }
             }
+          }
 
-            if (!matchedCategory) {
-              // As last resort use raw category string
-              matchedCategory = category;
-              console.warn('⚠️ [Prefill] No category match found - using raw category:', category);
+          // 2) If still not found, try matching from category string
+          if (!discipline && category) {
+            discipline = matchKnownDiscipline(category) || '';
+            if (discipline) console.log('🎯 [Prefill] Discipline inferred from category →', discipline);
+          }
+
+          // 3)  Scan all properties names and values as fallback
+          if (!discipline && Array.isArray(props?.properties)) {
+            for (const p of props.properties) {
+              const dv = (p.displayValue || '').toString();
+              const dn = (p.displayName || '').toString();
+              const tryText = `${dn} ${dv}`;
+              const m = matchKnownDiscipline(tryText);
+              if (m) { discipline = m; console.log('🎯 [Prefill] Discipline found scanning properties →', m, 'from', dn); break; }
             }
           }
+
+          // 4) Final fallback: check object name
+          if (!discipline && name) {
+            discipline = matchKnownDiscipline(name) || '';
+            if (discipline) console.log('🎯 [Prefill] Discipline inferred from name →', discipline);
+          }
+
+          // Use the raw category string returned by the model (do not try to remap/override it)
+          const matchedCategory = category || '';
 
           console.log('✨ [Prefill] Extracted data:', {
             name,
@@ -4367,6 +4374,10 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           </select>
           <select value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
             <option value="">Select Category</option>
+            {/* If form.category contains a raw value not present in categoryOptions, inject it so the select displays it */}
+            {form.category && !categoryOptions.includes(form.category) && (
+              <option key={`raw-${form.category}`} value={form.category}>{form.category}</option>
+            )}
             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
           <input placeholder="Short Description" value={form.descriptionShort} onChange={e => setForm(v => ({ ...v, descriptionShort: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
