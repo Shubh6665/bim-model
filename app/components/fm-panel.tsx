@@ -88,7 +88,7 @@ interface ScheduledItem {
   discipline: string;
   category: string;
   code: string;
-  asset: string;
+  asset: string[];
   tasks: string[];
   frequency: number;
   timeHours: number;
@@ -3285,6 +3285,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
 
   const [f, setF] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
+  const [selectedAssets, setSelectedAssets] = useState<{ label: string; type?: string; id?: string }[]>([]);
+  const [allowedAssetType, setAllowedAssetType] = useState<string | null>(null);
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
@@ -3405,7 +3407,22 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   };
 
   const selectAsset = (asset: AssetRecord) => {
-    setF(v => ({ ...v, asset: asset.assetName || asset.assetCode || `Asset ${asset.id}` }));
+    const label = asset.assetName || asset.assetCode || `Asset ${asset.id}`;
+    const type = asset.type || asset.category || '';
+
+    // Enforce same type as first selected asset
+    if (allowedAssetType && type !== allowedAssetType) {
+      setSubmitMessage({ type: 'error', text: `Only assets of type "${allowedAssetType}" can be added. This asset is "${type}".` });
+      return;
+    }
+
+    setSelectedAssets(prev => {
+      if (prev.some(p => p.label === label)) return prev;
+      return [...prev, { label, type, id: asset.id }];
+    });
+    // Set allowed type if first asset
+    if (!allowedAssetType) setAllowedAssetType(type || null);
+    setF(v => ({ ...v, asset: '' }));
     setShowAssetPicker(false);
     setAssetSearch('');
     setAssetCategoryFilter('');
@@ -3434,8 +3451,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     const hours = parseFloat(f.timeHours as any);
     if (!f.timeHours || isNaN(hours) || hours <= 0) { newErrors.timeHours = 'Required (hours, must be > 0)'; hasError = true; }
 
-    // Validate tasks
-    if (tasks.length === 0) { newErrors.tasks = 'Please add at least one task.'; hasError = true; }
+  // Validate tasks
+  if (tasks.length === 0) { newErrors.tasks = 'Please add at least one task.'; hasError = true; }
+  // Validate assets
+  if (selectedAssets.length === 0) { newErrors.asset = 'Please select at least one asset.'; hasError = true; }
 
     setErrors(newErrors);
     if (hasError) {
@@ -3449,7 +3468,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       discipline: f.discipline,
       category: f.category,
       code: f.code,
-      asset: f.asset,
+      asset: selectedAssets.map(s => s.label),
       tasks: tasks,
       frequency: freq,
       timeHours: hours
@@ -3462,15 +3481,18 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       return true;
     };
 
-    const duplicate = rows.some(r =>
-      (r.discipline || '') === (newItem.discipline || '') &&
-      (r.category || '') === (newItem.category || '') &&
-      (r.code || '').trim() === (newItem.code || '').trim() &&
-      (r.asset || '').trim() === (newItem.asset || '').trim() &&
-      arraysEqual(r.tasks || [], newItem.tasks || []) &&
-      Number(r.frequency) === Number(newItem.frequency) &&
-      Number(r.timeHours) === Number(newItem.timeHours)
-    );
+    const duplicate = rows.some(r => {
+      const assetsEqual = arraysEqual(r.asset || [], newItem.asset || []);
+      return (
+        (r.discipline || '') === (newItem.discipline || '') &&
+        (r.category || '') === (newItem.category || '') &&
+        (r.code || '').trim() === (newItem.code || '').trim() &&
+        assetsEqual &&
+        arraysEqual(r.tasks || [], newItem.tasks || []) &&
+        Number(r.frequency) === Number(newItem.frequency) &&
+        Number(r.timeHours) === Number(newItem.timeHours)
+      );
+    });
 
     if (duplicate) {
       setSubmitMessage({ type: 'error', text: 'This scheduled maintenance already exists.' });
@@ -3516,6 +3538,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     setF({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
     setTasks([]);
     setCurrentTask('');
+    setSelectedAssets([]);
     setErrors({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   };
 
@@ -3563,32 +3586,43 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           {errors.code && <div className="text-[10px] text-red-400 mt-1">{errors.code}</div>}
         </div>
 
-        {/* Asset with Picker */}
+        {/* Assets with Picker (multiple) */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Asset *</label>
-          <div className="flex gap-1.5">
-            <input
-              placeholder="Asset name or code"
-              value={f.asset}
-              onChange={e => { setF(v => ({ ...v, asset: e.target.value })); setErrors(prev => ({ ...prev, asset: '' })); setSubmitMessage(null); }}
-              className={`flex-1 bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}
-            />
-            {projectId && (
-              <button
-                type="button"
-                onClick={() => {
-                  // If assets not loaded yet, trigger load
-                  if (!assetsLoaded && !assetsLoading) {
-                    setAssetsLoaded(false); // Force reload
-                  }
-                  setShowAssetPicker(true);
-                }}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
-                title="Pick from Asset Register"
-              >
-                Select from List
-              </button>
-            )}
+          <label className="text-[11px] text-gray-400 block mb-1">Assets *</label>
+          <div className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}>
+            <div className="flex gap-2 overflow-x-auto py-1">
+              {selectedAssets.length === 0 && <div className="text-gray-400">No assets selected</div>}
+              {selectedAssets.map((a, idx) => (
+                <div key={(a.id || a.label) + '-' + idx} className="flex items-center bg-gray-900/60 px-3 py-1 rounded whitespace-nowrap mr-2">
+                  <span className="text-sm text-gray-200 mr-2 max-w-xs overflow-hidden text-ellipsis">{a.label}</span>
+                  <button onClick={() => {
+                    setSelectedAssets(prev => prev.filter(x => x.label !== a.label));
+                    // If removing last, clear allowed type
+                    setTimeout(() => {
+                      setSelectedAssets(curr => {
+                        if (curr.length === 0) setAllowedAssetType(null);
+                        return curr;
+                      });
+                    }, 0);
+                  }} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex gap-2">
+              {projectId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!assetsLoaded && !assetsLoading) setAssetsLoaded(false);
+                    setShowAssetPicker(true);
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
+                >
+                  Select from List
+                </button>
+              )}
+              <div className="text-xs text-gray-400 self-center">You can add multiple assets. Click × to remove.</div>
+            </div>
           </div>
           {errors.asset && <div className="text-[10px] text-red-400 mt-1">{errors.asset}</div>}
         </div>
