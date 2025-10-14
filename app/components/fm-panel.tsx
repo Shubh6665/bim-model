@@ -551,16 +551,16 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
   const modalTitle = React.useMemo(() => {
     if (!section) return 'FM';
-    if (section.group === 'assets') return section.item === 'asset-list' ? 'Asset List' : 'Create New Asset';
-    if (section.group === 'spaces') return section.item === 'space-list' ? 'Space List' : 'Create New Space';
+    if (section.group === 'assets') return section.item === 'asset-list' ? 'Assets' : 'Assets';
+    if (section.group === 'spaces') return section.item === 'space-list' ? 'Spaces' : 'Spaces';
     if (section.group === 'maintenance') {
-      return section.item === 'scheduled' ? 'Maintenance' : 'Ticket-based Maintenance';
+      return section.item === 'scheduled' ? 'Maintenance' : ' Maintenance';
     }
     if (section.group === 'work-orders') {
       return section.item === 'service-requests' ? 'Work Orders' : 'Work Orders';
     }
     if (section.group === 'upcoming-activities') {
-      return section.item === 'ongoing' ? 'Ongoing Maintenance' : 'Planned Maintenance';
+      return section.item === 'ongoing' ? 'Upcoming Maintenance Activities' : 'Upcoming Maintenance Activities';
     }
     return 'FM';
   }, [section]);
@@ -905,13 +905,15 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       <div className="flex-1 p-4 overflow-y-auto min-h-0">
         {section && (
           <div className="space-y-3">
-            {/* Submenu Section Header */}
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1 mb-2">
-              {section.group === 'assets' && 'Asset Management'}
-              {section.group === 'spaces' && 'Space Management'}
-              {section.group === 'maintenance' && 'Maintenance Options'}
-              {section.group === 'work-orders' && 'Work Order Management'}
-              {section.group === 'upcoming-activities' && 'Activity Planning'}
+            {/* Submenu Section Header - styled like BIM panel */}
+            <div className="mb-2">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+                {section.group === 'assets' && (<><Package className="h-5 w-5" />Asset Management</>)}
+                {section.group === 'spaces' && (<><Square className="h-5 w-5" />Space Management</>)}
+                {section.group === 'maintenance' && (<><Wrench className="h-5 w-5" />Maintenance Options</>)}
+                {section.group === 'work-orders' && (<><ClipboardList className="h-5 w-5" />Work Order Management</>)}
+                {section.group === 'upcoming-activities' && (<><CalendarClock className="h-5 w-5" />Activity Planning</>)}
+              </h3>
             </div>
 
             {/* Submenu for selected group */}
@@ -925,7 +927,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Asset list
                   </button>
                   <button
@@ -935,7 +936,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Create new asset
                   </button>
                 </>
@@ -949,7 +949,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Space list
                   </button>
                   <button
@@ -959,7 +958,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Create new space
                   </button>
                 </>
@@ -973,7 +971,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Scheduled maintenance
                   </button>
                   <button
@@ -983,7 +980,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Ticket-based maintenance
                   </button>
                 </>
@@ -997,7 +993,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Service requests
                   </button>
                   <button
@@ -1007,7 +1002,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Maintenance reports
                   </button>
                 </>
@@ -1021,7 +1015,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Ongoing maintenance
                   </button>
                   <button
@@ -1031,7 +1024,6 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
                       }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                     Planned maintenance
                   </button>
                 </>
@@ -3471,7 +3463,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Maintenance</div>
+      <div className="text-white font-semibold text-sm">Scheduled Maintenance</div>
       <div className="grid grid-cols-2 gap-2">
         {/* Discipline Dropdown */}
         <div>
@@ -4267,7 +4259,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-y-auto">
-      <div className="text-white font-semibold text-sm">Maintenance Ticket</div>
+      <div className="text-white font-semibold text-sm">Ticket based Maintenance</div>
 
       {/* Requester Section */}
       <div className="border-b border-gray-700 pb-3">
