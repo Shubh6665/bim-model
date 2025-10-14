@@ -3723,6 +3723,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [waitingForSelection, setWaitingForSelection] = useState(false);
   const isStandalone = typeof window !== 'undefined' && window.opener;
+  const [projectName, setProjectName] = useState<string>('');
 
   // Cache to localStorage but prefer backend data when available
   useEffect(() => save(K.tickets(projectId), tickets), [tickets, projectId]);
@@ -3748,6 +3749,22 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
       } catch (err) { console.error('[TicketForm] Load error', err); }
     };
     loadData();
+  }, [projectId]);
+
+  // Load project metadata (name) so we can fallback to it for Building when object has no Building prop
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.ok) {
+          const json = await res.json();
+          setProjectName(json?.project?.name || json?.name || '');
+        }
+      } catch (err) {
+        console.warn('[TicketForm] Could not load project metadata', err);
+      }
+    })();
   }, [projectId]);
 
   // Listen for selection data from main window (standalone mode)
@@ -3937,7 +3954,13 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           const level = getProp(['Level', 'Reference Level']);
           let room = getProp(['Room', 'Space']);
           const spaceCode = getProp(['Space Code', 'Number', 'Mark']);
-          const building = getProp(['Building']);
+          let building = getProp(['Building']);
+
+          // If building missing, fallback to project name if available
+          if ((!building || building.trim() === '') && projectName) {
+            building = projectName;
+            console.log('🏗️ [Prefill] Using project name as building fallback:', building);
+          }
 
           // Use spatial bounding as fallback for room detection (check for empty string too)
           if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
@@ -3952,9 +3975,19 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             }
           }
 
-          // Auto-detect discipline based on category
+          // Auto-detect discipline: try explicit Discipline property, then infer from category
           let discipline = '';
-          if (category) {
+          const disciplineProp = getProp(['Discipline', 'Discipline Type', 'Category Type']);
+          if (disciplineProp) {
+            // If multiple disciplines are present, choose the first matching known discipline
+            const parts = disciplineProp.split(/[,;/|]+/).map(s => s.trim()).filter(Boolean);
+            for (const p of parts) {
+              const match = disciplines.find(d => d.toLowerCase() === p.toLowerCase() || p.toLowerCase().includes(d.toLowerCase()));
+              if (match) { discipline = match; break; }
+            }
+            if (!discipline && parts.length > 0) discipline = parts[0];
+          }
+          if (!discipline && category) {
             const catLower = category.toLowerCase();
             if (catLower.includes('wall') || catLower.includes('window') || catLower.includes('door') || catLower.includes('roof') || catLower.includes('floor')) {
               discipline = 'Architecture';
@@ -3966,7 +3999,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               discipline = 'Electrical';
             } else if (catLower.includes('plumbing') || catLower.includes('sanitary')) {
               discipline = 'Plumbing';
-            } else if (catLower.includes('furniture') || catLower.includes('casework')) {
+            } else if (catLower.includes('furniture') || catLower.includes('casework') || catLower.includes('furnishing')) {
               discipline = 'Architecture';
             }
           }
@@ -3976,22 +4009,24 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           if (category) {
             const catLower = category.toLowerCase();
 
-            // Try exact and partial matches
+            // Try to match against Italian keys first (to support Italian client labels), then english/ifc
             for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+              const italianLower = italian.toLowerCase();
               const englishLower = mapping.english.toLowerCase();
               const ifcLower = mapping.ifc.toLowerCase();
               const ifcWithoutPrefix = ifcLower.replace('ifc', '');
 
-              // Check various matching patterns
               if (
+                catLower.includes(italianLower) ||
+                italianLower.includes(catLower) ||
                 catLower.includes(englishLower) ||
                 englishLower.includes(catLower) ||
                 catLower.includes(ifcWithoutPrefix) ||
                 ifcWithoutPrefix.includes(catLower) ||
-                // Special case for Furniture -> Furnishing
                 (catLower.includes('furniture') && englishLower.includes('furnishing')) ||
                 (catLower.includes('furnishing') && englishLower.includes('furniture'))
               ) {
+                // Prefer showing Italian label for Italian clients, but keep english + ifc for clarity
                 matchedCategory = `${italian} / ${mapping.english} (${mapping.ifc})`;
                 console.log('🎯 [Prefill] Category matched:', category, '→', matchedCategory);
                 break;
@@ -3999,7 +4034,9 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             }
 
             if (!matchedCategory) {
-              console.warn('⚠️ [Prefill] No category match found for:', category);
+              // As last resort use raw category string
+              matchedCategory = category;
+              console.warn('⚠️ [Prefill] No category match found - using raw category:', category);
             }
           }
 
