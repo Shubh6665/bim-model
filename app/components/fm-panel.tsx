@@ -2825,6 +2825,32 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     };
   });
 
+  const [projectName, setProjectName] = useState<string>('');
+
+  // Load project metadata (name) so we can prefill Building
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.ok) {
+          const json = await res.json();
+          setProjectName(json?.project?.name || json?.name || '');
+        }
+      } catch (err) {
+        console.warn('[CreateSpace] Could not load project metadata', err);
+      }
+    })();
+  }, [projectId]);
+
+  // When projectName becomes available, prefill building if empty
+  useEffect(() => {
+    if (projectName && (!f.building || f.building.trim() === '')) {
+      setF(prev => ({ ...prev, building: projectName }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectName]);
+
   // Auto-save draft to localStorage on every field change
   useEffect(() => {
     save(`fm-create-space-draft-${projectId || 'global'}`, f);
