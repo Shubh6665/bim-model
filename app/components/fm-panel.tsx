@@ -3394,6 +3394,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     if (currentTask.trim()) {
       setTasks(prev => [...prev, currentTask.trim()]);
       setCurrentTask('');
+      // Clear task-related error immediately
+      setErrors(prev => ({ ...prev, tasks: '' }));
+      setSubmitMessage(null);
     }
   };
 
@@ -3407,6 +3410,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     setAssetSearch('');
     setAssetCategoryFilter('');
     setAssetSortBy('name');
+    // Clear asset validation error when selected
+    setErrors(prev => ({ ...prev, asset: '' }));
+    setSubmitMessage(null);
   };
 
   const validateAndAdd = async () => {
@@ -3522,7 +3528,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           <label className="text-[11px] text-gray-400 block mb-1">Discipline *</label>
           <select
             value={f.discipline}
-            onChange={e => setF(v => ({ ...v, discipline: e.target.value }))}
+            onChange={e => { setF(v => ({ ...v, discipline: e.target.value })); setErrors(prev => ({ ...prev, discipline: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.discipline ? 'border-red-500' : 'border-gray-700'}`}
           >
             <option value="">Select Discipline</option>
@@ -3536,7 +3542,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           <label className="text-[11px] text-gray-400 block mb-1">Category *</label>
           <select
             value={f.category}
-            onChange={e => setF(v => ({ ...v, category: e.target.value }))}
+            onChange={e => { setF(v => ({ ...v, category: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
           >
             <option value="">Select Category</option>
@@ -3551,7 +3557,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           <input
             placeholder="Alphanumeric code"
             value={f.code}
-            onChange={e => setF(v => ({ ...v, code: e.target.value }))}
+            onChange={e => { setF(v => ({ ...v, code: e.target.value })); setErrors(prev => ({ ...prev, code: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.code ? 'border-red-500' : 'border-gray-700'}`}
           />
           {errors.code && <div className="text-[10px] text-red-400 mt-1">{errors.code}</div>}
@@ -3564,7 +3570,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             <input
               placeholder="Asset name or code"
               value={f.asset}
-              onChange={e => setF(v => ({ ...v, asset: e.target.value }))}
+              onChange={e => { setF(v => ({ ...v, asset: e.target.value })); setErrors(prev => ({ ...prev, asset: '' })); setSubmitMessage(null); }}
               className={`flex-1 bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}
             />
             {projectId && (
@@ -3596,7 +3602,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             step="0.1"
             placeholder="e.g., 12"
             value={f.frequency}
-            onChange={e => setF(v => ({ ...v, frequency: e.target.value }))}
+            onChange={e => { setF(v => ({ ...v, frequency: e.target.value })); setErrors(prev => ({ ...prev, frequency: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.frequency ? 'border-red-500' : 'border-gray-700'}`}
           />
           {errors.frequency && <div className="text-[10px] text-red-400 mt-0.5">{errors.frequency}</div>}
@@ -3611,7 +3617,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             step="0.5"
             placeholder="e.g., 2"
             value={f.timeHours}
-            onChange={e => setF(v => ({ ...v, timeHours: e.target.value }))}
+            onChange={e => { setF(v => ({ ...v, timeHours: e.target.value })); setErrors(prev => ({ ...prev, timeHours: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.timeHours ? 'border-red-500' : 'border-gray-700'}`}
           />
           {errors.timeHours && <div className="text-[10px] text-red-400 mt-0.5">{errors.timeHours}</div>}
