@@ -4276,7 +4276,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         <div className="text-xs text-gray-400 mb-2">Intervention Identification</div>
         <div className="grid grid-cols-1 gap-2">
           {/* Item - Now first field with Prefill from Selection */}
-          <div className="flex gap-1">
+          <div className="flex gap-2 items-center">
             <input
               placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"}
               value={form.item}
@@ -4285,18 +4285,43 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               disabled={waitingForSelection}
             />
             {(viewer || isStandalone) && (
-              <button
-                type="button"
-                onClick={selectFromModel}
-                disabled={waitingForSelection}
-                className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${waitingForSelection
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              <div className="flex-shrink-0 flex gap-2">
+                <button
+                  type="button"
+                  onClick={selectFromModel}
+                  disabled={waitingForSelection}
+                  className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${waitingForSelection
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
                   }`}
-                title={isStandalone ? "Select object from main window" : "Select object from 3D model"}
-              >
-                {waitingForSelection ? 'Waiting...' : 'Prefill from Selection'}
-              </button>
+                  title={isStandalone ? "Select object from main window" : "Select object from 3D model"}
+                  style={{ minWidth: 140 }}
+                >
+                  {waitingForSelection ? 'Waiting...' : 'Prefill from Selection'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm(v => ({
+                      ...v,
+                      item: '',
+                      itemDbId: null,
+                      discipline: '',
+                      category: '',
+                      building: '',
+                      level: '',
+                      room: '',
+                      spaceCode: ''
+                    }));
+                  }}
+                  className="px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap bg-gray-700 hover:bg-gray-600 text-white"
+                  style={{ minWidth: 120 }}
+                  disabled={waitingForSelection}
+                  title="Clear selection and autofilled fields"
+                >
+                  Clear selection
+                </button>
+              </div>
             )}
           </div>
           <select value={form.discipline} onChange={e => setForm(v => ({ ...v, discipline: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
