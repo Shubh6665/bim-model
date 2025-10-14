@@ -6090,9 +6090,25 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                           {item.category}
                         </div>
 
-                        {/* Code and Asset */}
+                        {/* Code */}
                         <div className="text-xs text-gray-400 mb-1">
-                          Code: <span className="text-gray-300">{item.code}</span> | Asset: <span className="text-gray-300">{item.asset}</span>
+                          Code: <span className="text-gray-300">{item.code}</span>
+                        </div>
+
+                        {/* Assets shown as chips (supports string or string[] payloads) */}
+                        <div className="text-xs text-gray-300 mt-1">
+                          <span className="font-semibold text-gray-400">Assets:</span>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {Array.isArray(item.asset) ? (
+                              item.asset.map((a, idx) => (
+                                <div key={(a || '') + '-' + idx} className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">
+                                  {a}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">{item.asset}</div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Tasks */}
