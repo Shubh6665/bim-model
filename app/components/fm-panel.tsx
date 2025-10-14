@@ -3441,7 +3441,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     if (!f.discipline) { newErrors.discipline = 'Required'; hasError = true; }
     if (!f.category) { newErrors.category = 'Required'; hasError = true; }
     if (!f.code || !f.code.trim()) { newErrors.code = 'Required'; hasError = true; }
-    if (!f.asset || !f.asset.trim()) { newErrors.asset = 'Required'; hasError = true; }
+  // legacy single-asset field removed; validate using selectedAssets
+  // if any assets must be selected, ensure selectedAssets is non-empty
+  if (selectedAssets.length === 0) { newErrors.asset = 'Required'; hasError = true; }
 
     // Validate frequency
     const freq = parseFloat(f.frequency as any);
