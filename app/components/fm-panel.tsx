@@ -3287,7 +3287,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   const [f, setF] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
-  const [errors, setErrors] = useState({ frequency: '', timeHours: '' });
+  const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   // Load scheduled maintenance from API
   useEffect(() => {
@@ -3409,33 +3410,34 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   };
 
   const validateAndAdd = async () => {
-    const newErrors = { frequency: '', timeHours: '' };
+    setSubmitMessage(null);
+    const newErrors: any = { discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' };
     let hasError = false;
 
+    // Required fields validation
+    if (!f.discipline) { newErrors.discipline = 'Required'; hasError = true; }
+    if (!f.category) { newErrors.category = 'Required'; hasError = true; }
+    if (!f.code || !f.code.trim()) { newErrors.code = 'Required'; hasError = true; }
+    if (!f.asset || !f.asset.trim()) { newErrors.asset = 'Required'; hasError = true; }
+
     // Validate frequency
-    const freq = parseFloat(f.frequency);
-    if (!f.frequency || isNaN(freq) || freq <= 0) {
-      newErrors.frequency = 'Required (n/year, must be > 0)';
-      hasError = true;
-    }
+    const freq = parseFloat(f.frequency as any);
+    if (!f.frequency || isNaN(freq) || freq <= 0) { newErrors.frequency = 'Required (n/year, must be > 0)'; hasError = true; }
 
     // Validate timeHours
-    const hours = parseFloat(f.timeHours);
-    if (!f.timeHours || isNaN(hours) || hours <= 0) {
-      newErrors.timeHours = 'Required (hours, must be > 0)';
-      hasError = true;
-    }
+    const hours = parseFloat(f.timeHours as any);
+    if (!f.timeHours || isNaN(hours) || hours <= 0) { newErrors.timeHours = 'Required (hours, must be > 0)'; hasError = true; }
 
     // Validate tasks
-    if (tasks.length === 0) {
-      alert('Please add at least one task.');
+    if (tasks.length === 0) { newErrors.tasks = 'Please add at least one task.'; hasError = true; }
+
+    setErrors(newErrors);
+    if (hasError) {
+      setSubmitMessage({ type: 'error', text: 'Please fix the highlighted fields.' });
       return;
     }
 
-    setErrors(newErrors);
-    if (hasError) return;
-
-    // Add the scheduled maintenance item
+    // Build new item
     const newItem: ScheduledItem = {
       id: `sched-${Date.now()}`,
       discipline: f.discipline,
@@ -3447,10 +3449,32 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
       timeHours: hours
     };
 
+    // Prevent duplicate (all fields equal including tasks order)
+    const arraysEqual = (a: string[], b: string[]) => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) if (a[i].trim().toLowerCase() !== b[i].trim().toLowerCase()) return false;
+      return true;
+    };
+
+    const duplicate = rows.some(r =>
+      (r.discipline || '') === (newItem.discipline || '') &&
+      (r.category || '') === (newItem.category || '') &&
+      (r.code || '').trim() === (newItem.code || '').trim() &&
+      (r.asset || '').trim() === (newItem.asset || '').trim() &&
+      arraysEqual(r.tasks || [], newItem.tasks || []) &&
+      Number(r.frequency) === Number(newItem.frequency) &&
+      Number(r.timeHours) === Number(newItem.timeHours)
+    );
+
+    if (duplicate) {
+      setSubmitMessage({ type: 'error', text: 'This scheduled maintenance already exists.' });
+      return;
+    }
+
     // Save to API if projectId exists
-    if (projectId) {
-      setLoading(true);
-      try {
+    setLoading(true);
+    try {
+      if (projectId) {
         const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3465,26 +3489,28 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           // Fallback to local state if API fails
           setRows(prev => [newItem, ...prev]);
         }
-      } catch (err) {
-        console.error('Failed to save scheduled maintenance:', err);
-        setRows(prev => [newItem, ...prev]);
-      } finally {
-        setLoading(false);
+      } else {
+        // localStorage fallback for non-project mode
+        setRows(prev => {
+          const updated = [newItem, ...prev];
+          save(K.scheduled(projectId), updated);
+          return updated;
+        });
       }
-    } else {
-      // localStorage fallback for non-project mode
-      setRows(prev => {
-        const updated = [newItem, ...prev];
-        save(K.scheduled(projectId), updated);
-        return updated;
-      });
+      setSubmitMessage({ type: 'success', text: 'Scheduled maintenance added.' });
+    } catch (err) {
+      console.error('Failed to save scheduled maintenance:', err);
+      setRows(prev => [newItem, ...prev]);
+      setSubmitMessage({ type: 'error', text: 'Failed to save — saved locally.' });
+    } finally {
+      setLoading(false);
     }
 
     // Reset form
     setF({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
     setTasks([]);
     setCurrentTask('');
-    setErrors({ frequency: '', timeHours: '' });
+    setErrors({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   };
 
   return (
@@ -3497,11 +3523,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           <select
             value={f.discipline}
             onChange={e => setF(v => ({ ...v, discipline: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.discipline ? 'border-red-500' : 'border-gray-700'}`}
           >
             <option value="">Select Discipline</option>
             {['Architecture', 'Structure', 'Mechanical System', 'Electrical System', 'Plumbing System', 'Fire Protection', 'Elevator System', 'Safety', 'IT/Technology', 'Other'].map(d => <option key={d} value={d}>{d}</option>)}
           </select>
+          {errors.discipline && <div className="text-[10px] text-red-400 mt-1">{errors.discipline}</div>}
         </div>
 
         {/* Category Dropdown (from CATEGORY_MAPPING) */}
@@ -3510,11 +3537,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
           <select
             value={f.category}
             onChange={e => setF(v => ({ ...v, category: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
           >
             <option value="">Select Category</option>
             {categoryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
+          {errors.category && <div className="text-[10px] text-red-400 mt-1">{errors.category}</div>}
         </div>
 
         {/* Code */}
@@ -3524,8 +3552,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             placeholder="Alphanumeric code"
             value={f.code}
             onChange={e => setF(v => ({ ...v, code: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.code ? 'border-red-500' : 'border-gray-700'}`}
           />
+          {errors.code && <div className="text-[10px] text-red-400 mt-1">{errors.code}</div>}
         </div>
 
         {/* Asset with Picker */}
@@ -3536,7 +3565,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               placeholder="Asset name or code"
               value={f.asset}
               onChange={e => setF(v => ({ ...v, asset: e.target.value }))}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+              className={`flex-1 bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}
             />
             {projectId && (
               <button
@@ -3555,6 +3584,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
               </button>
             )}
           </div>
+          {errors.asset && <div className="text-[10px] text-red-400 mt-1">{errors.asset}</div>}
         </div>
 
         {/* Frequency (numeric) */}
@@ -3622,10 +3652,24 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
             ))}
           </div>
         )}
-        {tasks.length === 0 && <div className="text-[10px] text-gray-500 mt-1">No tasks added yet</div>}
+        {tasks.length === 0 && <div className="text-[10px] text-red-400 mt-1">{errors.tasks || 'No tasks added yet'}</div>}
       </div>
 
-      <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={validateAndAdd}>Add Scheduled Maintenance</button></div>
+      {submitMessage && (
+        <div className={`p-2 rounded ${submitMessage.type === 'error' ? 'bg-red-700/30 border border-red-600 text-red-200' : 'bg-green-700/20 border border-green-600 text-green-200'}`}>
+          {submitMessage.text}
+        </div>
+      )}
+
+      <div>
+        <button
+          className={`px-4 py-2 rounded text-white ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+          onClick={validateAndAdd}
+          disabled={loading}
+        >
+          {loading ? 'Adding...' : 'Add Scheduled Maintenance'}
+        </button>
+      </div>
 
       {/* Asset Picker Modal */}
       {showAssetPicker && (
