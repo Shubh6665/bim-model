@@ -183,6 +183,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
+  const [showModalMinimized, setShowModalMinimized] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const dragRef = React.useRef({ startMouseX: 0, startMouseY: 0, startX: 0, startY: 0 });
@@ -1075,8 +1076,19 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               className="flex items-center justify-between p-4 border-b border-gray-700 cursor-move select-none"
               onMouseDown={onHeaderMouseDown}
             >
-              <div>
+              <div className="flex items-center gap-3">
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
+                <button title="Minimize" onClick={() => setShowModalMinimized(s => !s)} className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700">{showModalMinimized ? 'Restore' : 'Minimize'}</button>
+                <button title="Open in new window" onClick={() => {
+                  try {
+                    const s = encodeURIComponent(JSON.stringify(section));
+                    const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
+                    const w = window.open(url, `_blank`, `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`);
+                    if (w) {
+                      childWinRef.current = w;
+                    }
+                  } catch (err) { console.error('Failed to open standalone window', err); }
+                }} className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700">Open in new window</button>
               </div>
               <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
                 <button
@@ -1090,9 +1102,13 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               </div>
             </div>
             {/* Body */}
-            <div className="p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-              {renderSectionContent()}
-            </div>
+            {!showModalMinimized ? (
+              <div className="p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+                {renderSectionContent()}
+              </div>
+            ) : (
+              <div className="p-4 flex items-center justify-center text-sm text-gray-400">Minimized — model visible. Click Restore to open panel.</div>
+            )}
             {/* Resize Handle */}
             <div
               onMouseDown={onResizeMouseDown}
@@ -1102,6 +1118,13 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Dock item when minimized */}
+      {showModalMinimized && (
+        <div className="fixed bottom-4 left-4 z-50">
+          <button onClick={() => setShowModalMinimized(false)} className="px-3 py-2 bg-gray-800 border border-gray-700 text-sm text-white rounded shadow">{modalTitle}</button>
         </div>
       )}
     </div>
