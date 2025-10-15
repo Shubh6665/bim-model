@@ -1151,8 +1151,27 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const data = await res.json();
           const list = Array.isArray(data) ? data : [];
           console.log(`✅ [AssetList] Loaded ${list.length} assets from backend`);
-          setRows(list);
-          save(K.assets(projectId), list);
+
+          // Merge backend list with cached assets in localStorage so we don't lose richer local fields
+          const cached = load(K.assets(projectId), [] as AssetRecord[]);
+          const mergedById = list.map(b => {
+            const c = cached.find(x => x.id === b.id);
+            if (!c) return b;
+            // Prefer cached values when backend has null/empty fields
+            const merged: any = { ...b };
+            for (const key of Object.keys(c)) {
+              const val = (c as any)[key];
+              if (val !== null && val !== undefined && val !== '') merged[key] = val;
+            }
+            return merged as AssetRecord;
+          });
+          // Include any cached-only records (not returned by backend)
+          const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
+          const finalList = [...mergedById, ...cachedOnly];
+
+          console.log(`🔀 [AssetList] Merged backend (${list.length}) with cached (${cached.length}) => final ${finalList.length}`);
+          setRows(finalList);
+          save(K.assets(projectId), finalList);
           return;
         } else {
           console.warn(`⚠️ [AssetList] Backend returned status ${res.status}`);
@@ -1205,8 +1224,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
     // Listen for custom asset-created events
     const handleAssetCreated = () => {
-      console.log('🔔 [AssetList] Received asset-created event, refreshing...');
-      refreshFromStorage();
+      try {
+        const cached = load(K.assets(projectId), [] as AssetRecord[]);
+        console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} assets`);
+        setRows(cached);
+      } catch (e) {
+        console.error('🔔 [AssetList] Error during forced refresh:', e);
+      }
     };
 
     // Refresh immediately and listen for events
