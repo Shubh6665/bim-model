@@ -577,6 +577,15 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     }
   }, [showModal, isStandalone, section]);
 
+  // If user switches section/menu while a panel is minimized, restore (close minimized) so new panel can open normally
+  useEffect(() => {
+    if (showModalMinimized) {
+      setShowModalMinimized(false);
+      // also close any open modal so the new section can open its panel freshly
+      setShowModal(false);
+    }
+  }, [section]);
+
   // Bridge messages from child standalone window (only in main window)
   useEffect(() => {
     if (isStandalone) return; // child handles its own UI
@@ -1056,7 +1065,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
       {Sidebar}
 
-      {showModal && (
+      {showModal && !showModalMinimized && (
         <div id="fm-modal-overlay" className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
           <div
             ref={modalRef}
@@ -1123,8 +1132,13 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
 
       {/* Dock item when minimized */}
       {showModalMinimized && (
-        <div className="fixed bottom-4 left-4 z-50">
-          <button onClick={() => setShowModalMinimized(false)} className="px-3 py-2 bg-gray-800 border border-gray-700 text-sm text-white rounded shadow">{modalTitle}</button>
+        <div className="fixed bottom-4 right-4 z-50">
+          <button onClick={() => setShowModalMinimized(false)} title={modalTitle} className="group relative flex items-center gap-2 px-3 py-2 bg-gray-800/90 border border-gray-700 text-sm text-white rounded-lg shadow-lg hover:scale-105 transition-transform">
+            <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center ring-1 ring-gray-700">
+              <span className="text-lg font-bold">{modalTitle?.[0] || 'F'}</span>
+            </div>
+            <div className="hidden group-hover:block text-xs text-gray-200">{modalTitle}</div>
+          </button>
         </div>
       )}
     </div>

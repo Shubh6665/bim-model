@@ -1,10 +1,9 @@
 "use client";
-
-import React from 'react';
+import React, { Suspense } from 'react';
 import FMPanel from '../components/fm-panel';
 import { useSearchParams } from 'next/navigation';
 
-export default function StandalonePage() {
+function FMStandaloneContent() {
   const params = useSearchParams();
   const sectionParam = params.get('section');
   const projectId = params.get('projectId') || undefined;
@@ -18,3 +17,12 @@ export default function StandalonePage() {
     </div>
   );
 }
+
+export default function StandalonePage() {
+  return (
+    <Suspense fallback={<div style={{ height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
+      <FMStandaloneContent />
+    </Suspense>
+  );
+}
+
