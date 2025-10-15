@@ -3366,7 +3366,25 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
 
     // Apply category filter
     if (assetCategoryFilter) {
-      result = result.filter(a => a.category === assetCategoryFilter);
+      // Build master label -> tokens map (italian, english, ifc)
+      const masterMap = new Map<string, string[]>();
+      for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+        const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+        masterMap.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
+      }
+
+      if (masterMap.has(assetCategoryFilter)) {
+        const tokens = masterMap.get(assetCategoryFilter) || [];
+        result = result.filter(a => {
+          if (!a.category) return false;
+          const cat = String(a.category).toLowerCase();
+          // Match if any token appears in asset.category (case-insensitive) or equals
+          return tokens.some(t => t && cat.includes(String(t).toLowerCase()));
+        });
+      } else {
+        // Extra (non-master) categories: exact match
+        result = result.filter(a => a.category === assetCategoryFilter);
+      }
     }
 
     // Apply sorting
@@ -3386,11 +3404,25 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
     return result;
   }, [assets, assetSearch, assetCategoryFilter, assetSortBy]);
 
-  // Get unique categories for filter
+  // Get category list for filter: start with master categoryOptions (labels), then add any extra categories found in assets
+  // master labels are like "Italian / English (IFC)"; assets may have raw categories — include them too and mark as extra
   const assetCategories = React.useMemo(() => {
-    const cats = new Set(assets.map(a => a.category).filter(Boolean));
-    return Array.from(cats).sort();
-  }, [assets]);
+    const master = new Set(categoryOptions.map(c => c.label));
+    const extras = new Set<string>();
+    for (const a of assets) {
+      if (!a.category) continue;
+      // If asset category exactly matches a master label, skip
+      if (master.has(a.category)) continue;
+      extras.add(a.category);
+    }
+
+    // Build final list: master labels first, then extras
+    const list: string[] = [...Array.from(master).sort()];
+    if (extras.size) {
+      list.push(...Array.from(extras).sort());
+    }
+    return list;
+  }, [assets, categoryOptions]);
 
   const addTask = () => {
     if (currentTask.trim()) {
@@ -3742,11 +3774,15 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
                   className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
                 >
                   <option value="">All Categories ({assets.length})</option>
-                  {assetCategories.map(cat => (
-                    <option key={cat} value={cat}>
-                      {cat} ({assets.filter(a => a.category === cat).length})
-                    </option>
-                  ))}
+                  {assetCategories.map(cat => {
+                    const isMaster = categoryOptions.some(co => co.label === cat);
+                    const count = assets.filter(a => a.category === cat).length;
+                    return (
+                      <option key={cat} value={cat}>
+                        {cat}{!isMaster ? ' (not in master list)' : ''} {count > 0 ? `(${count})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
