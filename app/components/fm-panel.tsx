@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { X, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
+import { X, Minimize2, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
 import { ImprovedAssetExtractor, ImprovedAsset } from "../services/improved-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
@@ -1087,19 +1087,35 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             >
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-semibold text-white">{modalTitle}</h3>
-                <button title="Minimize" onClick={() => setShowModalMinimized(s => !s)} className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700">{showModalMinimized ? 'Restore' : 'Minimize'}</button>
-                <button title="Open in new window" onClick={() => {
-                  try {
-                    const s = encodeURIComponent(JSON.stringify(section));
-                    const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
-                    const w = window.open(url, `_blank`, `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`);
-                    if (w) {
-                      childWinRef.current = w;
-                    }
-                  } catch (err) { console.error('Failed to open standalone window', err); }
-                }} className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800/60 text-gray-300 hover:bg-gray-700">Open in new window</button>
               </div>
               <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  title={showModalMinimized ? 'Restore' : 'Minimize'}
+                  onClick={() => setShowModalMinimized(s => !s)}
+                  className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                  aria-label="Minimize"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                </button>
+
+                <button
+                  title="Open in new window"
+                  onClick={() => {
+                    try {
+                      const s = encodeURIComponent(JSON.stringify(section));
+                      const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
+                      const w = window.open(url, `_blank`, `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`);
+                      if (w) {
+                        childWinRef.current = w;
+                      }
+                    } catch (err) { console.error('Failed to open standalone window', err); }
+                  }}
+                  className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
+                  aria-label="Open in new window"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={() => setShowModal(false)}
                   className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
