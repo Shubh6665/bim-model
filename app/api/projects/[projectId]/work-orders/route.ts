@@ -108,7 +108,7 @@ export async function PATCH(
     if (!projectId) return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
 
     const payload = await req.json();
-    const { id, wasAssigned, wasResolved, ...updates } = payload;
+    const { id, ...updates } = payload;
     
     if (!id) return NextResponse.json({ error: 'Work Order ID is required' }, { status: 400 });
 
@@ -120,6 +120,14 @@ export async function PATCH(
 
     // Get the work order before update
     const workOrder = await col.findOne({ _id: objectId, projectId });
+
+    // Determine if we're transitioning TO Resolved status
+    const isTransitioningToResolved = updates.status === 'Resolved' && workOrder?.status !== 'Resolved';
+
+    // If transitioning to Resolved, set resolvedAt timestamp
+    if (isTransitioningToResolved && !updates.resolvedAt) {
+      updates.resolvedAt = new Date().toISOString();
+    }
 
     const result = await col.updateOne(
       { _id: objectId, projectId },
@@ -135,28 +143,40 @@ export async function PATCH(
       return NextResponse.json({ error: 'Work Order not found' }, { status: 404 });
     }
 
-    // Send notifications
-    try {
-      // Notify technician when assigned
-      if (wasAssigned && updates.responsibleTechnician) {
-        // TODO: Get technician email from users collection
-        console.log(`[WorkOrders] Technician assigned: ${updates.responsibleTechnician}`);
-      }
-      
-      // Notify requester when resolved
-      if (wasResolved && workOrder?.contact) {
-        await sendEmail(
-          workOrder.contact,
-          `Work Order ${workOrder.requestId} - Resolved`,
-          `
-            <h2>Work Order Resolved</h2>
-            <p>Your maintenance request <strong>${workOrder.requestId}</strong> has been resolved.</p>
-            <p><strong>Description:</strong> ${workOrder.description || 'N/A'}</p>
-            <p><strong>Technician:</strong> ${updates.responsibleTechnician || workOrder.responsibleTechnician || 'N/A'}</p>
-            <p>Thank you for your patience.</p>
-          `
+    // If transitioning to Resolved, update linked tickets/service-requests
+    if (isTransitioningToResolved && workOrder?.sourceTicketId) {
+      try {
+        const ticketsCol = db.collection("fm_tickets");
+        await ticketsCol.updateOne(
+          { _id: safeObjectId(workOrder.sourceTicketId) || workOrder.sourceTicketId, projectId },
+          { $set: { status: 'Resolved', resolvedAt: updates.resolvedAt, updatedAt: new Date().toISOString() } }
         );
-        console.log(`[WorkOrders] Requester notified: ${workOrder.contact}`);
+        console.log(`[WorkOrders] Linked ticket ${workOrder.sourceTicketId} marked as Resolved`);
+      } catch (ticketErr) {
+        console.error('[WorkOrders] Error updating linked ticket:', ticketErr);
+      }
+    }
+
+    // Send notifications - only when transitioning to Resolved
+    try {
+      if (isTransitioningToResolved && workOrder?.contact) {
+        try {
+          sendEmail(
+            workOrder.contact,
+            `Work Order ${workOrder.requestId} - Resolved`,
+            `
+              <h2>Work Order Resolved</h2>
+              <p>Your maintenance request <strong>${workOrder.requestId}</strong> has been resolved.</p>
+              <p><strong>Description:</strong> ${workOrder.description || 'N/A'}</p>
+              <p><strong>Technician:</strong> ${updates.responsibleTechnician || workOrder.responsibleTechnician || 'N/A'}</p>
+              <p><strong>Resolved At:</strong> ${updates.resolvedAt ? new Date(updates.resolvedAt).toLocaleString() : 'N/A'}</p>
+              <p>Thank you for your patience.</p>
+            `
+          ).then(() => console.log(`[WorkOrders] Requester notified (async): ${workOrder.contact}`))
+            .catch(notifError => console.error('[WorkOrders] Notification error (async):', notifError));
+        } catch (notifError) {
+          console.error('[WorkOrders] Notification scheduling error (non-blocking):', notifError);
+        }
       }
     } catch (notifError) {
       console.error('[WorkOrders] Notification error (non-blocking):', notifError);

@@ -6015,6 +6015,25 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   const [workOrders, setWorkOrders] = useState<WOType[]>(() => load(K.workOrders(projectId), [] as WOType[]));
   const [openWO, setOpenWO] = useState<WOType | null>(null);
 
+  // Load work orders from backend on mount
+  useEffect(() => {
+    const loadFromBackend = async () => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/work-orders`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          setWorkOrders(list);
+          save(K.workOrders(projectId), list);
+        }
+      } catch (e) {
+        console.error('Failed to load work orders from backend', e);
+      }
+    };
+    loadFromBackend();
+  }, [projectId]);
+
   const totalScheduled = scheduled.length;
   const totalWorkOrders = workOrders.length;
   const openOrders = workOrders.filter(w => w.status === 'Open').length;
@@ -6076,12 +6095,28 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                     projectId={projectId}
                     workOrder={openWO}
                     onSave={(updated) => {
+                      // Update local state with the updated work order
                       setWorkOrders(prev => {
                         const found = prev.find(p => p.id === updated.id);
                         if (found) return prev.map(p => p.id === updated.id ? updated as WOType : p);
                         return [ ...prev, updated as WOType ];
                       });
                       save(K.workOrders(projectId), (load(K.workOrders(projectId), [] as WOType[]).map(p => p.id === updated.id ? updated : p)));
+                      
+                      // If marked as resolved, reload from backend to confirm
+                      if (updated.status === 'Resolved') {
+                        setTimeout(async () => {
+                          try {
+                            const res = await fetch(`/api/projects/${projectId}/work-orders`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              const list = Array.isArray(data) ? data : [];
+                              setWorkOrders(list);
+                              save(K.workOrders(projectId), list);
+                            }
+                          } catch (e) { console.error('Refresh failed', e); }
+                        }, 1000);
+                      }
                       setOpenWO(null);
                     }}
                     onClose={() => setOpenWO(null)}

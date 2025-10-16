@@ -52,6 +52,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
 
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<string | null>(null);
 
   useEffect(() => {
     if (workOrder) {
@@ -77,11 +78,12 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
   };
 
   const submit = async () => {
-    if (!validate()) return;
+    if (!validate()) return false;
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const out: WorkOrderItem = {
+      // Build comprehensive work order object including all extra fields
+      const out: any = {
         id: form.id as string,
         requestId: form.requestId,
         requester: form.requester as string,
@@ -101,33 +103,56 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         createdAt: form.createdAt ?? now,
         updatedAt: now,
         assignedAt: form.assignedAt,
-        resolvedAt: form.status === 'Resolved' ? now : form.resolvedAt,
+        resolvedAt: form.resolvedAt,
+        diagnosis: form.diagnosis,
+        workPerformed: form.workPerformed,
+        technicalNotes: form.technicalNotes,
+        interventionOutcome: (form as any).interventionOutcome,
+        assetCondition: (form as any).assetCondition,
+        materials: (form as any).materials,
+        timeSpent: (form as any).timeSpent,
+        complianceCompleted: (form as any).complianceCompleted,
+        ppe: (form as any).ppe,
+        techSignature: (form as any).techSignature,
+        closureDate: (form as any).closureDate,
       };
 
-      // Try to call backend API to save work order
+      // If this is an existing work order (has id in DB), PATCH; otherwise POST
       try {
-        const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workOrder: out })
-        });
-        if (resp.ok) {
-          const json = await resp.json();
-          // backend might return enriched doc
-          if (json?.workOrder) {
-            out.id = json.workOrder.id || out.id;
+        if (workOrder && workOrder.id) {
+          // PATCH expects payload: { id, ...updates }
+          const { id: _, ...rest } = out;
+          const payload = { id: out.id, ...rest };
+          const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!resp.ok) console.error('PATCH failed:', resp.statusText);
+        } else {
+          const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(out)
+          });
+          if (resp.ok) {
+            const json = await resp.json();
+            if (json?.workOrder?.id) out.id = json.workOrder.id;
+          } else {
+            console.error('POST failed:', resp.statusText);
           }
         }
-      } catch (e) { /* non-blocking */ }
+      } catch (e) { console.error('Save error', e); }
 
-      onSave?.(out);
+      // Return the complete work order object with all fields
+      return out as WorkOrderItem;
     } finally { setSaving(false); }
   };
 
   const cancelEdit = () => {
     // revert local changes
     setForm({ ...original });
-    onClose?.();
+    setEditingSection(null);
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>, tag: 'before'|'after'|'doc' = 'doc') => {
@@ -158,33 +183,30 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
   const saveSection = async (sectionKey: string) => {
     // Save current section edits without closing the view
     // DO NOT call onSave here - that closes the expanded view
-    setSaving(true);
+    setSavingSection(sectionKey);
     try {
       const now = new Date().toISOString();
-      const updatedForm = { ...form, updatedAt: now };
+      const updatedForm = { ...form, updatedAt: now } as any;
 
-      // Try to call backend API to save work order
+      // Prepare payload: send id plus updates at root so server $set will apply fields
+      const payload = { id: updatedForm.id, ...updatedForm };
       try {
-        const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
+        await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: updatedForm.id, updates: updatedForm })
+          body: JSON.stringify(payload)
         });
-        if (resp.ok) {
-          console.log('✅ Section saved to backend');
-        }
-      } catch (e) { 
+      } catch (e) {
         console.log('Backend save failed, using local only', e);
       }
 
       // Update the form and original state locally
       setForm(updatedForm);
       setOriginal({ ...updatedForm });
-      
-      // Close edit mode for this section
+      // Close edit mode for this section (remain expanded)
       setEditingSection(null);
-    } finally { 
-      setSaving(false); 
+    } finally {
+      setSavingSection(null);
     }
   };
 
@@ -204,13 +226,13 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div className="text-sm font-medium">1. General Information</div>
           <div>
             {editingSection === 'general' ? (
-              <>
-                <button onClick={() => saveSection('general')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
-                <button onClick={() => cancelSectionEdit('general')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
-              </>
-            ) : (
-              <button onClick={() => setEditingSection('general')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
-            )}
+                <>
+                  <button disabled={savingSection === 'general'} onClick={() => saveSection('general')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'general' ? 'Saving...' : 'Save'}</button>
+                  <button onClick={() => cancelSectionEdit('general')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                </>
+              ) : (
+                <button onClick={() => setEditingSection('general')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
+              )}
           </div>
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -246,7 +268,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div>
             {editingSection === 'requester' ? (
               <>
-                <button onClick={() => saveSection('requester')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
+                <button disabled={savingSection === 'requester'} onClick={() => saveSection('requester')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'requester' ? 'Saving...' : 'Save'}</button>
                 <button onClick={() => cancelSectionEdit('requester')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
@@ -281,7 +303,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div>
             {editingSection === 'work' ? (
               <>
-                <button onClick={() => saveSection('work')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
+                <button disabled={savingSection === 'work'} onClick={() => saveSection('work')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'work' ? 'Saving...' : 'Save'}</button>
                 <button onClick={() => cancelSectionEdit('work')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
@@ -320,7 +342,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div>
             {editingSection === 'result' ? (
               <>
-                <button onClick={() => saveSection('result')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
+                <button disabled={savingSection === 'result'} onClick={() => saveSection('result')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'result' ? 'Saving...' : 'Save'}</button>
                 <button onClick={() => cancelSectionEdit('result')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
@@ -355,7 +377,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div>
             {editingSection === 'safety' ? (
               <>
-                <button onClick={() => saveSection('safety')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
+                <button disabled={savingSection === 'safety'} onClick={() => saveSection('safety')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'safety' ? 'Saving...' : 'Save'}</button>
                 <button onClick={() => cancelSectionEdit('safety')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
@@ -381,11 +403,11 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
       {/* 6 & 7 Signatures & Attachments (kept compact) */}
       <div className="mt-3 bg-gray-800/40 p-3 rounded">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">6. Signatures & 7. Attachments</div>
+          <div className="text-sm font-medium">6. Signatures & Attachments</div>
           <div>
             {editingSection === 'attachments' ? (
               <>
-                <button onClick={() => saveSection('attachments')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">Save</button>
+                <button disabled={savingSection === 'attachments'} onClick={() => saveSection('attachments')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'attachments' ? 'Saving...' : 'Save'}</button>
                 <button onClick={() => cancelSectionEdit('attachments')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
@@ -440,6 +462,81 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
               </div>
             ))}
           </div>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={async () => {
+                // Mark resolved flow: update form state with Resolved status, then persist
+                setSaving(true);
+                try {
+                  // Update form to Resolved status
+                  const resolvedForm = { ...form, status: 'Resolved' as any };
+                  setForm(resolvedForm);
+                  
+                  // Now submit the resolved form
+                  const now = new Date().toISOString();
+                  const out: any = {
+                    id: resolvedForm.id as string,
+                    requestId: resolvedForm.requestId,
+                    requester: resolvedForm.requester as string,
+                    contact: resolvedForm.contact as string,
+                    location: resolvedForm.location as string,
+                    interventionDetails: resolvedForm.interventionDetails as string,
+                    discipline: resolvedForm.discipline as string,
+                    category: resolvedForm.category as string,
+                    description: resolvedForm.description as string,
+                    attachments: resolvedForm.attachments || [],
+                    asset: resolvedForm.asset as string | undefined,
+                    responsibleTechnician: resolvedForm.responsibleTechnician as string | undefined,
+                    company: resolvedForm.company as string | undefined,
+                    status: 'Resolved',
+                    priority: resolvedForm.priority as any || 'Medium',
+                    comments: resolvedForm.comments || [],
+                    createdAt: resolvedForm.createdAt ?? now,
+                    updatedAt: now,
+                    assignedAt: resolvedForm.assignedAt,
+                    resolvedAt: now,
+                    diagnosis: resolvedForm.diagnosis,
+                    workPerformed: resolvedForm.workPerformed,
+                    technicalNotes: resolvedForm.technicalNotes,
+                    interventionOutcome: (resolvedForm as any).interventionOutcome,
+                    assetCondition: (resolvedForm as any).assetCondition,
+                    materials: (resolvedForm as any).materials,
+                    timeSpent: (resolvedForm as any).timeSpent,
+                    complianceCompleted: (resolvedForm as any).complianceCompleted,
+                    ppe: (resolvedForm as any).ppe,
+                    techSignature: (resolvedForm as any).techSignature,
+                    closureDate: (resolvedForm as any).closureDate,
+                  };
+
+                  // PATCH to backend
+                  try {
+                    const { id: _, ...rest } = out;
+                    const payload = { id: out.id, ...rest };
+                    const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                    });
+                    if (!resp.ok) {
+                      console.error('PATCH failed:', resp.statusText);
+                      return;
+                    }
+                  } catch (e) {
+                    console.error('Save error', e);
+                    return;
+                  }
+
+                  // Notify parent with updated work order
+                  onSave?.(out as WorkOrderItem);
+                  onClose?.();
+                } finally { setSaving(false); }
+              }}
+              disabled={!canMarkResolved() || saving}
+              className={`${canMarkResolved() ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed'} px-4 py-2 rounded text-sm font-semibold transition-colors ${saving ? 'opacity-50' : ''}`}
+            >
+              {saving ? 'Saving...' : 'Mark as Resolved'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -451,66 +548,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
       )}
 
-      {/* Mark Resolved Button - Only at bottom */}
-      <div className="mt-4 flex justify-center sticky bottom-0 bg-gray-900/90 p-3 border-t border-gray-700">
-        <button
-          onClick={async () => { 
-            setForm(f => ({ ...f, status: 'Resolved' })); 
-            // Submit with resolved status
-            setSaving(true);
-            try {
-              const now = new Date().toISOString();
-              const out: WorkOrderItem = {
-                id: form.id as string,
-                requestId: form.requestId,
-                requester: form.requester as string,
-                contact: form.contact as string,
-                location: form.location as string,
-                interventionDetails: form.interventionDetails as string,
-                discipline: form.discipline as string,
-                category: form.category as string,
-                description: form.description as string,
-                attachments: form.attachments || [],
-                asset: form.asset as string | undefined,
-                responsibleTechnician: form.responsibleTechnician as string | undefined,
-                company: form.company as string | undefined,
-                status: 'Resolved',
-                priority: form.priority as any || 'Medium',
-                comments: form.comments || [],
-                createdAt: form.createdAt ?? now,
-                updatedAt: now,
-                assignedAt: form.assignedAt,
-                resolvedAt: now,
-                diagnosis: form.diagnosis,
-                workPerformed: form.workPerformed,
-                technicalNotes: form.technicalNotes,
-              };
-
-              // Try backend
-              try {
-                const resp = await fetch(`/api/projects/${projectId || 'global'}/work-orders`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ id: out.id, updates: out })
-                });
-                if (resp.ok) {
-                  const json = await resp.json();
-                  if (json?.workOrder) {
-                    out.id = json.workOrder.id || out.id;
-                  }
-                }
-              } catch (e) { console.log('Backend save failed', e); }
-
-              onSave?.(out);
-              onClose?.();
-            } finally { setSaving(false); }
-          }}
-          disabled={!canMarkResolved() || saving}
-          className={`${canMarkResolved() ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed'} px-6 py-2 rounded text-sm font-semibold transition-colors ${saving ? 'opacity-50' : ''}`}
-        >
-          {saving ? 'Saving...' : 'Mark as Resolved'}
-        </button>
-      </div>
+      {/* Mark resolved control moved into attachments/signatures section */}
     </div>
   );
 }
