@@ -21,6 +21,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
     requester: workOrder?.requester ?? '',
     contact: workOrder?.contact ?? '',
     location: workOrder?.location ?? '',
+    asset: workOrder?.asset ?? '',
     interventionDetails: workOrder?.interventionDetails ?? '',
     discipline: workOrder?.discipline ?? '',
     category: workOrder?.category ?? '',
@@ -257,6 +258,23 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
               <option value="Inspection">Inspection</option>
               <option value="Emergency">Emergency</option>
             </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Priority Level</label>
+            <select disabled={editingSection !== 'general'} value={form.priority || 'Medium'} onChange={e => setField('priority', e.target.value as any)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Site / Building</label>
+            <input disabled={editingSection !== 'general'} value={form.location || ''} onChange={e => setField('location', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Asset / Equipment / Area</label>
+            <input disabled={editingSection !== 'general'} value={form.asset || ''} onChange={e => setField('asset', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
           </div>
         </div>
       </div>
