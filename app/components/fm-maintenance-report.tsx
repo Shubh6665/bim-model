@@ -39,8 +39,10 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
     updatedAt: workOrder?.updatedAt,
     interventionOutcome: (workOrder as any)?.interventionOutcome ?? '',
     assetCondition: (workOrder as any)?.assetCondition ?? '',
+    nextPlannedActions: (workOrder as any)?.nextPlannedActions ?? '',
     materials: (workOrder as any)?.materials ?? '',
     timeSpent: (workOrder as any)?.timeSpent ?? '',
+    additionalTechnicians: (workOrder as any)?.additionalTechnicians ?? '',
     complianceCompleted: (workOrder as any)?.complianceCompleted ?? false,
     ppe: (workOrder as any)?.ppe ?? '',
     techSignature: (workOrder as any)?.techSignature ?? '',
@@ -312,6 +314,10 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
             <label className="text-xs text-gray-300">Responsible Technician</label>
             <input disabled={editingSection !== 'requester'} value={form.responsibleTechnician || ''} onChange={e => setField('responsibleTechnician', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
           </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-300">Additional Technicians (if any)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).additionalTechnicians || ''} onChange={e => setField('additionalTechnicians' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Other staff involved" />
+          </div>
         </div>
       </div>
 
@@ -385,6 +391,10 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           <div className="md:col-span-2">
             <label className="text-xs text-gray-300">Technical Notes / Recommendations</label>
             <textarea disabled={editingSection !== 'result'} value={form.technicalNotes || ''} onChange={e => setField('technicalNotes' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-gray-300">Next Planned Actions</label>
+            <textarea disabled={editingSection !== 'result'} value={(form as any).nextPlannedActions || ''} onChange={e => setField('nextPlannedActions' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} placeholder="Planned follow-up or scheduled maintenance" />
           </div>
         </div>
       </div>
