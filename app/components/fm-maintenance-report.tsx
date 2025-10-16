@@ -44,6 +44,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
     complianceCompleted: (workOrder as any)?.complianceCompleted ?? false,
     ppe: (workOrder as any)?.ppe ?? '',
     techSignature: (workOrder as any)?.techSignature ?? '',
+    clientSignature: (workOrder as any)?.clientSignature ?? '',
     closureDate: (workOrder as any)?.closureDate ?? '',
   } as Partial<WorkOrderItem> & Record<string, any>;
 
@@ -418,10 +419,50 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
       </div>
 
-      {/* 6 & 7 Signatures & Attachments (kept compact) */}
+      {/* 6. Signatures & Validation */}
       <div className="mt-3 bg-gray-800/40 p-3 rounded">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">6. Signatures & Attachments</div>
+          <div className="text-sm font-medium">6. Signatures & Validation</div>
+          <div>
+            {editingSection === 'signatures' ? (
+              <>
+                <button disabled={savingSection === 'signatures'} onClick={() => saveSection('signatures')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'signatures' ? 'Saving...' : 'Save'}</button>
+                <button onClick={() => cancelSectionEdit('signatures')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+              </>
+            ) : (
+              <button onClick={() => setEditingSection('signatures')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
+            )}
+          </div>
+        </div>
+        <div className="mt-2 space-y-3">
+          <div>
+            <label className="text-xs text-gray-300">Technician Signature (Digital or Handwritten)</label>
+            <input disabled={editingSection !== 'signatures'} value={(form as any).techSignature || ''} onChange={e => setField('techSignature' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Type name to sign" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Client / Site Representative Signature (Digital or Handwritten)</label>
+            <input disabled={editingSection !== 'signatures'} value={(form as any).clientSignature || ''} onChange={e => setField('clientSignature' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Type name" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Closure Date (Today or Past)</label>
+            <input disabled={editingSection !== 'signatures'} type="date" value={(form as any).closureDate || ''} onChange={e => setField('closureDate' as any, e.target.value)} max={new Date().toISOString().split('T')[0]} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Work Status</label>
+            <select disabled={editingSection !== 'signatures'} value={form.status || 'In Progress'} onChange={e => setField('status', e.target.value as any)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Verified">Verified</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Attachments */}
+      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium">7. Attachments</div>
           <div>
             {editingSection === 'attachments' ? (
               <>
@@ -431,16 +472,6 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
             ) : (
               <button onClick={() => setEditingSection('attachments')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
             )}
-          </div>
-        </div>
-        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs text-gray-300">Technician Signature (name)</label>
-            <input disabled={editingSection !== 'attachments'} value={(form as any).techSignature || ''} onChange={e => setField('techSignature' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Type name to sign" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-300">Closure Date</label>
-            <input disabled={editingSection !== 'attachments'} value={(form as any).closureDate || ''} onChange={e => setField('closureDate' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="YYYY-MM-DD" />
           </div>
         </div>
 
