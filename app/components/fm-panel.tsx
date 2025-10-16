@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import MaintenanceReport from "./fm-maintenance-report";
+import { WorkOrderItem as WOType } from "./fm-panel-types";
 import { X, Minimize2, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
 import { ImprovedAssetExtractor, ImprovedAsset } from "../services/improved-asset-extractor";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
@@ -1066,10 +1068,11 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
       {Sidebar}
 
       {showModal && !showModalMinimized && (
-        <div id="fm-modal-overlay" className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50">
+        // Make overlay pointer-events pass-through so the page can scroll while modal is open.
+        <div id="fm-modal-overlay" className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50 pointer-events-none">
           <div
             ref={modalRef}
-            className="absolute bg-gray-800 rounded-lg shadow-xl mx-4 flex flex-col border border-gray-700"
+            className="absolute bg-gray-800 rounded-lg shadow-xl mx-4 flex flex-col border border-gray-700 pointer-events-auto"
             style={{
               left: modalPos.x,
               top: modalPos.y,
@@ -1128,7 +1131,8 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
             </div>
             {/* Body */}
             {!showModalMinimized ? (
-              <div className="p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+              // Allow the modal body to scroll and not trap all scrolling events
+              <div className="p-4 flex-1 flex flex-col min-h-0 overflow-auto">
                 {renderSectionContent()}
               </div>
             ) : (
@@ -6008,7 +6012,8 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 // Maintenance Reports
 const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [scheduled] = useState<ScheduledItem[]>(() => load(K.scheduled(projectId), [] as ScheduledItem[]));
-  const [workOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
+  const [workOrders, setWorkOrders] = useState<WOType[]>(() => load(K.workOrders(projectId), [] as WOType[]));
+  const [openWO, setOpenWO] = useState<WOType | null>(null);
 
   const totalScheduled = scheduled.length;
   const totalWorkOrders = workOrders.length;
@@ -6020,31 +6025,72 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     <div className="p-3 space-y-4">
       <div className="text-white font-semibold text-sm">Maintenance Reports</div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-gray-800/60 rounded p-3">
+      {/* Shrunk stat cards - smaller padding & font-sizes */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-gray-800/60 rounded p-2">
           <div className="text-xs text-gray-400">Scheduled Tasks</div>
-          <div className="text-2xl text-white font-bold">{totalScheduled}</div>
+          <div className="text-lg text-white font-bold">{totalScheduled}</div>
         </div>
-        <div className="bg-gray-800/60 rounded p-3">
+        <div className="bg-gray-800/60 rounded p-2">
           <div className="text-xs text-gray-400">Total Work Orders</div>
-          <div className="text-2xl text-white font-bold">{totalWorkOrders}</div>
+          <div className="text-lg text-white font-bold">{totalWorkOrders}</div>
         </div>
-        <div className="bg-yellow-900/30 rounded p-3">
+        <div className="bg-yellow-900/30 rounded p-2">
           <div className="text-xs text-yellow-400">Open Orders</div>
-          <div className="text-2xl text-yellow-300 font-bold">{openOrders}</div>
+          <div className="text-lg text-yellow-300 font-bold">{openOrders}</div>
         </div>
-        <div className="bg-purple-900/30 rounded p-3">
+        <div className="bg-purple-900/30 rounded p-2">
           <div className="text-xs text-purple-400">In Progress</div>
-          <div className="text-2xl text-purple-300 font-bold">{inProgressOrders}</div>
+          <div className="text-lg text-purple-300 font-bold">{inProgressOrders}</div>
         </div>
-        <div className="col-span-2 bg-green-900/30 rounded p-3">
+        <div className="col-span-2 bg-green-900/30 rounded p-2">
           <div className="text-xs text-green-400">Resolved Orders</div>
-          <div className="text-2xl text-green-300 font-bold">{resolvedOrders}</div>
+          <div className="text-lg text-green-300 font-bold">{resolvedOrders}</div>
         </div>
       </div>
 
       <div className="border-t border-gray-700 pt-3">
         <div className="text-xs text-gray-400">Reports generated at: {new Date().toLocaleString()}</div>
+      </div>
+
+      <div className="mt-3">
+        <div className="text-sm text-gray-200 mb-2">Work Orders</div>
+        <div className="space-y-2">
+          {workOrders.map(w => (
+            <div key={w.id} className="bg-gray-800/40 rounded">
+              <div className="flex items-center justify-between p-2">
+                <div>
+                  <div className="text-sm font-medium">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
+                  <div className="text-xs text-gray-400">{w.description?.slice(0, 80) || 'No description'}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-gray-300">{w.status}</div>
+                  <button onClick={() => setOpenWO(openWO && openWO.id === w.id ? null : w)} className="px-2 py-1 bg-blue-600 rounded text-sm">{openWO && openWO.id === w.id ? 'Close' : 'Open'}</button>
+                </div>
+              </div>
+
+              {/* Inline expanded report */}
+              {openWO && openWO.id === w.id && (
+                <div className="p-2 border-t border-gray-700">
+                  <MaintenanceReport
+                    projectId={projectId}
+                    workOrder={openWO}
+                    onSave={(updated) => {
+                      setWorkOrders(prev => {
+                        const found = prev.find(p => p.id === updated.id);
+                        if (found) return prev.map(p => p.id === updated.id ? updated as WOType : p);
+                        return [ ...prev, updated as WOType ];
+                      });
+                      save(K.workOrders(projectId), (load(K.workOrders(projectId), [] as WOType[]).map(p => p.id === updated.id ? updated : p)));
+                      setOpenWO(null);
+                    }}
+                    onClose={() => setOpenWO(null)}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
