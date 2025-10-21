@@ -13,7 +13,7 @@ function FMStandaloneContent() {
 
   return (
     <div style={{ height: '100vh', width: '100vw' }}>
-      <FMPanel projectId={projectId} viewer={undefined} standalone={true} />
+      <FMPanel projectId={projectId} viewer={undefined} standalone={true} initialSection={parsedSection} />
     </div>
   );
 }

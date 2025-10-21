@@ -9,7 +9,7 @@ import { ImprovedAssetExtractor, ImprovedAsset } from "../services/improved-asse
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 // Extended models
-interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; }
+interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; initialSection?: Section | null }
 
 // Extended Asset Record with all fields from asset_register_facility_manager_template_extended
 interface AssetRecord {
@@ -172,6 +172,7 @@ const K = {
   upcoming: (pid?: string) => `fm-upcoming-${pid || 'global'}`,
   ongoing: (pid?: string) => `fm-ongoing-${pid || 'global'}`,
   planned: (pid?: string) => `fm-planned-${pid || 'global'}`,
+  uiSection: (pid?: string) => `fm-ui-section-${pid || 'global'}`,
 };
 
 function load<T>(key: string, def: T): T { if (typeof window === 'undefined') return def; try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : def; } catch { return def; } }
@@ -181,8 +182,38 @@ const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => voi
   <button onClick={onClick} className={"w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-300 hover:text-white hover:bg-gray-800"}>{label}</button>
 );
 
-export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps) {
-  const [section, setSection] = useState<Section | null>({ group: 'assets', item: null });
+export default function FMPanel({ projectId, viewer, standalone, initialSection }: FMPanelProps) {
+  const defaultItemForGroup = (group: Section['group']): Section => {
+    switch (group) {
+      case 'assets': return { group: 'assets', item: 'asset-list' };
+      case 'spaces': return { group: 'spaces', item: 'space-list' };
+      case 'maintenance': return { group: 'maintenance', item: 'scheduled' };
+      case 'work-orders': return { group: 'work-orders', item: 'service-requests' };
+      case 'upcoming-activities': return { group: 'upcoming-activities', item: 'ongoing' };
+      default: return { group: 'assets', item: 'asset-list' } as Section;
+    }
+  };
+
+  const initialSectionState: Section = React.useMemo(() => {
+    // 1) from prop if valid
+    if (initialSection && (initialSection as any).group) {
+      const s = initialSection as Section;
+      // normalize: ensure item is set
+      if (!(s as any).item) return defaultItemForGroup(s.group);
+      return s;
+    }
+    // 2) from localStorage
+    const loaded = load<Section | null>(K.uiSection(projectId), null);
+    if (loaded && (loaded as any).group) {
+      const ls = loaded as Section;
+      if (!(ls as any).item) return defaultItemForGroup(ls.group);
+      return ls;
+    }
+    // 3) fallback default
+    return defaultItemForGroup('assets');
+  }, [initialSection, projectId]);
+
+  const [section, setSection] = useState<Section | null>(initialSectionState);
   const [showModal, setShowModal] = useState(false);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -193,6 +224,10 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
   const dragRef = React.useRef({ startMouseX: 0, startMouseY: 0, startX: 0, startY: 0 });
   const resizeRef = React.useRef({ startMouseX: 0, startMouseY: 0, startWidth: 0, startHeight: 0 });
   const isStandalone = !!standalone;
+  // Persist section selection so it restores in new windows/tabs
+  useEffect(() => {
+    if (section) save(K.uiSection(projectId), section);
+  }, [section, projectId]);
   const childWinRef = useRef<Window | null>(null);
 
   // Remote drawing bridge (main window only)
@@ -862,7 +897,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Assets */}
         <button
           onClick={() => {
-            setSection({ group: 'assets', item: null });
+            setSection(defaultItemForGroup('assets'));
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -873,7 +908,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Spaces */}
         <button
           onClick={() => {
-            setSection({ group: 'spaces', item: null });
+            setSection(defaultItemForGroup('spaces'));
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -884,7 +919,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Maintenance */}
         <button
           onClick={() => {
-            setSection({ group: 'maintenance', item: null });
+            setSection(defaultItemForGroup('maintenance'));
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -895,7 +930,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Work Orders */}
         <button
           onClick={() => {
-            setSection({ group: 'work-orders', item: null });
+            setSection(defaultItemForGroup('work-orders'));
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
@@ -906,7 +941,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
         {/* Upcoming Maintenance Activities */}
         <button
           onClick={() => {
-            setSection({ group: 'upcoming-activities', item: null });
+            setSection(defaultItemForGroup('upcoming-activities'));
           }}
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
