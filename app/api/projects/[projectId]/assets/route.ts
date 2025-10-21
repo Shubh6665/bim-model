@@ -6,6 +6,7 @@ import { ObjectId } from "mongodb";
 // {
 //   _id: ObjectId,
 //   projectId: string,
+//   modelGuid?: string, // BIM model GUID for scoping BIM assets to a specific model
 //   source: 'BIM_MODEL' | 'MANUAL',
 //   assetCode?: string,
 //   assetName?: string,
@@ -62,7 +63,15 @@ export async function GET(
     const db = await getDb();
     const col = db.collection("fm_assets");
 
-    const assets = await col.find({ projectId }).sort({ updatedAt: -1 }).toArray();
+    // Optional filter to scope BIM assets to a specific model
+    const url = new URL(_req.url);
+    const modelGuid = url.searchParams.get('modelGuid') || undefined;
+
+    const query = modelGuid
+      ? { projectId, $or: [ { source: 'MANUAL' }, { source: 'BIM_MODEL', modelGuid } ] }
+      : { projectId };
+
+    const assets = await col.find(query).sort({ updatedAt: -1 }).toArray();
     // Normalize id
     const normalized = assets.map((asset: any) => ({ 
       id: asset._id?.toString?.() || asset.id, 
@@ -146,6 +155,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
   const now = new Date().toISOString();
   const doc = {
     projectId,
+    modelGuid: raw?.modelGuid || undefined,
     source: raw?.source === 'BIM_MODEL' ? 'BIM_MODEL' : 'MANUAL',
     assetCode: raw?.assetCode || undefined,
     assetName: raw?.assetName || undefined,
@@ -193,7 +203,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
   // Compute a stable key for BIM assets to prevent duplication across re-extractions
   const isBIM = doc.source === 'BIM_MODEL';
   const filter = isBIM
-    ? { projectId, source: 'BIM_MODEL', dbId: doc.dbId }
+    ? { projectId, source: 'BIM_MODEL', modelGuid: doc.modelGuid, dbId: doc.dbId }
     : (raw?.id ? { projectId, _id: safeObjectId(raw.id) } : null);
 
   if (filter) {

@@ -67,6 +67,8 @@ interface AssetRecord {
   // Linkage and visibility helpers
   linkedAssetId?: string;
   hidden?: boolean;
+  // Model identity for BIM assets (used to filter to current model)
+  modelGuid?: string;
 }
 
 interface SpaceRecord {
@@ -1246,7 +1248,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     const map = new Map<string, AssetRecord>();
     for (const a of arr) {
       const key = (a.source === 'BIM_MODEL' && a.dbId != null)
-        ? `BIM|${a.dbId}`
+        ? `BIM|${a.modelGuid || 'g'}|${a.dbId}`
         : `ID|${a.id}`;
       const ex = map.get(key);
       if (!ex) map.set(key, a);
@@ -1254,6 +1256,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     }
     return Array.from(map.values());
   }, []);
+
+  const getCurrentModelGuid = React.useCallback((): string | undefined => {
+    try {
+      const g = viewer?.model?.getData?.()?.guid;
+      if (g && typeof g === 'string') return g;
+      const mid = viewer?.model?.id;
+      return (mid != null) ? String(mid) : undefined;
+    } catch { return undefined; }
+  }, [viewer]);
+
+  const filterAssetsForCurrentModel = React.useCallback((arr: AssetRecord[]): AssetRecord[] => {
+    const g = getCurrentModelGuid();
+    if (!g) return arr; // if no model, do not filter
+    // Strict: include manual always; BIM only for current modelGuid
+    return arr.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === g);
+  }, [getCurrentModelGuid]);
 
   // Build master category labels from CATEGORY_MAPPING used in Ticket-based Maintenance
   const assetCategoryMasterOptions: string[] = React.useMemo(() => {
@@ -1296,16 +1314,30 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         return;
       }
 
-      console.log(`🔄 [AssetList] Loading assets from backend for project: ${projectId}`);
+      const currentGuid = getCurrentModelGuid();
+      if (!currentGuid) {
+        console.log('📭 [AssetList] No model guid yet, using local cache for now');
+        try {
+          const cached = load(K.assets(projectId), [] as AssetRecord[]);
+          const filtered = filterAssetsForCurrentModel(cached);
+          const deduped = dedupeAssets(filtered);
+          setRows(deduped);
+        } catch {}
+        return;
+      }
+
+      console.log(`🔄 [AssetList] Loading assets from backend for project: ${projectId}, modelGuid: ${currentGuid}`);
       try {
-        const res = await fetch(`/api/projects/${projectId}/assets`);
+        const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(currentGuid)}`);
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : [];
           console.log(`✅ [AssetList] Loaded ${list.length} assets from backend`);
 
           // Merge backend list with cached assets in localStorage so we don't lose richer local fields
-          const cached = load(K.assets(projectId), [] as AssetRecord[]);
+          // Filter cached to current model before merging to avoid legacy inflation
+          const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+          const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid);
           const mergedById = list.map(b => {
             const c = cached.find(x => x.id === b.id);
             if (!c) return b;
@@ -1317,12 +1349,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             }
             return merged as AssetRecord;
           });
-          // Include any cached-only records (not returned by backend)
+          // Include any cached-only records (not returned by backend), but only for current model (manual always ok)
           const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
           const finalList = [...mergedById, ...cachedOnly];
 
           console.log(`🔀 [AssetList] Merged backend (${list.length}) with cached (${cached.length}) => final ${finalList.length}`);
-          const deduped = dedupeAssets(finalList);
+          const filtered = filterAssetsForCurrentModel(finalList);
+          const deduped = dedupeAssets(filtered);
           if (deduped.length !== finalList.length) {
             console.log(`🧹 [AssetList] Deduped merged list: ${finalList.length} -> ${deduped.length}`);
           }
@@ -1337,10 +1370,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       }
       // fallback to local cache
       try {
-        const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        const deduped = dedupeAssets(cached);
-        console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage (deduped to ${deduped.length})`);
-        setRows(deduped);
+  const cached = load(K.assets(projectId), [] as AssetRecord[]);
+  const filtered = filterAssetsForCurrentModel(cached);
+  const deduped = dedupeAssets(filtered);
+  console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage (filtered ${filtered.length}, deduped ${deduped.length})`);
+  setRows(deduped);
       } catch { }
     };
     loadFromBackend();
@@ -1363,8 +1397,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     const refreshFromStorage = () => {
       try {
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        const deduped = dedupeAssets(cached);
-        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}, Deduped: ${deduped.length}`);
+        const filtered = filterAssetsForCurrentModel(cached);
+        const deduped = dedupeAssets(filtered);
+        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}, Filtered: ${filtered.length}, Deduped: ${deduped.length}`);
         setRows(prevRows => {
           // Only update if there are actually new assets
           if (deduped.length !== prevRows.length ||
@@ -1383,10 +1418,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     // Listen for custom asset-created events
     const handleAssetCreated = () => {
       try {
-        const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        const deduped = dedupeAssets(cached);
-        console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} (deduped ${deduped.length}) assets`);
-        setRows(deduped);
+  const cached = load(K.assets(projectId), [] as AssetRecord[]);
+  const filtered = filterAssetsForCurrentModel(cached);
+  const deduped = dedupeAssets(filtered);
+  console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} (filtered ${filtered.length}, deduped ${deduped.length}) assets`);
+  setRows(deduped);
       } catch (e) {
         console.error('🔔 [AssetList] Error during forced refresh:', e);
       }
@@ -1444,6 +1480,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       console.log('🔄 [AssetList] Converting assets to AssetRecord format...');
       // Convert ImprovedAsset to AssetRecord format with enrichment
+      const currentGuid = getCurrentModelGuid();
       const newAssets: AssetRecord[] = improvedAssets.map(asset => {
         const props = (asset as any).properties || [];
         const brand = asset.brand || getProp(props, ['Manufacturer', 'Brand', 'Manufacturer Name']) || asset.family || 'Unknown';
@@ -1478,7 +1515,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           location: asset.location,
           description: asset.description || `${asset.assetClassification} asset extracted from BIM model`,
           condition: 'Good', // Default for BIM assets
-          source: 'BIM_MODEL'
+          source: 'BIM_MODEL',
+          modelGuid: (asset as any).modelGuid || currentGuid
         } as AssetRecord;
       });
 
@@ -1486,8 +1524,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       // Merge with existing manual assets
   console.log('🔄 [AssetList] Merging with existing assets...');
-      const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
-      const keyOf = (a: AssetRecord) => `${(a.category || '').toLowerCase()}|${(a.location || '').toLowerCase()}|${(a.model || a.assetName || '').toLowerCase()}`;
+  const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
+  const keyOf = (a: AssetRecord) => `${(a.category || '').toLowerCase()}|${(a.location || '').toLowerCase()}|${(a.model || a.assetName || '').toLowerCase()}`;
 
       // Basic conflict detection (manual vs BIM)
       const manualMap = new Map<string, AssetRecord>();
@@ -1501,11 +1539,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       });
 
       // Keep existing non-manual (older BIM) assets separate to allow override by new extraction
-      const others = rows.filter(r => r.source !== 'MANUAL');
-
-      // Combine in order so that later entries override earlier ones for the same id
-      // Order: previous BIM/others -> manual -> newly extracted BIM
-      const combined = [...others, ...existingManualAssets, ...newAssets];
+  // Replace BIM assets with the current model's assets; keep manual assets
+  const combined = [...existingManualAssets, ...newAssets];
 
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
@@ -1513,9 +1548,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       console.log(`✅ [AssetList] Merged: ${uniqueById.length} total assets (${existingManualAssets.length} manual, ${newAssets.length} new BIM)`);
 
       // Immediately update UI and local cache to avoid blocking on network (with dedupe)
-      const dedupedAfterExtract = dedupeAssets(uniqueById);
+      // Filter to the currently loaded model for BIM assets
+      const onlyCurrentModel = filterAssetsForCurrentModel(uniqueById);
+      const dedupedAfterExtract = dedupeAssets(onlyCurrentModel);
       if (dedupedAfterExtract.length !== uniqueById.length) {
-        console.log(`🧹 [AssetList] Deduped after extract: ${uniqueById.length} -> ${dedupedAfterExtract.length}`);
+        console.log(`🧹 [AssetList] Filtered+Deduped after extract: ${uniqueById.length} -> ${dedupedAfterExtract.length}`);
       }
       setRows(dedupedAfterExtract);
       save(K.assets(projectId), dedupedAfterExtract);
@@ -1568,14 +1605,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           await new Promise(r => setTimeout(r, 500));
           const reloadCtrl = new AbortController();
           const reloadTimer = setTimeout(() => reloadCtrl.abort(), 15000);
-          const res = await fetch(`/api/projects/${projectId}/assets`, { signal: reloadCtrl.signal }).catch(err => { throw err; });
+          const guid = getCurrentModelGuid();
+          const res = await fetch(`/api/projects/${projectId}/assets${guid ? `?modelGuid=${encodeURIComponent(guid)}` : ''}` as any, { signal: reloadCtrl.signal }).catch(err => { throw err; });
           clearTimeout(reloadTimer);
 
           if (res && res.ok) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : [];
-            const deduped = dedupeAssets(list);
-            console.log(`✅ [AssetList] BG reload got ${list.length} assets (deduped to ${deduped.length})`);
+            const filtered = filterAssetsForCurrentModel(list);
+            const deduped = dedupeAssets(filtered);
+            console.log(`✅ [AssetList] BG reload got ${list.length} assets (filtered ${filtered.length}, deduped ${deduped.length})`);
             setRows(deduped);
             save(K.assets(projectId), deduped);
           } else {
