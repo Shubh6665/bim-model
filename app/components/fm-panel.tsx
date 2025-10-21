@@ -1193,6 +1193,39 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     window.setTimeout(() => setToast(null), 3500);
   };
 
+  // Build master category labels from CATEGORY_MAPPING used in Ticket-based Maintenance
+  const assetCategoryMasterOptions: string[] = React.useMemo(() => {
+    const opts: string[] = [];
+    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+      opts.push(`${it} / ${m.english} (${m.ifc})`);
+    }
+    return opts.sort();
+  }, []);
+
+  // Map of master label -> tokens [italian, english, ifc]
+  const masterCategoryTokens = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+      const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+      map.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
+    }
+    return map;
+  }, []);
+
+  // Final category list for AssetList filter: master categories first, then any extra categories found in assets
+  const assetCategories: string[] = React.useMemo(() => {
+    const master = new Set(assetCategoryMasterOptions);
+    const extras = new Set<string>();
+    for (const a of rows) {
+      const c = a.category;
+      if (!c) continue;
+      if (!master.has(c)) extras.add(c);
+    }
+    const list: string[] = [...Array.from(master).sort()];
+    if (extras.size) list.push(...Array.from(extras).sort());
+    return list;
+  }, [rows, assetCategoryMasterOptions]);
+
   // Load assets from backend (preferred), fallback to localStorage
   useEffect(() => {
     const loadFromBackend = async () => {
@@ -1575,9 +1608,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     classifications: Array.from(new Set(rows.map(r => r.assetClassification).filter(Boolean))).sort() as string[]
   };
 
+  // Apply filters with smart category matching against master CATEGORY_MAPPING labels
   const filteredRows = rows.filter(r => {
     if (r.hidden) return false;
-    if (filter.category && !r.category?.toLowerCase().includes(filter.category.toLowerCase())) return false;
+    if (filter.category) {
+      if (masterCategoryTokens.has(filter.category)) {
+        const tokens = (masterCategoryTokens.get(filter.category) || []).map(t => String(t).toLowerCase());
+        const cat = (r.category || '').toLowerCase();
+        const match = tokens.some(t => t && (cat.includes(t) || t.includes(cat)));
+        if (!match) return false;
+      } else {
+        // Extra category selected: match exact or inclusive similarity
+        const sel = filter.category.toLowerCase();
+        const cat = (r.category || '').toLowerCase();
+        if (!(cat === sel || cat.includes(sel) || sel.includes(cat))) return false;
+      }
+    }
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
     if (filter.location && !r.location?.toLowerCase().includes(filter.location.toLowerCase())) return false;
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
@@ -1954,7 +2000,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             <div className="grid grid-cols-2 gap-2">
               <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Categories</option>
-                {distinct.categories.map(v => <option key={v} value={v}>{v}</option>)}
+                {assetCategories.map(cat => {
+                  const isMaster = assetCategoryMasterOptions.includes(cat);
+                  return (
+                    <option key={cat} value={cat}>
+                      {cat}{!isMaster ? ' (extra)' : ''}
+                    </option>
+                  );
+                })}
               </select>
               <select value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Types</option>
@@ -2060,7 +2113,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
-              <tr><td colSpan={20} className="px-3 py-4 text-center text-gray-400">No assets. Use "Create new asset".</td></tr>
+              <tr>
+                <td colSpan={20} className="px-3 py-4 text-center text-gray-400">
+                  {filter.category || filter.type || filter.location || filter.condition || filter.classification
+                    ? 'No assets available'
+                    : 'No assets. Use "Create new asset".'}
+                </td>
+              </tr>
             ) : paginatedRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
                 {visibleFields.basic && (
