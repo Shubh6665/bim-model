@@ -1192,6 +1192,68 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setToast({ type, text });
     window.setTimeout(() => setToast(null), 3500);
   };
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>(() => ({ open: false }));
+
+  const isHexObjectId = (id?: string) => !!id && /^[a-f0-9]{24}$/i.test(id);
+
+  const confirmDelete = (row: AssetRecord) => {
+    if (row.source !== 'MANUAL') return; // safety
+    const label = row.assetName || row.assetCode || row.model || row.brand || row.category || 'this asset';
+    setDeleteModal({ open: true, id: row.id, label });
+  };
+
+  const performDelete = async () => {
+    const id = deleteModal.id;
+    if (!id) { setDeleteModal({ open: false }); return; }
+
+    try {
+      // Optimistically remove from UI
+      setRows(prev => prev.filter(a => a.id !== id));
+      save(K.assets(projectId), rows.filter(a => a.id !== id));
+
+      // Delete from backend if we have a valid ObjectId and projectId
+      if (projectId && isHexObjectId(id)) {
+        const res = await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.warn('⚠️ [AssetList] Backend delete failed:', res.status, txt);
+          showToast('error', 'Failed to delete from server — removed locally');
+        } else {
+          showToast('success', 'Asset deleted');
+        }
+      } else {
+        // Local-only deletion
+        showToast('success', 'Asset deleted locally');
+      }
+    } catch (e) {
+      console.error('❌ [AssetList] Delete error', e);
+      showToast('error', 'Delete failed');
+    } finally {
+      setDeleteModal({ open: false });
+    }
+  };
+
+  // Helper: deduplicate BIM assets (by dbId) and keep best record; manual assets by id
+  const dedupeAssets = React.useCallback((arr: AssetRecord[]): AssetRecord[] => {
+    const score = (x: AssetRecord) => {
+      const fields: (keyof AssetRecord)[] = [
+        'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
+        'material','dimensions','weight','capacity','powerRating','location','description'
+      ];
+      let n = 0; for (const f of fields) if ((x as any)[f]) n++;
+      return n;
+    };
+    const map = new Map<string, AssetRecord>();
+    for (const a of arr) {
+      const key = (a.source === 'BIM_MODEL' && a.dbId != null)
+        ? `BIM|${a.dbId}`
+        : `ID|${a.id}`;
+      const ex = map.get(key);
+      if (!ex) map.set(key, a);
+      else map.set(key, score(a) >= score(ex) ? a : ex);
+    }
+    return Array.from(map.values());
+  }, []);
 
   // Build master category labels from CATEGORY_MAPPING used in Ticket-based Maintenance
   const assetCategoryMasterOptions: string[] = React.useMemo(() => {
@@ -1260,8 +1322,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const finalList = [...mergedById, ...cachedOnly];
 
           console.log(`🔀 [AssetList] Merged backend (${list.length}) with cached (${cached.length}) => final ${finalList.length}`);
-          setRows(finalList);
-          save(K.assets(projectId), finalList);
+          const deduped = dedupeAssets(finalList);
+          if (deduped.length !== finalList.length) {
+            console.log(`🧹 [AssetList] Deduped merged list: ${finalList.length} -> ${deduped.length}`);
+          }
+          setRows(deduped);
+          save(K.assets(projectId), deduped);
           return;
         } else {
           console.warn(`⚠️ [AssetList] Backend returned status ${res.status}`);
@@ -1272,8 +1338,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // fallback to local cache
       try {
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage`);
-        setRows(cached);
+        const deduped = dedupeAssets(cached);
+        console.log(`💾 [AssetList] Loaded ${cached.length} assets from localStorage (deduped to ${deduped.length})`);
+        setRows(deduped);
       } catch { }
     };
     loadFromBackend();
@@ -1296,14 +1363,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     const refreshFromStorage = () => {
       try {
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}`);
+        const deduped = dedupeAssets(cached);
+        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}, Deduped: ${deduped.length}`);
         setRows(prevRows => {
           // Only update if there are actually new assets
-          if (cached.length !== prevRows.length ||
-            JSON.stringify(cached.map(a => a.id).sort()) !== JSON.stringify(prevRows.map(a => a.id).sort())) {
-            console.log(`✅ [AssetList] Refreshed from localStorage: ${cached.length} assets`);
-            console.log('📋 [AssetList] New assets:', cached.slice(0, 3)); // Log first 3 for debugging
-            return cached;
+          if (deduped.length !== prevRows.length ||
+            JSON.stringify(deduped.map(a => a.id).sort()) !== JSON.stringify(prevRows.map(a => a.id).sort())) {
+            console.log(`✅ [AssetList] Refreshed from localStorage: ${deduped.length} assets`);
+            console.log('📋 [AssetList] Sample assets:', deduped.slice(0, 3));
+            return deduped;
           }
           return prevRows;
         });
@@ -1316,8 +1384,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     const handleAssetCreated = () => {
       try {
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
-        console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} assets`);
-        setRows(cached);
+        const deduped = dedupeAssets(cached);
+        console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} (deduped ${deduped.length}) assets`);
+        setRows(deduped);
       } catch (e) {
         console.error('🔔 [AssetList] Error during forced refresh:', e);
       }
@@ -1352,8 +1421,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       const extractor = new ImprovedAssetExtractor(viewer);
 
       const improvedAssets = await extractor.extractAllAssets((progress, found, total) => {
-        setExtractionProgress(progress);
+        // Clamp and update progress
+        const p = Math.max(0, Math.min(100, Number(progress) || 0));
+        setExtractionProgress(p);
       });
+
+      // Ensure progress shows completion
+      setExtractionProgress(100);
 
       console.log(`✅ [AssetList] Extraction complete: ${improvedAssets.length} assets`);
 
@@ -1408,10 +1482,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         } as AssetRecord;
       });
 
-      console.log(`✅ [AssetList] Converted ${newAssets.length} assets`);
+  console.log(`✅ [AssetList] Converted ${newAssets.length} assets`);
 
       // Merge with existing manual assets
-      console.log('🔄 [AssetList] Merging with existing assets...');
+  console.log('🔄 [AssetList] Merging with existing assets...');
       const existingManualAssets = rows.filter(r => r.source === 'MANUAL');
       const keyOf = (a: AssetRecord) => `${(a.category || '').toLowerCase()}|${(a.location || '').toLowerCase()}|${(a.model || a.assetName || '').toLowerCase()}`;
 
@@ -1438,59 +1512,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       console.log(`✅ [AssetList] Merged: ${uniqueById.length} total assets (${existingManualAssets.length} manual, ${newAssets.length} new BIM)`);
 
-      // Persist to backend for the selected project, then refresh from API so new windows see the same data
-      if (projectId) {
-        try {
-          console.log(`💾 [AssetList] Saving ${newAssets.length} assets to backend (projectId: ${projectId})...`);
-          // Upsert only the newly extracted BIM assets; backend deduplicates by (projectId, source, dbId)
-          const saveRes = await fetch(`/api/projects/${projectId}/assets`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upsertMany', assets: newAssets })
-          });
-
-          if (!saveRes.ok) {
-            const errorText = await saveRes.text();
-            console.error('❌ [AssetList] Backend save failed:', saveRes.status, errorText);
-            throw new Error(`Save failed with status ${saveRes.status}`);
-          }
-
-          const saveResult = await saveRes.json();
-          console.log('✅ [AssetList] Assets saved to backend successfully:', saveResult);
-
-          // Wait a bit to ensure database write is complete
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          // Reload from backend to get normalized ids and timestamps
-          console.log('🔄 [AssetList] Reloading assets from backend...');
-          const res = await fetch(`/api/projects/${projectId}/assets`);
-          if (res.ok) {
-            const data = await res.json();
-            const list = Array.isArray(data) ? data : [];
-            console.log(`✅ [AssetList] Loaded ${list.length} assets from backend (${list.filter(a => a.source === 'BIM_MODEL').length} BIM, ${list.filter(a => a.source === 'MANUAL').length} manual)`);
-            setRows(list);
-            save(K.assets(projectId), list);
-          } else {
-            const errorText = await res.text();
-            console.error('❌ [AssetList] Backend reload failed:', res.status, errorText);
-            // fallback: keep local state
-            console.warn('⚠️ [AssetList] Using local state as fallback');
-            setRows(uniqueById);
-            save(K.assets(projectId), uniqueById);
-          }
-        } catch (e) {
-          console.error('❌ [AssetList] Persist extracted assets failed, caching locally', e);
-          setRows(uniqueById);
-          save(K.assets(projectId), uniqueById);
-        }
-      } else {
-        // No project id; keep local only
-        console.warn('⚠️ [AssetList] No projectId provided, saving locally only');
-        setRows(uniqueById);
-        save(K.assets(projectId), uniqueById);
+      // Immediately update UI and local cache to avoid blocking on network (with dedupe)
+      const dedupedAfterExtract = dedupeAssets(uniqueById);
+      if (dedupedAfterExtract.length !== uniqueById.length) {
+        console.log(`🧹 [AssetList] Deduped after extract: ${uniqueById.length} -> ${dedupedAfterExtract.length}`);
       }
+      setRows(dedupedAfterExtract);
+      save(K.assets(projectId), dedupedAfterExtract);
 
-      console.log('✅ [AssetList] Asset extraction and save complete!');
+      console.log('✅ [AssetList] Asset extraction complete — UI updated. Starting background save...');
 
       const breakdown = Object.entries(
         newAssets.reduce((acc, asset) => {
@@ -1502,13 +1532,68 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       showToast('success', `Extracted ${newAssets.length} assets. ${breakdown}`);
 
+      // Background persist with timeouts (non-blocking)
+      (async () => {
+        if (!projectId) {
+          console.warn('⚠️ [AssetList] No projectId provided, skipping backend save');
+          return;
+        }
+        try {
+          const timeoutMs = 15000;
+          const withTimeout = (signal?: AbortSignal) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+            const composite = signal ? new AbortController() : controller;
+            return { controller, timer };
+          };
+
+          console.log(`💾 [AssetList] BG save ${newAssets.length} assets to backend (projectId: ${projectId})...`);
+          const saveCtrl = new AbortController();
+          const saveTimer = setTimeout(() => saveCtrl.abort(), 15000);
+          const saveRes = await fetch(`/api/projects/${projectId}/assets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upsertMany', assets: newAssets }),
+            signal: saveCtrl.signal
+          }).catch(err => { throw err; });
+          clearTimeout(saveTimer);
+
+          if (!saveRes.ok) {
+            const errorText = await saveRes.text().catch(() => '');
+            console.warn('⚠️ [AssetList] BG save failed:', saveRes.status, errorText);
+            return;
+          }
+
+          // Small delay then background refresh
+          await new Promise(r => setTimeout(r, 500));
+          const reloadCtrl = new AbortController();
+          const reloadTimer = setTimeout(() => reloadCtrl.abort(), 15000);
+          const res = await fetch(`/api/projects/${projectId}/assets`, { signal: reloadCtrl.signal }).catch(err => { throw err; });
+          clearTimeout(reloadTimer);
+
+          if (res && res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : [];
+            const deduped = dedupeAssets(list);
+            console.log(`✅ [AssetList] BG reload got ${list.length} assets (deduped to ${deduped.length})`);
+            setRows(deduped);
+            save(K.assets(projectId), deduped);
+          } else {
+            console.warn('⚠️ [AssetList] BG reload failed or aborted');
+          }
+        } catch (e) {
+          console.warn('⚠️ [AssetList] Background persist/reload aborted or failed', e);
+        }
+      })();
+
     } catch (error) {
       console.error('❌ [AssetList] Asset extraction failed:', error);
       showToast('error', 'Failed to extract assets. Check console for details.');
     } finally {
       console.log('🏁 [AssetList] Extraction process finished');
       setIsExtracting(false);
-      setExtractionProgress(0);
+      // Reset progress a tick later to avoid flicker
+      setTimeout(() => setExtractionProgress(0), 250);
     }
   };
 
@@ -2026,7 +2111,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 w-full">
+            <div className="mt-2 grid grid-cols-3 gap-2 w-full">
               <button
                 onClick={applyFilterToViewer}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
@@ -2038,6 +2123,24 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
               >
                 Export CSV
+              </button>
+              <button
+                onClick={() => {
+                  setRows(prev => {
+                    const ded = dedupeAssets(prev);
+                    const removed = prev.length - ded.length;
+                    if (removed > 0) {
+                      showToast('success', `Removed ${removed} duplicate asset${removed !== 1 ? 's' : ''}`);
+                    } else {
+                      showToast('info', 'No duplicates found');
+                    }
+                    save(K.assets(projectId), ded);
+                    return ded;
+                  });
+                }}
+                className="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1 rounded"
+              >
+                Remove Duplicates
               </button>
             </div>
           </div>
@@ -2163,6 +2266,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           >
                             {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
                           </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
+                            title="Delete"
+                            className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
+                          >
+                            ×
+                          </button>
                         </div>
                       )}
                       {r.conflictWithId && (
@@ -2252,6 +2362,20 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               'bg-gray-800/80 text-gray-100 border-gray-700'
             }`}>
             {toast.text}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[320px]" onClick={e => e.stopPropagation()}>
+            <div className="text-white text-sm font-semibold mb-2">Delete asset?</div>
+            <div className="text-xs text-gray-300 mb-3">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.label}</span>?</div>
+            <div className="flex items-center justify-end gap-2">
+              <button className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" onClick={() => setDeleteModal({ open: false })}>Cancel</button>
+              <button className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" onClick={performDelete}>Delete</button>
+            </div>
           </div>
         </div>
       )}
