@@ -6580,6 +6580,44 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     });
   };
 
+  // Asset picker state for edit
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [availableAssets, setAvailableAssets] = useState<AssetRecord[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [editTaskInput, setEditTaskInput] = useState('');
+
+  // Load available assets when opening picker
+  useEffect(() => {
+    if (!showAssetPicker || !projectId) return;
+    let cancelled = false;
+    (async () => {
+      setAssetsLoading(true);
+      try {
+        // Use current edit.category to filter tokens
+        const guid = undefined; // picker doesn't need modelGuid here; we'll rely on server-filtered assets
+        const res = await fetch(`/api/projects/${projectId}/assets`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const arr: AssetRecord[] = Array.isArray(data) ? data : [];
+        // Filter by category tokens: match any token from master mapping present in asset.category
+        const masterMap = new Map<string, string[]>();
+        for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+          const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+          masterMap.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
+        }
+        const tokens = masterMap.get(edit.category) || [];
+        const filtered = tokens.length ? arr.filter(a => a.category && tokens.some(t => String(a.category).toLowerCase().includes(String(t).toLowerCase()))) : arr;
+        setAvailableAssets(filtered);
+      } catch (err) {
+        console.error('Failed to load assets for picker', err);
+      } finally {
+        if (!cancelled) setAssetsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showAssetPicker, projectId, edit.category]);
+
   const cancelEdit = () => {
     setEditingId(null);
     setEdit({ discipline: '', category: '', code: '', assetsText: '', tasksText: '', frequency: '', timeHours: '' });
@@ -6687,12 +6725,54 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Assets (one per line)</label>
-                            <textarea rows={3} value={edit.assetsText} onChange={e => setEdit(v => ({ ...v, assetsText: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                            <label className="text-[11px] text-gray-400 block mb-1">Assets</label>
+                            <div className="mb-2">
+                              <div className="flex flex-wrap gap-2">
+                                {(edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean)).map((a, idx) => (
+                                  <div key={a + '-' + idx} className="inline-flex items-center bg-gray-900/50 text-gray-200 px-2 py-1 rounded text-sm border border-gray-700/30">
+                                    <span className="mr-2">{a}</span>
+                                    <button onClick={() => setEdit(v => ({ ...v, assetsText: v.assetsText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300">×</button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => setShowAssetPicker(true)} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Select from asset list</button>
+                              <button onClick={() => setEdit(v => ({ ...v, assetsText: '' }))} className="px-3 py-1.5 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-700">Clear</button>
+                            </div>
                           </div>
                           <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Tasks (one per line)</label>
-                            <textarea rows={3} value={edit.tasksText} onChange={e => setEdit(v => ({ ...v, tasksText: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                            <label className="text-[11px] text-gray-400 block mb-1">Tasks</label>
+                            <div className="mb-2">
+                              <ul className="space-y-1">
+                                {(edit.tasksText.split('\n').map(s => s.trim()).filter(Boolean)).map((t, idx) => (
+                                  <li key={t + '-' + idx} className="flex items-center justify-between bg-gray-900/40 px-2 py-1 rounded text-sm text-gray-200">
+                                    <span>{t}</span>
+                                    <button onClick={() => setEdit(v => ({ ...v, tasksText: v.tasksText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400">Remove</button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div className="flex gap-2">
+                              <input value={editTaskInput} onChange={e => setEditTaskInput(e.target.value)} onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const t = editTaskInput.trim();
+                                  if (t) {
+                                    setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
+                                    setEditTaskInput('');
+                                  }
+                                }
+                              }} placeholder="New task" className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                              <button onClick={() => {
+                                const t = editTaskInput.trim();
+                                if (t) {
+                                  setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
+                                  setEditTaskInput('');
+                                }
+                              }} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Add</button>
+                              <button onClick={() => setEdit(v => ({ ...v, tasksText: '' }))} className="px-3 py-1.5 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-700">Clear</button>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2 justify-end">
@@ -6753,6 +6833,46 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                   </div>
                 ))}
               </div>
+              {/* Asset picker modal (simple) */}
+              {showAssetPicker && (
+                <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
+                  <div className="w-[720px] max-w-full bg-gray-900 border border-gray-700 rounded p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-white font-semibold">Select assets (category: {edit.category || 'All'})</div>
+                      <div>
+                        <button onClick={() => setShowAssetPicker(false)} className="px-2 py-1 rounded border border-gray-600 text-gray-200">Close</button>
+                      </div>
+                    </div>
+                    <div className="h-64 overflow-auto">
+                      {assetsLoading ? (
+                        <div className="text-gray-400">Loading...</div>
+                      ) : availableAssets.length === 0 ? (
+                        <div className="text-gray-400">No assets available for this category.</div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {availableAssets.map(a => (
+                            <div key={a.id} className="flex items-center justify-between bg-gray-800/50 p-2 rounded">
+                              <div>
+                                <div className="text-sm text-gray-200">{a.assetName || a.assetCode || a.id}</div>
+                                <div className="text-xs text-gray-400">{a.category} • {a.location}</div>
+                              </div>
+                              <div>
+                                <button onClick={() => {
+                                  const list = edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean);
+                                  if (!list.includes(a.assetName || a.assetCode || a.id)) {
+                                    const next = [...list, (a.assetName || a.assetCode || a.id)];
+                                    setEdit(v => ({ ...v, assetsText: next.join('\n') }));
+                                  }
+                                }} className="px-2 py-1 rounded bg-blue-600 text-white">Add</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
