@@ -2111,7 +2111,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 w-full">
+            <div className="mt-2 grid grid-cols-2 gap-2 w-full">
               <button
                 onClick={applyFilterToViewer}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
@@ -2123,24 +2123,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
               >
                 Export CSV
-              </button>
-              <button
-                onClick={() => {
-                  setRows(prev => {
-                    const ded = dedupeAssets(prev);
-                    const removed = prev.length - ded.length;
-                    if (removed > 0) {
-                      showToast('success', `Removed ${removed} duplicate asset${removed !== 1 ? 's' : ''}`);
-                    } else {
-                      showToast('info', 'No duplicates found');
-                    }
-                    save(K.assets(projectId), ded);
-                    return ded;
-                  });
-                }}
-                className="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1 rounded"
-              >
-                Remove Duplicates
               </button>
             </div>
           </div>
