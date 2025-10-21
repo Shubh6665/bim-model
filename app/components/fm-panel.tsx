@@ -840,7 +840,7 @@ export default function FMPanel({ projectId, viewer, standalone }: FMPanelProps)
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
-    if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} />;
+  if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} viewer={viewer} />;
     if (section.group === 'maintenance' && section.item === 'ticket') return <TicketForm projectId={projectId} viewer={viewer} />;
     if (section.group === 'work-orders' && section.item === 'service-requests') return <ServiceRequests projectId={projectId} />;
     if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
@@ -3550,7 +3550,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   );
 };
 
-const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ projectId, viewer }) => {
   // Prepare category options from CATEGORY_MAPPING
   const categoryOptions = React.useMemo(() => {
     return Object.entries(CATEGORY_MAPPING).map(([italian, mapping]) => ({
@@ -3614,13 +3614,81 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
   useEffect(() => {
     if (!projectId || assetsLoaded) return;
 
+    // local helpers (same logic as AssetList) -------------------------------------------------
+    const dedupeAssetsLocal = (arr: AssetRecord[]): AssetRecord[] => {
+      const score = (x: AssetRecord) => {
+        const fields: (keyof AssetRecord)[] = [
+          'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
+          'material','dimensions','weight','capacity','powerRating','location','description'
+        ];
+        let n = 0; for (const f of fields) if ((x as any)[f]) n++;
+        return n;
+      };
+      const map = new Map<string, AssetRecord>();
+      for (const a of arr) {
+        const key = (a.source === 'BIM_MODEL' && a.dbId != null)
+          ? `BIM|${a.modelGuid || 'g'}|${a.dbId}`
+          : `ID|${a.id}`;
+        const ex = map.get(key);
+        if (!ex) map.set(key, a);
+        else map.set(key, score(a) >= score(ex) ? a : ex);
+      }
+      return Array.from(map.values());
+    };
+
+    const getCurrentModelGuidLocal = (): string | undefined => {
+      try {
+        const g = viewer?.model?.getData?.()?.guid;
+        if (g && typeof g === 'string') return g;
+        const mid = viewer?.model?.id;
+        return (mid != null) ? String(mid) : undefined;
+      } catch { return undefined; }
+    };
+
+    const filterAssetsForCurrentModelLocal = (arr: AssetRecord[]): AssetRecord[] => {
+      const g = getCurrentModelGuidLocal();
+      if (!g) return arr;
+      return arr.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === g);
+    };
+
     const fetchAssets = async () => {
       setAssetsLoading(true);
       try {
-        const res = await fetch(`/api/projects/${projectId}/assets`);
+        const currentGuid = getCurrentModelGuidLocal();
+        if (!currentGuid) {
+          // fallback: use cached and dedupe
+          const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+          const filtered = filterAssetsForCurrentModelLocal(cachedAll);
+          const deduped = dedupeAssetsLocal(filtered);
+          setAssets(deduped);
+          setAssetsLoaded(true);
+          return;
+        }
+
+        const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(currentGuid)}`);
         if (res.ok) {
           const data = await res.json();
-          setAssets(Array.isArray(data) ? data : []);
+          const list = Array.isArray(data) ? data : [];
+
+          // Merge backend list with cached assets in localStorage so we don't lose richer local fields
+          const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+          const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid);
+          const mergedById = list.map(b => {
+            const c = cached.find(x => x.id === b.id);
+            if (!c) return b;
+            const merged: any = { ...b };
+            for (const key of Object.keys(c)) {
+              const val = (c as any)[key];
+              if (val !== null && val !== undefined && val !== '') merged[key] = val;
+            }
+            return merged as AssetRecord;
+          });
+          const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
+          const finalList = [...mergedById, ...cachedOnly];
+
+          const filtered = filterAssetsForCurrentModelLocal(finalList);
+          const deduped = dedupeAssetsLocal(filtered);
+          setAssets(deduped);
           setAssetsLoaded(true);
         }
       } catch (err) {
@@ -4064,7 +4132,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) 
                     const count = assets.filter(a => a.category === cat).length;
                     return (
                       <option key={cat} value={cat}>
-                        {cat}{!isMaster ? ' (not in master list)' : ''} {count > 0 ? `(${count})` : ''}
+                        {cat}{!isMaster ? ' (extra)' : ''} {count > 0 ? `(${count})` : ''}
                       </option>
                     );
                   })}
