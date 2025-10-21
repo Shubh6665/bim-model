@@ -6522,6 +6522,15 @@ const OngoingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ discipline: string; category: string; code: string; assetsText: string; tasksText: string; frequency: string; timeHours: string }>({
+    discipline: '', category: '', code: '', assetsText: '', tasksText: '', frequency: '', timeHours: ''
+  });
+
+  const disciplineOptions = ['Architecture', 'Structure', 'Mechanical System', 'Electrical System', 'Plumbing System', 'Fire Protection', 'Elevator System', 'Safety', 'IT/Technology', 'Other'];
+  const categoryOptions = React.useMemo(() => {
+    return Object.entries(CATEGORY_MAPPING).map(([italian, mapping]) => `${italian} / ${mapping.english} (${mapping.ifc})`);
+  }, []);
 
   // Load scheduled maintenance from database
   useEffect(() => {
@@ -6558,6 +6567,66 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     return acc;
   }, {} as Record<string, ScheduledItem[]>);
 
+  const beginEdit = (item: ScheduledItem) => {
+    setEditingId(item.id);
+    setEdit({
+      discipline: item.discipline || '',
+      category: item.category || '',
+      code: item.code || '',
+      assetsText: Array.isArray(item.asset) ? item.asset.join('\n') : (item.asset || ''),
+      tasksText: Array.isArray(item.tasks) ? item.tasks.join('\n') : '',
+      frequency: String(item.frequency ?? ''),
+      timeHours: String(item.timeHours ?? ''),
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEdit({ discipline: '', category: '', code: '', assetsText: '', tasksText: '', frequency: '', timeHours: '' });
+  };
+
+  const saveEdit = async (id: string) => {
+    const updated: ScheduledItem = {
+      id,
+      discipline: edit.discipline.trim(),
+      category: edit.category.trim(),
+      code: edit.code.trim(),
+      asset: edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean),
+      tasks: edit.tasksText.split('\n').map(s => s.trim()).filter(Boolean),
+      frequency: Number(edit.frequency) || 0,
+      timeHours: Number(edit.timeHours) || 0,
+    };
+
+    try {
+      if (projectId) {
+        const res = await fetch(`/api/projects/${projectId}/scheduled-maintenance?id=${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const saved = (data?.item as any) || updated;
+          setScheduled(prev => prev.map(it => it.id === id ? saved : it));
+        } else {
+          // fallback local update
+          setScheduled(prev => prev.map(it => it.id === id ? updated : it));
+        }
+      } else {
+        // localStorage fallback
+        setScheduled(prev => {
+          const next = prev.map(it => it.id === id ? updated : it);
+          save(K.scheduled(projectId), next);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update planned maintenance item:', err);
+    } finally {
+      cancelEdit();
+    }
+  };
+
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
@@ -6584,50 +6653,103 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
               <div className="divide-y divide-gray-700/30">
                 {items.map(item => (
                   <div key={item.id} className="p-3 hover:bg-gray-700/20 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        {/* Title/Category */}
-                        <div className="font-semibold text-white text-sm mb-1">
-                          {item.category}
-                        </div>
-
-                        {/* Code */}
-                        <div className="text-xs text-gray-400 mb-1">
-                          Code: <span className="text-gray-300">{item.code}</span>
-                        </div>
-
-                        {/* Assets shown as chips (supports string or string[] payloads) */}
-                        <div className="text-xs text-gray-300 mt-1">
-                          <span className="font-semibold text-gray-400">Assets:</span>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {Array.isArray(item.asset) ? (
-                              item.asset.map((a, idx) => (
-                                <div key={(a || '') + '-' + idx} className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">
-                                  {a}
-                                </div>
-                              ))
-                            ) : (
-                              <div className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">{item.asset}</div>
-                            )}
+                    {editingId === item.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] text-gray-400 block mb-1">Discipline</label>
+                            <select value={edit.discipline} onChange={e => setEdit(v => ({ ...v, discipline: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm">
+                              <option value="">Select</option>
+                              {disciplineOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-gray-400 block mb-1">Category</label>
+                            <select value={edit.category} onChange={e => setEdit(v => ({ ...v, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm">
+                              <option value="">Select</option>
+                              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-gray-400 block mb-1">Code</label>
+                            <input value={edit.code} onChange={e => setEdit(v => ({ ...v, code: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[11px] text-gray-400 block mb-1">Frequency (per year)</label>
+                              <input type="number" value={edit.frequency} onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-gray-400 block mb-1">Time (hours)</label>
+                              <input type="number" value={edit.timeHours} onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                            </div>
                           </div>
                         </div>
-
-                        {/* Tasks */}
-                        <div className="text-xs text-gray-300 mt-1">
-                          <span className="font-semibold text-gray-400">Tasks:</span>
-                          <ul className="ml-3 mt-0.5">
-                            {item.tasks.map((task, idx) => (
-                              <li key={idx} className="text-gray-300">• {task}</li>
-                            ))}
-                          </ul>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] text-gray-400 block mb-1">Assets (one per line)</label>
+                            <textarea rows={3} value={edit.assetsText} onChange={e => setEdit(v => ({ ...v, assetsText: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-gray-400 block mb-1">Tasks (one per line)</label>
+                            <textarea rows={3} value={edit.tasksText} onChange={e => setEdit(v => ({ ...v, tasksText: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
+                          </div>
                         </div>
-
-                        {/* Frequency and Time */}
-                        <div className="text-xs text-emerald-400 mt-2">
-                          {item.frequency}/year • {item.timeHours}h per intervention
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={cancelEdit} className="px-3 py-1.5 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-700">Cancel</button>
+                          <button onClick={() => saveEdit(item.id)} className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white">Save</button>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {/* Title/Category */}
+                          <div className="font-semibold text-white text-sm mb-1">
+                            {item.category}
+                          </div>
+                          <div className="text-[11px] text-gray-500 mb-1">Discipline: {item.discipline || '—'}</div>
+
+                          {/* Code */}
+                          <div className="text-xs text-gray-400 mb-1">
+                            Code: <span className="text-gray-300">{item.code}</span>
+                          </div>
+
+                          {/* Assets shown as chips (supports string or string[] payloads) */}
+                          <div className="text-xs text-gray-300 mt-1">
+                            <span className="font-semibold text-gray-400">Assets:</span>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {Array.isArray(item.asset) ? (
+                                item.asset.map((a, idx) => (
+                                  <div key={(a || '') + '-' + idx} className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">
+                                    {a}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">{item.asset}</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Tasks */}
+                          <div className="text-xs text-gray-300 mt-1">
+                            <span className="font-semibold text-gray-400">Tasks:</span>
+                            <ul className="ml-3 mt-0.5">
+                              {item.tasks.map((task, idx) => (
+                                <li key={idx} className="text-gray-300">• {task}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          {/* Frequency and Time */}
+                          <div className="text-xs text-emerald-400 mt-2">
+                            {item.frequency}/year • {item.timeHours}h per intervention
+                          </div>
+                        </div>
+                        <div className="ml-3 flex-shrink-0">
+                          <button onClick={() => beginEdit(item)} className="px-3 py-1.5 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-700">Edit</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

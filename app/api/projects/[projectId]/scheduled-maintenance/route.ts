@@ -115,3 +115,49 @@ export async function DELETE(
 function safeObjectId(id: string | undefined) {
   try { return id && ObjectId.createFromHexString(id); } catch { return undefined; }
 }
+
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { projectId } = await params;
+    if (!projectId) return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+
+    const url = new URL(req.url);
+    const id = url.searchParams.get('id');
+    const payload = await req.json().catch(() => ({}));
+
+    const objectId = safeObjectId(id || payload?.id);
+    if (!objectId) return NextResponse.json({ error: 'Valid id is required' }, { status: 400 });
+
+    const db = await getDb();
+    const col = db.collection("fm_scheduled_maintenance");
+
+    const now = new Date().toISOString();
+    const $set: any = {
+      updatedAt: now,
+    };
+    if (payload?.discipline !== undefined) $set.discipline = payload.discipline;
+    if (payload?.category !== undefined) $set.category = payload.category;
+    if (payload?.code !== undefined) $set.code = payload.code;
+    if (payload?.asset !== undefined) $set.asset = payload.asset; // string or string[]
+    if (payload?.tasks !== undefined) $set.tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+    if (payload?.frequency !== undefined) $set.frequency = Number(payload.frequency) || 0;
+    if (payload?.timeHours !== undefined) $set.timeHours = Number(payload.timeHours) || 0;
+
+    const result = await col.findOneAndUpdate(
+      { _id: objectId, projectId },
+      { $set },
+      { returnDocument: 'after' as any }
+    );
+
+    const doc: any = result?.value;
+    if (!doc) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+
+    return NextResponse.json({ ok: true, item: { id: doc._id?.toString?.() || id, ...doc, _id: undefined } });
+  } catch (err) {
+    console.error('[ScheduledMaintenance][PUT] error', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
