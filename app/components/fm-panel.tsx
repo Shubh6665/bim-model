@@ -2905,15 +2905,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
 };
 
 const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
-  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
+  const [rows, setRows] = useState<SpaceRecord[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  // Cache to localStorage but prefer backend data when available
-  useEffect(() => save(K.spaces(projectId), rows), [rows, projectId]);
 
   // Helper to get current model GUID (if viewer is present)
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
@@ -3153,7 +3150,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           console.error('[Spaces] upsertMany/refresh failed', e);
         }
       } else if (!projectId) {
-        // Fallback: local merge with dedupe
+        // Fallback: local merge with dedupe (only when no projectId - for testing)
         const score = (r: SpaceRecord) => {
           let s = 0;
           if (r.source === 'MANUAL') s += 3;
@@ -3181,7 +3178,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         console.log(`[Spaces] local merge result: ${merged.length} rows`);
         setExtractionProgress(100);
       } else {
-        // projectId present but no newRows: just reload from server for current model, do NOT merge old rows
+        // projectId present but no newRows: just reload from server for current model
+        console.warn('[Spaces] No new rows extracted, reloading from server');
         try {
           const mg = getCurrentModelGuid();
           console.log(`[Spaces] No new rows - reloading from server with modelGuid=${mg}`);
@@ -3214,6 +3212,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         } catch (e) {
           console.warn('[Spaces] reload after empty extraction failed', e);
         }
+        setExtractionProgress(100);
       }
     } finally {
       setIsExtracting(false);
@@ -3232,6 +3231,45 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     extractRoomsFromBIM();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
+
+  // Listen for space-created events to refresh list
+  useEffect(() => {
+    const handleSpaceCreated = (e: CustomEvent) => {
+      if (e.detail?.projectId === projectId) {
+        console.log('[SpaceList] Space created event received, reloading from DB');
+        const mg = getCurrentModelGuid();
+        fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`)
+          .then(res => res.json())
+          .then(data => {
+            if (Array.isArray(data)) {
+              const normalized: SpaceRecord[] = data.map((d: any) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+                level: d.level,
+                name: d.name,
+                area: d.area,
+                spaceCode: d.spaceCode,
+                building: d.building,
+                description: d.description,
+                source: d.source,
+                dbId: d.dbId ?? null,
+                modelGuid: d.modelGuid,
+                footprint: d.footprint || undefined,
+                conflictWithId: d.conflictWithId
+              }));
+              const clientFiltered = mg 
+                ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                : normalized;
+              console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
+              setRows(clientFiltered);
+            }
+          })
+          .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
+      }
+    };
+    
+    window.addEventListener('space-created', handleSpaceCreated as any);
+    return () => window.removeEventListener('space-created', handleSpaceCreated as any);
+  }, [projectId, getCurrentModelGuid]);
 
   const onRowClick = (r: SpaceRecord) => {
     try {
@@ -3328,8 +3366,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 };
 
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
-  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
-  useEffect(() => save(K.spaces(projectId), rows), [rows, projectId]);
+  const [rows, setRows] = useState<SpaceRecord[]>([]);
   const [f, setF] = useState(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
@@ -3721,30 +3758,38 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       source: 'MANUAL',
       dbId: null
     };
-    try {
-      if (projectId) {
-        const res = await fetch(`/api/projects/${projectId}/spaces`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...rec, footprint: footprint || null }) });
-        if (res.ok) {
-          const result = await res.json();
-          const saved = result?.space || result; // API returns { ok, space }
-          const id = saved?.id || saved?._id || rec.id;
-          setRows(prev => [{ ...rec, id }, ...prev]);
-          // Clear footprint and overlay after save
-          setFootprint(null);
-          cancelDrawing();
-        } else {
-          setRows(prev => [rec, ...prev]);
-        }
-      } else {
-        setRows(prev => [rec, ...prev]);
-      }
-    } catch {
-      setRows(prev => [rec, ...prev]);
+    
+    if (!projectId) {
+      console.warn('[CreateSpace] No projectId - space not saved to DB');
+      return;
     }
-    // Clear draft after successful save
-    const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', description: '' };
-    setF(emptyForm);
-    save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
+    
+    try {
+      const res = await fetch(`/api/projects/${projectId}/spaces`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ ...rec, footprint: footprint || null }) 
+      });
+      
+      if (res.ok) {
+        console.log('[CreateSpace] Space saved to DB successfully');
+        // Trigger a refresh event so SpaceList reloads
+        window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId } }));
+        
+        // Clear form
+        const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', description: '' };
+        setF(emptyForm);
+        save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
+        
+        // Clear footprint
+        setFootprint(null);
+        cancelDrawing();
+      } else {
+        console.error('[CreateSpace] Failed to save space to DB');
+      }
+    } catch (e) {
+      console.error('[CreateSpace] Error saving space:', e);
+    }
   };
   return (
     <div className="p-3 space-y-3">
