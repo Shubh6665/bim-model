@@ -1673,6 +1673,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     }
   };
 
+  // Auto-refresh assets when FM > Asset list opens (once per mount)
+  const autoExtractOnceRef = React.useRef(false);
+  useEffect(() => {
+    if (autoExtractOnceRef.current) return;
+    if (!projectId || !viewer) return;
+    autoExtractOnceRef.current = true;
+    console.log('🔁 [AssetList] Auto-extract on open (background refresh)');
+    // Fire and forget; normal UI progress will show
+    extractAssetsFromBIM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, viewer]);
+
   const onRowClick = (r: AssetRecord) => {
     try {
       if (!viewer) return;
@@ -2895,6 +2907,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
 const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState(0);
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -2918,6 +2931,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       if (!projectId) return;
       try {
         const mg = getCurrentModelGuid();
+        console.log(`[Spaces] Initial load with modelGuid=${mg}`);
         const url = mg ? `/api/projects/${projectId}/spaces?modelGuid=${encodeURIComponent(mg)}` : `/api/projects/${projectId}/spaces`;
         const res = await fetch(url);
         if (!res.ok) return;
@@ -2938,13 +2952,28 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             footprint: d.footprint || undefined,
             conflictWithId: d.conflictWithId
           }));
-          setRows(normalized);
+          
+          // Extra client-side filter for safety
+          const clientFiltered = mg 
+            ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+            : normalized;
+          
+          console.log(`[Spaces] Initial load: server returned ${normalized.length}, client-filtered to ${clientFiltered.length}`);
+          setRows(clientFiltered);
         }
       } catch (err) { console.error(err); }
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
+
+  // Ensure current rows reflect only the current model's BIM spaces when viewer/model changes
+  useEffect(() => {
+    const mg = getCurrentModelGuid();
+    if (!mg) return;
+    setRows(prev => prev.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
@@ -2955,7 +2984,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
     // Restrict to clear room/space categories only to avoid false positives
-    const queries = ['Revit Rooms', 'Rooms', 'Spaces'];
+  const queries = ['Revit Rooms', 'Rooms', 'Spaces', 'Stanze', 'Spazi', 'Locali', 'Locale', 'Ambiente', 'Revit Stanze', 'Revit Locali'];
     const all = new Set<number>();
     for (const q of queries) {
       // eslint-disable-next-line no-await-in-loop
@@ -2964,23 +2993,37 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           viewer.search(q, (dbids: number[]) => resolve(dbids || []), () => resolve([]), ['Category'], { searchHidden: true });
         } catch { resolve([]); }
       });
+      console.log(`[Spaces] search '${q}' -> ${ids.length}`);
       ids.forEach(id => all.add(id));
     }
+    console.log(`[Spaces] total unique dbIds found: ${all.size}`);
     return Array.from(all);
   };
 
   const extractRoomsFromBIM = async () => {
     if (!viewer) return;
     setIsExtracting(true);
+    setExtractionProgress(1);
     try {
       const modelGuid = getCurrentModelGuid();
       const dbids = await findRoomDbIds();
       if (!dbids || dbids.length === 0) {
+        setExtractionProgress(100);
         setIsExtracting(false);
         return;
       }
-  const propsList = await Promise.all(dbids.map((id: number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
-  const candidates: SpaceRecord[] = propsList.map((p: any) => {
+      const propsList: any[] = [];
+      const total = dbids.length;
+      for (let i = 0; i < total; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        const p = await new Promise<any>(resolve => viewer.getProperties(dbids[i], resolve));
+        propsList.push(p);
+        const base = 5; // reserve first 5% for search
+        const pct = base + Math.round(((i + 1) / total) * 75); // up to 80% during properties collection
+        setExtractionProgress(Math.min(80, Math.max(base, pct)));
+      }
+      let kept = 0, skipped = 0;
+      const candidates: SpaceRecord[] = propsList.map((p: any) => {
         const get = (names: string[]): string | undefined => {
           const lower = names.map(n => n.toLowerCase());
           const prop = p?.properties?.find((x: any) => {
@@ -2989,26 +3032,62 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           });
           return prop?.displayValue?.toString();
         };
-        const category = get(['Category']);
+        const category = get(['Category', 'Categoria']);
         const cat = category?.toString()?.trim()?.toLowerCase?.();
-        const isRoomCat = !!cat && (/^rooms?$/.test(cat) || /^revit rooms$/.test(cat));
-        const isSpaceCat = !!cat && /^spaces?$/.test(cat);
-        const level = get(['Level', 'Reference Level']);
-        const name = p?.name || get(['Name', 'Room Name']);
-        const code = get(['Number', 'Room Number', 'Space Number']);
-        const desc = get(['Comments', 'Description']);
-        const areaStr = get(['Area']);
+        
+        // Log raw category for debugging
+        console.log(`[Spaces][debug] dbId=${p?.dbId} raw category='${category}' normalized='${cat}'`);
+        
+        // Match category more flexibly - check if it contains room/space/locale keywords
+        const isRoomCat = !!cat && (
+          cat.includes('room') || 
+          cat.includes('stanza') || 
+          cat.includes('stanze') ||
+          /^rooms?$/.test(cat) || 
+          /^revit rooms?$/.test(cat)
+        );
+        const isSpaceCat = !!cat && (
+          cat.includes('space') || 
+          cat.includes('spazi') || 
+          cat.includes('spazio') ||
+          cat.includes('local') || 
+          cat.includes('ambiente') ||
+          /^spaces?$/.test(cat) || 
+          /^locali?$/.test(cat)
+        );
+        
+        const level = get(['Level', 'Reference Level', 'Livello', 'Livello di riferimento', 'Piano', 'Piano di riferimento']);
+        const name = p?.name || get(['Name', 'Room Name', 'Space Name', 'Nome', 'Nome stanza', 'Nome spazio', 'Nome locale', 'Nome ambiente', 'Denominazione']);
+        const code = get(['Number', 'Room Number', 'Space Number', 'Numero', 'Numero stanza', 'Numero spazio', 'Numero locale', 'Codice', 'Codice locale', 'Codice stanza', 'ID', 'ID locale', 'ID stanza']);
+        const desc = get(['Comments', 'Description', 'Commenti', 'Descrizione']);
+        const areaStr = get(['Area', 'Superficie', 'Superficie utile', 'Superficie netta', 'Area utile', 'Area netta', 'Superficie (m²)']);
         const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g, '')) : undefined;
 
-        // Filter strictly: must be Rooms/Spaces category, have a Level, and have positive area and a name or code
-        if (!(level && (isRoomCat || isSpaceCat))) return null as any;
-        if (!(areaNum != null && !isNaN(areaNum) && Number(areaNum) > 0)) return null as any;
-        if (!((name && String(name).trim().length > 0) || (code && String(code).trim().length > 0))) return null as any;
+        // Filter: must be Rooms/Spaces category and have a name or code; Level/Area are optional (we'll include if missing)
+        let skipReason: string | null = null;
+        if (!(isRoomCat || isSpaceCat)) skipReason = `bad-category (category='${cat || ''}')`;
+        else if (!((name && String(name).trim().length > 0) || (code && String(code).trim().length > 0))) {
+          // As a last resort, synthesize a name from dbId to keep the room
+          const dbId = p?.dbId;
+          const labelBase = isRoomCat ? (cat?.includes('stan') ? 'Stanza' : 'Room') : (cat?.includes('local') ? 'Locale' : (cat?.includes('spaz') ? 'Spazio' : 'Space'));
+          const synthetic = dbId != null ? `${labelBase} ${dbId}` : undefined;
+          if (!synthetic) skipReason = `missing-name-and-number`;
+          else {
+            // Use synthetic name and accept
+            (p as any).__syntheticName = synthetic;
+          }
+        }
+        if (skipReason) {
+          skipped++;
+          console.warn(`[Spaces][skip] dbId=${p?.dbId} cat='${cat}' lvl='${level}' name='${name}' code='${code}' area='${areaStr}' reason=${skipReason}`);
+          return null as any;
+        }
+        kept++;
 
         return {
           id: `space-${modelGuid || 'g'}-${p?.dbId ?? p?.externalId ?? Date.now()}`,
           level: level || undefined,
-          name: name || undefined,
+          name: name || (p as any).__syntheticName || undefined,
           area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
           spaceCode: code || undefined,
           description: desc || undefined,
@@ -3017,6 +3096,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           modelGuid: modelGuid
         } as SpaceRecord;
       }).filter(Boolean) as SpaceRecord[];
+      console.log(`[Spaces] props processed=${propsList.length}, kept=${kept}, skipped=${skipped}`);
 
       // Deduplicate within this extraction by modelGuid+dbId
       const seen = new Map<string, SpaceRecord>();
@@ -3027,6 +3107,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         if (!seen.has(key)) seen.set(key, r);
       }
       const newRows = Array.from(seen.values());
+      setExtractionProgress(90);
+  console.log(`[Spaces] deduped newRows=${newRows.length}`);
 
       // Prefer server upsert + refresh when a projectId is available
       if (projectId && newRows.length) {
@@ -3037,6 +3119,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             body: JSON.stringify({ action: 'upsertMany', spaces: newRows })
           });
           const mg = getCurrentModelGuid();
+          console.log(`[Spaces] Fetching from server with modelGuid=${mg}`);
           const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
           if (res.ok) {
             const data = await res.json();
@@ -3055,13 +3138,21 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 footprint: d.footprint || undefined,
                 conflictWithId: d.conflictWithId
               }));
-              setRows(normalized);
+              
+              // Extra client-side filter: only keep BIM spaces matching current model, plus all manual spaces
+              const clientFiltered = mg 
+                ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                : normalized;
+              
+              console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
+              setRows(clientFiltered);
             }
           }
+          setExtractionProgress(100);
         } catch (e) {
           console.error('[Spaces] upsertMany/refresh failed', e);
         }
-      } else {
+      } else if (!projectId) {
         // Fallback: local merge with dedupe
         const score = (r: SpaceRecord) => {
           let s = 0;
@@ -3072,7 +3163,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (r.footprint && Array.isArray(r.footprint.points) && r.footprint.points.length >= 3) s += 2;
           return s;
         };
-        const all = [...rows, ...newRows];
+        // Keep only current-model BIM rows from existing list to avoid cross-model mixing
+        const mg = getCurrentModelGuid();
+        const existingFiltered = rows.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg);
+        const all = [...existingFiltered, ...newRows];
         const map = new Map<string, SpaceRecord>();
         for (const r of all) {
           const key = (r.source === 'BIM_MODEL' && r.dbId != null)
@@ -3082,12 +3176,62 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (!ex) map.set(key, r);
           else map.set(key, score(r) >= score(ex) ? r : ex);
         }
-        setRows(Array.from(map.values()));
+        const merged = Array.from(map.values());
+        setRows(merged);
+        console.log(`[Spaces] local merge result: ${merged.length} rows`);
+        setExtractionProgress(100);
+      } else {
+        // projectId present but no newRows: just reload from server for current model, do NOT merge old rows
+        try {
+          const mg = getCurrentModelGuid();
+          console.log(`[Spaces] No new rows - reloading from server with modelGuid=${mg}`);
+          const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
+          if (res.ok) {
+            const data = await res.json();
+            const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any) => ({
+              id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
+              level: d.level,
+              name: d.name,
+              area: d.area,
+              spaceCode: d.spaceCode,
+              building: d.building,
+              description: d.description,
+              source: d.source,
+              dbId: d.dbId ?? null,
+              modelGuid: d.modelGuid,
+              footprint: d.footprint || undefined,
+              conflictWithId: d.conflictWithId
+            })) : [];
+            
+            // Extra client-side filter for safety
+            const clientFiltered = mg 
+              ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+              : normalized;
+            
+            console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
+            setRows(clientFiltered);
+          }
+        } catch (e) {
+          console.warn('[Spaces] reload after empty extraction failed', e);
+        }
       }
     } finally {
       setIsExtracting(false);
+      // Reset the progress after a short delay so user sees 100%
+      setTimeout(() => setExtractionProgress(0), 800);
     }
   };
+
+  // Auto-refresh spaces when Space list opens (once per mount)
+  const autoExtractSpacesOnceRef = React.useRef(false);
+  useEffect(() => {
+    if (autoExtractSpacesOnceRef.current) return;
+    if (!projectId || !viewer) return;
+    autoExtractSpacesOnceRef.current = true;
+    console.log('🔁 [Spaces] Auto-extract on open (background refresh)');
+    extractRoomsFromBIM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, viewer]);
 
   const onRowClick = (r: SpaceRecord) => {
     try {
@@ -3109,8 +3253,13 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             disabled={isExtracting}
             className={`w-full ${isExtracting ? 'bg-green-700/70' : 'bg-green-600 hover:bg-green-700'} text-white text-xs py-1.5 rounded`}
           >
-            {isExtracting ? 'Extracting Rooms…' : 'Extract Rooms from BIM'}
+            {isExtracting ? `Extracting Rooms… ${extractionProgress}%` : 'Extract Rooms from BIM'}
           </button>
+          {isExtracting && (
+            <div className="mt-2 h-1.5 bg-gray-700 rounded overflow-hidden">
+              <div className="h-full bg-green-500 transition-all" style={{ width: `${Math.max(0, Math.min(100, extractionProgress))}%` }} />
+            </div>
+          )}
         </div>
       </div>
 

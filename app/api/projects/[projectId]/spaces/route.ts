@@ -35,12 +35,26 @@ export async function GET(
     const url = new URL(req.url);
     const modelGuid = url.searchParams.get('modelGuid') || undefined;
     const findFilter: any = { projectId };
-    if (modelGuid) findFilter.modelGuid = modelGuid;
+    if (modelGuid) {
+      findFilter.modelGuid = modelGuid;
+      console.log(`[Spaces][GET] Filtering by modelGuid=${modelGuid}`);
+    } else {
+      console.log(`[Spaces][GET] No modelGuid filter - returning all spaces for project`);
+    }
 
     const spaces = await col.find(findFilter).sort({ updatedAt: -1 }).toArray();
+    console.log(`[Spaces][GET] Found ${spaces.length} spaces in DB matching filter`);
+    
     // Normalize id
     const normalized = spaces.map((s: any) => ({ id: s._id?.toString?.() || s.id, ...s, _id: undefined }));
-    return NextResponse.json(normalized);
+    
+    // If modelGuid was provided but we got spaces without modelGuid, filter them out client-side as fallback
+    const filtered = modelGuid 
+      ? normalized.filter((s: any) => s.source !== 'BIM_MODEL' || s.modelGuid === modelGuid)
+      : normalized;
+    
+    console.log(`[Spaces][GET] Returning ${filtered.length} spaces after filtering`);
+    return NextResponse.json(filtered);
   } catch (err) {
     console.error('[Spaces][GET] error', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
