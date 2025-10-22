@@ -81,6 +81,8 @@ interface SpaceRecord {
   description?: string;
   source?: 'BIM_MODEL' | 'MANUAL';
   dbId?: number | null;
+  // Model identity for BIM spaces (used to filter to current model)
+  modelGuid?: string;
   // Optional 2D footprint to simulate a room in the model (planar polygon at a given Z)
   footprint?: { points: { x: number; y: number; z: number }[]; z?: number; levelIndex?: number } | null;
   // If a BIM room later conflicts with this manual space (or vice-versa)
@@ -2900,12 +2902,24 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Cache to localStorage but prefer backend data when available
   useEffect(() => save(K.spaces(projectId), rows), [rows, projectId]);
 
-  // Load from backend
+  // Helper to get current model GUID (if viewer is present)
+  const getCurrentModelGuid = React.useCallback((): string | undefined => {
+    try {
+      const g = viewer?.model?.getData?.()?.guid;
+      if (g && typeof g === 'string') return g;
+      const mid = viewer?.model?.id;
+      return (mid != null) ? String(mid) : undefined;
+    } catch { return undefined; }
+  }, [viewer]);
+
+  // Load from backend (scoped by model when possible)
   useEffect(() => {
     const run = async () => {
       if (!projectId) return;
       try {
-        const res = await fetch(`/api/projects/${projectId}/spaces`);
+        const mg = getCurrentModelGuid();
+        const url = mg ? `/api/projects/${projectId}/spaces?modelGuid=${encodeURIComponent(mg)}` : `/api/projects/${projectId}/spaces`;
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -2920,6 +2934,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             description: d.description,
             source: d.source,
             dbId: d.dbId ?? null,
+            modelGuid: d.modelGuid,
             footprint: d.footprint || undefined,
             conflictWithId: d.conflictWithId
           }));
@@ -2929,7 +2944,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, viewer]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
@@ -2958,13 +2973,14 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     if (!viewer) return;
     setIsExtracting(true);
     try {
+      const modelGuid = getCurrentModelGuid();
       const dbids = await findRoomDbIds();
       if (!dbids || dbids.length === 0) {
         setIsExtracting(false);
         return;
       }
-      const propsList = await Promise.all(dbids.map((id: number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
-      const newRows: SpaceRecord[] = propsList.map((p: any) => {
+  const propsList = await Promise.all(dbids.map((id: number) => new Promise<any>(resolve => viewer.getProperties(id, resolve))));
+  const candidates: SpaceRecord[] = propsList.map((p: any) => {
         const get = (names: string[]): string | undefined => {
           const lower = names.map(n => n.toLowerCase());
           const prop = p?.properties?.find((x: any) => {
@@ -2979,23 +2995,38 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const isSpaceCat = !!cat && /^spaces?$/.test(cat);
         const level = get(['Level', 'Reference Level']);
         const name = p?.name || get(['Name', 'Room Name']);
+        const code = get(['Number', 'Room Number', 'Space Number']);
         const desc = get(['Comments', 'Description']);
         const areaStr = get(['Area']);
         const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g, '')) : undefined;
 
-        // Filter strictly: must be Rooms/Spaces category and have a Level
+        // Filter strictly: must be Rooms/Spaces category, have a Level, and have positive area and a name or code
         if (!(level && (isRoomCat || isSpaceCat))) return null as any;
+        if (!(areaNum != null && !isNaN(areaNum) && Number(areaNum) > 0)) return null as any;
+        if (!((name && String(name).trim().length > 0) || (code && String(code).trim().length > 0))) return null as any;
 
         return {
-          id: `space-${p?.dbId ?? p?.externalId ?? Date.now()}`,
+          id: `space-${modelGuid || 'g'}-${p?.dbId ?? p?.externalId ?? Date.now()}`,
           level: level || undefined,
           name: name || undefined,
           area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
+          spaceCode: code || undefined,
           description: desc || undefined,
           source: 'BIM_MODEL',
-          dbId: p?.dbId ?? null
+          dbId: p?.dbId ?? null,
+          modelGuid: modelGuid
         } as SpaceRecord;
-      }).filter(Boolean);
+      }).filter(Boolean) as SpaceRecord[];
+
+      // Deduplicate within this extraction by modelGuid+dbId
+      const seen = new Map<string, SpaceRecord>();
+      for (const r of candidates) {
+        const key = (r.source === 'BIM_MODEL' && r.dbId != null)
+          ? `BIM|${r.modelGuid || 'g'}|${r.dbId}`
+          : `LVLNAME|${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}|${(r.spaceCode || '').toLowerCase()}`;
+        if (!seen.has(key)) seen.set(key, r);
+      }
+      const newRows = Array.from(seen.values());
 
       // Prefer server upsert + refresh when a projectId is available
       if (projectId && newRows.length) {
@@ -3005,7 +3036,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'upsertMany', spaces: newRows })
           });
-          const res = await fetch(`/api/projects/${projectId}/spaces`);
+          const mg = getCurrentModelGuid();
+          const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {
@@ -3019,6 +3051,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 description: d.description,
                 source: d.source,
                 dbId: d.dbId ?? null,
+                modelGuid: d.modelGuid,
                 footprint: d.footprint || undefined,
                 conflictWithId: d.conflictWithId
               }));
@@ -3029,15 +3062,27 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           console.error('[Spaces] upsertMany/refresh failed', e);
         }
       } else {
-        // Fallback: local merge (prefer manual entries, then add BIM not already present by name+level)
-        const manual = rows.filter(r => r.source !== 'BIM_MODEL');
-        const keyOf = (r: SpaceRecord) => `${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}`;
-        const existing = new Map(manual.map(r => [keyOf(r), true] as const));
-        const merged = [
-          ...manual,
-          ...newRows.filter(r => !existing.get(keyOf(r)))
-        ];
-        setRows(merged);
+        // Fallback: local merge with dedupe
+        const score = (r: SpaceRecord) => {
+          let s = 0;
+          if (r.source === 'MANUAL') s += 3;
+          if (r.area && r.area > 0) s += 2;
+          if (r.name) s += 1;
+          if (r.spaceCode) s += 1;
+          if (r.footprint && Array.isArray(r.footprint.points) && r.footprint.points.length >= 3) s += 2;
+          return s;
+        };
+        const all = [...rows, ...newRows];
+        const map = new Map<string, SpaceRecord>();
+        for (const r of all) {
+          const key = (r.source === 'BIM_MODEL' && r.dbId != null)
+            ? `BIM|${r.modelGuid || 'g'}|${r.dbId}`
+            : `LVLNAME|${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}|${(r.spaceCode || '').toLowerCase()}`;
+          const ex = map.get(key);
+          if (!ex) map.set(key, r);
+          else map.set(key, score(r) >= score(ex) ? r : ex);
+        }
+        setRows(Array.from(map.values()));
       }
     } finally {
       setIsExtracting(false);

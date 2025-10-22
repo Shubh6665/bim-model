@@ -21,7 +21,7 @@ import { ObjectId } from "mongodb";
 // }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
@@ -31,7 +31,13 @@ export async function GET(
     const db = await getDb();
     const col = db.collection("fm_spaces");
 
-    const spaces = await col.find({ projectId }).sort({ updatedAt: -1 }).toArray();
+    // Optional filter by modelGuid to scope rooms to the current model
+    const url = new URL(req.url);
+    const modelGuid = url.searchParams.get('modelGuid') || undefined;
+    const findFilter: any = { projectId };
+    if (modelGuid) findFilter.modelGuid = modelGuid;
+
+    const spaces = await col.find(findFilter).sort({ updatedAt: -1 }).toArray();
     // Normalize id
     const normalized = spaces.map((s: any) => ({ id: s._id?.toString?.() || s.id, ...s, _id: undefined }));
     return NextResponse.json(normalized);
@@ -80,6 +86,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
   const doc = {
     projectId,
     source: raw?.source === 'BIM_MODEL' ? 'BIM_MODEL' : 'MANUAL',
+    modelGuid: raw?.modelGuid || undefined,
     name: raw?.name || undefined,
     level: raw?.level || undefined,
     building: raw?.building || undefined,
@@ -98,12 +105,43 @@ async function upsertOne(col: any, projectId: string, raw: any) {
 
   // Compute a stable key for BIM rooms to prevent duplication across re-extractions
   const isBIM = doc.source === 'BIM_MODEL';
-  const filter = isBIM
-    ? { projectId, source: 'BIM_MODEL', level: (doc.level || '').toLowerCase(), name: (doc.name || '').toLowerCase() }
-    : (raw?.id ? { projectId, _id: safeObjectId(raw.id) } : null);
+  let filter: any = null;
+  if (isBIM) {
+    const mg = doc.modelGuid;
+    // Prefer exact match by modelGuid + dbId when available
+    if (mg && doc.dbId != null) {
+      filter = { projectId, source: 'BIM_MODEL', modelGuid: mg, dbId: doc.dbId };
+    } else if (mg) {
+      // Fallback: modelGuid + normalized identity fields
+      filter = {
+        projectId,
+        source: 'BIM_MODEL',
+        modelGuid: mg,
+        level: (doc.level || '').toLowerCase(),
+        name: (doc.name || '').toLowerCase(),
+        ...(doc.spaceCode ? { spaceCode: String(doc.spaceCode) } : {})
+      };
+    } else {
+      // Legacy fallback (no modelGuid provided)
+      filter = { projectId, source: 'BIM_MODEL', level: (doc.level || '').toLowerCase(), name: (doc.name || '').toLowerCase() };
+    }
+  } else {
+    filter = (raw?.id ? { projectId, _id: safeObjectId(raw.id) } : null);
+  }
 
   if (filter) {
-    const existing = await col.findOne(filter);
+    let existing = await col.findOne(filter);
+    // Backward-compat fallback to avoid duplicates when adopting modelGuid: try legacy matches
+    if (!existing && isBIM && doc.modelGuid) {
+      // 1) Legacy by dbId only
+      if (doc.dbId != null) {
+        existing = await col.findOne({ projectId, source: 'BIM_MODEL', dbId: doc.dbId });
+      }
+      // 2) Legacy by level+name
+      if (!existing) {
+        existing = await col.findOne({ projectId, source: 'BIM_MODEL', level: (doc.level || '').toLowerCase(), name: (doc.name || '').toLowerCase() });
+      }
+    }
     if (existing) {
       await col.updateOne({ _id: existing._id }, { $set: doc });
       return { id: existing._id.toString(), ...existing, ...doc };
