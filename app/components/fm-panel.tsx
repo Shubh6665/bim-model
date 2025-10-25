@@ -6820,9 +6820,19 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
 // Maintenance Reports
 const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) => {
-  const [scheduled] = useState<ScheduledItem[]>(() => load(K.scheduled(projectId), [] as ScheduledItem[]));
-  const [workOrders, setWorkOrders] = useState<WOType[]>(() => load(K.workOrders(projectId), [] as WOType[]));
+  // Start with empty arrays so server and initial client render match.
+  // Load any cached localStorage values after mount to avoid hydration mismatch.
+  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [workOrders, setWorkOrders] = useState<WOType[]>([]);
   const [openWO, setOpenWO] = useState<WOType | null>(null);
+
+  // Load cached values from localStorage on client mount (won't run on server)
+  useEffect(() => {
+    const cachedScheduled = load(K.scheduled(projectId), [] as ScheduledItem[]);
+    if (cachedScheduled && cachedScheduled.length) setScheduled(cachedScheduled);
+    const cachedWO = load(K.workOrders(projectId), [] as WOType[]);
+    if (cachedWO && cachedWO.length) setWorkOrders(cachedWO);
+  }, [projectId]);
 
   // Load work orders from backend on mount
   useEffect(() => {
