@@ -7384,13 +7384,17 @@ const OngoingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   );
 };
 
-// Planned Maintenance
+// Planned Maintenance - Refactored with Table Structure
 const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [edit, setEdit] = useState<{ discipline: string; category: string; code: string; assetsText: string; tasksText: string; frequency: string; timeHours: string }>({
-    discipline: '', category: '', code: '', assetsText: '', tasksText: '', frequency: '', timeHours: ''
+  const [editMode, setEditMode] = useState<'asset' | 'tasks' | null>(null);
+  const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  
+  const [edit, setEdit] = useState<{ discipline: string; category: string; code: string; assetType: string; assetsText: string; tasksText: string; frequency: string; timeHours: string; level: string; room: string }>({
+    discipline: '', category: '', code: '', assetType: '', assetsText: '', tasksText: '', frequency: '', timeHours: '', level: '', room: ''
   });
 
   const disciplineOptions = ['Architecture', 'Structure', 'Mechanical System', 'Electrical System', 'Plumbing System', 'Fire Protection', 'Elevator System', 'Safety', 'IT/Technology', 'Other'];
@@ -7401,7 +7405,6 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   // Load scheduled maintenance from database
   useEffect(() => {
     if (!projectId) {
-      // Fallback to localStorage for non-project mode
       const loaded = load(K.scheduled(projectId), [] as ScheduledItem[]);
       setScheduled(loaded);
       return;
@@ -7425,68 +7428,66 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     fetchScheduledMaintenance();
   }, [projectId]);
 
-  // Group by discipline
-  const byDiscipline = scheduled.reduce((acc, item) => {
-    const disc = item.discipline || 'Other';
-    if (!acc[disc]) acc[disc] = [];
-    acc[disc].push(item);
-    return acc;
-  }, {} as Record<string, ScheduledItem[]>);
+  // Load available assets
+  useEffect(() => {
+    if (!projectId) return;
+    
+    const fetchAssets = async () => {
+      setAssetsLoading(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/assets`);
+        if (res.ok) {
+          const data = await res.json();
+          setAssets(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Failed to load assets:', err);
+      } finally {
+        setAssetsLoading(false);
+      }
+    };
 
-  const beginEdit = (item: ScheduledItem) => {
+    fetchAssets();
+  }, [projectId]);
+
+  const beginEditAsset = (item: ScheduledItem) => {
     setEditingId(item.id);
+    setEditMode('asset');
     setEdit({
       discipline: item.discipline || '',
       category: item.category || '',
       code: item.code || '',
+      assetType: item.category || '',
       assetsText: Array.isArray(item.asset) ? item.asset.join('\n') : (item.asset || ''),
       tasksText: Array.isArray(item.tasks) ? item.tasks.join('\n') : '',
       frequency: String(item.frequency ?? ''),
       timeHours: String(item.timeHours ?? ''),
+      level: '',
+      room: ''
     });
   };
 
-  // Asset picker state for edit
-  const [showAssetPicker, setShowAssetPicker] = useState(false);
-  const [availableAssets, setAvailableAssets] = useState<AssetRecord[]>([]);
-  const [assetsLoading, setAssetsLoading] = useState(false);
-  const [editTaskInput, setEditTaskInput] = useState('');
-
-  // Load available assets when opening picker
-  useEffect(() => {
-    if (!showAssetPicker || !projectId) return;
-    let cancelled = false;
-    (async () => {
-      setAssetsLoading(true);
-      try {
-        // Use current edit.category to filter tokens
-        const guid = undefined; // picker doesn't need modelGuid here; we'll rely on server-filtered assets
-        const res = await fetch(`/api/projects/${projectId}/assets`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
-        const arr: AssetRecord[] = Array.isArray(data) ? data : [];
-        // Filter by category tokens: match any token from master mapping present in asset.category
-        const masterMap = new Map<string, string[]>();
-        for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
-          const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
-          masterMap.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
-        }
-        const tokens = masterMap.get(edit.category) || [];
-        const filtered = tokens.length ? arr.filter(a => a.category && tokens.some(t => String(a.category).toLowerCase().includes(String(t).toLowerCase()))) : arr;
-        setAvailableAssets(filtered);
-      } catch (err) {
-        console.error('Failed to load assets for picker', err);
-      } finally {
-        if (!cancelled) setAssetsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [showAssetPicker, projectId, edit.category]);
+  const beginEditTasks = (item: ScheduledItem) => {
+    setEditingId(item.id);
+    setEditMode('tasks');
+    setEdit({
+      discipline: item.discipline || '',
+      category: item.category || '',
+      code: item.code || '',
+      assetType: item.category || '',
+      assetsText: Array.isArray(item.asset) ? item.asset.join('\n') : (item.asset || ''),
+      tasksText: Array.isArray(item.tasks) ? item.tasks.join('\n') : '',
+      frequency: String(item.frequency ?? ''),
+      timeHours: String(item.timeHours ?? ''),
+      level: '',
+      room: ''
+    });
+  };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEdit({ discipline: '', category: '', code: '', assetsText: '', tasksText: '', frequency: '', timeHours: '' });
+    setEditMode(null);
+    setEdit({ discipline: '', category: '', code: '', assetType: '', assetsText: '', tasksText: '', frequency: '', timeHours: '', level: '', room: '' });
   };
 
   const saveEdit = async (id: string) => {
@@ -7513,11 +7514,9 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
           const saved = (data?.item as any) || updated;
           setScheduled(prev => prev.map(it => it.id === id ? saved : it));
         } else {
-          // fallback local update
           setScheduled(prev => prev.map(it => it.id === id ? updated : it));
         }
       } else {
-        // localStorage fallback
         setScheduled(prev => {
           const next = prev.map(it => it.id === id ? updated : it);
           save(K.scheduled(projectId), next);
@@ -7534,213 +7533,277 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
-      <div className="text-xs text-gray-400 mb-2">Organized by discipline</div>
+      <div className="text-xs text-gray-400 mb-2">Structured view of all maintenance tasks</div>
 
       {loading ? (
         <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
-      ) : Object.keys(byDiscipline).length === 0 ? (
+      ) : scheduled.length === 0 ? (
         <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-4 text-center">
           No planned maintenance tasks.
         </div>
       ) : (
-        <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-          {Object.entries(byDiscipline).sort(([a], [b]) => a.localeCompare(b)).map(([discipline, items]) => (
-            <div key={discipline} className="bg-gray-800/60 rounded-lg border border-gray-700/50 overflow-hidden">
-              {/* Discipline Header */}
-              <div className="bg-gray-900/60 px-3 py-2 border-b border-gray-700/50">
-                <div className="text-sm font-semibold text-blue-300">
-                  [{discipline}] ({items.length})
+        <div className="flex-1 overflow-auto pr-2">
+          {/* Table Header */}
+          <div className="sticky top-0 bg-gray-900/80 border border-gray-700 rounded-t-lg mb-0">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2.5 text-xs font-semibold text-gray-300 border-b border-gray-700">
+              <div className="col-span-1">Actions</div>
+              <div className="col-span-1.5">Discipline</div>
+              <div className="col-span-1.5">Category</div>
+              <div className="col-span-1">Asset Type</div>
+              <div className="col-span-1">Code</div>
+              <div className="col-span-2">Asset</div>
+              <div className="col-span-1">Level</div>
+              <div className="col-span-1">Room</div>
+              <div className="col-span-1">Frequency</div>
+              <div className="col-span-0.5">Time</div>
+            </div>
+          </div>
+
+          {/* Table Rows */}
+          <div className="space-y-0 border border-gray-700 border-t-0 rounded-b-lg overflow-hidden bg-gray-800/20">
+            {scheduled.map((item, idx) => (
+              <div
+                key={item.id}
+                className={`grid grid-cols-12 gap-2 px-3 py-2.5 items-center border-b border-gray-700/50 hover:bg-gray-700/20 transition-colors ${
+                  idx === scheduled.length - 1 ? 'border-b-0' : ''
+                }`}
+              >
+                {/* Action Buttons */}
+                <div className="col-span-1 flex gap-1 justify-start">
+                  <button
+                    onClick={() => beginEditAsset(item)}
+                    className="p-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
+                    title="Edit asset information"
+                  >
+                    <Wrench size={14} />
+                  </button>
+                  <button
+                    onClick={() => beginEditTasks(item)}
+                    className="p-1.5 rounded bg-green-600/80 hover:bg-green-500 text-white transition-colors"
+                    title="Edit maintenance tasks"
+                  >
+                    <ClipboardList size={14} />
+                  </button>
+                  <button
+                    className="p-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white transition-colors"
+                    title="View maintenance history"
+                  >
+                    <CalendarClock size={14} />
+                  </button>
+                </div>
+
+                {/* Discipline */}
+                <div className="col-span-1.5 text-xs text-gray-200 truncate">
+                  {item.discipline || '—'}
+                </div>
+
+                {/* Category */}
+                <div className="col-span-1.5 text-xs text-gray-300 truncate">
+                  {item.category || '—'}
+                </div>
+
+                {/* Asset Type */}
+                <div className="col-span-1 text-xs text-gray-300 truncate">
+                  {item.category?.split('/')[0].trim() || '—'}
+                </div>
+
+                {/* Code */}
+                <div className="col-span-1 text-xs text-blue-300 font-mono truncate">
+                  {item.code || '—'}
+                </div>
+
+                {/* Asset */}
+                <div className="col-span-2 text-xs text-gray-300 truncate">
+                  {Array.isArray(item.asset) ? item.asset.slice(0, 2).join(', ') + (item.asset.length > 2 ? '...' : '') : item.asset || '—'}
+                </div>
+
+                {/* Level */}
+                <div className="col-span-1 text-xs text-gray-400">
+                  —
+                </div>
+
+                {/* Room */}
+                <div className="col-span-1 text-xs text-gray-400">
+                  —
+                </div>
+
+                {/* Frequency */}
+                <div className="col-span-1 text-xs text-emerald-300">
+                  {item.frequency}/yr
+                </div>
+
+                {/* Time */}
+                <div className="col-span-0.5 text-xs text-emerald-300">
+                  {item.timeHours}h
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-              {/* Maintenance Items */}
-              <div className="divide-y divide-gray-700/30">
-                {items.map(item => (
-                  <div key={item.id} className="p-3 hover:bg-gray-700/20 transition-colors">
-                    {editingId === item.id ? (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Discipline</label>
-                            <select value={edit.discipline} onChange={e => setEdit(v => ({ ...v, discipline: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm">
-                              <option value="">Select</option>
-                              {disciplineOptions.map(d => <option key={d} value={d}>{d}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Category</label>
-                            <select value={edit.category} onChange={e => setEdit(v => ({ ...v, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm">
-                              <option value="">Select</option>
-                              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Code</label>
-                            <input value={edit.code} onChange={e => setEdit(v => ({ ...v, code: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[11px] text-gray-400 block mb-1">Frequency (per year)</label>
-                              <input type="number" value={edit.frequency} onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="text-[11px] text-gray-400 block mb-1">Time (hours)</label>
-                              <input type="number" value={edit.timeHours} onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Assets</label>
-                            <div className="mb-2">
-                              <div className="flex flex-wrap gap-2">
-                                {(edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean)).map((a, idx) => (
-                                  <div key={a + '-' + idx} className="inline-flex items-center bg-gray-900/50 text-gray-200 px-2 py-1 rounded text-sm border border-gray-700/30">
-                                    <span className="mr-2">{a}</span>
-                                    <button onClick={() => setEdit(v => ({ ...v, assetsText: v.assetsText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300">×</button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => setShowAssetPicker(true)} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Select from asset list</button>
-                              <button onClick={() => setEdit(v => ({ ...v, assetsText: '' }))} className="px-3 py-1.5 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-700">Clear</button>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-[11px] text-gray-400 block mb-1">Tasks</label>
-                            <div className="mb-2">
-                              <ul className="space-y-1">
-                                {(edit.tasksText.split('\n').map(s => s.trim()).filter(Boolean)).map((t, idx) => (
-                                  <li key={t + '-' + idx} className="flex items-center justify-between bg-gray-900/40 px-2 py-1 rounded text-sm text-gray-200">
-                                    <span>{t}</span>
-                                    <button onClick={() => setEdit(v => ({ ...v, tasksText: v.tasksText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400">Remove</button>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div className="flex gap-2">
-                              <input value={editTaskInput} onChange={e => setEditTaskInput(e.target.value)} onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  const t = editTaskInput.trim();
-                                  if (t) {
-                                    setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
-                                    setEditTaskInput('');
-                                  }
-                                }
-                              }} placeholder="New task" className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" />
-                              <button onClick={() => {
-                                const t = editTaskInput.trim();
-                                if (t) {
-                                  setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
-                                  setEditTaskInput('');
-                                }
-                              }} className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Add</button>
-                              <button onClick={() => setEdit(v => ({ ...v, tasksText: '' }))} className="px-3 py-1.5 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-700">Clear</button>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <button onClick={cancelEdit} className="px-3 py-1.5 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-700">Cancel</button>
-                          <button onClick={() => saveEdit(item.id)} className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white">Save</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          {/* Title/Category */}
-                          <div className="font-semibold text-white text-sm mb-1">
-                            {item.category}
-                          </div>
-                          <div className="text-[11px] text-gray-500 mb-1">Discipline: {item.discipline || '—'}</div>
-
-                          {/* Code */}
-                          <div className="text-xs text-gray-400 mb-1">
-                            Code: <span className="text-gray-300">{item.code}</span>
-                          </div>
-
-                          {/* Assets shown as chips (supports string or string[] payloads) */}
-                          <div className="text-xs text-gray-300 mt-1">
-                            <span className="font-semibold text-gray-400">Assets:</span>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {Array.isArray(item.asset) ? (
-                                item.asset.map((a, idx) => (
-                                  <div key={(a || '') + '-' + idx} className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">
-                                    {a}
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="bg-gray-900/50 text-gray-200 px-3 py-1 rounded whitespace-nowrap border border-gray-700/30 text-sm">{item.asset}</div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Tasks */}
-                          <div className="text-xs text-gray-300 mt-1">
-                            <span className="font-semibold text-gray-400">Tasks:</span>
-                            <ul className="ml-3 mt-0.5">
-                              {item.tasks.map((task, idx) => (
-                                <li key={idx} className="text-gray-300">• {task}</li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          {/* Frequency and Time */}
-                          <div className="text-xs text-emerald-400 mt-2">
-                            {item.frequency}/year • {item.timeHours}h per intervention
-                          </div>
-                        </div>
-                        <div className="ml-3 flex-shrink-0">
-                          <button onClick={() => beginEdit(item)} className="px-3 py-1.5 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-700">Edit</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+      {/* Edit Modal */}
+      {editingId && editMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-[900px] max-w-full bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <div className="text-lg font-semibold text-white">
+                {editMode === 'asset' ? '✎ Edit Asset Information' : editMode === 'tasks' ? '📋 Edit Maintenance Tasks' : 'Edit'}
               </div>
-              {/* Asset picker modal (simple) */}
-              {showAssetPicker && (
-                <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
-                  <div className="w-[720px] max-w-full bg-gray-900 border border-gray-700 rounded p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-white font-semibold">Select assets (category: {edit.category || 'All'})</div>
+              <button
+                onClick={cancelEdit}
+                className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-6 py-4 space-y-4">
+              {editMode === 'asset' ? (
+                <>
+                  {/* Asset Edit Form */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Discipline</label>
+                      <select
+                        value={edit.discipline}
+                        onChange={e => setEdit(v => ({ ...v, discipline: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select Discipline</option>
+                        {disciplineOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Category</label>
+                      <select
+                        value={edit.category}
+                        onChange={e => setEdit(v => ({ ...v, category: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="">Select Category</option>
+                        {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Code</label>
+                      <input
+                        type="text"
+                        value={edit.code}
+                        onChange={e => setEdit(v => ({ ...v, code: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="Enter asset code"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Asset Type</label>
+                      <input
+                        type="text"
+                        value={edit.assetType}
+                        onChange={e => setEdit(v => ({ ...v, assetType: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="Asset type"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-300 block mb-2 font-medium">Assets</label>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean)).map((a, idx) => (
+                          <div key={a + '-' + idx} className="inline-flex items-center bg-gray-800 text-gray-200 px-3 py-1 rounded text-sm border border-gray-700">
+                            <span className="mr-2">{a}</span>
+                            <button onClick={() => setEdit(v => ({ ...v, assetsText: v.assetsText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300 font-bold">×</button>
+                          </div>
+                        ))}
+                      </div>
                       <div>
-                        <button onClick={() => setShowAssetPicker(false)} className="px-2 py-1 rounded border border-gray-600 text-gray-200">Close</button>
+                        <textarea
+                          value={edit.assetsText}
+                          onChange={e => setEdit(v => ({ ...v, assetsText: e.target.value }))}
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                          placeholder="Enter assets (one per line)"
+                          rows={3}
+                        />
                       </div>
                     </div>
-                    <div className="h-64 overflow-auto">
-                      {assetsLoading ? (
-                        <div className="text-gray-400">Loading...</div>
-                      ) : availableAssets.length === 0 ? (
-                        <div className="text-gray-400">No assets available for this category.</div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          {availableAssets.map(a => (
-                            <div key={a.id} className="flex items-center justify-between bg-gray-800/50 p-2 rounded">
-                              <div>
-                                <div className="text-sm text-gray-200">{a.assetName || a.assetCode || a.id}</div>
-                                <div className="text-xs text-gray-400">{a.category} • {a.location}</div>
-                              </div>
-                              <div>
-                                <button onClick={() => {
-                                  const list = edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean);
-                                  if (!list.includes(a.assetName || a.assetCode || a.id)) {
-                                    const next = [...list, (a.assetName || a.assetCode || a.id)];
-                                    setEdit(v => ({ ...v, assetsText: next.join('\n') }));
-                                  }
-                                }} className="px-2 py-1 rounded bg-blue-600 text-white">Add</button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Frequency (per year)</label>
+                      <input
+                        type="number"
+                        value={edit.frequency}
+                        onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Time per Intervention (hours)</label>
+                      <input
+                        type="number"
+                        value={edit.timeHours}
+                        onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="0"
+                      />
                     </div>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  {/* Tasks Edit Form */}
+                  <div>
+                    <label className="text-sm text-gray-300 block mb-2 font-medium">Asset Code: {edit.code}</label>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-300 block mb-2 font-medium">Maintenance Tasks</label>
+                    <div className="space-y-2">
+                      <ul className="space-y-2 mb-3">
+                        {(edit.tasksText.split('\n').map(s => s.trim()).filter(Boolean)).map((t, idx) => (
+                          <li key={t + '-' + idx} className="flex items-center justify-between bg-gray-800 px-3 py-2 rounded text-sm text-gray-200 border border-gray-700">
+                            <span className="flex-1">{t}</span>
+                            <button onClick={() => setEdit(v => ({ ...v, tasksText: v.tasksText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300 ml-2 font-bold">Remove</button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div>
+                        <textarea
+                          value={edit.tasksText}
+                          onChange={e => setEdit(v => ({ ...v, tasksText: e.target.value }))}
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                          placeholder="Enter tasks (one per line)"
+                          rows={5}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
-          ))}
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 px-6 py-4 flex gap-2 justify-end">
+              <button
+                onClick={cancelEdit}
+                className="px-4 py-2 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveEdit(editingId!)}
+                className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors font-medium"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
