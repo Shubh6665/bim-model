@@ -2072,25 +2072,288 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     const THREE = (window as any).THREE;
     if (!THREE) return;
     try {
+      const overlayName = 'fm-placeholders';
       if (!(viewer as any)._fmOverlayCreated) {
-        viewer.impl.createOverlayScene('fm-placeholders');
+        viewer.impl.createOverlayScene(overlayName);
         (viewer as any)._fmOverlayCreated = true;
       }
-      viewer.impl.clearOverlay('fm-placeholders');
+      const overlayScenes = (viewer.impl.overlayScenes || {}) as any;
+      const scn = overlayScenes[overlayName];
+      const scene = scn?.scene;
+      if (!scene) return;
+
+      // Lazily init placeholder map on viewer
+      const vAny: any = viewer;
+      if (!vAny._fmPlaceholderMap) vAny._fmPlaceholderMap = new Map<string, any>();
+      const map: Map<string, any> = vAny._fmPlaceholderMap as Map<string, any>;
+
+      // Remove any temporary meshes (no assetId)
+      try {
+        const toRemove: any[] = [];
+        for (const ch of scene.children) {
+          if (!ch?.userData || !ch.userData.assetId) toRemove.push(ch);
+        }
+        toRemove.forEach(m => scene.remove(m));
+      } catch { }
+
+      // Build a set of desired IDs
+      const desiredIds = new Set<string>();
       rows.forEach(r => {
         if (r.placeholderX != null && r.placeholderY != null && r.placeholderZ != null) {
+          desiredIds.add(r.id);
           const size = r.placeholderSize ?? 0.3;
-          const geom = (r.placeholderShape || 'cube') === 'sphere'
-            ? new THREE.SphereGeometry(size / 2, 12, 12)
-            : new THREE.BoxGeometry(size, size, size);
-          const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
-          const mesh = new THREE.Mesh(geom, mat);
-          mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
-          viewer.impl.addOverlay('fm-placeholders', mesh);
+          const shape = (r.placeholderShape || 'cube') as 'cube' | 'sphere';
+          let mesh = map.get(r.id);
+          if (!mesh) {
+            const geom = shape === 'sphere'
+              ? new THREE.SphereGeometry(size / 2, 12, 12)
+              : new THREE.BoxGeometry(size, size, size);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.85 });
+            mesh = new THREE.Mesh(geom, mat);
+            mesh.userData = {
+              ...(mesh.userData || {}),
+              assetId: r.id,
+              geomBaseSize: size,
+              shape
+            };
+            mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
+            scene.add(mesh);
+            map.set(r.id, mesh);
+          } else {
+            // Update shape if changed
+            if (mesh.userData?.shape !== shape) {
+              try {
+                mesh.geometry?.dispose?.();
+              } catch {}
+              mesh.geometry = shape === 'sphere'
+                ? new THREE.SphereGeometry(size / 2, 12, 12)
+                : new THREE.BoxGeometry(size, size, size);
+              mesh.userData.shape = shape;
+              mesh.userData.geomBaseSize = size;
+              mesh.scale.set(1, 1, 1);
+            }
+            // Update position
+            const p = mesh.position;
+            if (p.x !== r.placeholderX || p.y !== r.placeholderY || p.z !== r.placeholderZ) {
+              mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
+            }
+            // Update size via scale, relative to base geom size
+            const base = Number(mesh.userData?.geomBaseSize) || size || 0.3;
+            const scale = (size || 0.3) / base;
+            mesh.scale.set(scale, scale, scale);
+          }
         }
       });
+
+      // Remove meshes that are no longer present
+      for (const [id, mesh] of [...map.entries()]) {
+        if (!desiredIds.has(id)) {
+          try { scene.remove(mesh); } catch { }
+          map.delete(id);
+        }
+      }
+
+      // Maintain selection highlight if any
+      try {
+        const vAny2: any = viewer;
+        const selId: string | null = vAny2._fmSelectedPlaceholderId || null;
+        for (const [id, mesh] of map.entries()) {
+          const mat: any = mesh.material;
+          if (mat && mat.color) {
+            if (selId && selId === id) mat.color.setHex(0x00ffff); else mat.color.setHex(0xffcc00);
+            mat.needsUpdate = true;
+          }
+        }
+      } catch { }
+
       viewer.impl.invalidate(true);
     } catch { }
+  }, [viewer, rows]);
+
+  // Enable selecting, dragging (move) and resizing (wheel/keys) of placeholders in the overlay
+  useEffect(() => {
+    if (!viewer) return;
+    const THREE = (window as any).THREE;
+    if (!THREE) return;
+    const overlayName = 'fm-placeholders';
+    const vAny: any = viewer;
+    if (!vAny._fmOverlayCreated) return; // wait until created by other effect
+
+    const overlayScenes = (viewer.impl.overlayScenes || {}) as any;
+    const scn = overlayScenes[overlayName];
+    const scene = scn?.scene;
+    if (!scene) return;
+
+    if (!vAny._fmPlaceholderMap) vAny._fmPlaceholderMap = new Map<string, any>();
+    const map: Map<string, any> = vAny._fmPlaceholderMap as Map<string, any>;
+    const raycaster = new THREE.Raycaster();
+    const container = viewer.container as HTMLElement;
+
+    const getIntersections = (clientX: number, clientY: number) => {
+      const rect = (viewer.impl.canvas || container).getBoundingClientRect();
+      const ndc = {
+        x: ((clientX - rect.left) / rect.width) * 2 - 1,
+        y: -((clientY - rect.top) / rect.height) * 2 + 1
+      };
+      // Prefer public API camera when available (Forge returns THREE.Camera)
+      const camera = (viewer.getCamera?.() || viewer.impl.camera) as any;
+      if (!camera) return [] as any[];
+
+      try {
+        const THREE = (window as any).THREE;
+        const v = new THREE.Vector3(ndc.x, ndc.y, 0.5);
+        let origin: any;
+        let dir: any;
+        if ((camera as any).isPerspectiveCamera) {
+          v.unproject(camera);
+          origin = camera.position.clone();
+          dir = v.sub(origin).normalize();
+        } else if ((camera as any).isOrthographicCamera) {
+          // For ortho, origin is the unprojected point on near plane, dir is camera forward
+          origin = new THREE.Vector3(ndc.x, ndc.y, -1).unproject(camera);
+          dir = camera.getWorldDirection(new THREE.Vector3()).normalize();
+        } else {
+          // Fallback: try unproject-style ray
+          v.unproject(camera);
+          origin = camera.position?.clone ? camera.position.clone() : new THREE.Vector3(0, 0, 0);
+          dir = v.sub(origin).normalize();
+        }
+        raycaster.set(origin, dir);
+      } catch {
+        return [] as any[];
+      }
+      // Only test against meshes that are placeholders
+      const objs = [...map.values()];
+      return raycaster.intersectObjects(objs, false) as any[];
+    };
+
+    const highlightSelection = (id: string | null) => {
+      vAny._fmSelectedPlaceholderId = id || null;
+      for (const [mid, mesh] of map.entries()) {
+        const mat: any = mesh.material;
+        if (mat && mat.color) {
+          if (id && id === mid) mat.color.setHex(0x00ffff); else mat.color.setHex(0xffcc00);
+          mat.needsUpdate = true;
+        }
+      }
+      viewer.impl.invalidate(true);
+    };
+
+    let dragging: null | { id: string; dzPlane: number; cursorOffset?: any } = null;
+
+    const worldOnZ = (clientX: number, clientY: number, z: number) => {
+      const rect = (viewer.impl.canvas || container).getBoundingClientRect();
+      const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      const camera = viewer.impl.camera;
+      if (!camera) return null;
+      const mouse = new THREE.Vector3(x, y, 0.5); mouse.unproject(camera);
+      const origin = camera.position.clone();
+      const dir = mouse.sub(origin).normalize();
+      const EPS = 1e-6;
+      if (Math.abs(dir.z) < EPS) return null;
+      const t = (z - origin.z) / dir.z;
+      if (!isFinite(t) || t < 0) return null;
+      return origin.clone().add(dir.multiplyScalar(t));
+    };
+
+    const onPointerDown = (ev: MouseEvent) => {
+      try {
+        const ints = getIntersections(ev.clientX, ev.clientY);
+        if (ints && ints.length) {
+          ev.stopPropagation();
+          ev.preventDefault();
+          const hit = ints[0];
+          const mesh = hit.object as any;
+          const id = mesh?.userData?.assetId as string | undefined;
+          if (!id) return;
+          highlightSelection(id);
+          if (ev.button === 0) {
+            // start dragging
+            const dz = mesh.position?.z ?? 0;
+            const p = hit.point || new THREE.Vector3(mesh.position.x, mesh.position.y, dz);
+            const offset = new THREE.Vector3(mesh.position.x - p.x, mesh.position.y - p.y, 0);
+            dragging = { id, dzPlane: dz, cursorOffset: offset };
+            try { viewer.setNavigationLock?.(true); } catch { }
+          }
+        }
+      } catch { }
+    };
+
+    const onPointerMove = (ev: MouseEvent) => {
+      if (!dragging) return;
+      try {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const id = dragging.id;
+        const mesh: any = map.get(id);
+        if (!mesh) return;
+        // Prefer hitTest against model to stick to surfaces
+        const res = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
+        let pt = res?.point || worldOnZ(ev.clientX, ev.clientY, dragging.dzPlane);
+        if (!pt) return;
+        const nx = pt.x + (dragging.cursorOffset?.x || 0);
+        const ny = pt.y + (dragging.cursorOffset?.y || 0);
+        mesh.position.set(nx, ny, dragging.dzPlane);
+        // Persist live to rows
+        setRows(prev => prev.map(r => r.id === id ? { ...r, placeholderX: nx, placeholderY: ny, placeholderZ: dragging!.dzPlane } : r));
+        viewer.impl.invalidate(true);
+      } catch { }
+    };
+
+    const onPointerUp = (ev: MouseEvent) => {
+      if (!dragging) return;
+      ev.stopPropagation();
+      ev.preventDefault();
+      dragging = null;
+      try { viewer.setNavigationLock?.(false); } catch { }
+    };
+
+    const adjustSize = (id: string, delta: number) => {
+      const mesh: any = map.get(id);
+      if (!mesh) return;
+      const currentBase = Number(mesh.userData?.geomBaseSize) || (rows.find(r => r.id === id)?.placeholderSize ?? 0.3) || 0.3;
+      const currentSize = (rows.find(r => r.id === id)?.placeholderSize ?? currentBase) as number;
+      let next = currentSize * (1 + delta);
+      next = Math.max(0.05, Math.min(10, next));
+      const scale = next / currentBase;
+      mesh.scale.set(scale, scale, scale);
+      // Persist to rows
+      setRows(prev => prev.map(r => r.id === id ? { ...r, placeholderSize: next } : r));
+      viewer.impl.invalidate(true);
+    };
+
+    const onWheel = (ev: WheelEvent) => {
+      const selId: string | null = (vAny._fmSelectedPlaceholderId || null) as string | null;
+      if (!selId) return;
+      // Resize inversely with deltaY
+      ev.stopPropagation();
+      ev.preventDefault();
+      const delta = -ev.deltaY * 0.001; // small increments
+      adjustSize(selId, delta);
+    };
+
+    const onKeyDown = (ev: KeyboardEvent) => {
+      const selId: string | null = (vAny._fmSelectedPlaceholderId || null) as string | null;
+      if (!selId) return;
+      if (ev.key === '+' || ev.key === '=' ) { ev.preventDefault(); adjustSize(selId, 0.05); }
+      if (ev.key === '-' || ev.key === '_' ) { ev.preventDefault(); adjustSize(selId, -0.05); }
+      if (ev.key === 'Escape') { highlightSelection(null); }
+    };
+
+    container.addEventListener('mousedown', onPointerDown, true);
+    window.addEventListener('mousemove', onPointerMove, true);
+    window.addEventListener('mouseup', onPointerUp, true);
+    container.addEventListener('wheel', onWheel, { capture: true, passive: false } as any);
+    window.addEventListener('keydown', onKeyDown, true);
+
+    return () => {
+      container.removeEventListener('mousedown', onPointerDown, true);
+      window.removeEventListener('mousemove', onPointerMove, true);
+      window.removeEventListener('mouseup', onPointerUp, true);
+      container.removeEventListener('wheel', onWheel as any, true as any);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [viewer, rows]);
 
   return (
