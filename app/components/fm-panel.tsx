@@ -3227,6 +3227,131 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
   );
 };
 
+// Inline form for editing spaces
+const EditSpaceFormInline: React.FC<{
+  space: SpaceRecord;
+  projectId?: string;
+  onSave: () => void;
+  onCancel: () => void;
+}> = ({ space, projectId, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    level: space.level || '',
+    name: space.name || '',
+    area: space.area || '',
+    description: space.description || '',
+    building: space.building || '',
+    spaceCode: space.spaceCode || ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      console.log(`[EditSpace] Saving space ${space.id} for project ${projectId}`, formData);
+      const res = await fetch(`/api/projects/${projectId}/spaces/${space.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      console.log(`[EditSpace] Response status:`, res.status);
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`[EditSpace] Space updated successfully:`, data);
+        onSave();
+      } else {
+        const errData = await res.text();
+        console.error(`[EditSpace] Update failed with status ${res.status}:`, errData);
+        alert(`Failed to update space: ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[EditSpace] Error:', err);
+      alert('Error updating space');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-gray-400">Building</label>
+        <input 
+          type="text"
+          value={formData.building}
+          onChange={e => setFormData(d => ({ ...d, building: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          placeholder="Building"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-400">Level</label>
+        <input 
+          type="text"
+          value={formData.level}
+          onChange={e => setFormData(d => ({ ...d, level: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          placeholder="Level"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-400">Room Name</label>
+        <input 
+          type="text"
+          value={formData.name}
+          onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          placeholder="Room Name"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-400">Area (m²)</label>
+        <input 
+          type="number"
+          value={formData.area}
+          onChange={e => setFormData(d => ({ ...d, area: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          placeholder="Area"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-400">Space Code</label>
+        <input 
+          type="text"
+          value={formData.spaceCode}
+          onChange={e => setFormData(d => ({ ...d, spaceCode: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          placeholder="Space Code"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-400">Description</label>
+        <textarea 
+          value={formData.description}
+          onChange={e => setFormData(d => ({ ...d, description: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 resize-none"
+          placeholder="Description"
+          rows={3}
+        />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<SpaceRecord[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -3234,6 +3359,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  // Delete modal
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; name?: string }>({ open: false });
+  // Edit modal
+  const [editModal, setEditModal] = useState<{ open: boolean; space?: SpaceRecord }>({ open: false });
 
   // Helper to get current model GUID (if viewer is present)
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
@@ -3607,7 +3736,6 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
         <div className="text-white font-semibold text-sm">Space List</div>
-        <div className="text-[11px] text-gray-400">Level – Room name – Area – Description</div>
         <div className="mt-2">
           <button
             onClick={extractRoomsFromBIM}
@@ -3630,19 +3758,36 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             <tr>
               <th className="text-left px-3 py-2">Level</th>
               <th className="text-left px-3 py-2">Room name</th>
-              <th className="text-left px-3 py-2">Area</th>
+              <th className="text-left px-3 py-2">Area (m²)</th>
               <th className="text-left px-3 py-2">Description</th>
+              <th className="text-center px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
             ) : paginatedRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={() => onRowClick(r)}>
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50">
                 <td className="px-3 py-2 text-gray-100">{r.level || '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.name || '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.area != null ? r.area : '-'}</td>
+                <td className="px-3 py-2 text-gray-200 cursor-pointer hover:text-white" onClick={() => onRowClick(r)}>{r.name || '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.area != null ? (typeof r.area === 'string' ? parseFloat(r.area).toFixed(2) : r.area.toFixed(2)) : '-'}</td>
                 <td className="px-3 py-2 text-gray-300">{r.description || '-'}</td>
+                <td className="px-3 py-2 text-center flex gap-1 justify-center">
+                  <button
+                    onClick={() => setEditModal({ open: true, space: r })}
+                    className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                    title="Edit space"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteModal({ open: true, id: r.id, name: r.name })}
+                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+                    title="Delete space"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -3684,6 +3829,97 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
+          <div className="bg-gray-900 border border-gray-700 rounded p-4 w-[360px]" onClick={e => e.stopPropagation()}>
+            <div className="text-white text-sm font-semibold mb-2">Delete space?</div>
+            <div className="text-xs text-gray-300 mb-4">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.name}</span>?</div>
+            <div className="flex items-center justify-end gap-2">
+              <button 
+                className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" 
+                onClick={() => setDeleteModal({ open: false })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" 
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/projects/${projectId}/spaces/${deleteModal.id}`, { method: 'DELETE' });
+                    console.log(`[SpaceList] Delete response status:`, res.status);
+                    if (res.ok) {
+                      console.log(`[SpaceList] Space ${deleteModal.id} deleted successfully`);
+                      setRows(rows.filter(x => x.id !== deleteModal.id));
+                      setDeleteModal({ open: false });
+                    } else {
+                      const errData = await res.text();
+                      console.error(`[SpaceList] Delete failed with status ${res.status}:`, errData);
+                      alert(`Failed to delete space: ${res.status}`);
+                    }
+                  } catch (err) {
+                    console.error('[SpaceList] Delete error:', err);
+                    alert('Error deleting space');
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editModal.open && editModal.space && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
+          <div className="bg-gray-900 border border-gray-700 rounded p-4 w-[420px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="text-white text-sm font-semibold mb-3">Edit Space</div>
+            <EditSpaceFormInline 
+              space={editModal.space} 
+              projectId={projectId}
+              onSave={() => {
+                setEditModal({ open: false });
+                // Reload spaces from database to show updated values
+                (async () => {
+                  try {
+                    console.log('[SpaceList] Reloading spaces after edit...');
+                    const res = await fetch(`/api/projects/${projectId}/spaces`);
+                    if (res.ok) {
+                      const data = await res.json();
+                      console.log('[SpaceList] Reloaded spaces:', data.length, 'items');
+                      if (Array.isArray(data)) {
+                        const normalized: SpaceRecord[] = data.map((d: any) => ({
+                          id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+                          level: d.level,
+                          name: d.name,
+                          area: d.area,
+                          spaceCode: d.spaceCode,
+                          building: d.building,
+                          description: d.description,
+                          source: d.source,
+                          dbId: d.dbId ?? null,
+                          modelGuid: d.modelGuid,
+                          footprint: d.footprint || undefined,
+                          conflictWithId: d.conflictWithId
+                        }));
+                        console.log('[SpaceList] Normalized and setting rows:', normalized.length);
+                        setRows(normalized);
+                      }
+                    } else {
+                      console.error('[SpaceList] Reload failed with status:', res.status);
+                    }
+                  } catch (err) {
+                    console.error('[SpaceList] Reload error:', err);
+                  }
+                })();
+              }}
+              onCancel={() => setEditModal({ open: false })}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

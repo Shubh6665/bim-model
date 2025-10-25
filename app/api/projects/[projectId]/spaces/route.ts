@@ -117,6 +117,23 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     updatedAt: now,
   } as any;
 
+  // For BIM extraction upserts, preserve user-edited fields (building, description)
+  // Only update BIM-specific fields (name, level, area, spaceCode, dbId, footprint)
+  const docForUpdate = doc.source === 'BIM_MODEL' ? {
+    projectId: doc.projectId,
+    source: doc.source,
+    modelGuid: doc.modelGuid,
+    name: doc.name,
+    level: doc.level,
+    spaceCode: doc.spaceCode,
+    area: doc.area,
+    dbId: doc.dbId,
+    footprint: doc.footprint,
+    conflictWithId: doc.conflictWithId,
+    updatedAt: doc.updatedAt,
+    // Note: building and description are NOT updated here - they are preserved from existing record
+  } : doc;
+
   // Compute a stable key for BIM rooms to prevent duplication across re-extractions
   const isBIM = doc.source === 'BIM_MODEL';
   let filter: any = null;
@@ -157,8 +174,8 @@ async function upsertOne(col: any, projectId: string, raw: any) {
       }
     }
     if (existing) {
-      await col.updateOne({ _id: existing._id }, { $set: doc });
-      return { id: existing._id.toString(), ...existing, ...doc };
+      await col.updateOne({ _id: existing._id }, { $set: docForUpdate });
+      return { id: existing._id.toString(), ...existing, ...docForUpdate };
     }
   }
 
