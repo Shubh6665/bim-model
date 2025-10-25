@@ -742,12 +742,14 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
               return p?.displayValue?.toString();
             };
 
-            const name = props?.name || getProp(['Name']);
-            const category = getProp(['Category']);
-            const level = getProp(['Level', 'Reference Level']);
-            let room = getProp(['Room', 'Space']);
-            const spaceCode = getProp(['Space Code', 'Number', 'Mark']);
-            const building = getProp(['Building']);
+            const name = props?.name || getProp(['Name', 'Nome']);
+            const rawCategory = getProp(['Category', 'Categoria', 'OmniClass Title', 'Titolo OmniClass', 'Descrizione']);
+            const ifcType = getProp(['Export Type to IFC As', 'Esporta tipo in formato IFC con nome', 'IFC Type', 'IfcClass']);
+            const ifcPredefined = getProp(['IFC Predefined Type', 'Tipo predefinito IFC']);
+            const level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+            let room = getProp(['Room', 'Space', 'Locale']);
+            const spaceCode = getProp(['Space Code', 'Number', 'Mark', 'Nome codice']);
+            const building = getProp(['Building', 'Edificio']);
 
             // Use spatial bounding as fallback for room detection (check for empty string too)
             if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
@@ -762,13 +764,33 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
               }
             }
 
+            // Build category with preference: IFC type -> mapped label; else mapped raw category -> IFC predefined -> raw
+            let matchedCategory = '';
+            if (ifcType) {
+              const ic = ifcType.toString().toLowerCase();
+              for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                if (m.ifc.toLowerCase() === ic) { matchedCategory = `${it} / ${m.english} (${m.ifc})`; break; }
+              }
+              if (!matchedCategory) matchedCategory = ifcType;
+            }
+            if (!matchedCategory && rawCategory) {
+              const rc = rawCategory.toString().toLowerCase();
+              for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                if (rc.includes(it.toLowerCase()) || rc.includes(m.english.toLowerCase()) || rc.includes(m.ifc.toLowerCase())) {
+                  matchedCategory = `${it} / ${m.english} (${m.ifc})`; break;
+                }
+              }
+              if (!matchedCategory) matchedCategory = rawCategory;
+            }
+            if (!matchedCategory && ifcPredefined) matchedCategory = ifcPredefined;
+
             // Send data back to standalone window
             try {
               (e.source as Window | null)?.postMessage?.({
                 type: 'FM_SELECTION_DATA',
                 item: name || `Object ${dbId}`,
                 itemDbId: dbId,
-                category: category || '',
+                category: matchedCategory || rawCategory || '',
                 building: building || '',
                 level: level || '',
                 room: room || '',
@@ -2953,25 +2975,55 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
       if (dbId == null || !model) return;
       const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
-      const getProp = (names: string[]): string | undefined => {
-        const lower = names.map(n => n.toLowerCase());
-        const p = props?.properties?.find((p: any) => { const dn = p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n => dn.includes(n))); });
-        return p?.displayValue?.toString();
+      // Accept a broad set of property display names (English + Italian + common variants)
+      const PROP_ALIASES: Record<string, string[]> = {
+        brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
+        modelName: ['Model', 'Type Name', 'Model Number', 'Nome del tipo', 'Nome del tipo'],
+        serial: ['Serial Number', 'Serial', 'Numero di serie'],
+        installDate: ['Install Date', 'Installation Date', 'Data di installazione'],
+        power: ['Power', 'Power Rating', 'kW', 'Dati elettrici', 'Alimentazione apparente'],
+        capacity: ['Capacity', 'Capacità'],
+        weight: ['Weight', 'Peso'],
+        length: ['Length', 'Lunghezza'],
+        width: ['Width', 'Larghezza'],
+        height: ['Height', 'Thickness', 'Altezza'],
+        material: ['Material', 'Structural Material', 'Materiale'],
+        level: ['Level', 'Reference Level', 'Livello', 'Livello abaco', 'Level 1', 'Piano Terra'],
+        room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
+        rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
       };
-      const brand = getProp(['Manufacturer', 'Brand', 'Manufacturer Name']);
-      const modelName = getProp(['Model', 'Type Name', 'Model Number']);
-      const serial = getProp(['Serial Number', 'Serial']);
-      const installDate = getProp(['Install Date', 'Installation Date']);
-      const power = getProp(['Power', 'Power Rating', 'kW']);
-      const capacity = getProp(['Capacity']);
-      const weight = getProp(['Weight']);
-      const length = getProp(['Length']);
-      const width = getProp(['Width']);
-      const height = getProp(['Height', 'Thickness']);
-      const material = getProp(['Material', 'Structural Material']);
-      const level = getProp(['Level', 'Reference Level']);
-      const room = getProp(['Room', 'Space']);
-      const rawCategory = getProp(['Category']);
+
+      const getProp = (keys: string[]): string | undefined => {
+        if (!props?.properties) return undefined;
+        const lowerKeys = keys.map(k => k.toLowerCase());
+        // Find first property whose displayName matches any alias or contains it
+        const p = props.properties.find((p: any) => {
+          const dn = (p.displayName || '').toString().toLowerCase();
+          const cv = (p.displayValue || '').toString();
+          if (!dn) return false;
+          // exact or contains
+          if (lowerKeys.includes(dn)) return true;
+          return lowerKeys.some(k => dn.includes(k));
+        });
+        // fallback: sometimes value is on 'attributes' or 'properties' nested
+        if (p && (p.displayValue !== undefined && p.displayValue !== null)) return p.displayValue.toString();
+        return undefined;
+      };
+
+      const brand = getProp(PROP_ALIASES.brand);
+      const modelName = getProp(PROP_ALIASES.modelName);
+      const serial = getProp(PROP_ALIASES.serial);
+      const installDate = getProp(PROP_ALIASES.installDate);
+      const power = getProp(PROP_ALIASES.power);
+      const capacity = getProp(PROP_ALIASES.capacity);
+      const weight = getProp(PROP_ALIASES.weight);
+      const length = getProp(PROP_ALIASES.length);
+      const width = getProp(PROP_ALIASES.width);
+      const height = getProp(PROP_ALIASES.height);
+      const material = getProp(PROP_ALIASES.material);
+      const level = getProp(PROP_ALIASES.level);
+      const room = getProp(PROP_ALIASES.room);
+      const rawCategory = getProp(PROP_ALIASES.rawCategory) || getProp(['Category', 'Categoria', 'OmniClass Title', 'OmniClass', 'Tipo']);
       const category = mapToStandardCategory(rawCategory);
       const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
@@ -4987,12 +5039,15 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             return p?.displayValue?.toString();
           };
 
-          const name = props?.name || getProp(['Name']);
-          const category = getProp(['Category']);
-          const level = getProp(['Level', 'Reference Level']);
-          let room = getProp(['Room', 'Space']);
-          const spaceCode = getProp(['Space Code', 'Number', 'Mark']);
-          let building = getProp(['Building']);
+          const name = props?.name || getProp(['Name', 'Nome']);
+          // Category candidates (Revit + IFC + OmniClass + Italian)
+          const rawCategory = getProp(['Category', 'Categoria', 'Titolo OmniClass', 'OmniClass Title', 'Descrizione']);
+          const ifcType = getProp(['Export Type to IFC As', 'Esporta tipo in formato IFC con nome', 'IFC Type', 'IfcClass']);
+          const ifcPredefined = getProp(['IFC Predefined Type', 'Tipo predefinito IFC']);
+          const level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+          let room = getProp(['Room', 'Space', 'Locale']);
+          const spaceCode = getProp(['Space Code', 'Number', 'Mark', 'Nome codice']);
+          let building = getProp(['Building', 'Edificio']);
 
           // If building missing, fallback to project name if available
           if ((!building || building.trim() === '') && projectName) {
@@ -5060,8 +5115,8 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           }
 
           // 2) If still not found, try matching from category string
-          if (!discipline && category) {
-            discipline = matchKnownDiscipline(category) || '';
+          if (!discipline && rawCategory) {
+            discipline = matchKnownDiscipline(rawCategory) || '';
             if (discipline) console.log('🎯 [Prefill] Discipline inferred from category →', discipline);
           }
 
@@ -5082,12 +5137,30 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             if (discipline) console.log('🎯 [Prefill] Discipline inferred from name →', discipline);
           }
 
-          // Use the raw category string returned by the model (do not try to remap/override it)
-          const matchedCategory = category || '';
+          // Prefer IFC mapping when available; otherwise map Italian/English category; fallback to raw values
+          let matchedCategory = '';
+          if (ifcType) {
+            const ic = ifcType.toString().toLowerCase();
+            for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+              if (m.ifc.toLowerCase() === ic) { matchedCategory = `${it} / ${m.english} (${m.ifc})`; break; }
+            }
+            if (!matchedCategory) matchedCategory = ifcType; // fallback to IFC type string
+          }
+          if (!matchedCategory && rawCategory) {
+            const rc = rawCategory.toString().toLowerCase();
+            for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+              if (rc.includes(it.toLowerCase()) || rc.includes(m.english.toLowerCase()) || rc.includes(m.ifc.toLowerCase())) {
+                matchedCategory = `${it} / ${m.english} (${m.ifc})`;
+                break;
+              }
+            }
+            if (!matchedCategory) matchedCategory = rawCategory;
+          }
+          if (!matchedCategory && ifcPredefined) matchedCategory = ifcPredefined;
 
           console.log('✨ [Prefill] Extracted data:', {
             name,
-            category,
+            category: rawCategory,
             matchedCategory,
             discipline,
             level,
@@ -5104,10 +5177,10 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             itemDbId: dbId,
             discipline: discipline || v.discipline,
             category: matchedCategory || v.category,
-            building: v.building || building || '',
-            level: v.level || level || '',
-            room: v.room || room || '',
-            spaceCode: v.spaceCode || spaceCode || ''
+            building: building || '',
+            level: level || '',
+            room: room || '',
+            spaceCode: spaceCode || ''
           }));
 
           console.log('✅ [Prefill] Form updated successfully');
