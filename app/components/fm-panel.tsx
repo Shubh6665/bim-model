@@ -746,7 +746,15 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
             const rawCategory = getProp(['Category', 'Categoria', 'OmniClass Title', 'Titolo OmniClass', 'Descrizione']);
             const ifcType = getProp(['Export Type to IFC As', 'Esporta tipo in formato IFC con nome', 'IFC Type', 'IfcClass']);
             const ifcPredefined = getProp(['IFC Predefined Type', 'Tipo predefinito IFC']);
-            const level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+            let level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+            if (!level || /^\d+(\.\d+)?$/.test(level)) {
+              try {
+                const levelProps = (props?.properties || []).filter((p: any) => (p.displayName || '').toString().toLowerCase() === 'level');
+                const preferred = levelProps.find((p: any) => p.type === 20 || (p.displayCategory || '').toString().toLowerCase() === 'constraints')
+                  || levelProps[levelProps.length - 1];
+                if (preferred && preferred.displayValue != null) level = preferred.displayValue.toString();
+              } catch {}
+            }
             let room = getProp(['Room', 'Space', 'Locale']);
             const spaceCode = getProp(['Space Code', 'Number', 'Mark', 'Nome codice']);
             const building = getProp(['Building', 'Edificio']);
@@ -4915,10 +4923,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           itemDbId: d.itemDbId || null,
           discipline: discipline || v.discipline,
           category: matchedCategory || v.category,
-          building: d.building || v.building,
-          level: d.level || v.level,
-          room: d.room || v.room,
-          spaceCode: d.spaceCode || v.spaceCode
+          // Overwrite location fields explicitly; if missing, clear to avoid stale values
+          building: d.building ?? '',
+          level: d.level ?? '',
+          room: d.room ?? '',
+          spaceCode: d.spaceCode ?? ''
         }));
         setWaitingForSelection(false);
         console.log('✅ [Prefill] Standalone - Data received and form updated', { discipline, matchedCategory });
@@ -5044,16 +5053,20 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           const rawCategory = getProp(['Category', 'Categoria', 'Titolo OmniClass', 'OmniClass Title', 'Descrizione']);
           const ifcType = getProp(['Export Type to IFC As', 'Esporta tipo in formato IFC con nome', 'IFC Type', 'IfcClass']);
           const ifcPredefined = getProp(['IFC Predefined Type', 'Tipo predefinito IFC']);
-          const level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+          let level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
+          // Prefer human-readable Level (string from Constraints) instead of internal numeric ref
+          if (!level || /^\d+(\.\d+)?$/.test(level)) {
+            try {
+              const levelProps = (props?.properties || []).filter((p: any) => (p.displayName || '').toString().toLowerCase() === 'level');
+              // Prefer string type (type 20) or displayCategory 'Constraints'; else the last one
+              const preferred = levelProps.find((p: any) => p.type === 20 || (p.displayCategory || '').toString().toLowerCase() === 'constraints')
+                || levelProps[levelProps.length - 1];
+              if (preferred && preferred.displayValue != null) level = preferred.displayValue.toString();
+            } catch {}
+          }
           let room = getProp(['Room', 'Space', 'Locale']);
           const spaceCode = getProp(['Space Code', 'Number', 'Mark', 'Nome codice']);
           let building = getProp(['Building', 'Edificio']);
-
-          // If building missing, fallback to project name if available
-          if ((!building || building.trim() === '') && projectName) {
-            building = projectName;
-            console.log('🏗️ [Prefill] Using project name as building fallback:', building);
-          }
 
           // Use spatial bounding as fallback for room detection (check for empty string too)
           if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
@@ -5065,6 +5078,15 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               }
             } catch (err) {
               console.warn('[Prefill] Spatial bounding fallback failed', err);
+            }
+          }
+
+          // Extra robust fallback: if level still missing, scan all props for any 'level' key
+          if ((!level || level.trim() === '') && Array.isArray(props?.properties)) {
+            for (const p of props.properties) {
+              const dn = (p.displayName || '').toString().toLowerCase();
+              const dv = (p.displayValue || '').toString();
+              if (dn.includes('level') && dv) { level = dv; break; }
             }
           }
 
@@ -5177,10 +5199,11 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             itemDbId: dbId,
             discipline: discipline || v.discipline,
             category: matchedCategory || v.category,
-            building: building || '',
-            level: level || '',
-            room: room || '',
-            spaceCode: spaceCode || ''
+            // Overwrite location fields; if undefined, clear instead of preserving stale values
+            building: building ?? '',
+            level: level ?? '',
+            room: room ?? '',
+            spaceCode: spaceCode ?? ''
           }));
 
           console.log('✅ [Prefill] Form updated successfully');
