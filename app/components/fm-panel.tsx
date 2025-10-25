@@ -6888,7 +6888,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
       </div>
 
       <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400">Reports generated at: {new Date().toLocaleString()}</div>
+        <div className="text-xs text-gray-400">Reports generated at: {new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>
       </div>
 
       <div className="mt-3">
@@ -6899,7 +6899,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
               <div className="flex items-center justify-between p-2">
                 <div>
                   <div className="text-sm font-medium">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
-                  <div className="text-xs text-gray-400">{w.description?.slice(0, 80) || 'No description'}</div>
+                  <div className="text-xs text-gray-300">{w.description?.slice(0, 80) || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-xs text-gray-300">{w.status}</div>
