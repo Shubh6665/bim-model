@@ -4865,10 +4865,19 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     })();
   }, [projectId]);
 
+  // When projectName becomes available, ensure building defaults to it if empty
+  useEffect(() => {
+    if (!projectName) return;
+    setForm(prev => {
+      if (prev.building && String(prev.building).trim() !== '') return prev;
+      return { ...prev, building: projectName };
+    });
+  }, [projectName]);
+
   // Listen for selection data from main window (standalone mode)
   useEffect(() => {
     if (!isStandalone) return;
-
+    // include projectName so we can fall back to it when incoming selection has no Building
     const handleMessage = (e: MessageEvent) => {
       const d = e.data;
       if (!d || typeof d !== 'object') return;
@@ -4923,8 +4932,8 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           itemDbId: d.itemDbId || null,
           discipline: discipline || v.discipline,
           category: matchedCategory || v.category,
-          // Overwrite location fields explicitly; if missing, clear to avoid stale values
-          building: d.building ?? '',
+          // Overwrite location fields explicitly; if missing, fallback to projectName so Building is auto-filled
+          building: d.building ?? projectName ?? '',
           level: d.level ?? '',
           room: d.room ?? '',
           spaceCode: d.spaceCode ?? ''
@@ -4936,10 +4945,9 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
         console.log('⚠️ [Prefill] Standalone - Selection cancelled');
       }
     };
-
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isStandalone]);
+  }, [isStandalone, projectName]);
 
   const [form, setForm] = useState(() => {
     // Load from localStorage on init
@@ -5053,18 +5061,29 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           const rawCategory = getProp(['Category', 'Categoria', 'Titolo OmniClass', 'OmniClass Title', 'Descrizione']);
           const ifcType = getProp(['Export Type to IFC As', 'Esporta tipo in formato IFC con nome', 'IFC Type', 'IfcClass']);
           const ifcPredefined = getProp(['IFC Predefined Type', 'Tipo predefinito IFC']);
-          let level = getProp(['Level', 'Reference Level', 'Livello', 'Livello abaco']);
-          // Prefer human-readable Level (string from Constraints) instead of internal numeric ref
-          if (!level || /^\d+(\.\d+)?$/.test(level)) {
-            try {
-              const levelProps = (props?.properties || []).filter((p: any) => (p.displayName || '').toString().toLowerCase() === 'level');
-              // Prefer string type (type 20) or displayCategory 'Constraints'; else the last one
-              const preferred = levelProps.find((p: any) => p.type === 20 || (p.displayCategory || '').toString().toLowerCase() === 'constraints')
-                || levelProps[levelProps.length - 1];
-              if (preferred && preferred.displayValue != null) level = preferred.displayValue.toString();
-            } catch {}
+          
+          // Level: prefer human-readable "Livello" from Constraints over numeric reference
+          let level = '';
+          if (Array.isArray(props?.properties)) {
+            // First try to find "Livello" with displayCategory "Vincoli" (Constraints) - Italian human-readable level
+            const itLevel = props.properties.find((p: any) => 
+              (p.displayName || '').toString().toLowerCase() === 'livello' && 
+              (p.displayCategory || '').toString().toLowerCase() === 'vincoli'
+            );
+            if (itLevel?.displayValue != null) {
+              level = itLevel.displayValue.toString();
+            } else {
+              // Fallback: any "Level" property with string type
+              const fallbackLevel = props.properties.find((p: any) => 
+                (p.displayName || '').toString().toLowerCase() === 'level' && p.type === 20
+              );
+              if (fallbackLevel?.displayValue != null) {
+                level = fallbackLevel.displayValue.toString();
+              }
+            }
           }
-          let room = getProp(['Room', 'Space', 'Locale']);
+          
+          let room = getProp(['Room', 'Space', 'Locale', 'Nome del locale']);
           const spaceCode = getProp(['Space Code', 'Number', 'Mark', 'Nome codice']);
           let building = getProp(['Building', 'Edificio']);
 
@@ -5106,7 +5125,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
               'Fire Protection': ['fire', 'antincendio', 'sprinkler'],
               'Elevator': ['elevator', 'lift', 'ascensore'],
               'Safety': ['safety', 'protezione'],
-              'IT/Technology': ['it', 'network', 'data', 'tecnologia']
+              'IT/Technology': ['network', 'data', 'tecnologia']
             };
             for (const [disc, keywords] of Object.entries(mapping)) {
               for (const kw of keywords) {
@@ -5116,33 +5135,36 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             return '';
           };
 
-          // 1) Explicit discipline-like properties (including Italian names)
-          const disciplineCandidates = [
-            'Discipline', 'Discipline Type', 'Category Type', 'System Classification', 'System Name',
-            'Classification', 'Classificazione', 'Category', 'Family', 'Type', 'Type Name', 'Dati identità', 'Description'
-          ];
+          // 1) Try matching known disciplines from rawCategory first (most reliable)
+          if (rawCategory) {
+            discipline = matchKnownDiscipline(rawCategory) || '';
+            if (discipline) {
+              console.log('🎯 [Prefill] Discipline inferred from category →', discipline);
+            }
+          }
 
-          let found = '';
-          for (const cand of disciplineCandidates) {
-            const v = getProp([cand]);
-            if (v) {
-              // try matching known disciplines inside the value
-              found = matchKnownDiscipline(v) || found || v.split(/[,;/|]+/)[0]?.trim();
-              if (found) {
-                console.log('🎯 [Prefill] Discipline found from prop', cand, '→', found);
-                discipline = found;
-                break;
+          // 2) If not found from category, scan other discipline-like properties
+          if (!discipline) {
+            const disciplineCandidates = [
+              'Discipline', 'Discipline Type', 'Category Type', 'System Classification', 'System Name',
+              'Classification', 'Classificazione', 'Description'
+            ];
+
+            for (const cand of disciplineCandidates) {
+              const v = getProp([cand]);
+              if (v) {
+                // try matching known disciplines inside the value
+                const matched = matchKnownDiscipline(v);
+                if (matched) {
+                  console.log('🎯 [Prefill] Discipline found from prop', cand, '→', matched);
+                  discipline = matched;
+                  break;
+                }
               }
             }
           }
 
-          // 2) If still not found, try matching from category string
-          if (!discipline && rawCategory) {
-            discipline = matchKnownDiscipline(rawCategory) || '';
-            if (discipline) console.log('🎯 [Prefill] Discipline inferred from category →', discipline);
-          }
-
-          // 3)  Scan all properties names and values as fallback
+          // 3) Scan all properties names and values as fallback
           if (!discipline && Array.isArray(props?.properties)) {
             for (const p of props.properties) {
               const dv = (p.displayValue || '').toString();
@@ -5192,15 +5214,15 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             dbId
           });
 
-          // Update form
+          // Update form - fallback building to projectName when BIM object has no Building property
           setForm(v => ({
             ...v,
             item: name || `Object ${dbId}`,
             itemDbId: dbId,
             discipline: discipline || v.discipline,
             category: matchedCategory || v.category,
-            // Overwrite location fields; if undefined, clear instead of preserving stale values
-            building: building ?? '',
+            // Overwrite location fields; if missing, use projectName for building to avoid empty building
+            building: building || projectName || 'Project Name',
             level: level ?? '',
             room: room ?? '',
             spaceCode: spaceCode ?? ''
@@ -5413,7 +5435,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     // Clear draft after successful submission
     const emptyForm = {
       name: '', surname: '', contact: '',
-      building: '', level: '', room: '', spaceCode: '',
+      building: projectName ?? '', level: '', room: '', spaceCode: '',
       discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
@@ -5424,7 +5446,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
   const resetForm = () => {
     const emptyForm = {
       name: '', surname: '', contact: '',
-      building: '', level: '', room: '', spaceCode: '',
+      building: projectName ?? '', level: '', room: '', spaceCode: '',
       discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
@@ -5486,7 +5508,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                       itemDbId: null,
                       discipline: '',
                       category: '',
-                      building: '',
+                      building: projectName ?? '',
                       level: '',
                       room: '',
                       spaceCode: ''
