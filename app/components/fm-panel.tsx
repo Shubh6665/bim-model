@@ -1759,20 +1759,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
   // Auto-refresh assets when FM > Asset list opens (once per mount)
   const autoExtractOnceRef = React.useRef(false);
   useEffect(() => {
-    if (autoExtractOnceRef.current) return;
-    if (!projectId || !viewer) return;
+    // Auto-extract disabled per client request; extraction only runs when user clicks the button
     autoExtractOnceRef.current = true;
-    try {
-      const guid = getCurrentModelGuid();
-      const key = `fm-auto-extracted-${projectId}-${guid || 'noguid'}`;
-      const last = Number(localStorage.getItem(key) || '0');
-      // Skip auto-extract if we already have assets loaded or we extracted recently
-      if ((rows && rows.length > 0) || (Date.now() - last < 5 * 60 * 1000)) return;
-      console.log('🔁 [AssetList] Auto-extract on open (throttled)');
-      extractAssetsFromBIM();
-      localStorage.setItem(key, String(Date.now()));
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
   const onRowClick = (r: AssetRecord) => {
@@ -2576,24 +2564,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
         )}
       </div>
 
-      {/* Bulk actions for selected assets */}
-      {selectedIds.size > 0 && (
-        <div className="mx-3 my-2 flex flex-wrap gap-2 items-center p-2 bg-blue-900/20 border border-blue-500/50 rounded">
-          <span className="text-blue-300 text-xs">{selectedIds.size} selected</span>
-          <button
-            onClick={linkSelectionToAssets}
-            className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Insert 3D selection to assets
-          </button>
-          <button
-            onClick={clearLinkedSelection}
-            className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 text-white"
-          >
-            Clear link
-          </button>
-        </div>
-      )}
+      {/* Bulk 3D mapping UI removed per client request */}
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
@@ -3502,8 +3473,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const data = await res.json();
         if (Array.isArray(data)) {
           // Normalize ids
-          const normalized: SpaceRecord[] = data.map((d: any) => ({
-            id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+          const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
+            id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
             level: d.level,
             name: d.name,
             area: d.area,
@@ -3688,8 +3659,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d: any) => ({
-                id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
+              const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
                 level: d.level,
                 name: d.name,
                 area: d.area,
@@ -3753,8 +3724,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
           if (res.ok) {
             const data = await res.json();
-            const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any) => ({
-              id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
+            const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any, i: number) => ({
+              id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
               level: d.level,
               name: d.name,
               area: d.area,
@@ -3791,12 +3762,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Auto-refresh spaces when Space list opens (once per mount)
   const autoExtractSpacesOnceRef = React.useRef(false);
   useEffect(() => {
-    if (autoExtractSpacesOnceRef.current) return;
-    if (!projectId || !viewer) return;
+    // Auto-extract disabled per client request; extraction only runs when user clicks the button
     autoExtractSpacesOnceRef.current = true;
-    console.log('🔁 [Spaces] Auto-extract on open (background refresh)');
-    extractRoomsFromBIM();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
   // Listen for space-created events to refresh list
@@ -3809,8 +3776,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           .then(res => res.json())
           .then(data => {
             if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d: any) => ({
-                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+              const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
                 level: d.level,
                 name: d.name,
                 area: d.area,
@@ -4005,8 +3972,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                       const data = await res.json();
                       console.log('[SpaceList] Reloaded spaces:', data.length, 'items');
                       if (Array.isArray(data)) {
-                        const normalized: SpaceRecord[] = data.map((d: any) => ({
-                          id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+                        const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
+                          id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
                           level: d.level,
                           name: d.name,
                           area: d.area,
@@ -4051,6 +4018,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   });
 
   const [projectName, setProjectName] = useState<string>('');
+  const [buildingName, setBuildingName] = useState<string>('');
 
   // Load project metadata (name) so we can prefill Building
   useEffect(() => {
@@ -4068,17 +4036,65 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     })();
   }, [projectId]);
 
+  // Load Building Name from model root properties when available (retry until ready)
+  useEffect(() => {
+    let cancelled = false;
+    if (!viewer) return;
+    let attempts = 0;
+    const tryFetch = async () => {
+      if (cancelled) return;
+      attempts++;
+      try {
+        const model = viewer?.model;
+        if (!model) return;
+        const rootId = (model as any).getRootId?.() ?? 1;
+        const props: any = await new Promise(resolve => {
+          try { model.getProperties(rootId, resolve); } catch { resolve(null); }
+        });
+        const list = props?.properties as any[] | undefined;
+        if (!Array.isArray(list) || list.length === 0) {
+          if (attempts < 10) { setTimeout(tryFetch, 500); }
+          return;
+        }
+        const getProp = (names: string[]): string | undefined => {
+          const lower = names.map(n => n.toLowerCase());
+          const p = list.find((pp: any) => {
+            const dn = pp.displayName?.toLowerCase?.();
+            return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+          });
+          return p?.displayValue?.toString();
+        };
+        const b = getProp(['Building Name', 'Building']);
+        if (!cancelled && b) setBuildingName(b);
+      } catch {
+        if (attempts < 10) { setTimeout(tryFetch, 500); }
+      }
+    };
+    tryFetch();
+    return () => { cancelled = true; };
+  }, [viewer]);
+
   // (removed misplaced openHistory from CreateSpace)
 
   // (moved) openHistory was accidentally placed here before; removed from this component.
 
-  // When projectName becomes available, prefill building if empty
+  // Prefill/override Building: prefer Building Name; if it arrives later, override Project Name auto-fill
   useEffect(() => {
-    if (projectName && (!f.building || f.building.trim() === '')) {
-      setF(prev => ({ ...prev, building: projectName }));
-    }
+    setF(prev => {
+      const current = String(prev.building || '').trim();
+      const bn = String(buildingName || '').trim();
+      const pn = String(projectName || '').trim();
+      if (bn) {
+        if (!current || current === pn) return { ...prev, building: bn };
+        return prev;
+      }
+      if (pn) {
+        if (!current) return { ...prev, building: pn };
+      }
+      return prev;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectName]);
+  }, [projectName, buildingName]);
 
   // Auto-save draft to localStorage on every field change
   useEffect(() => {
@@ -5201,6 +5217,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
   const [waitingForSelection, setWaitingForSelection] = useState(false);
   const isStandalone = typeof window !== 'undefined' && window.opener;
   const [projectName, setProjectName] = useState<string>('');
+  const [buildingName, setBuildingName] = useState<string>('');
 
   // Cache to localStorage but prefer backend data when available
   useEffect(() => save(K.tickets(projectId), tickets), [tickets, projectId]);
@@ -5239,19 +5256,65 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           setProjectName(json?.project?.name || json?.name || '');
         }
       } catch (err) {
-        console.warn('[TicketForm] Could not load project metadata', err);
+        console.warn('[Ticket] Could not load project metadata', err);
       }
     })();
   }, [projectId]);
 
-  // When projectName becomes available, ensure building defaults to it if empty
+  // Load Building Name from model root properties when available (retry until ready)
   useEffect(() => {
-    if (!projectName) return;
+    let cancelled = false;
+    if (!viewer) return;
+    let attempts = 0;
+    const tryFetch = async () => {
+      if (cancelled) return;
+      attempts++;
+      try {
+        const model = viewer?.model;
+        if (!model) return;
+        const rootId = (model as any).getRootId?.() ?? 1;
+        const props: any = await new Promise(resolve => {
+          try { model.getProperties(rootId, resolve); } catch { resolve(null); }
+        });
+        const list = props?.properties as any[] | undefined;
+        if (!Array.isArray(list) || list.length === 0) {
+          if (attempts < 30) { setTimeout(tryFetch, 500); }
+          return;
+        }
+        const getProp = (names: string[]): string | undefined => {
+          const lower = names.map(n => n.toLowerCase());
+          const p = list.find((pp: any) => {
+            const dn = pp.displayName?.toLowerCase?.();
+            return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+          });
+        return p?.displayValue?.toString();
+        };
+        const b = getProp(['Building Name', 'Building']);
+        if (!cancelled && b) setBuildingName(b);
+      } catch {
+        if (attempts < 30) { setTimeout(tryFetch, 500); }
+      }
+    };
+    tryFetch();
+    return () => { cancelled = true; };
+  }, [viewer]);
+
+  // Prefill Building: prefer Building Name; if it arrives later, override Project Name auto-fill
+  useEffect(() => {
     setForm(prev => {
-      if (prev.building && String(prev.building).trim() !== '') return prev;
-      return { ...prev, building: projectName };
+      const current = String(prev.building || '').trim();
+      const bn = String(buildingName || '').trim();
+      const pn = String(projectName || '').trim();
+      if (bn) {
+        if (!current || current === pn) return { ...prev, building: bn };
+        return prev;
+      }
+      if (pn) {
+        if (!current) return { ...prev, building: pn };
+      }
+      return prev;
     });
-  }, [projectName]);
+  }, [projectName, buildingName]);
 
   // Listen for selection data from main window (standalone mode)
   useEffect(() => {
@@ -5312,7 +5375,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           discipline: discipline || v.discipline,
           category: matchedCategory || v.category,
           // Overwrite location fields explicitly; if missing, fallback to projectName so Building is auto-filled
-          building: d.building ?? projectName ?? '',
+          building: d.building ?? buildingName ?? projectName ?? '',
           level: d.level ?? '',
           room: d.room ?? '',
           spaceCode: d.spaceCode ?? ''
@@ -5601,7 +5664,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             discipline: discipline || v.discipline,
             category: matchedCategory || v.category,
             // Overwrite location fields; if missing, use projectName for building to avoid empty building
-            building: building || projectName || 'Project Name',
+            building: building || buildingName || projectName || 'Project Name',
             level: level ?? '',
             room: room ?? '',
             spaceCode: spaceCode ?? ''
@@ -5814,7 +5877,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     // Clear draft after successful submission
     const emptyForm = {
       name: '', surname: '', contact: '',
-      building: projectName ?? '', level: '', room: '', spaceCode: '',
+      building: (buildingName || projectName) ?? '', level: '', room: '', spaceCode: '',
       discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
@@ -5887,7 +5950,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                       itemDbId: null,
                       discipline: '',
                       category: '',
-                      building: projectName ?? '',
+                      building: (buildingName || projectName) ?? '',
                       level: '',
                       room: '',
                       spaceCode: ''
