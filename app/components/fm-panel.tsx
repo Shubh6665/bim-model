@@ -903,7 +903,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       );
     }
 
-    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} />;
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} onGoScheduled={() => setSection({ group: 'maintenance', item: 'scheduled' })} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
@@ -1234,7 +1234,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   );
 }
 
-const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
+const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: () => void; }> = ({ projectId, viewer, onGoScheduled }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
@@ -1262,13 +1262,65 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     window.setTimeout(() => setToast(null), 3500);
   };
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>(() => ({ open: false }));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Selected rows and uniform category/type check (gate for scheduling)
+  const selectedRows = React.useMemo(() => rows.filter(r => selectedIds.has(r.id)), [rows, selectedIds]);
+  const sameCategoryType = React.useMemo(() => {
+    if (selectedRows.length === 0) return false;
+    const c = selectedRows[0].category || '';
+    const t = selectedRows[0].type || '';
+    return selectedRows.every(r => (r.category || '') === c && (r.type || '') === t);
+  }, [selectedRows]);
 
   const isHexObjectId = (id?: string) => !!id && /^[a-f0-9]{24}$/i.test(id);
 
   const confirmDelete = (row: AssetRecord) => {
-    if (row.source !== 'MANUAL') return; // safety
     const label = row.assetName || row.assetCode || row.model || row.brand || row.category || 'this asset';
     setDeleteModal({ open: true, id: row.id, label });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRows.map(r => r.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const s = new Set(selectedIds);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setSelectedIds(s);
+  };
+
+  const linkSelectionToAssets = async () => {
+    if (!viewer) { showToast('error', 'No viewer'); return; }
+    let dbIds: number[] = [];
+    try {
+      const agg: any = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+      if (Array.isArray(agg) && agg.length > 0) dbIds = agg[0].selection || [];
+      if (!dbIds || dbIds.length === 0) {
+        const sel = viewer.getSelection?.();
+        if (sel && sel.length > 0) dbIds = sel;
+      }
+    } catch {}
+    if (!dbIds || dbIds.length === 0) { showToast('info', 'Select objects in 3D'); return; }
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) { showToast('info', 'Select assets in the list'); return; }
+    const guid = getCurrentModelGuid();
+    setRows(prev => prev.map(a => {
+      const i = ids.indexOf(a.id);
+      if (i === -1) return a;
+      const target = dbIds[i] ?? dbIds[0];
+      return { ...a, dbId: target as any, source: 'BIM_MODEL', modelGuid: guid || a.modelGuid, assetCode: a.assetCode || `BIM-${target}` };
+    }));
+    showToast('success', 'Linked selection to assets');
+  };
+
+  const clearLinkedSelection = () => {
+    if (selectedIds.size === 0) return;
+    setRows(prev => prev.map(a => selectedIds.has(a.id) ? { ...a, dbId: null as any } : a));
   };
 
   const performDelete = async () => {
@@ -1276,14 +1328,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     if (!id) { setDeleteModal({ open: false }); return; }
 
     try {
-      // Optimistically remove from UI
-      setRows(prev => prev.filter(a => a.id !== id));
-      save(K.assets(projectId), rows.filter(a => a.id !== id));
+      // Optimistically remove from UI and persist
+      const newRows = rows.filter(a => a.id !== id);
+      setRows(newRows);
+      save(K.assets(projectId), newRows);
 
       // Delete from backend if we have a valid ObjectId and projectId
       if (projectId && isHexObjectId(id)) {
         const res = await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (!res.ok) {
+        if (!res.ok && res.status !== 404) {
           const txt = await res.text().catch(() => '');
           console.warn('⚠️ [AssetList] Backend delete failed:', res.status, txt);
           showToast('error', 'Failed to delete from server — removed locally');
@@ -1709,9 +1762,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     if (autoExtractOnceRef.current) return;
     if (!projectId || !viewer) return;
     autoExtractOnceRef.current = true;
-    console.log('🔁 [AssetList] Auto-extract on open (background refresh)');
-    // Fire and forget; normal UI progress will show
-    extractAssetsFromBIM();
+    try {
+      const guid = getCurrentModelGuid();
+      const key = `fm-auto-extracted-${projectId}-${guid || 'noguid'}`;
+      const last = Number(localStorage.getItem(key) || '0');
+      // Skip auto-extract if we already have assets loaded or we extracted recently
+      if ((rows && rows.length > 0) || (Date.now() - last < 5 * 60 * 1000)) return;
+      console.log('🔁 [AssetList] Auto-extract on open (throttled)');
+      extractAssetsFromBIM();
+      localStorage.setItem(key, String(Date.now()));
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
@@ -1832,17 +1892,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
     if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
-  });
+  }).reduce<AssetRecord[]>((acc, r) => acc.concat(r), []).slice();
+  // Ensure manual assets are shown first (preserve relative order within each group)
+  const manualFirst = (() => {
+    const manual = filteredRows.filter(r => r.source === 'MANUAL');
+    const other = filteredRows.filter(r => r.source !== 'MANUAL');
+    return [...manual, ...other];
+  })();
 
   // Reset page when filters or page size change
   useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, pageSize]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(manualFirst.length / pageSize));
   const pageClamped = Math.min(page, totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedRows = filteredRows.slice(startIndex, endIndex);
+  const paginatedRows = manualFirst.slice(startIndex, endIndex);
 
   const applyFilterToViewer = () => {
     if (!viewer || filteredRows.length === 0) return;
@@ -2387,7 +2453,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   }, [viewer, rows]);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 relative">
       <div className="p-3 border-b border-gray-800">
         <div className="flex items-center justify-between mb-2">
           <div className="text-white font-semibold text-sm">Asset List</div>
@@ -2510,10 +2576,32 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         )}
       </div>
 
+      {/* Bulk actions for selected assets */}
+      {selectedIds.size > 0 && (
+        <div className="mx-3 my-2 flex flex-wrap gap-2 items-center p-2 bg-blue-900/20 border border-blue-500/50 rounded">
+          <span className="text-blue-300 text-xs">{selectedIds.size} selected</span>
+          <button
+            onClick={linkSelectionToAssets}
+            className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Insert 3D selection to assets
+          </button>
+          <button
+            onClick={clearLinkedSelection}
+            className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 text-white"
+          >
+            Clear link
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
+              <th className="px-2 py-1.5 w-8">
+                <input type="checkbox" checked={filteredRows.length > 0 && selectedIds.size === filteredRows.length} onChange={toggleSelectAll} />
+              </th>
               {visibleFields.basic && (
                 <>
                   <th className="text-left px-2 py-1.5">Source</th>
@@ -2588,6 +2676,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               </tr>
             ) : paginatedRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
+                <td className="px-2 py-1.5 w-8" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                </td>
                 {visibleFields.basic && (
                   <>
                     <td className="px-2 py-1.5">
@@ -2604,40 +2695,42 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
                     <td className="px-2 py-1.5">
-                      {r.source === 'MANUAL' && (
-                        <div className="flex items-center gap-1">
-                          <select
-                            value={r.placeholderShape || 'cube'}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
-                            className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                          >
-                            <option value="cube">Cube</option>
-                            <option value="sphere">Sphere</option>
-                          </select>
-                          <input
-                            onClick={e => e.stopPropagation()}
-                            value={r.placeholderSize ?? 0.3}
-                            onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
-                            className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                            placeholder="m"
-                          />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); placeManual(r); }}
-                            disabled={placingAssetId === r.id}
-                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
-                          >
-                            {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
-                            title="Delete"
-                            className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {r.source === 'MANUAL' && (
+                          <>
+                            <select
+                              value={r.placeholderShape || 'cube'}
+                              onClick={e => e.stopPropagation()}
+                              onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
+                              className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                            >
+                              <option value="cube">Cube</option>
+                              <option value="sphere">Sphere</option>
+                            </select>
+                            <input
+                              onClick={e => e.stopPropagation()}
+                              value={r.placeholderSize ?? 0.3}
+                              onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
+                              className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                              placeholder="m"
+                            />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); placeManual(r); }}
+                              disabled={placingAssetId === r.id}
+                              className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                            >
+                              {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
+                          title="Delete"
+                          className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
+                        >
+                          ×
+                        </button>
+                      </div>
                       {r.conflictWithId && (
                         <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
                       )}
@@ -2778,6 +2871,28 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </button>
         </div>
       </div>
+
+      {/* Scheduled Maintenance CTA (bottom-right below pagination) */}
+      {onGoScheduled && (
+        <div className="px-2 pb-2 flex justify-end">
+          <button
+            onClick={() => {
+              try {
+                const key = `fm-scheduled-preset-${projectId || 'global'}`;
+                const ids = Array.from(selectedIds);
+                const meta = selectedRows.length > 0 ? { category: selectedRows[0].category || '', type: selectedRows[0].type || '' } : { category: '', type: '' };
+                localStorage.setItem(key, JSON.stringify({ ids, ...meta }));
+              } catch {}
+              onGoScheduled();
+            }}
+            disabled={selectedIds.size === 0 || !sameCategoryType}
+            className={`text-white text-xs px-3 py-1.5 rounded shadow ${selectedIds.size > 0 && sameCategoryType ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 text-gray-300 cursor-not-allowed'}`}
+            title={selectedIds.size === 0 ? 'Select assets to schedule' : (!sameCategoryType ? 'Select assets with same Category and Type' : '')}
+          >
+            Scheduled maintenance
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -3953,6 +4068,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     })();
   }, [projectId]);
 
+  // (removed misplaced openHistory from CreateSpace)
+
+  // (moved) openHistory was accidentally placed here before; removed from this component.
+
   // When projectName becomes available, prefill building if empty
   useEffect(() => {
     if (projectName && (!f.building || f.building.trim() === '')) {
@@ -4409,6 +4528,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const prefillOnceRef = React.useRef(false);
 
   // Load scheduled maintenance from API
   useEffect(() => {
@@ -4532,6 +4652,29 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     };
     fetchAssets();
   }, [projectId, assetsLoaded]);
+
+  // Prefill selected assets from AssetList button (ids stored in localStorage)
+  useEffect(() => {
+    if (prefillOnceRef.current) return;
+    try {
+      const key = `fm-scheduled-preset-${projectId || 'global'}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const data: any = JSON.parse(raw);
+      const ids: string[] = Array.isArray(data?.ids) ? data.ids : [];
+      if (!ids.length) return;
+      if (assets.length === 0) return; // wait until assets fetched
+      const picked = assets.filter(a => ids.includes(a.id));
+      if (picked.length) {
+        // Enforce same category/type implicitly from AssetList; set allowed type here
+        const t = picked[0].type || picked[0].category || '';
+        setAllowedAssetType(t || null);
+        setSelectedAssets(picked.map(a => ({ label: a.assetName || a.assetCode || a.model || a.brand || `Asset ${a.id}` , type: a.type || a.category || '', id: a.id })));
+      }
+      prefillOnceRef.current = true;
+      localStorage.removeItem(key);
+    } catch {}
+  }, [assets, projectId]);
 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
@@ -7179,6 +7322,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
   const [workOrders, setWorkOrders] = useState<WOType[]>([]);
   const [openWO, setOpenWO] = useState<WOType | null>(null);
+  const [reportTime, setReportTime] = useState<string>('');
 
   // Load cached values from localStorage on client mount (won't run on server)
   useEffect(() => {
@@ -7206,6 +7350,11 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
     };
     loadFromBackend();
   }, [projectId]);
+
+  // Set a stable timestamp on client to avoid SSR/client mismatch
+  useEffect(() => {
+    setReportTime(new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+  }, []);
 
   const totalScheduled = scheduled.length;
   const totalWorkOrders = workOrders.length;
@@ -7242,7 +7391,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
       </div>
 
       <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400">Reports generated at: {new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>
+        <div className="text-xs text-gray-400">Reports generated at: {reportTime || '—'}</div>
       </div>
 
       <div className="mt-3">
@@ -7392,6 +7541,11 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   const [editMode, setEditMode] = useState<'asset' | 'tasks' | null>(null);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(false);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
+  const [editTaskInput, setEditTaskInput] = useState('');
+  const [historyFor, setHistoryFor] = useState<ScheduledItem | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyOrders, setHistoryOrders] = useState<WorkOrderItem[]>([]);
   
   const [edit, setEdit] = useState<{ discipline: string; category: string; code: string; assetType: string; assetsText: string; tasksText: string; frequency: string; timeHours: string; level: string; room: string }>({
     discipline: '', category: '', code: '', assetType: '', assetsText: '', tasksText: '', frequency: '', timeHours: '', level: '', room: ''
@@ -7449,6 +7603,45 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
     fetchAssets();
   }, [projectId]);
+
+  // Open and load maintenance history for an item (within PlannedMaintenance)
+  const openHistory = async (item: ScheduledItem) => {
+    try {
+      setHistoryFor(item);
+      setHistoryLoading(true);
+      let orders: WorkOrderItem[] = [];
+      if (projectId) {
+        try {
+          const res = await fetch(`/api/projects/${projectId}/work-orders`);
+          if (res.ok) {
+            const data = await res.json();
+            orders = Array.isArray(data) ? data : [];
+          }
+        } catch (e) {
+          console.error('Failed to load work orders for history', e);
+        }
+      }
+      if (!orders.length) {
+        orders = load(K.workOrders(projectId), [] as WorkOrderItem[]);
+      }
+      const assetNames = Array.isArray(item.asset) ? item.asset : [item.asset].filter(Boolean) as string[];
+      const code = item.code || '';
+      const lowerAssets = new Set(assetNames.map(a => String(a).toLowerCase()));
+      const filtered = orders.filter(o => {
+        const asset = (o.asset || '').toLowerCase();
+        const desc = (o.description || '').toLowerCase();
+        const loc = (o.location || '').toLowerCase();
+        const matchAsset = asset && [...lowerAssets].some(a => asset.includes(a));
+        const matchCode = code && (asset.includes(code.toLowerCase()) || desc.includes(code.toLowerCase()) || loc.includes(code.toLowerCase()));
+        return matchAsset || matchCode;
+      });
+      const toDate = (s?: string) => (s ? new Date(s).getTime() : 0);
+      filtered.sort((a, b) => (toDate(b.resolvedAt) || toDate(b.updatedAt) || toDate(b.createdAt)) - (toDate(a.resolvedAt) || toDate(a.updatedAt) || toDate(a.createdAt)));
+      setHistoryOrders(filtered);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const beginEditAsset = (item: ScheduledItem) => {
     setEditingId(item.id);
@@ -7533,7 +7726,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       <div className="text-white font-semibold text-sm">Planned Maintenance</div>
-      <div className="text-xs text-gray-400 mb-2">Structured view of all maintenance tasks</div>
+      {/* Subtitle intentionally omitted to avoid hydration flicker differences */}
 
       {loading ? (
         <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
@@ -7547,15 +7740,15 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
           <div className="sticky top-0 bg-gray-900/80 border border-gray-700 rounded-t-lg mb-0">
             <div className="grid grid-cols-12 gap-2 px-3 py-2.5 text-xs font-semibold text-gray-300 border-b border-gray-700">
               <div className="col-span-1">Actions</div>
-              <div className="col-span-1.5">Discipline</div>
-              <div className="col-span-1.5">Category</div>
+              <div className="col-span-2">Discipline</div>
+              <div className="col-span-2">Category</div>
               <div className="col-span-1">Asset Type</div>
               <div className="col-span-1">Code</div>
               <div className="col-span-2">Asset</div>
               <div className="col-span-1">Level</div>
               <div className="col-span-1">Room</div>
               <div className="col-span-1">Frequency</div>
-              <div className="col-span-0.5">Time</div>
+              <div className="col-span-1">Time</div>
             </div>
           </div>
 
@@ -7585,6 +7778,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                     <ClipboardList size={14} />
                   </button>
                   <button
+                    onClick={() => openHistory(item)}
                     className="p-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white transition-colors"
                     title="View maintenance history"
                   >
@@ -7593,12 +7787,12 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                 </div>
 
                 {/* Discipline */}
-                <div className="col-span-1.5 text-xs text-gray-200 truncate">
+                <div className="col-span-2 text-xs text-gray-200 truncate">
                   {item.discipline || '—'}
                 </div>
 
                 {/* Category */}
-                <div className="col-span-1.5 text-xs text-gray-300 truncate">
+                <div className="col-span-2 text-xs text-gray-300 truncate">
                   {item.category || '—'}
                 </div>
 
@@ -7633,7 +7827,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                 </div>
 
                 {/* Time */}
-                <div className="col-span-0.5 text-xs text-emerald-300">
+                <div className="col-span-1 text-xs text-emerald-300">
                   {item.timeHours}h
                 </div>
               </div>
@@ -7720,6 +7914,10 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                           </div>
                         ))}
                       </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowAssetPicker(true)} className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Select from asset list</button>
+                        <button onClick={() => setEdit(v => ({ ...v, assetsText: '' }))} className="px-3 py-2 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-800">Clear</button>
+                      </div>
                       <div>
                         <textarea
                           value={edit.assetsText}
@@ -7773,13 +7971,44 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                           </li>
                         ))}
                       </ul>
+                      <div className="flex gap-2">
+                        <input
+                          value={editTaskInput}
+                          onChange={e => setEditTaskInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const t = editTaskInput.trim();
+                              if (t) {
+                                setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
+                                setEditTaskInput('');
+                              }
+                            }
+                          }}
+                          placeholder="New task"
+                          className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            const t = editTaskInput.trim();
+                            if (t) {
+                              setEdit(v => ({ ...v, tasksText: (v.tasksText ? v.tasksText + '\n' : '') + t }));
+                              setEditTaskInput('');
+                            }
+                          }}
+                          className="px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
+                        >
+                          Add Task
+                        </button>
+                        <button onClick={() => setEdit(v => ({ ...v, tasksText: '' }))} className="px-3 py-2 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-800">Clear</button>
+                      </div>
                       <div>
                         <textarea
                           value={edit.tasksText}
                           onChange={e => setEdit(v => ({ ...v, tasksText: e.target.value }))}
                           className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
                           placeholder="Enter tasks (one per line)"
-                          rows={5}
+                          rows={4}
                         />
                       </div>
                     </div>
@@ -7802,6 +8031,109 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
               >
                 Save Changes
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Asset Picker Modal */}
+      {showAssetPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-[800px] max-w-full bg-gray-900 border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-white font-semibold">Select assets (category: {edit.category || 'All'})</div>
+              <button onClick={() => setShowAssetPicker(false)} className="px-2 py-1 rounded border border-gray-600 text-gray-200">Close</button>
+            </div>
+            <div className="h-[420px] overflow-auto">
+              {assetsLoading ? (
+                <div className="text-gray-400">Loading...</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {(() => {
+                    // Build token map like scheduled maintenance picker
+                    const masterMap = new Map<string, string[]>();
+                    for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+                      const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+                      masterMap.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
+                    }
+                    const tokens = masterMap.get(edit.category) || [];
+                    const filtered = tokens.length
+                      ? assets.filter(a => a.category && tokens.some(t => String(a.category).toLowerCase().includes(String(t).toLowerCase())))
+                      : assets;
+                    return filtered.map(a => {
+                      const display = a.assetName || a.assetCode || a.id;
+                      const already = edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean).includes(display);
+                      const canAdd = tokens.length === 0 || (a.category && tokens.some(t => String(a.category).toLowerCase().includes(String(t).toLowerCase())));
+                      // Try to infer canonical label for this asset's category
+                      let bestLabel: string | null = null;
+                      for (const [label, toks] of masterMap.entries()) {
+                        if (a.category && toks.some(t => String(a.category).toLowerCase().includes(String(t).toLowerCase()))) {
+                          bestLabel = label;
+                          break;
+                        }
+                      }
+                      return (
+                        <div key={a.id} className="flex items-center justify-between bg-gray-800/50 p-2 rounded border border-gray-700">
+                          <div>
+                            <div className="text-sm text-gray-200">{display}</div>
+                            <div className="text-xs text-gray-400">{a.category} • {a.location || '—'}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              disabled={already || !canAdd}
+                              onClick={() => {
+                                const list = edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean);
+                                if (!list.includes(display)) {
+                                  const next = [...list, display];
+                                  setEdit(v => ({ ...v, assetsText: next.join('\n'), category: v.category || (bestLabel || '') }));
+                                }
+                              }}
+                              className={`px-2 py-1 rounded text-white ${already ? 'bg-gray-600 cursor-not-allowed' : canAdd ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 cursor-not-allowed'}`}
+                              title={already ? 'Already added' : canAdd ? 'Add asset' : 'Category mismatch'}
+                            >
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {historyFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-[900px] max-w-full bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <div className="text-lg font-semibold text-white">Maintenance History — {historyFor.code || historyFor.category}</div>
+              <button onClick={() => { setHistoryFor(null); setHistoryOrders([]); }} className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              {historyLoading ? (
+                <div className="text-gray-400">Loading history…</div>
+              ) : historyOrders.length === 0 ? (
+                <div className="text-gray-400">No history found for selected asset(s).</div>
+              ) : (
+                <div className="space-y-2">
+                  {historyOrders.map(h => (
+                    <div key={h.id} className="bg-gray-800/50 rounded border border-gray-700 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-200 font-medium">{h.requestId || h.id} • {h.asset || h.location || '—'}</div>
+                        <div className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-200">{h.status}</div>
+                      </div>
+                      <div className="text-xs text-gray-300 mt-1">{h.description || '—'}</div>
+                      <div className="text-xs text-gray-500 mt-1">Resolved: {h.resolvedAt || '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
