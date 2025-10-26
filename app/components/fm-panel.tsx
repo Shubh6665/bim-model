@@ -2198,33 +2198,27 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
               ...(mesh.userData || {}),
               assetId: r.id,
               geomBaseSize: size,
-              shape
+              shape,
+              selectable: true
             };
-            mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
+            mesh.position.set(r.placeholderX!, r.placeholderY!, r.placeholderZ!);
             scene.add(mesh);
             map.set(r.id, mesh);
           } else {
-            // Update shape if changed
-            if (mesh.userData?.shape !== shape) {
-              try {
-                mesh.geometry?.dispose?.();
-              } catch {}
-              mesh.geometry = shape === 'sphere'
-                ? new THREE.SphereGeometry(size / 2, 12, 12)
-                : new THREE.BoxGeometry(size, size, size);
-              mesh.userData.shape = shape;
-              mesh.userData.geomBaseSize = size;
-              mesh.scale.set(1, 1, 1);
+            // Update existing mesh geometry/size if needed
+            const needSphere = shape === 'sphere';
+            const isSphere = (mesh.geometry as any)?.type?.toLowerCase?.()?.includes('sphere');
+            if (needSphere !== isSphere) {
+              mesh.geometry.dispose?.();
+              mesh.geometry = needSphere ? new THREE.SphereGeometry(size / 2, 12, 12) : new THREE.BoxGeometry(size, size, size);
+            } else {
+              // Adjust scale to reflect size changes
+              const s = needSphere ? (size / 2) : size;
+              mesh.scale.set(1,1,1);
+              mesh.geometry.dispose?.();
+              mesh.geometry = needSphere ? new THREE.SphereGeometry(size / 2, 12, 12) : new THREE.BoxGeometry(size, size, size);
             }
-            // Update position
-            const p = mesh.position;
-            if (p.x !== r.placeholderX || p.y !== r.placeholderY || p.z !== r.placeholderZ) {
-              mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
-            }
-            // Update size via scale, relative to base geom size
-            const base = Number(mesh.userData?.geomBaseSize) || size || 0.3;
-            const scale = (size || 0.3) / base;
-            mesh.scale.set(scale, scale, scale);
+            mesh.position.set(r.placeholderX!, r.placeholderY!, r.placeholderZ!);
           }
         }
       });
@@ -3510,11 +3504,17 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  // Show MANUAL spaces first while preserving relative order; always appear on earliest pages
+  const manualFirstSpaces = React.useMemo(() => {
+    const manual = rows.filter(r => r.source === 'MANUAL');
+    const other = rows.filter(r => r.source !== 'MANUAL');
+    return [...manual, ...other];
+  }, [rows]);
+  const totalPages = Math.max(1, Math.ceil(manualFirstSpaces.length / pageSize));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
-  const endIndex = Math.min(rows.length, startIndex + pageSize);
-  const paginatedRows = rows.slice(startIndex, endIndex);
+  const endIndex = Math.min(manualFirstSpaces.length, startIndex + pageSize);
+  const paginatedRows = manualFirstSpaces.slice(startIndex, endIndex);
 
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
