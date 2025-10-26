@@ -1328,6 +1328,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
     if (!id) { setDeleteModal({ open: false }); return; }
 
     try {
+      const assetToDelete = rows.find(a => a.id === id);
+      
       // Optimistically remove from UI and persist
       const newRows = rows.filter(a => a.id !== id);
       setRows(newRows);
@@ -1343,8 +1345,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
         } else {
           showToast('success', 'Asset deleted');
         }
+      } else if (projectId) {
+        // Track deleted BIM assets in backend to prevent re-extraction across all devices
+        if (assetToDelete && assetToDelete.source === 'BIM_MODEL') {
+          try {
+            await fetch(`/api/projects/${projectId}/deleted-assets`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ assetId: id, source: 'BIM_MODEL' })
+            });
+            console.log(`🗑️ [AssetList] Tracked deleted BIM asset in backend: ${id}`);
+          } catch (err) {
+            console.warn('⚠️ [AssetList] Failed to track deleted asset in backend:', err);
+          }
+        }
+        showToast('success', 'Asset deleted locally');
       } else {
-        // Local-only deletion
+        // No projectId - local-only deletion
         showToast('success', 'Asset deleted locally');
       }
     } catch (e) {
@@ -1658,9 +1675,26 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
         }
       });
 
+      // Fetch deleted BIM asset IDs from backend to prevent re-extraction across devices
+      let deletedBimIds = new Set<string>();
+      if (projectId) {
+        try {
+          const delRes = await fetch(`/api/projects/${projectId}/deleted-assets`);
+          if (delRes.ok) {
+            const delData = await delRes.json();
+            deletedBimIds = new Set<string>((delData.deletedAssets || []).map((d: any) => d.assetId || d.id).filter(Boolean));
+            console.log(`🗑️ [AssetList] Fetched ${deletedBimIds.size} deleted BIM asset IDs from backend`);
+          }
+        } catch (err) {
+          console.warn('⚠️ [AssetList] Failed to fetch deleted assets from backend:', err);
+        }
+      }
+      const filteredNewAssets = newAssets.filter(a => !deletedBimIds.has(a.id));
+      console.log(`🗑️ [AssetList] Excluded ${newAssets.length - filteredNewAssets.length} previously deleted BIM assets`);
+
       // Keep existing non-manual (older BIM) assets separate to allow override by new extraction
   // Replace BIM assets with the current model's assets; keep manual assets
-  const combined = [...existingManualAssets, ...newAssets];
+  const combined = [...existingManualAssets, ...filteredNewAssets];
 
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
@@ -2353,6 +2387,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
             const offset = new THREE.Vector3(mesh.position.x - p.x, mesh.position.y - p.y, 0);
             dragging = { id, dzPlane: dz, cursorOffset: offset };
             try { viewer.setNavigationLock?.(true); } catch { }
+            // Disable viewer's default selection so placeholder stays selected
+            try { viewer.clearSelection?.(); } catch {}
+          }
+        } else {
+          // Clicked elsewhere: deselect placeholder
+          if (vAny._fmSelectedPlaceholderId) {
+            highlightSelection(null);
           }
         }
       } catch { }
@@ -3641,7 +3682,25 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           : `LVLNAME|${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}|${(r.spaceCode || '').toLowerCase()}`;
         if (!seen.has(key)) seen.set(key, r);
       }
-      const newRows = Array.from(seen.values());
+      let newRows = Array.from(seen.values());
+      
+      // Fetch deleted BIM space IDs from backend to prevent re-extraction across devices
+      if (projectId) {
+        try {
+          const delRes = await fetch(`/api/projects/${projectId}/deleted-spaces`);
+          if (delRes.ok) {
+            const delData = await delRes.json();
+            const deletedSpaceIds = new Set<string>((delData.deletedSpaces || []).map((d: any) => d.spaceId || d.id).filter(Boolean));
+            console.log(`🗑️ [SpaceList] Fetched ${deletedSpaceIds.size} deleted BIM space IDs from backend`);
+            const beforeFilter = newRows.length;
+            newRows = newRows.filter(s => !deletedSpaceIds.has(s.id));
+            console.log(`🗑️ [SpaceList] Excluded ${beforeFilter - newRows.length} previously deleted BIM spaces`);
+          }
+        } catch (err) {
+          console.warn('⚠️ [SpaceList] Failed to fetch deleted spaces from backend:', err);
+        }
+      }
+      
       setExtractionProgress(90);
   console.log(`[Spaces] deduped newRows=${newRows.length}`);
 
@@ -3929,10 +3988,26 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" 
                 onClick={async () => {
                   try {
+                    const spaceToDelete = rows.find(s => s.id === deleteModal.id);
                     const res = await fetch(`/api/projects/${projectId}/spaces/${deleteModal.id}`, { method: 'DELETE' });
                     console.log(`[SpaceList] Delete response status:`, res.status);
                     if (res.ok) {
                       console.log(`[SpaceList] Space ${deleteModal.id} deleted successfully`);
+                      
+                      // Track deleted BIM spaces in backend to prevent re-extraction across devices
+                      if (spaceToDelete && spaceToDelete.source === 'BIM_MODEL' && projectId) {
+                        try {
+                          await fetch(`/api/projects/${projectId}/deleted-spaces`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ spaceId: deleteModal.id, source: 'BIM_MODEL' })
+                          });
+                          console.log(`🗑️ [SpaceList] Tracked deleted BIM space in backend: ${deleteModal.id}`);
+                        } catch (err) {
+                          console.warn('⚠️ [SpaceList] Failed to track deleted space in backend:', err);
+                        }
+                      }
+                      
                       setRows(rows.filter(x => x.id !== deleteModal.id));
                       setDeleteModal({ open: false });
                     } else {
@@ -4008,6 +4083,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows, setRows] = useState<SpaceRecord[]>([]);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
+  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
+    setToast({ type, text });
+    window.setTimeout(() => setToast(null), 3500);
+  };
   const [f, setF] = useState(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
@@ -4467,6 +4547,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       
       if (res.ok) {
         console.log('[CreateSpace] Space saved to DB successfully');
+        showToast('success', `Space "${rec.name || 'Unnamed'}" created successfully`);
         // Trigger a refresh event so SpaceList reloads
         window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId } }));
         
@@ -4480,6 +4561,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         cancelDrawing();
       } else {
         console.error('[CreateSpace] Failed to save space to DB');
+        showToast('error', 'Failed to save space. Please try again.');
       }
     } catch (e) {
       console.error('[CreateSpace] Error saving space:', e);
@@ -4514,6 +4596,13 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         </div>
       </div>
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
+      
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg text-white text-sm z-50 ${toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}>
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 };
