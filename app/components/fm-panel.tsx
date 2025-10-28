@@ -1749,6 +1749,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const trySelectInModel = (m: any) => {
           if (!m) return false;
           const mid = (typeof m.getModelId === 'function' ? m.getModelId() : m?.id);
+          console.log(`[FM][select] Trying dbId ${r.dbId} in model ${mid} (asset.modelId=${r.modelId})`);
           try {
             // Check if dbId exists in this model's instance tree
             const tree = m.getInstanceTree?.();
@@ -1805,11 +1806,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         };
 
         let selected = false;
-        if (target) selected = trySelectInModel(target);
-        if (!selected) {
+        if (target) {
+          // If we have a stored modelId, ONLY try that specific model (dbIds are not unique across models!)
+          selected = trySelectInModel(target);
+          if (!selected) {
+            console.warn(`[FM][select] Asset has modelId ${r.modelId} but dbId ${r.dbId} not found in that model. Skipping fallback to avoid selecting wrong object.`);
+          }
+        } else {
+          // No stored modelId - try all models as fallback (legacy assets)
+          console.log(`[FM][select] No modelId stored for dbId ${r.dbId}, trying all models...`);
           for (const m of allModels) { if (trySelectInModel(m)) { selected = true; break; } }
         }
-        if (!selected) { viewer.select?.([r.dbId as number]); viewer.fitToView?.([r.dbId as number]); }
+        if (!selected) { 
+          console.warn(`[FM][select] Could not select dbId ${r.dbId} in any model`);
+          viewer.select?.([r.dbId as number]); 
+          viewer.fitToView?.([r.dbId as number]); 
+        }
         return;
       }
       // Manual asset: frame placeholder if available
