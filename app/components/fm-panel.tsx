@@ -109,6 +109,14 @@ const REVIT_CATEGORIES: string[] = [
   'Zone riscaldamento ventilazione e aria condizionata'
 ];
 
+// Fields users are allowed to edit and that must always win during backend merges
+const EDITABLE_FIELDS: (keyof AssetRecord)[] = [
+  'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
+  'material','dimensions','weight','capacity','powerRating','location','description',
+  'condition','serviceDate','expectedLife','maintenanceSchedule','lastService','nextService',
+  'purchaseCost','maintenanceCost','manuals','warranties','certifications','regulations','safetyNotes'
+];
+
 // IFC class list (provided)
 const IFCCLASSES: string[] = [
   'IfcBuildingElementProxy',
@@ -239,6 +247,8 @@ interface AssetRecord {
   ifcPredefined?: string;
   // Aggregated IFC-related strings for robust filtering
   ifcCandidates?: string[];
+  // Mark when user edited fields locally; ensures editable fields win on merges
+  userEdited?: boolean;
 }
 
 interface SpaceRecord {
@@ -1410,8 +1420,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [placingAssetId, setPlacingAssetId] = useState<string | null>(null);
   // Pagination
-  const [page, setPage] = useState(1);
+  const pageStorageKey = `fm-assets-page-${projectId || 'global'}`;
+  const [page, setPage] = useState<number>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(pageStorageKey) : null;
+      const n = raw ? parseInt(raw, 10) : NaN;
+      return (Number.isFinite(n) && n > 0) ? n : 1;
+    } catch { return 1; }
+  });
   const [pageSize, setPageSize] = useState(10);
+  const [jumpPage, setJumpPage] = useState<string>('');
   const [visibleFields, setVisibleFields] = useState({
     basic: true,
     identification: false,
@@ -1431,7 +1449,62 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setToast({ type, text });
     window.setTimeout(() => setToast(null), 3500);
   };
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>(() => ({ open: false }));
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>({ open: false });
+  // Edit Asset modal
+  const [editModal, setEditModal] = useState<{ open: boolean; id?: string }>({ open: false });
+  const [editSection, setEditSection] = useState<'basic'|'identification'|'technical'|'documentation'|'lifecycle'|'maintenance'|'economic'|'compliance'|'relationships'>('basic');
+  const [edit, setEdit] = useState<Partial<AssetRecord>>({});
+
+  const pickEditable = (r: Partial<AssetRecord>): Partial<AssetRecord> => {
+    const out: Partial<AssetRecord> = {};
+    for (const k of EDITABLE_FIELDS) {
+      const v = (r as any)[k];
+      if (v !== undefined) (out as any)[k] = v as any;
+    }
+    return out;
+  };
+
+  const openEditAsset = (row: AssetRecord) => {
+    setEditModal({ open: true, id: row.id });
+    setEdit({ ...pickEditable(row) });
+    setEditSection('basic');
+  };
+
+  const persistEditToBackend = async (id: string, fields: Partial<AssetRecord>) => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateFields', id, fields })
+      });
+      if (!res.ok) {
+        // Try a generic PUT fallback
+        await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fields)
+        }).catch(() => {});
+      }
+    } catch {}
+  };
+
+  const saveEditAsset = async () => {
+    const id = editModal.id;
+    if (!id) { setEditModal({ open: false }); return; }
+    try {
+      const fields = pickEditable(edit);
+      setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r));
+      showToast('success', 'Asset updated');
+      // Persist to local immediately (handled by rows effect) and try backend
+      await persistEditToBackend(id, fields);
+    } catch (e) {
+      showToast('error', 'Failed to update asset');
+    } finally {
+      setEditModal({ open: false });
+    }
+  };
+  
 
   const isHexObjectId = (id?: string) => !!id && /^[a-f0-9]{24}$/i.test(id);
 
@@ -1567,11 +1640,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const mergedById = list.map(b => {
             const c = cached.find(x => x.id === b.id);
             if (!c) return b;
-            // Prefer cached values when backend has null/empty fields
+            // Prefer cached values when backend has null/empty fields, and ALWAYS prefer user edits on editable fields
             const merged: any = { ...b };
+            const isEdited = (c as any).userEdited === true;
             for (const key of Object.keys(c)) {
               const val = (c as any)[key];
-              if (val !== null && val !== undefined && val !== '') merged[key] = val;
+              if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
+                merged[key] = val; // user edited fields always win
+              } else if (val !== null && val !== undefined && val !== '') {
+                merged[key] = val;
+              }
             }
             return merged as AssetRecord;
           });
@@ -1620,49 +1698,60 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   // Refresh assets from localStorage when component becomes visible (to sync with CreateAsset)
   useEffect(() => {
-    const refreshFromStorage = () => {
+    // Refresh only on explicit create events (no visibilitychange auto-refresh). Backend preferred.
+    const refreshFromBackendOrCache = async () => {
       try {
+        const guid = getCurrentModelGuid();
+        if (projectId && guid) {
+          const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(guid)}`);
+          if (res && res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : [];
+            // Merge with cached local to preserve richer fields (IFC, manual overrides)
+            const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+            const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === guid);
+            const mergedById = list.map(b => {
+              const c = cached.find(x => x.id === b.id);
+              if (!c) return b;
+              const merged: any = { ...b };
+              const isEdited = (c as any).userEdited === true;
+              for (const key of Object.keys(c)) {
+                const val = (c as any)[key];
+                if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
+                  merged[key] = val; // user edited fields always win
+                } else if (val !== null && val !== undefined && val !== '') {
+                  merged[key] = val;
+                }
+              }
+              return merged as AssetRecord;
+            });
+            const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
+            const finalList = [...mergedById, ...cachedOnly];
+            const filtered = filterAssetsForCurrentModel(finalList);
+            const deduped = dedupeAssets(filtered);
+            console.log(`🔄 [AssetList] Refresh from backend: merged ${list.length} backend with ${cached.length} cached -> ${deduped.length}`);
+            setRows(deduped);
+            save(K.assets(projectId), deduped);
+            return;
+          }
+        }
+        // Fallback: use local cache only (no backend or fetch failed)
         const cached = load(K.assets(projectId), [] as AssetRecord[]);
         const filtered = filterAssetsForCurrentModel(cached);
         const deduped = dedupeAssets(filtered);
-        console.log(`🔄 [AssetList] Checking for updates - Current: ${rows.length}, Cached: ${cached.length}, Filtered: ${filtered.length}, Deduped: ${deduped.length}`);
-        setRows(prevRows => {
-          // Only update if there are actually new assets
-          if (deduped.length !== prevRows.length ||
-            JSON.stringify(deduped.map(a => a.id).sort()) !== JSON.stringify(prevRows.map(a => a.id).sort())) {
-            console.log(`✅ [AssetList] Refreshed from localStorage: ${deduped.length} assets`);
-            console.log('📋 [AssetList] Sample assets:', deduped.slice(0, 3));
-            return deduped;
-          }
-          return prevRows;
-        });
+        console.log(`🔄 [AssetList] Refresh from cache: ${deduped.length} assets`);
+        setRows(deduped);
       } catch (e) {
-        console.error('❌ [AssetList] Error refreshing from storage:', e);
+        console.error('❌ [AssetList] Error during refresh:', e);
       }
     };
 
-    // Listen for custom asset-created events
-    const handleAssetCreated = () => {
-      try {
-  const cached = load(K.assets(projectId), [] as AssetRecord[]);
-  const filtered = filterAssetsForCurrentModel(cached);
-  const deduped = dedupeAssets(filtered);
-  console.log(`🔔 [AssetList] Received asset-created event, forcing refresh from storage: ${cached.length} (filtered ${filtered.length}, deduped ${deduped.length}) assets`);
-  setRows(deduped);
-      } catch (e) {
-        console.error('🔔 [AssetList] Error during forced refresh:', e);
-      }
-    };
+    const handleAssetCreated = () => { void refreshFromBackendOrCache(); };
 
-    // Refresh immediately and listen for events
-    refreshFromStorage();
+    // Do not auto-refresh on mount; initial load is handled by loadFromBackend above.
     window.addEventListener('asset-created', handleAssetCreated);
 
-    // Also refresh every 3 seconds as fallback
-    const interval = setInterval(refreshFromStorage, 3000);
-
     return () => {
-      clearInterval(interval);
       window.removeEventListener('asset-created', handleAssetCreated);
     };
   }, [projectId, rows.length]);
@@ -1817,9 +1906,21 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         }
       });
 
-      // Keep existing non-manual (older BIM) assets separate to allow override by new extraction
-  // Replace BIM assets with the current model's assets; keep manual assets
-  const combined = [...existingManualAssets, ...newAssets];
+      // Merge newly extracted BIM assets with any locally edited versions (editable fields win)
+      const newAssetsMerged = newAssets.map(a => {
+        const old = rows.find(r => r.id === a.id && r.userEdited);
+        if (!old) return a;
+        const merged: any = { ...a };
+        for (const key of EDITABLE_FIELDS) {
+          const v = (old as any)[key];
+          if (v !== undefined) merged[key] = v;
+        }
+        merged.userEdited = true;
+        return merged as AssetRecord;
+      });
+
+      // Replace BIM assets with the current model's assets; keep manual assets
+      const combined = [...existingManualAssets, ...newAssetsMerged];
 
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
@@ -1901,9 +2002,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               const c = cached.find(x => x.id === b.id);
               if (!c) return b;
               const merged: any = { ...b };
+              const isEdited = (c as any).userEdited === true;
               for (const key of Object.keys(c)) {
                 const val = (c as any)[key];
-                if (val !== null && val !== undefined && val !== '') merged[key] = val;
+                if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
+                  merged[key] = val; // user edited fields always win
+                } else if (val !== null && val !== undefined && val !== '') {
+                  merged[key] = val;
+                }
               }
               return merged as AssetRecord;
             });
@@ -1938,14 +2044,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Auto-refresh assets when FM > Asset list opens (once per mount)
   const autoExtractOnceRef = React.useRef(false);
   useEffect(() => {
+    // Remove auto-extract on open to avoid unintentional refreshes and page resets.
+    // User must click 'Extract from BIM' to refresh assets.
     if (autoExtractOnceRef.current) return;
-    if (!projectId || !viewer) return;
     autoExtractOnceRef.current = true;
-    console.log('🔁 [AssetList] Auto-extract on open (background refresh)');
-    // Fire and forget; normal UI progress will show
-    extractAssetsFromBIM();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, viewer]);
+  }, []);
 
   const onRowClick = (r: AssetRecord) => {
     try {
@@ -2193,6 +2296,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   // Reset page when filters or page size change
   useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, pageSize]);
+
+  // Persist page number per project so minimize/maximize (or remount) keeps the same page
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem(pageStorageKey, String(page));
+    } catch {}
+  }, [page, pageStorageKey]);
 
   // Debug aid: log IFC filtering stats when user selects an IFC class
   useEffect(() => {
@@ -2797,6 +2907,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           )}
         </div>
 
+  {/* In-memory Edit Asset modal trigger is per-row in Actions column below */}
+
         {/* Controls: Show/Hide & Filters toggles */}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -2986,8 +3098,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
                     <td className="px-2 py-1.5">
-                      {r.source === 'MANUAL' && (
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditAsset(r); }}
+                          title="Edit Asset"
+                          className="inline-flex items-center justify-center h-6 px-2 rounded border text-[11px] bg-amber-800/30 border-amber-700 text-amber-200 hover:bg-amber-800/50"
+                        >Edit</button>
+                        {r.source === 'MANUAL' && (
+                          <>
                           <select
                             value={r.placeholderShape || 'cube'}
                             onClick={e => e.stopPropagation()}
@@ -3018,11 +3136,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           >
                             ×
                           </button>
-                        </div>
-                      )}
-                      {r.conflictWithId && (
-                        <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
-                      )}
+                          </>
+                        )}
+                        {r.conflictWithId && (
+                          <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
+                        )}
+                      </div>
                     </td>
                   </>
                 )}
@@ -3125,6 +3244,97 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         </div>
       )}
 
+      {/* Edit Asset Modal */}
+      {editModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[700px] max-w-[95vw] max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-white text-sm font-semibold">Edit Asset</div>
+              <div className="flex items-center gap-2 text-xs">
+                {(['basic','identification','technical','documentation','lifecycle','maintenance','economic','compliance','relationships'] as const).map(tab => (
+                  <button key={tab}
+                    className={`px-2 py-1 rounded border ${editSection===tab?'text-white border-gray-500 bg-gray-700':'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
+                    onClick={() => setEditSection(tab)}
+                  >{tab[0].toUpperCase()+tab.slice(1)}</button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {editSection==='basic' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Category</span><input value={edit.category||''} onChange={e=>setEdit(p=>({...p, category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Type</span><input value={edit.type||''} onChange={e=>setEdit(p=>({...p, type:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Brand</span><input value={edit.brand||''} onChange={e=>setEdit(p=>({...p, brand:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Model</span><input value={edit.model||''} onChange={e=>setEdit(p=>({...p, model:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Description</span><textarea value={edit.description||''} onChange={e=>setEdit(p=>({...p, description:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
+                </>
+              )}
+              {editSection==='identification' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Asset Code</span><input value={edit.assetCode||''} onChange={e=>setEdit(p=>({...p, assetCode:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Asset Name</span><input value={edit.assetName||''} onChange={e=>setEdit(p=>({...p, assetName:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Serial Number</span><input value={edit.serialNumber||''} onChange={e=>setEdit(p=>({...p, serialNumber:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Installation Date</span><input value={edit.installationDate||''} onChange={e=>setEdit(p=>({...p, installationDate:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+              {editSection==='technical' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Material</span><input value={edit.material||''} onChange={e=>setEdit(p=>({...p, material:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Dimensions</span><input value={edit.dimensions||''} onChange={e=>setEdit(p=>({...p, dimensions:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Weight</span><input value={edit.weight||''} onChange={e=>setEdit(p=>({...p, weight:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Capacity</span><input value={edit.capacity||''} onChange={e=>setEdit(p=>({...p, capacity:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Power Rating</span><input value={edit.powerRating||''} onChange={e=>setEdit(p=>({...p, powerRating:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+              {editSection==='documentation' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Manuals</span><input value={edit.manuals||''} onChange={e=>setEdit(p=>({...p, manuals:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Warranties</span><input value={edit.warranties||''} onChange={e=>setEdit(p=>({...p, warranties:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Regulations</span><input value={edit.regulations||''} onChange={e=>setEdit(p=>({...p, regulations:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Safety Notes</span><textarea value={edit.safetyNotes||''} onChange={e=>setEdit(p=>({...p, safetyNotes:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
+                </>
+              )}
+              {editSection==='lifecycle' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Condition</span><input value={edit.condition||''} onChange={e=>setEdit(p=>({...p, condition:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Service Date</span><input value={edit.serviceDate||''} onChange={e=>setEdit(p=>({...p, serviceDate:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Expected Life</span><input value={edit.expectedLife||''} onChange={e=>setEdit(p=>({...p, expectedLife:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+              {editSection==='maintenance' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Maintenance Schedule</span><input value={edit.maintenanceSchedule||''} onChange={e=>setEdit(p=>({...p, maintenanceSchedule:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Last Service</span><input value={edit.lastService||''} onChange={e=>setEdit(p=>({...p, lastService:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Next Service</span><input value={edit.nextService||''} onChange={e=>setEdit(p=>({...p, nextService:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+              {editSection==='economic' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Purchase Cost</span><input value={edit.purchaseCost||''} onChange={e=>setEdit(p=>({...p, purchaseCost:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300"><span>Maintenance Cost</span><input value={edit.maintenanceCost||''} onChange={e=>setEdit(p=>({...p, maintenanceCost:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+              {editSection==='compliance' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Regulations</span><input value={edit.regulations||''} onChange={e=>setEdit(p=>({...p, regulations:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Safety Notes</span><textarea value={edit.safetyNotes||''} onChange={e=>setEdit(p=>({...p, safetyNotes:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
+                </>
+              )}
+              {editSection==='relationships' && (
+                <>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Location</span><input value={edit.location||''} onChange={e=>setEdit(p=>({...p, location:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Suppliers</span><input value={edit.suppliers||''} onChange={e=>setEdit(p=>({...p, suppliers:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
+                </>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" onClick={() => setEditModal({ open: false })}>Cancel</button>
+              <button className="px-3 py-1.5 rounded text-xs bg-emerald-700 hover:bg-emerald-600 text-white" onClick={saveEditAsset}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Pagination Controls */}
       <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -3150,6 +3360,32 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             &#8249;
           </button>
           <span className="mx-1 whitespace-nowrap">{pageClamped}/{totalPages}</span>
+          <div className="mx-2 flex items-center gap-1">
+            <input
+              type="number"
+              min={1}
+              max={totalPages}
+              value={jumpPage}
+              onChange={e => setJumpPage(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const n = Math.max(1, Math.min(totalPages, Number(e.currentTarget.value || 1)));
+                  setPage(n);
+                  setJumpPage('');
+                }
+              }}
+              placeholder="#"
+              className="w-12 h-6 text-xs bg-gray-800 border border-gray-700 rounded px-1 text-white"
+            />
+            <button
+              onClick={() => {
+                const n = Math.max(1, Math.min(totalPages, Number(jumpPage || pageClamped)));
+                setPage(n);
+                setJumpPage('');
+              }}
+              className="h-6 px-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs"
+            >Go</button>
+          </div>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={pageClamped >= totalPages}
