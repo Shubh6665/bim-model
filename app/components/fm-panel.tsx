@@ -9,6 +9,106 @@ import { APSAssetExtractor, type APSAsset } from '../services/aps-asset-extracto
 import { ViewerLeafAssetExtractor, type ViewerAsset } from '../services/viewer-leaf-asset-extractor';
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
+// Fixed Revit categories list (module-level so it can be reused across this component)
+const REVIT_CATEGORIES: string[] = [
+  'Accessori per tubazioni',
+  'Accessori per condotti',
+  'Apparecchi elettrici',
+  'Apparecchi idraulici',
+  'Apparecchi per illuminazione',
+  'Aree',
+  'Aree di rete strutturale',
+  'Aree pavimentate e costruite',
+  'Armatura strutturale',
+  'Armatura su area strutturale',
+  'Armatura su percorso strutturale',
+  'Arredi',
+  'Arredi fissi',
+  'Attrezzatura elettrica',
+  'Attrezzatura idraulica',
+  'Attrezzatura meccanica',
+  'Attrezzatura medica',
+  'Attrezzatura per servizi alimentari',
+  'Attrezzatura per servizi alimentazione',
+  'Attrezzature speciali',
+  'Bocchettoni',
+  'Canaline di fabbricazione MEP',
+  'Cavedi',
+  'Cavi',
+  'Circolazione verticale',
+  'Collegamenti strutturali',
+  'Collocazioni condotto',
+  'Collocazioni tubazione',
+  'Condotti di fabbricazione MEP',
+  'Condotto',
+  'Condotto flessibile',
+  'Contesto',
+  'Controsoffitti',
+  'Dispositivi allarme incendio',
+  'Dispositivi audiovisivi',
+  'Dispositivi chiamata infermiera',
+  'Dispositivi dati',
+  'Dispositivi di comunicazione',
+  'Dispositivi di controllo meccanico',
+  'Dispositivi di illuminazione',
+  'Dispositivi di sicurezza',
+  'Dispositivi telefonici',
+  'Elementi di dettaglio',
+  'Estintori',
+  'Finestre',
+  'Fondazioni strutturali',
+  'Irrigidimenti condotti di fabbricazione MEP',
+  'Irrigidimenti strutturali',
+  'Isolamenti condotti',
+  'Isolamenti tubazioni',
+  'Linee',
+  'Locali',
+  'Manicotti armatura strutturale',
+  'Massa',
+  'Modelli generici',
+  'Montanti della facciata continua',
+  'Muri',
+  'Pannelli di facciata continua',
+  'Passerelle',
+  'Pavimenti',
+  'Pilastri',
+  'Pilastri strutturali',
+  'Planimetria',
+  'Porte',
+  'Posti auto',
+  'Protezione antincendio',
+  'Raccordi condotto',
+  'Raccordi passerella',
+  'Raccordi tubazione',
+  'Raccordi tubo protettivo',
+  'Rampe inclinate',
+  'Rinforzo rete strutturale',
+  'Ringhiere',
+  'Rivestimenti condotti',
+  'Scale',
+  'Segnaletica',
+  'Sistemi di arredo',
+  'Sistemi di facciata continua',
+  'Sistemi di travi strutturali',
+  'Solido topografico',
+  'Staffe di fabbricazione MEP',
+  'Strade',
+  'Stratigrafia',
+  'Strutture temporanee',
+  'Telaio ausiliario MEP',
+  'Telaio strutturale',
+  'Tetti',
+  'Topografia',
+  'Travi reticolari strutturali',
+  'Tubazioni',
+  'Tubazioni di fabbricazione MEP',
+  'Tubazioni flessibili',
+  'Tubi protettivi',
+  'Vani',
+  'Verde',
+  'Zone riscaldamento ventilazione e aria condizionata'
+];
+
 // Extended models
 interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; initialSection?: Section | null }
 
@@ -1362,19 +1462,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     return map;
   }, []);
 
-  // Final category list for AssetList filter: master categories first, then any extra categories found in assets
-  const assetCategories: string[] = React.useMemo(() => {
-    const master = new Set(assetCategoryMasterOptions);
-    const extras = new Set<string>();
-    for (const a of rows) {
-      const c = a.category;
-      if (!c) continue;
-      if (!master.has(c)) extras.add(c);
-    }
-    const list: string[] = [...Array.from(master).sort()];
-    if (extras.size) list.push(...Array.from(extras).sort());
-    return list;
-  }, [rows, assetCategoryMasterOptions]);
+  // Use module-level REVIT_CATEGORIES for filters (replaces previous dynamic category construction)
+  const assetCategories: string[] = React.useMemo(() => REVIT_CATEGORIES, []);
 
   // Load assets from backend (preferred), fallback to localStorage
   useEffect(() => {
@@ -2577,12 +2666,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-800 w-full">
             <div className="grid grid-cols-2 gap-2">
               <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-                <option value="">All Categories</option>
+                <option value="">Revit Categories</option>
                 {assetCategories.map(cat => {
                   const isMaster = assetCategoryMasterOptions.includes(cat);
                   return (
                     <option key={cat} value={cat}>
-                      {cat}{!isMaster ? ' (extra)' : ''}
+                      {cat}{!isMaster ? '' : ''}
                     </option>
                   );
                 })}
@@ -4725,23 +4814,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
 
   // Get category list for filter: start with master categoryOptions (labels), then add any extra categories found in assets
   // master labels are like "Italian / English (IFC)"; assets may have raw categories — include them too and mark as extra
-  const assetCategories = React.useMemo(() => {
-    const master = new Set(categoryOptions.map(c => c.label));
-    const extras = new Set<string>();
-    for (const a of assets) {
-      if (!a.category) continue;
-      // If asset category exactly matches a master label, skip
-      if (master.has(a.category)) continue;
-      extras.add(a.category);
-    }
-
-    // Build final list: master labels first, then extras
-    const list: string[] = [...Array.from(master).sort()];
-    if (extras.size) {
-      list.push(...Array.from(extras).sort());
-    }
-    return list;
-  }, [assets, categoryOptions]);
+  const assetCategories = React.useMemo(() => REVIT_CATEGORIES, []);
 
   const addTask = () => {
     if (currentTask.trim()) {
@@ -5092,7 +5165,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
                   onChange={e => setAssetCategoryFilter(e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
                 >
-                  <option value="">All Categories ({assets.length})</option>
+                  <option value="">Revit Categories ({assets.length})</option>
                   {assetCategories.map(cat => {
                     const isMaster = categoryOptions.some(co => co.label === cat);
                     const count = assets.filter(a => a.category === cat).length;
