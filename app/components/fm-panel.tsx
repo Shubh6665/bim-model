@@ -1352,14 +1352,120 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
 
                 <button
                   title="Open in new window"
-                  onClick={() => {
+                  onClick={async () => {
                     try {
+                        // Capture current model context and a prefill snapshot so the standalone window can work without the viewer
+                        const getViewerContext = () => {
+                          try {
+                            const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
+                            const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
+                            return { modelGuid, urn } as { modelGuid?: string; urn?: string };
+                          } catch { return {}; }
+                        };
+                        const capturePrefillSnapshot = async (): Promise<Partial<AssetRecord> | null> => {
+                          try {
+                            if (!viewer) return null;
+                            const getAgg = () => new Promise<any>((resolve) => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+                            let dbId: number | undefined; let model: any = viewer.model;
+                            const agg = await getAgg();
+                            if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+                            else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
+                            if (dbId == null || !model) return null;
+                            const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
+                            const propArray: any[] = Array.isArray(props?.properties) ? props.properties : [];
+                            const propsMap: Record<string, any> = {};
+                            const propsLower: Record<string, any> = {};
+                            for (const prop of propArray) {
+                              const name = (prop?.displayName ?? '').toString();
+                              if (!name) continue;
+                              const value = prop?.displayValue;
+                              propsMap[name] = value;
+                              propsLower[name.toLowerCase().trim()] = value;
+                            }
+                            const pick = (...keys: string[]): string | undefined => {
+                              for (const key of keys) {
+                                const direct = propsMap[key];
+                                if (direct !== undefined && direct !== null && direct !== '') return direct.toString();
+                                const lk = key.toLowerCase().trim();
+                                const lowerVal = propsLower[lk];
+                                if (lowerVal !== undefined && lowerVal !== null && lowerVal !== '') return lowerVal.toString();
+                              }
+                              return undefined;
+                            };
+                            const PROP_ALIASES: Record<string, string[]> = {
+                              brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
+                              modelName: ['Model', 'Type Name', 'Model Number', 'Nome del tipo', 'Nome del tipo'],
+                              serial: ['Serial Number', 'Serial', 'Numero di serie'],
+                              installDate: ['Install Date', 'Installation Date', 'Data di installazione'],
+                              power: ['Power', 'Power Rating', 'kW', 'Dati elettrici', 'Alimentazione apparente'],
+                              capacity: ['Capacity', 'Capacità'],
+                              weight: ['Weight', 'Peso'],
+                              length: ['Length', 'Lunghezza'],
+                              width: ['Width', 'Larghezza'],
+                              height: ['Height', 'Thickness', 'Altezza'],
+                              material: ['Material', 'Structural Material', 'Materiale', 'Materiale strutturale'],
+                              level: ['Schedule Level','Livello abaco','Base Level','Reference Level','Livello di base','Livello superiore','Vincolo di base','Vincolo parte superiore','Base Constraint','Top Constraint','Constraint','Vincolo','Livello','Level','Piano','Piano Terra','Level 1'],
+                              room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
+                              rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
+                            };
+                            const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
+                            const brand = pickAlias('brand');
+                            const modelName = pickAlias('modelName');
+                            const serial = pickAlias('serial');
+                            const installDate = pickAlias('installDate');
+                            const power = pickAlias('power');
+                            const capacity = pickAlias('capacity');
+                            const weight = pickAlias('weight');
+                            const length = pickAlias('length');
+                            const width = pickAlias('width');
+                            const height = pickAlias('height');
+                            const material = pickAlias('material');
+                            const level = pickAlias('level');
+                            const room = pickAlias('room');
+                            const rawCategory = pickAlias('rawCategory') || pick('Category','Categoria','OmniClass Title','OmniClass','Tipo');
+                            const mapToStandardCategoryLocal = (category?: string): string | undefined => {
+                              if (!category) return undefined;
+                              const cat = category.toLowerCase();
+                              for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                                if (cat.includes(it.toLowerCase()) || cat.includes(m.english.toLowerCase()) || cat.includes(m.ifc.toLowerCase())) {
+                                  return `${it} / ${m.english} (${m.ifc})`;
+                                }
+                              }
+                              return category;
+                            };
+                            const category = mapToStandardCategoryLocal(rawCategory);
+                            const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
+                            return {
+                              brand: brand || '',
+                              model: modelName || '',
+                              serialNumber: serial || '',
+                              installationDate: installDate || '',
+                              powerRating: power || '',
+                              capacity: capacity || '',
+                              weight: weight || '',
+                              dimensions: dimensions || '',
+                              material: material || '',
+                              location: [level, room].filter(Boolean).join(' - ') || '',
+                              category: category || ''
+                            } as Partial<AssetRecord>;
+                          } catch { return null; }
+                        };
+
+                        const ctx = getViewerContext();
+                        const prefill = await capturePrefillSnapshot();
+                        if (projectId) {
+                          try { localStorage.setItem(`fm-context-${projectId}`, JSON.stringify(ctx)); } catch {}
+                          try { if (prefill) localStorage.setItem(`fm-prefill-${projectId}`, JSON.stringify(prefill)); } catch {}
+                        }
                       const s = encodeURIComponent(JSON.stringify(section));
                       const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
                       const w = window.open(url, `_blank`, `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`);
                       if (w) {
                         childWinRef.current = w;
                       }
+                        // Close the current popup when opening a new window
+                        setShowModal(false);
+                        setSection(s => s ? { ...s, item: null } : s);
                     } catch (err) { console.error('Failed to open standalone window', err); }
                   }}
                   className="w-8 h-8 grid place-items-center rounded-full border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
@@ -1473,17 +1579,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const persistEditToBackend = async (id: string, fields: Partial<AssetRecord>) => {
     if (!projectId) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/assets`, {
-        method: 'POST',
+      // Prefer a strict update endpoint to avoid accidental creations
+      const res = await fetch(`/api/projects/${projectId}/assets/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'updateFields', id, fields })
+        body: JSON.stringify(fields)
       });
       if (!res.ok) {
-        // Try a generic PUT fallback
-        await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, {
-          method: 'PUT',
+        // Fallback to explicit action that must not create new records
+        await fetch(`/api/projects/${projectId}/assets`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fields)
+          body: JSON.stringify({ action: 'updateFields', id, fields, noCreate: true })
         }).catch(() => {});
       }
     } catch {}
@@ -1572,7 +1679,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       const g = viewer?.model?.getData?.()?.guid;
       if (g && typeof g === 'string') return g;
       const mid = viewer?.model?.id;
-      return (mid != null) ? String(mid) : undefined;
+      if (mid != null) return String(mid);
+      // Fallback to context stored when opening standalone window
+      try {
+        const ctxRaw = projectId ? localStorage.getItem(`fm-context-${projectId}`) : null;
+        if (ctxRaw) { const ctx = JSON.parse(ctxRaw || '{}'); if (ctx?.modelGuid) return String(ctx.modelGuid); }
+      } catch {}
+      return undefined;
     } catch { return undefined; }
   }, [viewer]);
 
@@ -1747,19 +1860,78 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     };
 
     const handleAssetCreated = () => { void refreshFromBackendOrCache(); };
+  const handleAssetUpdated = () => { void refreshFromBackendOrCache(); };
 
     // Do not auto-refresh on mount; initial load is handled by loadFromBackend above.
-    window.addEventListener('asset-created', handleAssetCreated);
+  window.addEventListener('asset-created', handleAssetCreated);
+  window.addEventListener('asset-updated', handleAssetUpdated);
 
     return () => {
       window.removeEventListener('asset-created', handleAssetCreated);
+      window.removeEventListener('asset-updated', handleAssetUpdated);
     };
   }, [projectId, rows.length]);
 
   // BIM Asset Extraction
   const extractAssetsFromBIM = async () => {
+    // If viewer is missing (standalone), try APS fallback using stored URN
+    const tryAPS = async (): Promise<boolean> => {
+      try {
+        const ctxRaw = projectId ? localStorage.getItem(`fm-context-${projectId}`) : null;
+        const ctx = ctxRaw ? JSON.parse(ctxRaw) : {};
+        const urn: string | undefined = ctx?.urn;
+        if (!urn) return false;
+        setIsExtracting(true);
+        setExtractionProgress(1);
+        const extractor = new APSAssetExtractor(urn);
+        const result = await extractor.extractAllAssets((progress) => setExtractionProgress(Math.min(99, Math.max(1, progress))));
+        const currentGuid = ctx?.modelGuid || getCurrentModelGuid();
+        const newAssets: AssetRecord[] = result.assets.map((a) => ({
+          id: `aps-${a.modelGuid}-${a.objectId}`,
+          assetName: a.name,
+          category: a.category,
+          type: a.type,
+          brand: a.brand,
+          model: a.model,
+          serialNumber: a.serialNumber,
+          material: a.material,
+          location: a.location,
+          source: 'BIM_MODEL',
+          dbId: a.objectId,
+          modelGuid: a.modelGuid || currentGuid,
+        }));
+        // Upsert to backend when projectId exists
+        if (projectId && newAssets.length) {
+          await fetch(`/api/projects/${projectId}/assets`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upsertMany', assets: newAssets })
+          }).catch(() => {});
+          // Reload list
+          const res = await fetch(`/api/projects/${projectId}/assets${currentGuid ? `?modelGuid=${encodeURIComponent(currentGuid)}` : ''}`);
+          if (res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : [];
+            setRows(dedupeAssets(filterAssetsForCurrentModel(list)));
+            save(K.assets(projectId), dedupeAssets(filterAssetsForCurrentModel(list)));
+          }
+        } else {
+          // Local-only update
+          setRows(prev => dedupeAssets(filterAssetsForCurrentModel([...prev, ...newAssets])));
+        }
+        setExtractionProgress(100);
+        setTimeout(() => setExtractionProgress(0), 800);
+        setIsExtracting(false);
+        return true;
+      } catch (e) {
+        console.warn('[AssetList] APS fallback extraction failed', e);
+        setIsExtracting(false);
+        return false;
+      }
+    };
+
     if (!viewer || !viewer.model) {
-      showToast('error', 'No BIM model loaded. Please load a model first.');
+      const ok = await tryAPS();
+      if (!ok) showToast('error', 'No BIM model loaded. Open from the main window or ensure context includes URN.');
       return;
     }
 
@@ -3247,7 +3419,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       {/* Edit Asset Modal - reuse CreateAsset UI so the edit dialog is identical to create */}
       {editModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[900px] max-w-[980vw] max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[1100px] max-w-[98vw] max-h-[90vh] overflow-auto resize" style={{ minWidth: '640px', minHeight: '420px', resize: 'both' }} onClick={e => e.stopPropagation()}>
             <CreateAsset
               projectId={projectId}
               viewer={viewer}
@@ -3262,6 +3434,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                   setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r));
                   // persist to backend if possible
                   await persistEditToBackend(id, fields);
+                  try { const key = K.assets(projectId); const current = load(key, [] as AssetRecord[]); const updated = current.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r); save(key, updated); } catch {}
+                  try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
                   showToast('success', 'Asset updated');
                 } catch (err) {
                   console.error('[EditModal] onSaveOverride error', err);
@@ -3557,7 +3731,18 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   // Prefill from current model selection
   const prefillFromSelection = async () => {
     try {
-      if (!viewer) return;
+      if (!viewer) {
+        // Fallback: prefill from stored context when viewer is not available (standalone window)
+        try {
+          const raw = projectId ? localStorage.getItem(`fm-prefill-${projectId}`) : null;
+          if (raw) {
+            const snap = JSON.parse(raw || '{}') as Partial<AssetRecord>;
+            setF(v => ({ ...v, ...snap }));
+            return;
+          }
+        } catch {}
+        return;
+      }
       const getAgg = () => new Promise<any>((resolve) => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
       let dbId: number | undefined; let model: any = viewer.model;
       const agg = await getAgg();
