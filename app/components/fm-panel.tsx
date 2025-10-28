@@ -109,6 +109,66 @@ const REVIT_CATEGORIES: string[] = [
   'Zone riscaldamento ventilazione e aria condizionata'
 ];
 
+// IFC class list (provided)
+const IFCCLASSES: string[] = [
+  'IfcBuildingElementProxy',
+  'IfcAirTerminal',
+  'IfcAlarmType',
+  'IfcAssembly',
+  'IfcAudioVisualAppliance',
+  'IfcBeam',
+  'IfcBuildingElementPart',
+  'IfcBuildingElementProxy',
+  'IfcBuildingStorey',
+  'IFCCableCarrierFitting',
+  'IFCCableCarrierFittingType',
+  'IFCCableCarrierSegment',
+  'IfcColumn',
+  'IfcController',
+  'IfcCovering',
+  'IfcCurtainWall',
+  'IfcDoor',
+  'IfcDuctFitting',
+  'IfcDuctSegment',
+  'IfcElectricApplianceType',
+  'IfcElementAssembly',
+  'IfcFireSuppressionTerminalType',
+  'IfcFlowTerminal',
+  'IfcFurniture',
+  'IfcGeographicElement',
+  'IfcGrid',
+  'IfcGroup',
+  'IfcLightFixtureType',
+  'IfcMechanicalFastener',
+  'IfcMedicalDevice',
+  'IfcMember',
+  'IfcOpeningElement',
+  'IfcPipeFitting',
+  'IfcPipeSegment',
+  'IfcPlate',
+  'IfcRailing',
+  'IfcRamp',
+  'IfcReinforcementMesh',
+  'IfcReinforcingBar',
+  'IfcReinforcingMesh',
+  'IfcRoof',
+  'IfcSite',
+  'IfcSlab',
+  'IfcSpace',
+  'IfcSpaceHeater',
+  'IfcStair',
+  'IfcSwitchingDeviceType',
+  'IfcSystemFurnitureElement',
+  'IfcTransportElement',
+  'IfcValveType',
+  'IfcWall',
+  'IfcWindow',
+  'IfcZone'
+];
+
+// Ensure unique IFC class entries to avoid duplicate React keys
+const IFCCLASSES_UNIQUE = Array.from(new Set(IFCCLASSES));
+
 // Extended models
 interface FMPanelProps { projectId?: string; viewer?: any; standalone?: boolean; initialSection?: Section | null }
 
@@ -1356,7 +1416,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     compliance: false,
     relationships: false
   });
-  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '' });
+  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '' });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
@@ -2008,6 +2068,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     categories: Array.from(new Set(rows.map(r => r.category).filter(Boolean))).sort() as string[],
     types: Array.from(new Set(rows.map(r => r.type).filter(Boolean))).sort() as string[],
     locations: Array.from(new Set(rows.map(r => r.location).filter(Boolean))).sort() as string[],
+    // conditions removed from UI per request; keep computed list in case used elsewhere
     conditions: Array.from(new Set(rows.map(r => r.condition).filter(Boolean))).sort() as string[],
     classifications: Array.from(new Set(rows.map(r => r.assetClassification).filter(Boolean))).sort() as string[]
   };
@@ -2030,13 +2091,20 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     }
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
     if (filter.location && !r.location?.toLowerCase().includes(filter.location.toLowerCase())) return false;
+    // filter.condition UI removed; logic preserved if state is set programmatically
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
+    // IFC class filter for table view
+    if (filter.ifcClass) {
+      const sel = filter.ifcClass.toLowerCase();
+      const candidate = `${(r as any).ifcClass || (r as any).ifcType || (r as any).ifcPredefined || r.category || ''}`.toLowerCase();
+      if (!(candidate === sel || candidate.includes(sel) || sel.includes(candidate))) return false;
+    }
     if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
   });
 
   // Reset page when filters or page size change
-  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, pageSize]);
+  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, pageSize]);
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
@@ -2676,6 +2744,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                   );
                 })}
               </select>
+              {/* IFC Class Filter (next to Revit Categories) */}
+              <select value={filter.ifcClass} onChange={e => setFilter(f => ({ ...f, ifcClass: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+                <option value="">Ifc Class</option>
+                {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+              </select>
               <select value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Types</option>
                 {distinct.types.map(v => <option key={v} value={v}>{v}</option>)}
@@ -2683,10 +2756,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               <select value={filter.location} onChange={e => setFilter(f => ({ ...f, location: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Locations</option>
                 {distinct.locations.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-              <select value={filter.condition} onChange={e => setFilter(f => ({ ...f, condition: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
-                <option value="">All Conditions</option>
-                {distinct.conditions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
               <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
                 <option value="">All Classifications</option>
@@ -2782,7 +2851,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             {filteredRows.length === 0 ? (
               <tr>
                 <td colSpan={20} className="px-3 py-4 text-center text-gray-400">
-                  {filter.category || filter.type || filter.location || filter.condition || filter.classification
+                  {filter.category || filter.type || filter.location || filter.ifcClass || filter.classification
                     ? 'No assets available'
                     : 'No assets. Use "Create new asset".'}
                 </td>
@@ -4622,6 +4691,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const [showAssetPicker, setShowAssetPicker] = useState(false);
   const [assetSearch, setAssetSearch] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState('');
+  const [assetIfcClassFilter, setAssetIfcClassFilter] = useState('');
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
 
   const [f, setF] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
@@ -4795,6 +4865,15 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
       }
     }
 
+    // Apply IFC class filter (picker)
+    if (assetIfcClassFilter) {
+      const sel = assetIfcClassFilter.toLowerCase();
+      result = result.filter(a => {
+        const candidate = `${(a as any).ifcClass || (a as any).ifcType || (a as any).ifcPredefined || a.category || ''}`.toLowerCase();
+        return candidate === sel || candidate.includes(sel) || sel.includes(candidate);
+      });
+    }
+
     // Apply sorting
     result = [...result].sort((a, b) => {
       switch (assetSortBy) {
@@ -4810,7 +4889,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     });
 
     return result;
-  }, [assets, assetSearch, assetCategoryFilter, assetSortBy]);
+  }, [assets, assetSearch, assetCategoryFilter, assetIfcClassFilter, assetSortBy]);
 
   // Get category list for filter: start with master categoryOptions (labels), then add any extra categories found in assets
   // master labels are like "Italian / English (IFC)"; assets may have raw categories — include them too and mark as extra
@@ -5175,6 +5254,18 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
                       </option>
                     );
                   })}
+                </select>
+              </div>
+
+              <div className="flex-1">
+                <label className="text-[10px] text-gray-400 block mb-1">Ifc Class</label>
+                <select
+                  value={assetIfcClassFilter}
+                  onChange={e => setAssetIfcClassFilter(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
+                >
+                  <option value="">Ifc Class</option>
+                  {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                 </select>
               </div>
 
