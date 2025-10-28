@@ -1560,6 +1560,17 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const height = props['Height'] || props['Thickness'] || undefined;
         const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
+        // Robust level fallback from properties if asset.level is missing or not descriptive
+        const levelFromProps = pick(
+          'Schedule Level','Livello abaco',
+          'Base Level','Reference Level',
+          'Livello di base','Livello superiore',
+          'Vincolo di base','Vincolo parte superiore',
+          'Base Constraint','Top Constraint','Constraint','Vincolo',
+          'Livello','Level','Piano','Piano Terra','Level 1'
+        );
+        const levelForLocation = (asset.level && String(asset.level).trim()) ? asset.level : levelFromProps;
+
         try {
           if (brand === 'Unknown' || model === 'Unknown' || !serial) {
             console.log('[AssetList][map][missing] dbId:', asset.dbId, {
@@ -1596,7 +1607,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           weight,
           dimensions,
           material: asset.material,
-          location: [asset.level, asset.room].filter(Boolean).join(' - ') || 'Unknown Location',
+          location: [levelForLocation, asset.room].filter(Boolean).join(' - ') || 'Unknown Location',
           description: `${assetClassification} asset extracted from BIM model`,
           condition: 'Good',
           source: 'BIM_MODEL',
@@ -3084,6 +3095,30 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
       if (dbId == null || !model) return;
       const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
+      const propArray: any[] = Array.isArray(props?.properties) ? props.properties : [];
+
+      // Flatten properties for easier multilingual lookups
+      const propsMap: Record<string, any> = {};
+      const propsLower: Record<string, any> = {};
+      for (const prop of propArray) {
+        const name = (prop?.displayName ?? '').toString();
+        if (!name) continue;
+        const value = prop?.displayValue;
+        propsMap[name] = value;
+        propsLower[name.toLowerCase().trim()] = value;
+      }
+
+      const pick = (...keys: string[]): string | undefined => {
+        for (const key of keys) {
+          const direct = propsMap[key];
+          if (direct !== undefined && direct !== null && direct !== '') return direct.toString();
+          const lk = key.toLowerCase().trim();
+          const lowerVal = propsLower[lk];
+          if (lowerVal !== undefined && lowerVal !== null && lowerVal !== '') return lowerVal.toString();
+        }
+        return undefined;
+      };
+
       // Accept a broad set of property display names (English + Italian + common variants)
       const PROP_ALIASES: Record<string, string[]> = {
         brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
@@ -3096,43 +3131,36 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
         length: ['Length', 'Lunghezza'],
         width: ['Width', 'Larghezza'],
         height: ['Height', 'Thickness', 'Altezza'],
-        material: ['Material', 'Structural Material', 'Materiale'],
-        level: ['Level', 'Reference Level', 'Livello', 'Livello abaco', 'Level 1', 'Piano Terra'],
+        material: ['Material', 'Structural Material', 'Materiale', 'Materiale strutturale'],
+        level: [
+          'Schedule Level', 'Livello abaco',
+          'Base Level', 'Reference Level',
+          'Livello di base', 'Livello superiore',
+          'Vincolo di base', 'Vincolo parte superiore',
+          'Base Constraint', 'Top Constraint', 'Constraint', 'Vincolo',
+          'Livello', 'Level', 'Piano', 'Piano Terra', 'Level 1'
+        ],
         room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
         rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
       };
 
-      const getProp = (keys: string[]): string | undefined => {
-        if (!props?.properties) return undefined;
-        const lowerKeys = keys.map(k => k.toLowerCase());
-        // Find first property whose displayName matches any alias or contains it
-        const p = props.properties.find((p: any) => {
-          const dn = (p.displayName || '').toString().toLowerCase();
-          const cv = (p.displayValue || '').toString();
-          if (!dn) return false;
-          // exact or contains
-          if (lowerKeys.includes(dn)) return true;
-          return lowerKeys.some(k => dn.includes(k));
-        });
-        // fallback: sometimes value is on 'attributes' or 'properties' nested
-        if (p && (p.displayValue !== undefined && p.displayValue !== null)) return p.displayValue.toString();
-        return undefined;
-      };
+      const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
 
-      const brand = getProp(PROP_ALIASES.brand);
-      const modelName = getProp(PROP_ALIASES.modelName);
-      const serial = getProp(PROP_ALIASES.serial);
-      const installDate = getProp(PROP_ALIASES.installDate);
-      const power = getProp(PROP_ALIASES.power);
-      const capacity = getProp(PROP_ALIASES.capacity);
-      const weight = getProp(PROP_ALIASES.weight);
-      const length = getProp(PROP_ALIASES.length);
-      const width = getProp(PROP_ALIASES.width);
-      const height = getProp(PROP_ALIASES.height);
-      const material = getProp(PROP_ALIASES.material);
-      const level = getProp(PROP_ALIASES.level);
-      const room = getProp(PROP_ALIASES.room);
-      const rawCategory = getProp(PROP_ALIASES.rawCategory) || getProp(['Category', 'Categoria', 'OmniClass Title', 'OmniClass', 'Tipo']);
+      const brand = pickAlias('brand');
+      const modelName = pickAlias('modelName');
+      const serial = pickAlias('serial');
+      const installDate = pickAlias('installDate');
+      const power = pickAlias('power');
+      const capacity = pickAlias('capacity');
+      const weight = pickAlias('weight');
+      const length = pickAlias('length');
+      const width = pickAlias('width');
+      const height = pickAlias('height');
+      const material = pickAlias('material');
+      // Level needs to fall back to raw pick directly (prefers descriptive fields)
+      const level = pickAlias('level');
+      const room = pickAlias('room');
+      const rawCategory = pickAlias('rawCategory') || pick('Category', 'Categoria', 'OmniClass Title', 'OmniClass', 'Tipo');
       const category = mapToStandardCategory(rawCategory);
       const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
