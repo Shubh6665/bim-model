@@ -201,7 +201,16 @@ export class ViewerLeafAssetExtractor {
       'Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)',
       'Area', 'Superficie',
       'Length', 'Lunghezza',
+      // IFC related keys (class/type/GUID) including Italian export/type names
       'IFC Class', 'IfcClass', 'Classe IFC',
+      'Esporta tipo in formato IFC con nome',
+      'Esporta in formato IFC con nome',
+      'Esporta tipo in IFC con nome',
+      'Export type in IFC with name',
+      'Export type to IFC as name',
+      'Export IFC Type',
+      'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC', 'Tipo: Tipo predefinito IFC',
+      'IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId', 'Tipo IfcGUID',
       'Name', 'Nome', 'Number', 'Numero'
     ];
     for (const entry of entries) {
@@ -459,7 +468,16 @@ export class ViewerLeafAssetExtractor {
       'Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)',
       'Area', 'Superficie',
       'Length', 'Lunghezza',
+      // IFC related keys (class/type/GUID) including Italian export/type names
       'IFC Class', 'IfcClass', 'Classe IFC',
+      'Esporta tipo in formato IFC con nome',
+      'Esporta in formato IFC con nome',
+      'Esporta tipo in IFC con nome',
+      'Export type in IFC with name',
+      'Export type to IFC as name',
+      'Export IFC Type',
+      'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC', 'Tipo: Tipo predefinito IFC',
+      'IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId', 'Tipo IfcGUID',
       'Name', 'Nome', 'Number', 'Numero'
     ];
 

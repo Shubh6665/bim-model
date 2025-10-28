@@ -232,6 +232,13 @@ interface AssetRecord {
   modelGuid?: string;
   // Internal viewer model id to aid selection in federated models
   modelId?: number;
+  // IFC metadata (normalized fields for filtering)
+  ifcGuid?: string;
+  ifcClass?: string;
+  ifcType?: string;
+  ifcPredefined?: string;
+  // Aggregated IFC-related strings for robust filtering
+  ifcCandidates?: string[];
 }
 
 interface SpaceRecord {
@@ -1730,6 +1737,26 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           }
         } catch {}
 
+        // Normalize IFC fields from multilingual Revit properties
+        // Common keys seen: 'IFC Class', 'IfcClass', 'Classe IFC',
+        // 'Esporta tipo in formato IFC con nome' (Italian: Export type to IFC with name),
+        // 'Tipo predefinito IFC' (Predefined Type), 'IfcGUID'
+        const ifcGuid = pick('IfcGUID','IFC GUID','IFC GlobalId','GlobalId');
+        const ifcClass = pick(
+          'IFC Class','IfcClass','Classe IFC',
+          'Esporta tipo in formato IFC con nome',
+          'Esporta in formato IFC con nome',
+          'Esporta tipo in IFC con nome',
+          'Export type in IFC with name',
+          'Export type to IFC as name',
+          'Export IFC Type'
+        );
+        const ifcType = pick('IFC Type','IfcType','Tipo IFC');
+        const ifcPredefined = pick('Predefined Type','PredefinedType','Tipo predefinito IFC','Tipo: Tipo predefinito IFC');
+        const ifcCandidates = [ifcClass, ifcType, ifcPredefined]
+          .map(v => (v == null ? undefined : String(v)))
+          .filter(Boolean) as string[];
+
         // Determine asset classification from category
         let assetClassification: AssetRecord['assetClassification'] = 'OTHER';
         const catLower = (asset.category || '').toLowerCase();
@@ -1760,6 +1787,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           description: `${assetClassification} asset extracted from BIM model`,
           condition: 'Good',
           source: 'BIM_MODEL',
+          // IFC metadata for filtering
+          ifcGuid: ifcGuid ? String(ifcGuid) : undefined,
+          ifcClass: ifcClass ? String(ifcClass) : undefined,
+          ifcType: ifcType ? String(ifcType) : undefined,
+          ifcPredefined: ifcPredefined ? String(ifcPredefined) : undefined,
+          ifcCandidates: ifcCandidates.length ? ifcCandidates : undefined,
           // Force-align to the currently loaded model/viewable GUID so UI filtering matches
           modelGuid: currentGuid,
           modelId: (asset as any).modelId
@@ -2083,10 +2116,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const match = tokens.some(t => t && (cat.includes(t) || t.includes(cat)));
         if (!match) return false;
       } else {
-        // Extra category selected: match exact or inclusive similarity
-        const sel = filter.category.toLowerCase();
-        const cat = (r.category || '').toLowerCase();
-        if (!(cat === sel || cat.includes(sel) || sel.includes(cat))) return false;
+        // Non-master selection. Try Italian->English/IFC mapping first if available
+        const mapping: any = (CATEGORY_MAPPING as any)[filter.category];
+        if (mapping) {
+          const tokens = [filter.category, mapping.english, mapping.ifc].filter(Boolean).map((t: string) => t.toLowerCase());
+          const cat = (r.category || '').toLowerCase();
+          const match = tokens.some((t: string) => t && (cat.includes(t) || t.includes(cat)));
+          if (!match) return false;
+        } else {
+          // Fallback: exact/inclusive similarity with the raw selection string
+          const sel = filter.category.toLowerCase();
+          const cat = (r.category || '').toLowerCase();
+          if (!(cat === sel || cat.includes(sel) || sel.includes(cat))) return false;
+        }
       }
     }
     if (filter.type && !r.type?.toLowerCase().includes(filter.type.toLowerCase())) return false;
@@ -2096,8 +2138,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     // IFC class filter for table view
     if (filter.ifcClass) {
       const sel = filter.ifcClass.toLowerCase();
-      const candidate = `${(r as any).ifcClass || (r as any).ifcType || (r as any).ifcPredefined || r.category || ''}`.toLowerCase();
-      if (!(candidate === sel || candidate.includes(sel) || sel.includes(candidate))) return false;
+      const candidatesArr = (
+        ((r as any).ifcCandidates as string[] | undefined) ||
+        [
+          (r as any).ifcClass,
+          (r as any).ifcType,
+          (r as any).ifcPredefined
+        ].filter(Boolean)
+      ) as string[];
+      const anyHit = candidatesArr.some(c => {
+        const cand = String(c || '').toLowerCase();
+        return cand === sel || cand.includes(sel) || sel.includes(cand);
+      });
+      if (!anyHit) return false;
     }
     if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
@@ -2105,6 +2158,30 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   // Reset page when filters or page size change
   useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, pageSize]);
+
+  // Debug aid: log IFC filtering stats when user selects an IFC class
+  useEffect(() => {
+    if (!filter.ifcClass) return;
+    try {
+      const sel = filter.ifcClass.toLowerCase();
+      const withIfc = rows.filter(r => (r as any).ifcClass || (r as any).ifcType || (r as any).ifcPredefined || (r as any).ifcCandidates?.length);
+      const matches = rows.filter(r => {
+        const arr = ((r as any).ifcCandidates as string[] | undefined) || [ (r as any).ifcClass, (r as any).ifcType, (r as any).ifcPredefined ].filter(Boolean);
+        return (arr as string[]).some(c => {
+          const cc = String(c || '').toLowerCase();
+          return cc === sel || cc.includes(sel) || sel.includes(cc);
+        });
+      });
+      const sample = withIfc.slice(0, 5).map(r => ({ id: r.id, ifcClass: (r as any).ifcClass, ifcType: (r as any).ifcType, ifcPredefined: (r as any).ifcPredefined, cand: (r as any).ifcCandidates }));
+      console.log('[IFC Filter][debug]', {
+        selected: filter.ifcClass,
+        totalRows: rows.length,
+        withIfcFields: withIfc.length,
+        matches: matches.length,
+        sample
+      });
+    } catch {}
+  }, [filter.ifcClass, rows]);
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
