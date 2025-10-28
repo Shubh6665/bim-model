@@ -1891,10 +1891,30 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (res && res.ok) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : [];
-            const filtered = filterAssetsForCurrentModel(list);
+
+            // Merge backend-reloaded list with cached/local (to preserve richer fields like IFC)
+            const currentGuid2 = getCurrentModelGuid();
+            const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+            const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid2);
+
+            const mergedById = list.map(b => {
+              const c = cached.find(x => x.id === b.id);
+              if (!c) return b;
+              const merged: any = { ...b };
+              for (const key of Object.keys(c)) {
+                const val = (c as any)[key];
+                if (val !== null && val !== undefined && val !== '') merged[key] = val;
+              }
+              return merged as AssetRecord;
+            });
+            const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
+            const finalList = [...mergedById, ...cachedOnly];
+
+            const filtered = filterAssetsForCurrentModel(finalList);
             const deduped = dedupeAssets(filtered);
-            console.log(`✅ [AssetList] BG reload got ${list.length} assets (filtered ${filtered.length}, deduped ${deduped.length})`);
+            console.log(`✅ [AssetList] BG reload merged ${list.length} backend with ${cached.length} cached -> ${finalList.length} (filtered ${filtered.length}, deduped ${deduped.length})`);
             setRows(deduped);
+            // Persist the merged (richer) list so periodic refresh keeps IFC fields
             save(K.assets(projectId), deduped);
           } else {
             console.warn('⚠️ [AssetList] BG reload failed or aborted');
@@ -2116,18 +2136,33 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const match = tokens.some(t => t && (cat.includes(t) || t.includes(cat)));
         if (!match) return false;
       } else {
-        // Non-master selection. Try Italian->English/IFC mapping first if available
-        const mapping: any = (CATEGORY_MAPPING as any)[filter.category];
+        // Non-master selection. Normalize and map Italian -> English/IFC.
+        const rawSel = filter.category;
+        const selLower = rawSel.toLowerCase();
+        const selNoRevit = selLower.replace(/^revit\s+/, '').trim();
+
+        // Try exact Italian key match (case-insensitive)
+        const itKey = Object.keys(CATEGORY_MAPPING).find(k => k.toLowerCase() === selNoRevit);
+        // Or try English match against mapping.english
+        const enEntry = itKey ? null : Object.entries(CATEGORY_MAPPING).find(([, m]: any) => (m?.english || '').toLowerCase() === selNoRevit);
+        const keyUsed = itKey || (enEntry ? enEntry[0] : undefined);
+        const mapping: any = keyUsed ? (CATEGORY_MAPPING as any)[keyUsed] : undefined;
+
         if (mapping) {
-          const tokens = [filter.category, mapping.english, mapping.ifc].filter(Boolean).map((t: string) => t.toLowerCase());
+          // Build robust token set: italian, english, ifc + their 'revit ' prefixed variants
+          const baseTokens = [keyUsed, mapping.english, mapping.ifc].filter(Boolean) as string[];
+          const tokens = Array.from(new Set(
+            baseTokens.flatMap(t => [String(t).toLowerCase(), `revit ${String(t).toLowerCase()}`])
+          ));
           const cat = (r.category || '').toLowerCase();
           const match = tokens.some((t: string) => t && (cat.includes(t) || t.includes(cat)));
           if (!match) return false;
         } else {
-          // Fallback: exact/inclusive similarity with the raw selection string
-          const sel = filter.category.toLowerCase();
+          // Fallback: try with and without 'revit ' prefix
           const cat = (r.category || '').toLowerCase();
-          if (!(cat === sel || cat.includes(sel) || sel.includes(cat))) return false;
+          const candidates = [selLower, selNoRevit, `revit ${selNoRevit}`];
+          const ok = candidates.some(sel => cat === sel || cat.includes(sel) || sel.includes(cat));
+          if (!ok) return false;
         }
       }
     }
