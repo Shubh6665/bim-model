@@ -47,6 +47,189 @@ export class ViewerLeafAssetExtractor {
     this.viewer = viewer;
   }
 
+  private getActiveModels(): any[] {
+    try {
+      const arr = typeof (this.viewer as any).getAllModels === 'function' ? (this.viewer as any).getAllModels() : null;
+      if (arr && Array.isArray(arr) && arr.length) return arr;
+    } catch {}
+    return [this.viewer.model].filter(Boolean);
+  }
+
+  private async getLeafNodesForModel(model: any): Promise<number[]> {
+    return new Promise((resolve) => {
+      try {
+        const tree = typeof model.getInstanceTree === 'function' ? model.getInstanceTree() : null;
+        if (tree) {
+          const rootId = tree.getRootId?.() ?? 1;
+          const comps: number[] = [];
+          const walk = (id: number) => {
+            const cc = tree.getChildCount(id);
+            if (cc && cc > 0) tree.enumNodeChildren(id, (c: number) => walk(c), false);
+            else comps.push(id);
+          };
+          walk(rootId);
+          resolve(comps);
+          return;
+        }
+        if (typeof model.getObjectTree === 'function') {
+          model.getObjectTree((t: any) => {
+            if (!t) return resolve([]);
+            const comps: number[] = [];
+            const walk = (id: number) => {
+              const cc = t.getChildCount(id);
+              if (cc && cc > 0) t.enumNodeChildren(id, (c: number) => walk(c), false);
+              else comps.push(id);
+            };
+            const rootId = t.getRootId?.() ?? 1;
+            walk(rootId);
+            resolve(comps);
+          });
+          return;
+        }
+      } catch {}
+      resolve([]);
+    });
+  }
+
+  private async getAllLeafNodesAllModels(): Promise<Array<{ model: any; dbIds: number[] }>> {
+    const models = this.getActiveModels();
+    const out: Array<{ model: any; dbIds: number[] }> = [];
+    for (const m of models) {
+      // eslint-disable-next-line no-await-in-loop
+      const ids = await this.getLeafNodesForModel(m);
+      out.push({ model: m, dbIds: ids });
+    }
+    return out;
+  }
+
+  private async getBulkPropertiesForFilterPerModel(model: any, dbIds: number[], props: string[]): Promise<any[]> {
+    if (!dbIds.length) return [];
+    const results: any[] = [];
+    const chunkSize = 1000;
+    for (let i = 0; i < dbIds.length; i += chunkSize) {
+      // eslint-disable-next-line no-await-in-loop
+      const chunk = await new Promise<any[]>((resolve, reject) => {
+        model.getBulkProperties(
+          dbIds.slice(i, i + chunkSize),
+          props,
+          (res: any[]) => resolve(res),
+          (err: any) => reject(err)
+        );
+      });
+      results.push(...chunk);
+    }
+    return results;
+  }
+
+  private async filterByAssetCategoriesMulti(allLeafByModel: Array<{ model: any; dbIds: number[] }>): Promise<Array<{ model: any; dbIds: number[] }>> {
+    const assetCategories = [
+      'Porte', 'Finestre', 'Muri', 'Pavimenti', 'Tetti', 'Scale', 'Ringhiere',
+      'Arredi', 'Arredi fissi', 'Apparecchi elettrici', 'Apparecchi idraulici',
+      'Apparecchi per illuminazione', 'Attrezzatura elettrica', 'Attrezzatura idraulica',
+      'Attrezzatura meccanica', 'Attrezzature meccaniche', 'Attrezzature elettriche',
+      'Apparecchiature meccaniche', 'Apparecchiature elettriche',
+      'Terminale Elettrico', 'Ventilconvettore', 'Fancoil', 'Condizionatore', 'Unità Interna',
+      'Caldaia', 'Illuminazione',
+      'Condotti', 'Tubazioni', 'Pilastri', 'Travi',
+      'Controsoffitti', 'Locali', 'Aree',
+      'Doors', 'Windows', 'Walls', 'Floors', 'Roofs', 'Stairs', 'Railings',
+      'Furniture', 'Casework', 'Electrical Fixtures', 'Plumbing Fixtures',
+      'Lighting', 'Lighting Fixtures', 'Lamp', 'Electrical Equipment', 'Plumbing Equipment',
+      'Mechanical Equipment', 'Convector', 'Fan Coil', 'Fancoil', 'Air Terminal', 'Duct Terminal',
+      'Diffuser', 'Grille', 'Boiler', 'Space Heater',
+      'Ducts', 'Pipes', 'Columns', 'Beams',
+      'Ceilings', 'Rooms', 'Spaces'
+    ];
+    const attributes = [
+      'Category', 'Categoria', 'IFC Class', 'IfcClass', 'OmniClass Number', 'Numero OmniClass', 'OmniClass Title', 'Titolo OmniClass',
+      'Family', 'Famiglia', 'Type', 'Type Name', 'Nome del tipo',
+      'Description', 'Descrizione'
+    ];
+    const termsLower = assetCategories.map(t => t.toLowerCase());
+    const out: Array<{ model: any; dbIds: number[] }> = [];
+    for (const entry of allLeafByModel) {
+      const props = Array.from(new Set([
+        ...attributes,
+        'Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore','Model','Modello','Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale'
+      ]));
+      // eslint-disable-next-line no-await-in-loop
+      const res = await this.getBulkPropertiesForFilterPerModel(entry.model, entry.dbIds, props);
+      const leafSet = new Set(entry.dbIds);
+      const matched = res
+        .filter(r => {
+          const arr = (r.properties || []) as Array<{ displayName: string; displayValue: any }>;
+          const map: Record<string, string> = {};
+          for (const p of arr) {
+            if (p.displayName && p.displayValue != null) map[p.displayName] = String(p.displayValue);
+          }
+          const catVal = (map['Category'] || map['Categoria'] || '').toLowerCase();
+          const classVal = (map['IFC Class'] || map['IfcClass'] || map['Classe IFC'] || '').toLowerCase();
+          const omniTitle = (map['OmniClass Title'] || map['Titolo OmniClass'] || '').toLowerCase();
+          const omniNum = (map['OmniClass Number'] || map['Numero OmniClass'] || '').toLowerCase();
+          const family = (map['Family'] || map['Famiglia'] || '').toLowerCase();
+          const type = (map['Type'] || map['Type Name'] || map['Nome del tipo'] || map['Nome Tipo'] || map['Tipo'] || '').toLowerCase();
+          const desc = (map['Description'] || map['Descrizione'] || '').toLowerCase();
+          const hasManuModel = !!(map['Manufacturer'] || map['Brand'] || map['Marca'] || map['Produttore'] || map['Fabbricante'] || map['Costruttore'] || map['Model'] || map['Modello']);
+          const hasSerial = !!(map['Serial Number'] || map['Numero di Serie'] || map['Numero di serie'] || map['Matricola'] || map['Seriale']);
+          const termHit = termsLower.some(t => catVal.includes(t)) || termsLower.some(t => family.includes(t)) || termsLower.some(t => type.includes(t)) || termsLower.some(t => desc.includes(t));
+          const ifcHit = /(ifclamp|ifcboiler|ifcspaceheater|ifcairterminal|ifcfan|ifcunitaryequipment|ifcdiscreteaccessory|ifcflowterminal)/i.test(classVal);
+          const descHit = /(ventilconvettore|condizionatore|fancoil|lamp|boiler|caldaia|terminal|space heater|convector|lampada|illuminazione)/i.test(desc);
+          const omniHit = !!(omniTitle || omniNum);
+          return termHit || ifcHit || descHit || omniHit || hasManuModel || hasSerial;
+        })
+        .map(r => r.dbId)
+        .filter(id => leafSet.has(id));
+      out.push({ model: entry.model, dbIds: Array.from(new Set(matched)) });
+    }
+    return out;
+  }
+
+  private async getBulkPropertiesForAssetsPerModel(entries: Array<{ model: any; dbIds: number[] }>): Promise<ViewerAsset[]> {
+    const all: ViewerAsset[] = [];
+    const propertiesToFetch = [
+      'Category', 'Categoria',
+      'Family', 'Family Name', 'Famiglia',
+      'Type', 'Type Name', 'Tipo', 'Nome del tipo', 'Nome Tipo', 'Tipologia',
+      'Level', 'Reference Level', 'Base Level', 'Livello', 'Piano',
+      'Material', 'Structural Material', 'Materiale',
+      'Room', 'Space', 'To Room', 'From Room', 'Locale', 'Locali', 'Aree',
+      'Brand', 'Manufacturer', 'Marca', 'Produttore', 'Fabbricante', 'Costruttore',
+      'Model', 'Modello',
+      'Serial Number', 'Numero di Serie', 'Numero di serie', 'Matricola', 'Seriale',
+      'Mark', 'Contrassegno',
+      'Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)',
+      'Area', 'Superficie',
+      'Length', 'Lunghezza',
+      'IFC Class', 'IfcClass', 'Classe IFC',
+      'Name', 'Nome', 'Number', 'Numero'
+    ];
+    for (const entry of entries) {
+      if (!entry.dbIds.length) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const results = await new Promise<any[]>((resolve, reject) => {
+        entry.model.getBulkProperties(
+          entry.dbIds,
+          propertiesToFetch,
+          (res: any[]) => resolve(res),
+          (error: any) => reject(error)
+        );
+      });
+      try {
+        const sample = results.slice(0, Math.min(3, results.length));
+        const samples = sample.map(r => ({ dbId: r.dbId, keys: Array.isArray(r.properties) ? r.properties.map((p:any)=>p.displayName) : [] }));
+        console.log(`[ViewerLeafExtractor][bulk] Properties fetched for ${results.length} items. Samples:`, samples);
+      } catch {}
+      const assets: ViewerAsset[] = results.map(result => this.convertToAsset(result));
+      all.push(...assets);
+    }
+    try {
+      const breakdown: Record<string, number> = {};
+      for (const a of all) breakdown[a.category] = (breakdown[a.category] || 0) + 1;
+      console.log('[ViewerLeafExtractor][bulk] Category breakdown:', breakdown);
+    } catch {}
+    return all;
+  }
+
   /**
    * Main extraction method - gets all leaf nodes and filters by asset categories
    */
@@ -54,7 +237,6 @@ export class ViewerLeafAssetExtractor {
     onProgress?: (progress: ExtractionProgress) => void
   ): Promise<ViewerAsset[]> {
     try {
-      // Stage 1: Enumerate all leaf nodes (real elements only)
       onProgress?.({
         stage: 'enumeration',
         progress: 10,
@@ -62,11 +244,9 @@ export class ViewerLeafAssetExtractor {
         total: 0,
         message: 'Enumerating leaf nodes (physical elements)...'
       });
-
-      const leafDbIds = await this.getAllLeafNodes();
+      const allLeafByModel = await this.getAllLeafNodesAllModels();
+      const leafDbIds = allLeafByModel.reduce((acc: number[], e) => acc.concat(e.dbIds), [] as number[]);
       console.log(`✅ Found ${leafDbIds.length} leaf nodes (physical elements)`);
-
-      // Stage 2: Filter by asset categories
       onProgress?.({
         stage: 'filtering',
         progress: 40,
@@ -74,11 +254,9 @@ export class ViewerLeafAssetExtractor {
         total: leafDbIds.length,
         message: `Filtering ${leafDbIds.length} elements by asset categories...`
       });
-
-      const assetDbIds = await this.filterByAssetCategories(leafDbIds);
+      const filteredByModel = await this.filterByAssetCategoriesMulti(allLeafByModel);
+      const assetDbIds = filteredByModel.reduce((acc: number[], e) => acc.concat(e.dbIds), [] as number[]);
       console.log(`✅ Filtered to ${assetDbIds.length} assets`);
-
-      // Stage 3: Get bulk properties for assets
       onProgress?.({
         stage: 'properties',
         progress: 70,
@@ -86,10 +264,7 @@ export class ViewerLeafAssetExtractor {
         total: assetDbIds.length,
         message: `Fetching properties for ${assetDbIds.length} assets...`
       });
-
-      const assets = await this.getBulkPropertiesForAssets(assetDbIds);
-
-      // Stage 4: Complete
+      const assets = await this.getBulkPropertiesForAssetsPerModel(filteredByModel);
       onProgress?.({
         stage: 'complete',
         progress: 100,
@@ -282,7 +457,8 @@ export class ViewerLeafAssetExtractor {
       'Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)',
       'Area', 'Superficie',
       'Length', 'Lunghezza',
-      'IFC Class', 'IfcClass', 'Classe IFC'
+      'IFC Class', 'IfcClass', 'Classe IFC',
+      'Name', 'Nome', 'Number', 'Numero'
     ];
 
     // Get bulk properties (fast, batched request). getBulkProperties expects an array of property names.
@@ -370,12 +546,13 @@ export class ViewerLeafAssetExtractor {
     const room = pick('Room','Space','To Room','From Room','Locale','Locali','Aree');
     const brand = pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore');
     const model = pick('Model','Modello');
-    const serialNumber = pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale');
+    const serialNumber = pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || pick('Mark','Contrassegno');
+    const displayName = pick('Name','Nome') || result.name;
 
     return {
       dbId: result.dbId,
       externalId: result.externalId || '',
-      name: result.name || `Element ${result.dbId}`,
+      name: displayName || `Element ${result.dbId}`,
       category,
       family,
       type,

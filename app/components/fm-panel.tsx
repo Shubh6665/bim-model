@@ -1548,7 +1548,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
         const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || asset.family || 'Unknown';
         const model = asset.model || pick('Model','Modello','Type Name','Nome del tipo','Nome Tipo','Tipo') || asset.type || 'Unknown';
-        const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || undefined;
+        const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale','Mark','Contrassegno') || undefined;
         const installDate = props['Install Date'] || props['Installation Date'] || undefined;
         const power = props['Power'] || props['Power Rating'] || props['kW'] || undefined;
         const capacity = props['Capacity'] || undefined;
