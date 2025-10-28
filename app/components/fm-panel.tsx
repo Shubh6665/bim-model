@@ -70,6 +70,8 @@ interface AssetRecord {
   hidden?: boolean;
   // Model identity for BIM assets (used to filter to current model)
   modelGuid?: string;
+  // Internal viewer model id to aid selection in federated models
+  modelId?: number;
 }
 
 interface SpaceRecord {
@@ -1599,7 +1601,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           condition: 'Good',
           source: 'BIM_MODEL',
           // Force-align to the currently loaded model/viewable GUID so UI filtering matches
-          modelGuid: currentGuid
+          modelGuid: currentGuid,
+          modelId: (asset as any).modelId
         } as AssetRecord;
       });
 
@@ -1735,8 +1738,78 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     try {
       if (!viewer) return;
       if (r.dbId != null) {
-        viewer.select?.([r.dbId]);
-        viewer.fitToView?.([r.dbId]);
+        // Prefer selecting in the model the asset came from
+        const allModels: any[] = typeof (viewer as any).getAllModels === 'function'
+          ? ((viewer as any).getAllModels() || [])
+          : [viewer.model].filter(Boolean);
+        const target = (r.modelId != null)
+          ? (allModels.find(m => (typeof m.getModelId === 'function' ? m.getModelId() : m?.id) === r.modelId))
+          : null;
+
+        const trySelectInModel = (m: any) => {
+          if (!m) return false;
+          const mid = (typeof m.getModelId === 'function' ? m.getModelId() : m?.id);
+          try {
+            // Check if dbId exists in this model's instance tree
+            const tree = m.getInstanceTree?.();
+            if (!tree) {
+              console.log(`[FM][select] Model ${mid} has no instance tree, skipping`);
+              return false;
+            }
+            
+            // Verify dbId exists in this model
+            let exists = false;
+            try {
+              tree.enumNodeChildren(r.dbId as number, () => { exists = true; }, false);
+              if (!exists) {
+                // Check if dbId itself is valid (leaf or parent)
+                const name = tree.getNodeName?.(r.dbId as number);
+                exists = !!name;
+              }
+            } catch {}
+            
+            if (!exists) {
+              console.log(`[FM][select] dbId ${r.dbId} not found in model ${mid}`);
+              return false;
+            }
+            
+            console.log(`[FM][select] Found dbId ${r.dbId} in model ${mid}, selecting...`);
+            
+            // Ensure model is visible
+            try { viewer.show?.(m); } catch {}
+            try { m?.setVisible?.(true); } catch {}
+            // Restore fragment visibility if the overlay was hidden via fragment-level ops
+            try {
+              const fragList = m?.getFragmentList?.();
+              const count = fragList?.getCount?.() ?? 0;
+              if (count > 0) {
+                for (let i = 0; i < count; i++) { try { fragList.setVisibility(i, true); } catch {} }
+                try { fragList.updateAnimTransforms?.(); } catch {}
+              }
+            } catch {}
+            
+            // Clear and select
+            viewer.clearSelection?.();
+            viewer.select?.([r.dbId as number], m);
+            viewer.fitToView?.([r.dbId as number], m);
+            
+            // Force viewer refresh
+            try { viewer.impl?.invalidate?.(true, true, true); } catch {}
+            
+            console.log(`[FM][select] ✅ Selected dbId ${r.dbId} in model ${mid}`);
+            return true;
+          } catch (e) { 
+            console.warn(`[FM][select] Failed to select dbId ${r.dbId} in model ${mid}:`, e);
+            return false; 
+          }
+        };
+
+        let selected = false;
+        if (target) selected = trySelectInModel(target);
+        if (!selected) {
+          for (const m of allModels) { if (trySelectInModel(m)) { selected = true; break; } }
+        }
+        if (!selected) { viewer.select?.([r.dbId as number]); viewer.fitToView?.([r.dbId as number]); }
         return;
       }
       // Manual asset: frame placeholder if available

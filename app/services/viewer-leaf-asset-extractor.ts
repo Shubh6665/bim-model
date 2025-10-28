@@ -26,6 +26,7 @@ export interface ViewerAsset {
   brand?: string;
   model?: string;
   serialNumber?: string;
+  modelId?: number;
   properties: Record<string, any>;
 }
 
@@ -219,7 +220,8 @@ export class ViewerLeafAssetExtractor {
         const samples = sample.map(r => ({ dbId: r.dbId, keys: Array.isArray(r.properties) ? r.properties.map((p:any)=>p.displayName) : [] }));
         console.log(`[ViewerLeafExtractor][bulk] Properties fetched for ${results.length} items. Samples:`, samples);
       } catch {}
-      const assets: ViewerAsset[] = results.map(result => this.convertToAsset(result));
+      const mid = (typeof entry.model?.getModelId === 'function') ? entry.model.getModelId() : (entry.model?.id ?? undefined);
+      const assets: ViewerAsset[] = results.map(result => ({ ...this.convertToAsset(result), modelId: mid }));
       all.push(...assets);
     }
     try {

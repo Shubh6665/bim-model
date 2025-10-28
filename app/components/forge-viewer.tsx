@@ -1341,9 +1341,33 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                             selection: (keys?: string[]) => {
                                 const sel = viewerInstance.getSelection ? viewerInstance.getSelection() : [];
                                 return (window as any).__ASSETDBG.props(sel, keys);
+                            },
+                            findDbId: (dbId: number) => {
+                                const models = typeof viewerInstance.getAllModels === 'function' 
+                                    ? viewerInstance.getAllModels() 
+                                    : [viewerInstance.model].filter(Boolean);
+                                console.log(`🔍 Searching for dbId ${dbId} across ${models.length} models...`);
+                                models.forEach((m: any, idx: number) => {
+                                    const mid = (typeof m.getModelId === 'function' ? m.getModelId() : m?.id) || idx;
+                                    const tree = m.getInstanceTree?.();
+                                    if (!tree) {
+                                        console.log(`  Model ${mid}: No instance tree`);
+                                        return;
+                                    }
+                                    try {
+                                        const name = tree.getNodeName?.(dbId);
+                                        if (name) {
+                                            console.log(`  ✅ Model ${mid}: Found dbId ${dbId} - "${name}"`);
+                                        } else {
+                                            console.log(`  ❌ Model ${mid}: dbId ${dbId} not found`);
+                                        }
+                                    } catch (e) {
+                                        console.log(`  ❌ Model ${mid}: Error checking dbId ${dbId}`, e);
+                                    }
+                                });
                             }
                         };
-                        console.log('🔧 [ForgeViewer] __ASSETDBG available: __ASSETDBG.props(dbId[, keys]), __ASSETDBG.selection([keys])');
+                        console.log('🔧 [ForgeViewer] __ASSETDBG available: __ASSETDBG.props(dbId[, keys]), __ASSETDBG.selection([keys]), __ASSETDBG.findDbId(dbId)');
                     } catch {}
                 }
                 
