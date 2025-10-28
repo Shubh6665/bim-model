@@ -3244,93 +3244,34 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         </div>
       )}
 
-      {/* Edit Asset Modal */}
+      {/* Edit Asset Modal - reuse CreateAsset UI so the edit dialog is identical to create */}
       {editModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[700px] max-w-[95vw] max-h-[85vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-white text-sm font-semibold">Edit Asset</div>
-              <div className="flex items-center gap-2 text-xs">
-                {(['basic','identification','technical','documentation','lifecycle','maintenance','economic','compliance','relationships'] as const).map(tab => (
-                  <button key={tab}
-                    className={`px-2 py-1 rounded border ${editSection===tab?'text-white border-gray-500 bg-gray-700':'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
-                    onClick={() => setEditSection(tab)}
-                  >{tab[0].toUpperCase()+tab.slice(1)}</button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {editSection==='basic' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Category</span><input value={edit.category||''} onChange={e=>setEdit(p=>({...p, category:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Type</span><input value={edit.type||''} onChange={e=>setEdit(p=>({...p, type:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Brand</span><input value={edit.brand||''} onChange={e=>setEdit(p=>({...p, brand:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Model</span><input value={edit.model||''} onChange={e=>setEdit(p=>({...p, model:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Description</span><textarea value={edit.description||''} onChange={e=>setEdit(p=>({...p, description:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
-                </>
-              )}
-              {editSection==='identification' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Asset Code</span><input value={edit.assetCode||''} onChange={e=>setEdit(p=>({...p, assetCode:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Asset Name</span><input value={edit.assetName||''} onChange={e=>setEdit(p=>({...p, assetName:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Serial Number</span><input value={edit.serialNumber||''} onChange={e=>setEdit(p=>({...p, serialNumber:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Installation Date</span><input value={edit.installationDate||''} onChange={e=>setEdit(p=>({...p, installationDate:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-              {editSection==='technical' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Material</span><input value={edit.material||''} onChange={e=>setEdit(p=>({...p, material:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Dimensions</span><input value={edit.dimensions||''} onChange={e=>setEdit(p=>({...p, dimensions:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Weight</span><input value={edit.weight||''} onChange={e=>setEdit(p=>({...p, weight:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Capacity</span><input value={edit.capacity||''} onChange={e=>setEdit(p=>({...p, capacity:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Power Rating</span><input value={edit.powerRating||''} onChange={e=>setEdit(p=>({...p, powerRating:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-              {editSection==='documentation' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Manuals</span><input value={edit.manuals||''} onChange={e=>setEdit(p=>({...p, manuals:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Warranties</span><input value={edit.warranties||''} onChange={e=>setEdit(p=>({...p, warranties:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Regulations</span><input value={edit.regulations||''} onChange={e=>setEdit(p=>({...p, regulations:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Safety Notes</span><textarea value={edit.safetyNotes||''} onChange={e=>setEdit(p=>({...p, safetyNotes:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
-                </>
-              )}
-              {editSection==='lifecycle' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Condition</span><input value={edit.condition||''} onChange={e=>setEdit(p=>({...p, condition:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Service Date</span><input value={edit.serviceDate||''} onChange={e=>setEdit(p=>({...p, serviceDate:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Expected Life</span><input value={edit.expectedLife||''} onChange={e=>setEdit(p=>({...p, expectedLife:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-              {editSection==='maintenance' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Maintenance Schedule</span><input value={edit.maintenanceSchedule||''} onChange={e=>setEdit(p=>({...p, maintenanceSchedule:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Last Service</span><input value={edit.lastService||''} onChange={e=>setEdit(p=>({...p, lastService:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Next Service</span><input value={edit.nextService||''} onChange={e=>setEdit(p=>({...p, nextService:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-              {editSection==='economic' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Purchase Cost</span><input value={edit.purchaseCost||''} onChange={e=>setEdit(p=>({...p, purchaseCost:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300"><span>Maintenance Cost</span><input value={edit.maintenanceCost||''} onChange={e=>setEdit(p=>({...p, maintenanceCost:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-              {editSection==='compliance' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Regulations</span><input value={edit.regulations||''} onChange={e=>setEdit(p=>({...p, regulations:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Safety Notes</span><textarea value={edit.safetyNotes||''} onChange={e=>setEdit(p=>({...p, safetyNotes:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white min-h-[60px]"/></label>
-                </>
-              )}
-              {editSection==='relationships' && (
-                <>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Location</span><input value={edit.location||''} onChange={e=>setEdit(p=>({...p, location:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                  <label className="flex flex-col gap-1 text-gray-300 col-span-2"><span>Suppliers</span><input value={edit.suppliers||''} onChange={e=>setEdit(p=>({...p, suppliers:e.target.value}))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white"/></label>
-                </>
-              )}
-            </div>
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <button className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" onClick={() => setEditModal({ open: false })}>Cancel</button>
-              <button className="px-3 py-1.5 rounded text-xs bg-emerald-700 hover:bg-emerald-600 text-white" onClick={saveEditAsset}>Save</button>
-            </div>
+          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[900px] max-w-[980vw] max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <CreateAsset
+              projectId={projectId}
+              viewer={viewer}
+              title="Edit Asset"
+              initial={edit}
+              mode="edit"
+              onSaveOverride={async (rec) => {
+                try {
+                  const id = editModal.id;
+                  if (!id) throw new Error('Missing edit id');
+                  const fields = pickEditable(rec);
+                  setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r));
+                  // persist to backend if possible
+                  await persistEditToBackend(id, fields);
+                  showToast('success', 'Asset updated');
+                } catch (err) {
+                  console.error('[EditModal] onSaveOverride error', err);
+                  showToast('error', 'Failed to update asset');
+                  throw err;
+                } finally {
+                  setEditModal({ open: false });
+                }
+              }}
+            />
           </div>
         </div>
       )}
@@ -3400,7 +3341,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   );
 };
 
-const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
+const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; initial?: Partial<AssetRecord>; onSaveOverride?: (asset: AssetRecord) => Promise<void>; mode?: 'create'|'edit' }> = ({ projectId, viewer, title, initial, onSaveOverride, mode = 'create' }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
   const [f, setF] = useState<Partial<AssetRecord>>(() => {
@@ -3416,9 +3357,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
       purchaseCost: '', maintenanceCost: '',
       regulations: '', safetyNotes: '',
       parentAsset: '', suppliers: '',
-      ...saved
+      ...saved,
+      ...(initial || {})
     };
   });
+
+  // If `initial` changes (edit mode), keep form in sync
+  useEffect(() => {
+    if (initial) setF(prev => ({ ...prev, ...(initial as Partial<AssetRecord>) }));
+  }, [initial]);
 
 
   // Auto-save draft to localStorage on every field change
@@ -3455,6 +3402,23 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
 
       console.log('🔍 [CreateAsset] Form data being saved:', f);
       console.log('🔍 [CreateAsset] Asset record being created:', rec);
+
+      // If caller provided an override handler (edit mode), use it and skip default upsert
+      if (onSaveOverride) {
+        try {
+          await onSaveOverride(rec);
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 1800);
+          setIsSaving(false);
+          return;
+        } catch (err) {
+          console.error('[CreateAsset] onSaveOverride failed', err);
+          setSaveError('Failed to save asset via override');
+          setTimeout(() => setSaveError(null), 3000);
+          setIsSaving(false);
+          return;
+        }
+      }
 
       // Save to backend if projectId is available
       if (projectId) {
@@ -3693,7 +3657,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectI
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between">
-        <div className="text-white font-semibold text-sm">Create New Asset</div>
+        <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
         <button
           className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
           onClick={prefillFromSelection}
