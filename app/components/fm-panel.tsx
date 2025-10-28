@@ -5,7 +5,8 @@ import React, { useEffect, useState, useRef } from "react";
 import MaintenanceReport from "./fm-maintenance-report";
 import { WorkOrderItem as WOType } from "./fm-panel-types";
 import { X, Minimize2, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
-import { ImprovedAssetExtractor, ImprovedAsset } from "../services/improved-asset-extractor";
+import { APSAssetExtractor, type APSAsset } from '../services/aps-asset-extractor';
+import { ViewerLeafAssetExtractor, type ViewerAsset } from '../services/viewer-leaf-asset-extractor';
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 // Extended models
@@ -903,7 +904,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       );
     }
 
-    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} onGoScheduled={() => setSection({ group: 'maintenance', item: 'scheduled' })} />;
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
@@ -1234,7 +1235,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   );
 }
 
-const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: () => void; }> = ({ projectId, viewer, onGoScheduled }) => {
+const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
@@ -1262,65 +1263,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
     window.setTimeout(() => setToast(null), 3500);
   };
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>(() => ({ open: false }));
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Selected rows and uniform category/type check (gate for scheduling)
-  const selectedRows = React.useMemo(() => rows.filter(r => selectedIds.has(r.id)), [rows, selectedIds]);
-  const sameCategoryType = React.useMemo(() => {
-    if (selectedRows.length === 0) return false;
-    const c = selectedRows[0].category || '';
-    const t = selectedRows[0].type || '';
-    return selectedRows.every(r => (r.category || '') === c && (r.type || '') === t);
-  }, [selectedRows]);
 
   const isHexObjectId = (id?: string) => !!id && /^[a-f0-9]{24}$/i.test(id);
 
   const confirmDelete = (row: AssetRecord) => {
+    if (row.source !== 'MANUAL') return; // safety
     const label = row.assetName || row.assetCode || row.model || row.brand || row.category || 'this asset';
     setDeleteModal({ open: true, id: row.id, label });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredRows.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredRows.map(r => r.id)));
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    const s = new Set(selectedIds);
-    if (s.has(id)) s.delete(id); else s.add(id);
-    setSelectedIds(s);
-  };
-
-  const linkSelectionToAssets = async () => {
-    if (!viewer) { showToast('error', 'No viewer'); return; }
-    let dbIds: number[] = [];
-    try {
-      const agg: any = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
-      if (Array.isArray(agg) && agg.length > 0) dbIds = agg[0].selection || [];
-      if (!dbIds || dbIds.length === 0) {
-        const sel = viewer.getSelection?.();
-        if (sel && sel.length > 0) dbIds = sel;
-      }
-    } catch {}
-    if (!dbIds || dbIds.length === 0) { showToast('info', 'Select objects in 3D'); return; }
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) { showToast('info', 'Select assets in the list'); return; }
-    const guid = getCurrentModelGuid();
-    setRows(prev => prev.map(a => {
-      const i = ids.indexOf(a.id);
-      if (i === -1) return a;
-      const target = dbIds[i] ?? dbIds[0];
-      return { ...a, dbId: target as any, source: 'BIM_MODEL', modelGuid: guid || a.modelGuid, assetCode: a.assetCode || `BIM-${target}` };
-    }));
-    showToast('success', 'Linked selection to assets');
-  };
-
-  const clearLinkedSelection = () => {
-    if (selectedIds.size === 0) return;
-    setRows(prev => prev.map(a => selectedIds.has(a.id) ? { ...a, dbId: null as any } : a));
   };
 
   const performDelete = async () => {
@@ -1328,40 +1277,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
     if (!id) { setDeleteModal({ open: false }); return; }
 
     try {
-      const assetToDelete = rows.find(a => a.id === id);
-      
-      // Optimistically remove from UI and persist
-      const newRows = rows.filter(a => a.id !== id);
-      setRows(newRows);
-      save(K.assets(projectId), newRows);
+      // Optimistically remove from UI
+      setRows(prev => prev.filter(a => a.id !== id));
+      save(K.assets(projectId), rows.filter(a => a.id !== id));
 
       // Delete from backend if we have a valid ObjectId and projectId
       if (projectId && isHexObjectId(id)) {
         const res = await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-        if (!res.ok && res.status !== 404) {
+        if (!res.ok) {
           const txt = await res.text().catch(() => '');
           console.warn('⚠️ [AssetList] Backend delete failed:', res.status, txt);
           showToast('error', 'Failed to delete from server — removed locally');
         } else {
           showToast('success', 'Asset deleted');
         }
-      } else if (projectId) {
-        // Track deleted BIM assets in backend to prevent re-extraction across all devices
-        if (assetToDelete && assetToDelete.source === 'BIM_MODEL') {
-          try {
-            await fetch(`/api/projects/${projectId}/deleted-assets`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ assetId: id, source: 'BIM_MODEL' })
-            });
-            console.log(`🗑️ [AssetList] Tracked deleted BIM asset in backend: ${id}`);
-          } catch (err) {
-            console.warn('⚠️ [AssetList] Failed to track deleted asset in backend:', err);
-          }
-        }
-        showToast('success', 'Asset deleted locally');
       } else {
-        // No projectId - local-only deletion
+        // Local-only deletion
         showToast('success', 'Asset deleted locally');
       }
     } catch (e) {
@@ -1589,51 +1520,65 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
     setExtractionProgress(0);
 
     try {
-      console.log('🚀 [AssetList] Starting asset extraction...');
-      const { ImprovedAssetExtractor } = await import('../services/improved-asset-extractor');
-      const extractor = new ImprovedAssetExtractor(viewer);
+      console.log('🚀 [AssetList] Starting VIEWER LEAF NODE asset extraction (proven approach)...');
 
-      const improvedAssets = await extractor.extractAllAssets((progress, found, total) => {
-        // Clamp and update progress
-        const p = Math.max(0, Math.min(100, Number(progress) || 0));
-        setExtractionProgress(p);
+      // Use proven viewer-based leaf node extraction
+      const extractor = new ViewerLeafAssetExtractor(viewer);
+      const viewerAssets = await extractor.extractAssets((progress) => {
+        setExtractionProgress(progress.progress);
+        console.log(`📊 [${progress.stage}] ${progress.message}`);
       });
 
-      // Ensure progress shows completion
-      setExtractionProgress(100);
+      console.log(`✅ [AssetList] Extraction complete: ${viewerAssets.length} assets`);
 
-      console.log(`✅ [AssetList] Extraction complete: ${improvedAssets.length} assets`);
-
-      // Helper to get property by display names
-      const getProp = (props: any[], names: string[]): string | undefined => {
-        const lower = names.map(n => n.toLowerCase());
-        const p = props?.find(p => {
-          const dn = p.displayName?.toLowerCase?.();
-          if (!dn) return false;
-          return lower.includes(dn) || lower.some(n => dn.includes(n));
-        });
-        return p?.displayValue?.toString();
-      };
-
-      console.log('🔄 [AssetList] Converting assets to AssetRecord format...');
-      // Convert ImprovedAsset to AssetRecord format with enrichment
+      console.log('🔄 [AssetList] Converting viewer assets to AssetRecord format...');
       const currentGuid = getCurrentModelGuid();
-      const newAssets: AssetRecord[] = improvedAssets.map(asset => {
-        const props = (asset as any).properties || [];
-        const brand = asset.brand || getProp(props, ['Manufacturer', 'Brand', 'Manufacturer Name']) || asset.family || 'Unknown';
-        const model = asset.model || getProp(props, ['Model', 'Type Name', 'Model Number']) || asset.type || 'Unknown';
-        const serial = asset.serialNumber || getProp(props, ['Serial Number', 'Serial']) || undefined;
-        const installDate = getProp(props, ['Install Date', 'Installation Date']) || undefined;
-        const power = getProp(props, ['Power', 'Power Rating', 'kW']) || undefined;
-        const capacity = getProp(props, ['Capacity']) || undefined;
-        const weight = getProp(props, ['Weight']) || undefined;
-        const length = getProp(props, ['Length']) || undefined;
-        const width = getProp(props, ['Width']) || undefined;
-        const height = getProp(props, ['Height', 'Thickness']) || undefined;
+      const newAssets: AssetRecord[] = viewerAssets.map((asset: ViewerAsset) => {
+        const props = asset.properties || {} as Record<string, any>;
+        const propsLower: Record<string, any> = {};
+        for (const k of Object.keys(props)) propsLower[k.toLowerCase().trim()] = props[k];
+        const pick = (...keys: string[]) => {
+          for (const k of keys) {
+            if (props[k] !== undefined) return props[k];
+            const lk = k.toLowerCase().trim();
+            if (propsLower[lk] !== undefined) return propsLower[lk];
+          }
+          return undefined;
+        };
+
+        const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || asset.family || 'Unknown';
+        const model = asset.model || pick('Model','Modello','Type Name','Nome del tipo','Nome Tipo','Tipo') || asset.type || 'Unknown';
+        const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || undefined;
+        const installDate = props['Install Date'] || props['Installation Date'] || undefined;
+        const power = props['Power'] || props['Power Rating'] || props['kW'] || undefined;
+        const capacity = props['Capacity'] || undefined;
+        const weight = props['Weight'] || undefined;
+        const length = props['Length'] || undefined;
+        const width = props['Width'] || undefined;
+        const height = props['Height'] || props['Thickness'] || undefined;
         const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
 
+        try {
+          if (brand === 'Unknown' || model === 'Unknown' || !serial) {
+            console.log('[AssetList][map][missing] dbId:', asset.dbId, {
+              category: asset.category,
+              brand, model, serial,
+              keys: Object.keys(props)
+            });
+          }
+        } catch {}
+
+        // Determine asset classification from category
+        let assetClassification: AssetRecord['assetClassification'] = 'OTHER';
+        const catLower = (asset.category || '').toLowerCase();
+        if (/(structural|column|beam|wall|floor|slab)/.test(catLower)) assetClassification = 'STRUCTURAL';
+        else if (/(door|window|stair|roof|ceiling)/.test(catLower)) assetClassification = 'ARCHITECTURAL';
+        else if (/(mechanical|electrical|plumbing|duct|pipe|hvac|fixture|equipment|terminal)/.test(catLower)) assetClassification = 'MEP';
+        else if (/(furniture|casework)/.test(catLower)) assetClassification = 'FURNITURE';
+        else if (/equipment/.test(catLower)) assetClassification = 'EQUIPMENT';
+
         return {
-          id: asset.id,
+          id: `viewer-${currentGuid}-${asset.dbId}`,
           dbId: asset.dbId,
           assetCode: `BIM-${asset.dbId}`,
           assetName: asset.name,
@@ -1643,17 +1588,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
           model,
           serialNumber: serial,
           installationDate: installDate,
-          assetClassification: asset.assetClassification,
+          assetClassification,
           powerRating: power,
           capacity,
           weight,
           dimensions,
           material: asset.material,
-          location: asset.location,
-          description: asset.description || `${asset.assetClassification} asset extracted from BIM model`,
-          condition: 'Good', // Default for BIM assets
+          location: [asset.level, asset.room].filter(Boolean).join(' - ') || 'Unknown Location',
+          description: `${assetClassification} asset extracted from BIM model`,
+          condition: 'Good',
           source: 'BIM_MODEL',
-          modelGuid: (asset as any).modelGuid || currentGuid
+          // Force-align to the currently loaded model/viewable GUID so UI filtering matches
+          modelGuid: currentGuid
         } as AssetRecord;
       });
 
@@ -1675,26 +1621,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
         }
       });
 
-      // Fetch deleted BIM asset IDs from backend to prevent re-extraction across devices
-      let deletedBimIds = new Set<string>();
-      if (projectId) {
-        try {
-          const delRes = await fetch(`/api/projects/${projectId}/deleted-assets`);
-          if (delRes.ok) {
-            const delData = await delRes.json();
-            deletedBimIds = new Set<string>((delData.deletedAssets || []).map((d: any) => d.assetId || d.id).filter(Boolean));
-            console.log(`🗑️ [AssetList] Fetched ${deletedBimIds.size} deleted BIM asset IDs from backend`);
-          }
-        } catch (err) {
-          console.warn('⚠️ [AssetList] Failed to fetch deleted assets from backend:', err);
-        }
-      }
-      const filteredNewAssets = newAssets.filter(a => !deletedBimIds.has(a.id));
-      console.log(`🗑️ [AssetList] Excluded ${newAssets.length - filteredNewAssets.length} previously deleted BIM assets`);
-
       // Keep existing non-manual (older BIM) assets separate to allow override by new extraction
   // Replace BIM assets with the current model's assets; keep manual assets
-  const combined = [...existingManualAssets, ...filteredNewAssets];
+  const combined = [...existingManualAssets, ...newAssets];
 
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
@@ -1740,11 +1669,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
 
           console.log(`💾 [AssetList] BG save ${newAssets.length} assets to backend (projectId: ${projectId})...`);
           const saveCtrl = new AbortController();
-          const saveTimer = setTimeout(() => saveCtrl.abort(), 15000);
+          const saveTimer = setTimeout(() => saveCtrl.abort('timeout'), 60000);
           const saveRes = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upsertMany', assets: newAssets }),
+            body: JSON.stringify({ action: 'replaceForModel', modelGuid: currentGuid, assets: newAssets }),
             signal: saveCtrl.signal
           }).catch(err => { throw err; });
           clearTimeout(saveTimer);
@@ -1758,7 +1687,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
           // Small delay then background refresh
           await new Promise(r => setTimeout(r, 500));
           const reloadCtrl = new AbortController();
-          const reloadTimer = setTimeout(() => reloadCtrl.abort(), 15000);
+          const reloadTimer = setTimeout(() => reloadCtrl.abort('timeout'), 30000);
           const guid = getCurrentModelGuid();
           const res = await fetch(`/api/projects/${projectId}/assets${guid ? `?modelGuid=${encodeURIComponent(guid)}` : ''}` as any, { signal: reloadCtrl.signal }).catch(err => { throw err; });
           clearTimeout(reloadTimer);
@@ -1793,8 +1722,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
   // Auto-refresh assets when FM > Asset list opens (once per mount)
   const autoExtractOnceRef = React.useRef(false);
   useEffect(() => {
-    // Auto-extract disabled per client request; extraction only runs when user clicks the button
+    if (autoExtractOnceRef.current) return;
+    if (!projectId || !viewer) return;
     autoExtractOnceRef.current = true;
+    console.log('🔁 [AssetList] Auto-extract on open (background refresh)');
+    // Fire and forget; normal UI progress will show
+    extractAssetsFromBIM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
   const onRowClick = (r: AssetRecord) => {
@@ -1914,23 +1848,17 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
     if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
     return true;
-  }).reduce<AssetRecord[]>((acc, r) => acc.concat(r), []).slice();
-  // Ensure manual assets are shown first (preserve relative order within each group)
-  const manualFirst = (() => {
-    const manual = filteredRows.filter(r => r.source === 'MANUAL');
-    const other = filteredRows.filter(r => r.source !== 'MANUAL');
-    return [...manual, ...other];
-  })();
+  });
 
   // Reset page when filters or page size change
   useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, pageSize]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(manualFirst.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const pageClamped = Math.min(page, totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedRows = manualFirst.slice(startIndex, endIndex);
+  const paginatedRows = filteredRows.slice(startIndex, endIndex);
 
   const applyFilterToViewer = () => {
     if (!viewer || filteredRows.length === 0) return;
@@ -2232,27 +2160,33 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
               ...(mesh.userData || {}),
               assetId: r.id,
               geomBaseSize: size,
-              shape,
-              selectable: true
+              shape
             };
-            mesh.position.set(r.placeholderX!, r.placeholderY!, r.placeholderZ!);
+            mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
             scene.add(mesh);
             map.set(r.id, mesh);
           } else {
-            // Update existing mesh geometry/size if needed
-            const needSphere = shape === 'sphere';
-            const isSphere = (mesh.geometry as any)?.type?.toLowerCase?.()?.includes('sphere');
-            if (needSphere !== isSphere) {
-              mesh.geometry.dispose?.();
-              mesh.geometry = needSphere ? new THREE.SphereGeometry(size / 2, 12, 12) : new THREE.BoxGeometry(size, size, size);
-            } else {
-              // Adjust scale to reflect size changes
-              const s = needSphere ? (size / 2) : size;
-              mesh.scale.set(1,1,1);
-              mesh.geometry.dispose?.();
-              mesh.geometry = needSphere ? new THREE.SphereGeometry(size / 2, 12, 12) : new THREE.BoxGeometry(size, size, size);
+            // Update shape if changed
+            if (mesh.userData?.shape !== shape) {
+              try {
+                mesh.geometry?.dispose?.();
+              } catch {}
+              mesh.geometry = shape === 'sphere'
+                ? new THREE.SphereGeometry(size / 2, 12, 12)
+                : new THREE.BoxGeometry(size, size, size);
+              mesh.userData.shape = shape;
+              mesh.userData.geomBaseSize = size;
+              mesh.scale.set(1, 1, 1);
             }
-            mesh.position.set(r.placeholderX!, r.placeholderY!, r.placeholderZ!);
+            // Update position
+            const p = mesh.position;
+            if (p.x !== r.placeholderX || p.y !== r.placeholderY || p.z !== r.placeholderZ) {
+              mesh.position.set(r.placeholderX, r.placeholderY, r.placeholderZ);
+            }
+            // Update size via scale, relative to base geom size
+            const base = Number(mesh.userData?.geomBaseSize) || size || 0.3;
+            const scale = (size || 0.3) / base;
+            mesh.scale.set(scale, scale, scale);
           }
         }
       });
@@ -2387,13 +2321,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
             const offset = new THREE.Vector3(mesh.position.x - p.x, mesh.position.y - p.y, 0);
             dragging = { id, dzPlane: dz, cursorOffset: offset };
             try { viewer.setNavigationLock?.(true); } catch { }
-            // Disable viewer's default selection so placeholder stays selected
-            try { viewer.clearSelection?.(); } catch {}
-          }
-        } else {
-          // Clicked elsewhere: deselect placeholder
-          if (vAny._fmSelectedPlaceholderId) {
-            highlightSelection(null);
           }
         }
       } catch { }
@@ -2476,7 +2403,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
   }, [viewer, rows]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 relative">
+    <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
         <div className="flex items-center justify-between mb-2">
           <div className="text-white font-semibold text-sm">Asset List</div>
@@ -2599,15 +2526,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
         )}
       </div>
 
-      {/* Bulk 3D mapping UI removed per client request */}
-
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
-              <th className="px-2 py-1.5 w-8">
-                <input type="checkbox" checked={filteredRows.length > 0 && selectedIds.size === filteredRows.length} onChange={toggleSelectAll} />
-              </th>
               {visibleFields.basic && (
                 <>
                   <th className="text-left px-2 py-1.5">Source</th>
@@ -2682,9 +2604,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
               </tr>
             ) : paginatedRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
-                <td className="px-2 py-1.5 w-8" onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
-                </td>
                 {visibleFields.basic && (
                   <>
                     <td className="px-2 py-1.5">
@@ -2701,42 +2620,40 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
                     <td className="px-2 py-1.5">
-                      <div className="flex items-center gap-1">
-                        {r.source === 'MANUAL' && (
-                          <>
-                            <select
-                              value={r.placeholderShape || 'cube'}
-                              onClick={e => e.stopPropagation()}
-                              onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
-                              className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                            >
-                              <option value="cube">Cube</option>
-                              <option value="sphere">Sphere</option>
-                            </select>
-                            <input
-                              onClick={e => e.stopPropagation()}
-                              value={r.placeholderSize ?? 0.3}
-                              onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
-                              className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                              placeholder="m"
-                            />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); placeManual(r); }}
-                              disabled={placingAssetId === r.id}
-                              className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
-                            >
-                              {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
-                          title="Delete"
-                          className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
-                        >
-                          ×
-                        </button>
-                      </div>
+                      {r.source === 'MANUAL' && (
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={r.placeholderShape || 'cube'}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
+                            className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                          >
+                            <option value="cube">Cube</option>
+                            <option value="sphere">Sphere</option>
+                          </select>
+                          <input
+                            onClick={e => e.stopPropagation()}
+                            value={r.placeholderSize ?? 0.3}
+                            onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
+                            className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                            placeholder="m"
+                          />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); placeManual(r); }}
+                            disabled={placingAssetId === r.id}
+                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                          >
+                            {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
+                            title="Delete"
+                            className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
                       {r.conflictWithId && (
                         <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
                       )}
@@ -2877,28 +2794,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onGoScheduled?: ()
           </button>
         </div>
       </div>
-
-      {/* Scheduled Maintenance CTA (bottom-right below pagination) */}
-      {onGoScheduled && (
-        <div className="px-2 pb-2 flex justify-end">
-          <button
-            onClick={() => {
-              try {
-                const key = `fm-scheduled-preset-${projectId || 'global'}`;
-                const ids = Array.from(selectedIds);
-                const meta = selectedRows.length > 0 ? { category: selectedRows[0].category || '', type: selectedRows[0].type || '' } : { category: '', type: '' };
-                localStorage.setItem(key, JSON.stringify({ ids, ...meta }));
-              } catch {}
-              onGoScheduled();
-            }}
-            disabled={selectedIds.size === 0 || !sameCategoryType}
-            className={`text-white text-xs px-3 py-1.5 rounded shadow ${selectedIds.size > 0 && sameCategoryType ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 text-gray-300 cursor-not-allowed'}`}
-            title={selectedIds.size === 0 ? 'Select assets to schedule' : (!sameCategoryType ? 'Select assets with same Category and Type' : '')}
-          >
-            Scheduled maintenance
-          </button>
-        </div>
-      )}
     </div>
   );
 };
@@ -3508,8 +3403,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const data = await res.json();
         if (Array.isArray(data)) {
           // Normalize ids
-          const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
-            id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
+          const normalized: SpaceRecord[] = data.map((d: any) => ({
+            id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
             level: d.level,
             name: d.name,
             area: d.area,
@@ -3545,17 +3440,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer]);
 
-  // Show MANUAL spaces first while preserving relative order; always appear on earliest pages
-  const manualFirstSpaces = React.useMemo(() => {
-    const manual = rows.filter(r => r.source === 'MANUAL');
-    const other = rows.filter(r => r.source !== 'MANUAL');
-    return [...manual, ...other];
-  }, [rows]);
-  const totalPages = Math.max(1, Math.ceil(manualFirstSpaces.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pageClamped = Math.min(Math.max(1, page), totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
-  const endIndex = Math.min(manualFirstSpaces.length, startIndex + pageSize);
-  const paginatedRows = manualFirstSpaces.slice(startIndex, endIndex);
+  const endIndex = Math.min(rows.length, startIndex + pageSize);
+  const paginatedRows = rows.slice(startIndex, endIndex);
 
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
@@ -3682,25 +3571,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           : `LVLNAME|${(r.level || '').toLowerCase()}|${(r.name || '').toLowerCase()}|${(r.spaceCode || '').toLowerCase()}`;
         if (!seen.has(key)) seen.set(key, r);
       }
-      let newRows = Array.from(seen.values());
-      
-      // Fetch deleted BIM space IDs from backend to prevent re-extraction across devices
-      if (projectId) {
-        try {
-          const delRes = await fetch(`/api/projects/${projectId}/deleted-spaces`);
-          if (delRes.ok) {
-            const delData = await delRes.json();
-            const deletedSpaceIds = new Set<string>((delData.deletedSpaces || []).map((d: any) => d.spaceId || d.id).filter(Boolean));
-            console.log(`🗑️ [SpaceList] Fetched ${deletedSpaceIds.size} deleted BIM space IDs from backend`);
-            const beforeFilter = newRows.length;
-            newRows = newRows.filter(s => !deletedSpaceIds.has(s.id));
-            console.log(`🗑️ [SpaceList] Excluded ${beforeFilter - newRows.length} previously deleted BIM spaces`);
-          }
-        } catch (err) {
-          console.warn('⚠️ [SpaceList] Failed to fetch deleted spaces from backend:', err);
-        }
-      }
-      
+      const newRows = Array.from(seen.values());
       setExtractionProgress(90);
   console.log(`[Spaces] deduped newRows=${newRows.length}`);
 
@@ -3718,8 +3589,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
-                id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
+              const normalized: SpaceRecord[] = data.map((d: any) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
                 level: d.level,
                 name: d.name,
                 area: d.area,
@@ -3783,8 +3654,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
           if (res.ok) {
             const data = await res.json();
-            const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any, i: number) => ({
-              id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
+            const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any) => ({
+              id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
               level: d.level,
               name: d.name,
               area: d.area,
@@ -3821,8 +3692,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Auto-refresh spaces when Space list opens (once per mount)
   const autoExtractSpacesOnceRef = React.useRef(false);
   useEffect(() => {
-    // Auto-extract disabled per client request; extraction only runs when user clicks the button
+    if (autoExtractSpacesOnceRef.current) return;
+    if (!projectId || !viewer) return;
     autoExtractSpacesOnceRef.current = true;
+    console.log('🔁 [Spaces] Auto-extract on open (background refresh)');
+    extractRoomsFromBIM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
   // Listen for space-created events to refresh list
@@ -3835,8 +3710,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           .then(res => res.json())
           .then(data => {
             if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
-                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
+              const normalized: SpaceRecord[] = data.map((d: any) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
                 level: d.level,
                 name: d.name,
                 area: d.area,
@@ -3988,26 +3863,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" 
                 onClick={async () => {
                   try {
-                    const spaceToDelete = rows.find(s => s.id === deleteModal.id);
                     const res = await fetch(`/api/projects/${projectId}/spaces/${deleteModal.id}`, { method: 'DELETE' });
                     console.log(`[SpaceList] Delete response status:`, res.status);
                     if (res.ok) {
                       console.log(`[SpaceList] Space ${deleteModal.id} deleted successfully`);
-                      
-                      // Track deleted BIM spaces in backend to prevent re-extraction across devices
-                      if (spaceToDelete && spaceToDelete.source === 'BIM_MODEL' && projectId) {
-                        try {
-                          await fetch(`/api/projects/${projectId}/deleted-spaces`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ spaceId: deleteModal.id, source: 'BIM_MODEL' })
-                          });
-                          console.log(`🗑️ [SpaceList] Tracked deleted BIM space in backend: ${deleteModal.id}`);
-                        } catch (err) {
-                          console.warn('⚠️ [SpaceList] Failed to track deleted space in backend:', err);
-                        }
-                      }
-                      
                       setRows(rows.filter(x => x.id !== deleteModal.id));
                       setDeleteModal({ open: false });
                     } else {
@@ -4047,8 +3906,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                       const data = await res.json();
                       console.log('[SpaceList] Reloaded spaces:', data.length, 'items');
                       if (Array.isArray(data)) {
-                        const normalized: SpaceRecord[] = data.map((d: any, i: number) => ({
-                          id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId ?? d.spaceCode ?? d.name ?? i}`,
+                        const normalized: SpaceRecord[] = data.map((d: any) => ({
+                          id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
                           level: d.level,
                           name: d.name,
                           area: d.area,
@@ -4083,11 +3942,6 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows, setRows] = useState<SpaceRecord[]>([]);
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
-  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
-    setToast({ type, text });
-    window.setTimeout(() => setToast(null), 3500);
-  };
   const [f, setF] = useState(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
@@ -4098,7 +3952,6 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   });
 
   const [projectName, setProjectName] = useState<string>('');
-  const [buildingName, setBuildingName] = useState<string>('');
 
   // Load project metadata (name) so we can prefill Building
   useEffect(() => {
@@ -4116,65 +3969,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     })();
   }, [projectId]);
 
-  // Load Building Name from model root properties when available (retry until ready)
-  useEffect(() => {
-    let cancelled = false;
-    if (!viewer) return;
-    let attempts = 0;
-    const tryFetch = async () => {
-      if (cancelled) return;
-      attempts++;
-      try {
-        const model = viewer?.model;
-        if (!model) return;
-        const rootId = (model as any).getRootId?.() ?? 1;
-        const props: any = await new Promise(resolve => {
-          try { model.getProperties(rootId, resolve); } catch { resolve(null); }
-        });
-        const list = props?.properties as any[] | undefined;
-        if (!Array.isArray(list) || list.length === 0) {
-          if (attempts < 10) { setTimeout(tryFetch, 500); }
-          return;
-        }
-        const getProp = (names: string[]): string | undefined => {
-          const lower = names.map(n => n.toLowerCase());
-          const p = list.find((pp: any) => {
-            const dn = pp.displayName?.toLowerCase?.();
-            return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
-          });
-          return p?.displayValue?.toString();
-        };
-        const b = getProp(['Building Name', 'Building']);
-        if (!cancelled && b) setBuildingName(b);
-      } catch {
-        if (attempts < 10) { setTimeout(tryFetch, 500); }
-      }
-    };
-    tryFetch();
-    return () => { cancelled = true; };
-  }, [viewer]);
-
   // (removed misplaced openHistory from CreateSpace)
 
   // (moved) openHistory was accidentally placed here before; removed from this component.
 
-  // Prefill/override Building: prefer Building Name; if it arrives later, override Project Name auto-fill
+  // When projectName becomes available, prefill building if empty
   useEffect(() => {
-    setF(prev => {
-      const current = String(prev.building || '').trim();
-      const bn = String(buildingName || '').trim();
-      const pn = String(projectName || '').trim();
-      if (bn) {
-        if (!current || current === pn) return { ...prev, building: bn };
-        return prev;
-      }
-      if (pn) {
-        if (!current) return { ...prev, building: pn };
-      }
-      return prev;
-    });
+    if (projectName && (!f.building || f.building.trim() === '')) {
+      setF(prev => ({ ...prev, building: projectName }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectName, buildingName]);
+  }, [projectName]);
 
   // Auto-save draft to localStorage on every field change
   useEffect(() => {
@@ -4547,7 +4352,6 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       
       if (res.ok) {
         console.log('[CreateSpace] Space saved to DB successfully');
-        showToast('success', `Space "${rec.name || 'Unnamed'}" created successfully`);
         // Trigger a refresh event so SpaceList reloads
         window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId } }));
         
@@ -4561,7 +4365,6 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         cancelDrawing();
       } else {
         console.error('[CreateSpace] Failed to save space to DB');
-        showToast('error', 'Failed to save space. Please try again.');
       }
     } catch (e) {
       console.error('[CreateSpace] Error saving space:', e);
@@ -4596,13 +4399,6 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         </div>
       </div>
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
-      
-      {/* Toast notification */}
-      {toast && (
-        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg text-white text-sm z-50 ${toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}`}>
-          {toast.text}
-        </div>
-      )}
     </div>
   );
 };
@@ -4633,7 +4429,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const [tasks, setTasks] = useState<string[]>([]);
   const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const prefillOnceRef = React.useRef(false);
 
   // Load scheduled maintenance from API
   useEffect(() => {
@@ -4757,29 +4552,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     };
     fetchAssets();
   }, [projectId, assetsLoaded]);
-
-  // Prefill selected assets from AssetList button (ids stored in localStorage)
-  useEffect(() => {
-    if (prefillOnceRef.current) return;
-    try {
-      const key = `fm-scheduled-preset-${projectId || 'global'}`;
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const data: any = JSON.parse(raw);
-      const ids: string[] = Array.isArray(data?.ids) ? data.ids : [];
-      if (!ids.length) return;
-      if (assets.length === 0) return; // wait until assets fetched
-      const picked = assets.filter(a => ids.includes(a.id));
-      if (picked.length) {
-        // Enforce same category/type implicitly from AssetList; set allowed type here
-        const t = picked[0].type || picked[0].category || '';
-        setAllowedAssetType(t || null);
-        setSelectedAssets(picked.map(a => ({ label: a.assetName || a.assetCode || a.model || a.brand || `Asset ${a.id}` , type: a.type || a.category || '', id: a.id })));
-      }
-      prefillOnceRef.current = true;
-      localStorage.removeItem(key);
-    } catch {}
-  }, [assets, projectId]);
 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
@@ -5306,7 +5078,6 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
   const [waitingForSelection, setWaitingForSelection] = useState(false);
   const isStandalone = typeof window !== 'undefined' && window.opener;
   const [projectName, setProjectName] = useState<string>('');
-  const [buildingName, setBuildingName] = useState<string>('');
 
   // Cache to localStorage but prefer backend data when available
   useEffect(() => save(K.tickets(projectId), tickets), [tickets, projectId]);
@@ -5345,65 +5116,19 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           setProjectName(json?.project?.name || json?.name || '');
         }
       } catch (err) {
-        console.warn('[Ticket] Could not load project metadata', err);
+        console.warn('[TicketForm] Could not load project metadata', err);
       }
     })();
   }, [projectId]);
 
-  // Load Building Name from model root properties when available (retry until ready)
+  // When projectName becomes available, ensure building defaults to it if empty
   useEffect(() => {
-    let cancelled = false;
-    if (!viewer) return;
-    let attempts = 0;
-    const tryFetch = async () => {
-      if (cancelled) return;
-      attempts++;
-      try {
-        const model = viewer?.model;
-        if (!model) return;
-        const rootId = (model as any).getRootId?.() ?? 1;
-        const props: any = await new Promise(resolve => {
-          try { model.getProperties(rootId, resolve); } catch { resolve(null); }
-        });
-        const list = props?.properties as any[] | undefined;
-        if (!Array.isArray(list) || list.length === 0) {
-          if (attempts < 30) { setTimeout(tryFetch, 500); }
-          return;
-        }
-        const getProp = (names: string[]): string | undefined => {
-          const lower = names.map(n => n.toLowerCase());
-          const p = list.find((pp: any) => {
-            const dn = pp.displayName?.toLowerCase?.();
-            return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
-          });
-        return p?.displayValue?.toString();
-        };
-        const b = getProp(['Building Name', 'Building']);
-        if (!cancelled && b) setBuildingName(b);
-      } catch {
-        if (attempts < 30) { setTimeout(tryFetch, 500); }
-      }
-    };
-    tryFetch();
-    return () => { cancelled = true; };
-  }, [viewer]);
-
-  // Prefill Building: prefer Building Name; if it arrives later, override Project Name auto-fill
-  useEffect(() => {
+    if (!projectName) return;
     setForm(prev => {
-      const current = String(prev.building || '').trim();
-      const bn = String(buildingName || '').trim();
-      const pn = String(projectName || '').trim();
-      if (bn) {
-        if (!current || current === pn) return { ...prev, building: bn };
-        return prev;
-      }
-      if (pn) {
-        if (!current) return { ...prev, building: pn };
-      }
-      return prev;
+      if (prev.building && String(prev.building).trim() !== '') return prev;
+      return { ...prev, building: projectName };
     });
-  }, [projectName, buildingName]);
+  }, [projectName]);
 
   // Listen for selection data from main window (standalone mode)
   useEffect(() => {
@@ -5464,7 +5189,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
           discipline: discipline || v.discipline,
           category: matchedCategory || v.category,
           // Overwrite location fields explicitly; if missing, fallback to projectName so Building is auto-filled
-          building: d.building ?? buildingName ?? projectName ?? '',
+          building: d.building ?? projectName ?? '',
           level: d.level ?? '',
           room: d.room ?? '',
           spaceCode: d.spaceCode ?? ''
@@ -5753,7 +5478,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
             discipline: discipline || v.discipline,
             category: matchedCategory || v.category,
             // Overwrite location fields; if missing, use projectName for building to avoid empty building
-            building: building || buildingName || projectName || 'Project Name',
+            building: building || projectName || 'Project Name',
             level: level ?? '',
             room: room ?? '',
             spaceCode: spaceCode ?? ''
@@ -5966,7 +5691,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     // Clear draft after successful submission
     const emptyForm = {
       name: '', surname: '', contact: '',
-      building: (buildingName || projectName) ?? '', level: '', room: '', spaceCode: '',
+      building: projectName ?? '', level: '', room: '', spaceCode: '',
       discipline: '', category: '', item: '', itemDbId: null, descriptionShort: '', descriptionDetailed: '',
       attachments: []
     };
@@ -6039,7 +5764,7 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
                       itemDbId: null,
                       discipline: '',
                       category: '',
-                      building: (buildingName || projectName) ?? '',
+                      building: projectName ?? '',
                       level: '',
                       room: '',
                       spaceCode: ''

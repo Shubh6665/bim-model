@@ -1328,6 +1328,23 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 if (typeof window !== 'undefined') {
                     (window as any).viewer = viewerInstance;
                     console.log('🔧 [ForgeViewer] Viewer made globally accessible as window.viewer');
+                    try {
+                        (window as any).__ASSETDBG = {
+                            props: (dbIds: number | number[], keys?: string[]) => new Promise((resolve, reject) => {
+                                const arr = Array.isArray(dbIds) ? dbIds : [dbIds];
+                                const filter = keys && keys.length ? keys : undefined;
+                                viewerInstance.model.getBulkProperties(arr, filter, (res: any[]) => {
+                                    try { console.log('[__ASSETDBG][props]', res); } catch {}
+                                    resolve(res);
+                                }, (e: any) => reject(e));
+                            }),
+                            selection: (keys?: string[]) => {
+                                const sel = viewerInstance.getSelection ? viewerInstance.getSelection() : [];
+                                return (window as any).__ASSETDBG.props(sel, keys);
+                            }
+                        };
+                        console.log('🔧 [ForgeViewer] __ASSETDBG available: __ASSETDBG.props(dbId[, keys]), __ASSETDBG.selection([keys])');
+                    } catch {}
                 }
                 
                 // Check if primary model should be loaded

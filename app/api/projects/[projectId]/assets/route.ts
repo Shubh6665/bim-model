@@ -98,6 +98,29 @@ export async function POST(
     const db = await getDb();
     const col = db.collection("fm_assets");
 
+    // 0) { action: 'replaceForModel', modelGuid: string, assets: Asset[] }
+    // Delete all BIM_MODEL assets for this project+modelGuid, then upsert provided assets
+    if (payload?.action === 'replaceForModel') {
+      const modelGuid = payload?.modelGuid as string | undefined;
+      const assets = Array.isArray(payload?.assets) ? payload.assets : [];
+      if (!modelGuid) {
+        return NextResponse.json({ error: 'modelGuid is required for replaceForModel' }, { status: 400 });
+      }
+
+      // Delete only BIM-derived assets for this model
+      await col.deleteMany({ projectId, source: 'BIM_MODEL', modelGuid });
+
+      let count = 0;
+      for (const raw of assets) {
+        // Ensure BIM source and modelGuid are carried over
+        const withScope = { ...raw, source: 'BIM_MODEL', modelGuid };
+        // eslint-disable-next-line no-await-in-loop
+        await upsertOne(col, projectId, withScope);
+        count++;
+      }
+      return NextResponse.json({ ok: true, replaced: count, modelGuid });
+    }
+
     // Support multiple modes for flexibility
     // 1) { action: 'upsertMany', assets: Asset[] }
     if (payload?.action === 'upsertMany' && Array.isArray(payload?.assets)) {
