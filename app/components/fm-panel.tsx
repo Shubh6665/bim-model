@@ -1567,7 +1567,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           'Livello di base','Livello superiore',
           'Vincolo di base','Vincolo parte superiore',
           'Base Constraint','Top Constraint','Constraint','Vincolo',
-          'Livello','Level','Piano','Piano Terra','Level 1'
+          'Livello','Level','Piano','Piano Terra','Level 1','Base Constraint'
         );
         const levelForLocation = (asset.level && String(asset.level).trim()) ? asset.level : levelFromProps;
 
