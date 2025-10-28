@@ -191,8 +191,8 @@ export class ViewerLeafAssetExtractor {
       'Category', 'Categoria',
       'Family', 'Family Name', 'Famiglia',
       'Type', 'Type Name', 'Tipo', 'Nome del tipo', 'Nome Tipo', 'Tipologia',
-      'Level', 'Reference Level', 'Base Level', 'Livello', 'Piano',
-      'Material', 'Structural Material', 'Materiale',
+      'Level', 'Reference Level', 'Base Level', 'Livello', 'Livello abaco', 'Livello di base', 'Livello superiore', 'Vincolo di base', 'Vincolo parte superiore', 'Base Constraint', 'Top Constraint', 'Constraint', 'Vincolo', 'Piano',
+      'Material', 'Structural Material', 'Materiale', 'Materiale strutturale',
       'Room', 'Space', 'To Room', 'From Room', 'Locale', 'Locali', 'Aree',
       'Brand', 'Manufacturer', 'Marca', 'Produttore', 'Fabbricante', 'Costruttore',
       'Model', 'Modello',
@@ -449,8 +449,8 @@ export class ViewerLeafAssetExtractor {
       'Category', 'Categoria',
       'Family', 'Family Name', 'Famiglia',
       'Type', 'Type Name', 'Tipo', 'Nome del tipo', 'Nome Tipo', 'Tipologia',
-      'Level', 'Reference Level', 'Base Level', 'Livello', 'Piano',
-      'Material', 'Structural Material', 'Materiale',
+      'Level', 'Reference Level', 'Base Level', 'Livello', 'Livello abaco', 'Livello di base', 'Livello superiore', 'Vincolo di base', 'Vincolo parte superiore', 'Base Constraint', 'Top Constraint', 'Constraint', 'Vincolo', 'Piano',
+      'Material', 'Structural Material', 'Materiale', 'Materiale strutturale',
       'Room', 'Space', 'To Room', 'From Room', 'Locale', 'Locali', 'Aree',
       'Brand', 'Manufacturer', 'Marca', 'Produttore', 'Fabbricante', 'Costruttore',
       'Model', 'Modello',
@@ -543,8 +543,14 @@ export class ViewerLeafAssetExtractor {
     const category = pick('Category','Categoria') || 'Unknown';
     const family = pick('Family','Family Name','Famiglia');
     const type = pick('Type','Type Name','Tipo','Nome del tipo','Nome Tipo','Tipologia');
-    const level = pick('Level','Reference Level','Base Level','Livello','Piano');
-    const material = pick('Material','Structural Material','Materiale');
+    // Level: try multiple Italian variants that contain full level names like "0 - Piano Terra"
+    // Prioritize constraint/abaco fields which have full names, then fall back to generic level fields
+    const level = pick(
+      'Livello abaco','Vincolo di base','Vincolo parte superiore','Livello di base','Livello superiore',
+      'Base Constraint','Top Constraint','Constraint','Vincolo',
+      'Livello','Level','Reference Level','Base Level','Piano'
+    );
+    const material = pick('Material','Structural Material','Materiale','Materiale strutturale');
     const room = pick('Room','Space','To Room','From Room','Locale','Locali','Aree');
     const brand = pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore');
     const model = pick('Model','Modello');
