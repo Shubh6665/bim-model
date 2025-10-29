@@ -4054,9 +4054,10 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
 const EditSpaceFormInline: React.FC<{
   space: SpaceRecord;
   projectId?: string;
+  viewer?: any;
   onSave: () => void;
   onCancel: () => void;
-}> = ({ space, projectId, onSave, onCancel }) => {
+}> = ({ space, projectId, viewer, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     level: space.level || '',
     name: space.name || '',
@@ -4066,6 +4067,52 @@ const EditSpaceFormInline: React.FC<{
     spaceCode: space.spaceCode || ''
   });
   const [saving, setSaving] = useState(false);
+
+  // Attempt to prefill building from model properties (if available) or project name
+  useEffect(() => {
+    let cancelled = false;
+    const tryPrefill = async () => {
+      if (formData.building && String(formData.building).trim() !== '') return;
+      // First try: read building from the BIM model properties if we have the same model loaded
+      try {
+        if (viewer && space && space.dbId != null) {
+          const props: any = await new Promise(resolve => {
+            try { viewer.getProperties(space.dbId, resolve); } catch (e) { resolve(null); }
+          });
+          const getProp = (names: string[]) => {
+            const lower = names.map(n => n.toLowerCase());
+            const p = props?.properties?.find((p: any) => {
+              const dn = p.displayName?.toLowerCase?.();
+              return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+            });
+            return p?.displayValue?.toString();
+          };
+          const b = getProp(['Building', 'Edificio', 'Building Name', 'BuildingName', 'Nome edificio', 'Nome edificio']);
+          if (b && !cancelled) {
+            setFormData(d => ({ ...d, building: b }));
+            return;
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Fallback: fetch project metadata and use Project Name
+      try {
+        if (projectId) {
+          const res = await fetch(`/api/projects/${projectId}`);
+          if (res.ok) {
+            const json = await res.json();
+            const projName = json?.project?.name || json?.name || '';
+            if (projName && !cancelled) setFormData(d => ({ ...d, building: projName }));
+          }
+        }
+      } catch (err) { /* ignore */ }
+    };
+    tryPrefill();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [space, projectId, viewer]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -4208,6 +4255,41 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     } catch { return undefined; }
   }, [viewer]);
 
+  // Merge server-returned rows with persisted client-side rows to avoid losing locally extracted/prefilled fields
+  const mergeWithPersisted = (normalized: SpaceRecord[]): SpaceRecord[] => {
+    try {
+      const persisted: SpaceRecord[] = load(K.spaces(projectId), [] as SpaceRecord[]);
+      const map = new Map<string, SpaceRecord>();
+      const keyOf = (r: SpaceRecord) => (
+        r.source === 'BIM_MODEL' && r.dbId != null ? `BIM|${r.modelGuid || 'g'}|${r.dbId}` : `MAN|${r.id}`
+      );
+      // seed with server rows
+      for (const r of normalized) map.set(keyOf(r), r);
+      // overlay persisted non-empty values so we don't lose metrics/building filled by extract or user
+      for (const p of persisted) {
+        const k = keyOf(p);
+        const target = map.get(k);
+        if (!target) {
+          map.set(k, p);
+          continue;
+        }
+        const out = { ...target } as SpaceRecord;
+        // fields we want to preserve if persisted has them
+        const prefer = ['building', 'area', 'perimeter', 'volume', 'occupancy', 'description', 'name', 'spaceCode'];
+        for (const f of prefer) {
+          const val = (p as any)[f];
+          if (val != null && val !== '' && !(typeof val === 'number' && Number(val) === 0)) {
+            (out as any)[f] = val;
+          }
+        }
+        map.set(k, out);
+      }
+      return Array.from(map.values());
+    } catch (err) {
+      return normalized;
+    }
+  };
+
   // Load from backend (scoped by model when possible)
   useEffect(() => {
     const run = async () => {
@@ -4245,7 +4327,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             : normalized;
           
           console.log(`[Spaces] Initial load: server returned ${normalized.length}, client-filtered to ${clientFiltered.length}`);
-          setRows(clientFiltered);
+          // Merge with persisted to avoid losing locally extracted/prefilled fields
+          setRows(mergeWithPersisted(clientFiltered));
         }
       } catch (err) { console.error(err); }
     };
@@ -4334,6 +4417,28 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         return;
       }
       const propsList: any[] = [];
+      // Try to read model-level Building/Project properties once and reuse as fallback
+      let modelLevelBuilding: string | undefined;
+      try {
+        const rootId = viewer?.model?.getRootId ? viewer.model.getRootId() : null;
+        if (rootId != null) {
+          // eslint-disable-next-line no-await-in-loop
+          const rootProps: any = await new Promise(resolve => { try { viewer.getProperties(rootId, resolve); } catch { resolve(null); } });
+          const getPropFrom = (propsObj: any, names: string[]) => {
+            if (!propsObj || !Array.isArray(propsObj.properties)) return undefined;
+            const lower = names.map(n => n.toLowerCase());
+            const p = propsObj.properties.find((p: any) => {
+              const dn = p.displayName?.toLowerCase?.();
+              return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+            });
+            return p?.displayValue?.toString?.();
+          };
+          modelLevelBuilding = getPropFrom(rootProps, ['Building', 'Edificio', 'Building Name', 'BuildingName', 'Nome edificio', 'Project Name', 'Project Name']);
+        }
+      } catch (err) {
+        // ignore
+      }
+      console.log(`[Spaces] model-level building fallback='${modelLevelBuilding}'`);
       const total = dbids.length;
       for (let i = 0; i < total; i++) {
         // eslint-disable-next-line no-await-in-loop
@@ -4425,10 +4530,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           /^locali?$/.test(cat)
         );
         
-        const level = get(['Level', 'Reference Level', 'Livello', 'Livello di riferimento', 'Piano', 'Piano di riferimento']);
+  const level = get(['Level', 'Reference Level', 'Livello', 'Livello di riferimento', 'Piano', 'Piano di riferimento']);
         const name = p?.name || get(['Name', 'Room Name', 'Space Name', 'Nome', 'Nome stanza', 'Nome spazio', 'Nome locale', 'Nome ambiente', 'Denominazione']);
         const code = get(['Number', 'Room Number', 'Space Number', 'Numero', 'Numero stanza', 'Numero spazio', 'Numero locale', 'Codice', 'Codice locale', 'Codice stanza', 'ID', 'ID locale', 'ID stanza']);
-        const desc = get(['Comments', 'Description', 'Commenti', 'Descrizione']);
+  const desc = get(['Comments', 'Description', 'Commenti', 'Descrizione']);
         
         // Try ALL possible property names for area/perimeter/volume/occupancy
         const areaStr = get([
@@ -4456,6 +4561,15 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           const m = s.match(/-?[0-9]+(?:\.[0-9]+)?/);
           return m ? Number(m[0]) : undefined;
         })() : undefined;
+
+        let buildingStr = get(['Building', 'Edificio', 'Building Name', 'BuildingName', 'Nome edificio']);
+        let usedFallback = false;
+        if ((!buildingStr || String(buildingStr).trim() === '') && modelLevelBuilding) {
+          buildingStr = modelLevelBuilding;
+          usedFallback = true;
+        }
+        // debug building extraction (room-level and whether model-level fallback used)
+        console.log(`[Spaces][extract] dbId=${p?.dbId} building='${buildingStr}' (fallback=${usedFallback}) area='${areaStr}' perimeter='${perimeterStr}' volume='${volumeStr}'`);
 
         // Filter: must be Rooms/Spaces category and have a name or code; Level/Area are optional (we'll include if missing)
         let skipReason: string | null = null;
@@ -4485,6 +4599,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
           perimeter: isNaN(Number(perimeterNum)) ? undefined : Number(perimeterNum),
           volume: isNaN(Number(volumeNum)) ? undefined : Number(volumeNum),
+          building: buildingStr || undefined,
           occupancy: isNaN(Number(occupancyNum)) ? undefined : Number(occupancyNum),
           spaceCode: code || undefined,
           description: desc || undefined,
@@ -4562,9 +4677,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 if ((out.perimeter == null || Number(out.perimeter) === 0) && ex.perimeter != null) out.perimeter = ex.perimeter;
                 if ((out.volume == null || Number(out.volume) === 0) && ex.volume != null) out.volume = ex.volume;
                 if ((out.occupancy == null || Number(out.occupancy) === 0) && ex.occupancy != null) out.occupancy = ex.occupancy;
+                // Prefer building from extraction if server empty
+                if ((!out.building || out.building === '') && ex.building) out.building = ex.building;
                 return out;
               });
-              setRows(enriched);
+              setRows(mergeWithPersisted(enriched));
             }
           }
           setExtractionProgress(100);
@@ -4632,8 +4749,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               : normalized;
             
             console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
-            // Nothing extracted this round; keep rows as-is
-            setRows(clientFiltered);
+            // Nothing extracted this round; keep rows as-is but prefer persisted values
+            setRows(mergeWithPersisted(clientFiltered));
           }
         } catch (e) {
           console.warn('[Spaces] reload after empty extraction failed', e);
@@ -4688,7 +4805,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
                 : normalized;
               console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
-              setRows(clientFiltered);
+              setRows(mergeWithPersisted(clientFiltered));
             }
           })
           .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
@@ -4890,6 +5007,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             <EditSpaceFormInline 
               space={editModal.space} 
               projectId={projectId}
+              viewer={viewer}
               onSave={() => {
                 setEditModal({ open: false });
                 // Reload spaces from database to show updated values
@@ -4923,7 +5041,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
                           : normalized;
                         console.log('[SpaceList] Normalized and setting rows:', clientFiltered.length);
-                        setRows(clientFiltered);
+                        setRows(mergeWithPersisted(clientFiltered));
                       }
                     } else {
                       console.error('[SpaceList] Reload failed with status:', res.status);
