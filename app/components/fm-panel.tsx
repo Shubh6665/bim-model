@@ -4640,15 +4640,28 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const areaNum = parseMeasure(areaStr, 'area');
         
         const perimeterStr = get([
-          'Perimeter', 'Perimetro', 'Perimeter (Gross)', 'Room Perimeter', 'Gross Perimeter'
+          'Perimeter', 'Perimetro', 'Perimeter (Gross)', 'Room Perimeter', 'Gross Perimeter',
+          'Computed Perimeter', 'Perimeter (m)', 'Room Perimeter (m)'
         ]);
         const perimeterNum = parseMeasure(perimeterStr, 'length');
         
         const volumeStr = get([
           'Volume', 'Volumetria', 'Volume Lordo', 'Gross Volume', 'GrossVolume', 'Room Volume', 'Computed Volume',
-          'Altezza non delimitata'  // Italian Revit uses this for unbounded height/volume calculation
+          'Net Volume', 'Room Volume (m³)', 'Room Volume (m3)'
         ]);
-        const volumeNum = parseMeasure(volumeStr, 'volume');
+        let volumeNum = parseMeasure(volumeStr, 'volume');
+        
+        // Fallback: compute volume from area and unbounded height when explicit Volume is missing
+        // Works for English ("Unbounded Height") and Italian ("Altezza non delimitata").
+        if ((volumeNum == null || isNaN(Number(volumeNum)) || Number(volumeNum) === 0)) {
+          const unboundedHeightStr = get(['Unbounded Height', 'Altezza non delimitata']);
+          const heightNum = parseMeasure(unboundedHeightStr, 'length');
+          if (heightNum != null && !isNaN(Number(heightNum))) {
+            if (areaNum != null && !isNaN(Number(areaNum))) {
+              volumeNum = Number(areaNum) * Number(heightNum);
+            }
+          }
+        }
         
         const occupancyStr = get([
           'Occupancy', 'Occupazione', 'Numero persone', 'Number of People', 'Occupanti', 'People Count', 'Occupant'
@@ -5914,6 +5927,254 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   // master labels are like "Italian / English (IFC)"; assets may have raw categories — include them too and mark as extra
   const assetCategories = React.useMemo(() => REVIT_CATEGORIES, []);
 
+  // Reusable Asset List selection modal using the same table design as Asset List
+  const AssetListSelectionModal: React.FC<{
+    projectId?: string;
+    viewer?: any;
+    initialCategory?: string;
+    initialIfcClass?: string;
+    multi?: boolean;
+    onClose: () => void;
+    onConfirm: (assets: AssetRecord[]) => void;
+  }> = ({ projectId, viewer, initialCategory, initialIfcClass, multi = true, onClose, onConfirm }) => {
+    const [assets, setAssets] = useState<AssetRecord[]>([]);
+    const [assetsLoading, setAssetsLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState(initialCategory || '');
+    const [ifcFilter, setIfcFilter] = useState(initialIfcClass || '');
+    const [sortBy, setSortBy] = useState<'name' | 'category' | 'location'>('name');
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    // Helpers adapted from Asset List and Scheduled Maintenance loaders
+    const dedupeAssetsLocal = (arr: AssetRecord[]): AssetRecord[] => {
+      const score = (x: AssetRecord) => {
+        const fields: (keyof AssetRecord)[] = [
+          'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
+          'material','dimensions','weight','capacity','powerRating','location','description'
+        ];
+        let n = 0; for (const f of fields) if ((x as any)[f]) n++;
+        return n;
+      };
+      const map = new Map<string, AssetRecord>();
+      for (const a of arr) {
+        const key = (a.source === 'BIM_MODEL' && a.dbId != null)
+          ? `BIM|${a.modelGuid || 'g'}|${a.dbId}`
+          : `ID|${a.id}`;
+        const ex = map.get(key);
+        if (!ex) map.set(key, a); else map.set(key, score(a) >= score(ex) ? a : ex);
+      }
+      return Array.from(map.values());
+    };
+    const getCurrentModelGuidLocal = (): string | undefined => {
+      try {
+        const g = viewer?.model?.getData?.()?.guid;
+        if (g && typeof g === 'string') return g;
+        const mid = viewer?.model?.id;
+        return (mid != null) ? String(mid) : undefined;
+      } catch { return undefined; }
+    };
+    const filterAssetsForCurrentModelLocal = (arr: AssetRecord[]): AssetRecord[] => {
+      const g = getCurrentModelGuidLocal();
+      if (!g) return arr;
+      return arr.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === g);
+    };
+
+    useEffect(() => {
+      if (!projectId) return;
+      const fetchAssets = async () => {
+        setAssetsLoading(true);
+        try {
+          const currentGuid = getCurrentModelGuidLocal();
+          const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+          let base: AssetRecord[] = [];
+
+          if (currentGuid) {
+            const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(currentGuid)}`);
+            if (res.ok) {
+              const json = await res.json();
+              const list = Array.isArray(json) ? json : [];
+              const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid);
+              const merged = list.map((b: any) => {
+                const c = cached.find(x => x.id === b.id);
+                if (!c) return b;
+                const m: any = { ...b };
+                for (const key of Object.keys(c)) {
+                  const val = (c as any)[key];
+                  if (val !== null && val !== undefined && val !== '') m[key] = val;
+                }
+                return m as AssetRecord;
+              });
+              const cachedOnly = cached.filter(c => !list.find((b: any) => b.id === c.id));
+              base = [...merged, ...cachedOnly];
+            } else {
+              base = cachedAll;
+            }
+          } else {
+            base = cachedAll;
+          }
+
+          const filtered = filterAssetsForCurrentModelLocal(base);
+          const deduped = dedupeAssetsLocal(filtered);
+          setAssets(deduped);
+        } catch (err) {
+          console.error('[AssetListSelectionModal] Failed to load assets:', err);
+        } finally {
+          setAssetsLoading(false);
+        }
+      };
+      fetchAssets();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
+
+    const filtered = React.useMemo(() => {
+      let result = assets;
+      if (search.trim()) {
+        const s = search.toLowerCase();
+        result = result.filter(a =>
+          a.assetName?.toLowerCase().includes(s) ||
+          a.assetCode?.toLowerCase().includes(s) ||
+          a.category?.toLowerCase().includes(s) ||
+          a.location?.toLowerCase().includes(s) ||
+          a.type?.toLowerCase().includes(s) ||
+          a.brand?.toLowerCase().includes(s)
+        );
+      }
+      if (categoryFilter) {
+        // Exact match vs REVIT label
+        result = result.filter(a => (a.category || '') === categoryFilter || (a.category || '').toLowerCase().includes(categoryFilter.toLowerCase()));
+      }
+      if (ifcFilter) {
+        const sel = ifcFilter.toLowerCase();
+        result = result.filter(a => {
+          const cand = `${(a as any).ifcClass || (a as any).ifcType || (a as any).ifcPredefined || a.category || ''}`.toLowerCase();
+          return cand === sel || cand.includes(sel) || sel.includes(cand);
+        });
+      }
+      result = [...result].sort((a, b) => {
+        switch (sortBy) {
+          case 'category': return (a.category || '').localeCompare(b.category || '');
+          case 'location': return (a.location || '').localeCompare(b.location || '');
+          default: return (a.assetName || '').localeCompare(b.assetName || '');
+        }
+      });
+      return result;
+    }, [assets, search, categoryFilter, ifcFilter, sortBy]);
+
+    const toggle = (id: string) => {
+      setSelected(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else {
+          if (!multi) next.clear();
+          next.add(id);
+        }
+        return next;
+      });
+    };
+
+    const confirm = () => {
+      const picked = filtered.filter(a => selected.has(a.id));
+      onConfirm(picked);
+      onClose();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+        <div className="bg-gray-800 rounded-lg p-4 w-full max-w-6xl flex flex-col resize overflow-auto" style={{ minWidth: '600px', minHeight: '560px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">Asset List</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mb-2 items-center">
+            <input
+              placeholder="Search assets by name, code, category, location, type, brand..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full max-w-[760px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9"
+            />
+            <div className="flex gap-2 items-center w-full">
+              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+                <option value="">Revit Categories</option>
+                {REVIT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <select value={ifcFilter} onChange={e => setIfcFilter(e.target.value)} className="flex-1 min-w-[140px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+                <option value="">Ifc Class</option>
+                {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+              </select>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="flex-1 min-w-[120px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+                <option value="name">Name (A-Z)</option>
+                <option value="category">Category (A-Z)</option>
+                <option value="location">Location (A-Z)</option>
+              </select>
+              <div className="px-3 h-9 flex items-center bg-gray-700/50 rounded text-xs text-gray-300">
+                {filtered.length} item{filtered.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto border border-gray-700 rounded">
+            {assetsLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                <div className="text-gray-400 text-sm">Loading assets...</div>
+              </div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
+                  <tr>
+                    <th className="px-2 py-1.5"><input type="checkbox" onChange={e => {
+                      const allIds = filtered.map(a => a.id);
+                      setSelected(prev => {
+                        const next = new Set<string>();
+                        if (e.target.checked) allIds.forEach(id => next.add(id));
+                        return next;
+                      });
+                    }} /></th>
+                    <th className="text-left px-2 py-1.5">Source</th>
+                    <th className="text-left px-2 py-1.5">Category</th>
+                    <th className="text-left px-2 py-1.5">Type</th>
+                    <th className="text-left px-2 py-1.5">Brand</th>
+                    <th className="text-left px-2 py-1.5">Model</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-6 text-center text-gray-400">No assets</td>
+                    </tr>
+                  ) : filtered.map(a => (
+                    <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/60">
+                      <td className="px-2 py-1.5">
+                        <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span className={`text-xs px-2 py-0.5 rounded ${a.source === 'BIM_MODEL' ? 'bg-green-900/40 text-green-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                          {a.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-100">{a.category || '-'}</td>
+                      <td className="px-2 py-1.5 text-gray-200">{a.type || '-'}</td>
+                      <td className="px-2 py-1.5 text-gray-200">{a.brand || '-'}</td>
+                      <td className="px-2 py-1.5 text-gray-200">{a.model || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-xs text-gray-400">{selected.size} selected</div>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Cancel</button>
+              <button onClick={confirm} disabled={selected.size === 0} className={`px-3 py-1.5 rounded text-xs ${selected.size === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>Add Selected</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const addTask = () => {
     if (currentTask.trim()) {
       setTasks(prev => [...prev, currentTask.trim()]);
@@ -5931,6 +6192,33 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const selectAsset = (asset: AssetRecord) => {
     const label = asset.assetName || asset.assetCode || `Asset ${asset.id}`;
     const type = asset.type || asset.category || '';
+
+    // Enforce match against currently selected Revit Category / Ifc Class
+    const matchesFormCategory = () => {
+      // Build master label -> tokens map (italian, english, ifc)
+      const masterMap = new Map<string, string[]>();
+      for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+        const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+        masterMap.set(label, [italian, mapping.english, mapping.ifc].filter(Boolean) as string[]);
+      }
+      let ok = true;
+      if (f.revitCategory) {
+        const tokens = masterMap.get(f.revitCategory) || [];
+        const cat = (asset.category || '').toLowerCase();
+        ok = tokens.some(t => t && cat.includes(String(t).toLowerCase()));
+      }
+      if (ok && f.ifcClass) {
+        const sel = f.ifcClass.toLowerCase();
+        const candidate = `${(asset as any).ifcClass || (asset as any).ifcType || (asset as any).ifcPredefined || asset.category || ''}`.toLowerCase();
+        ok = candidate === sel || candidate.includes(sel) || sel.includes(candidate);
+      }
+      return ok;
+    };
+
+    if (!matchesFormCategory()) {
+      setSubmitMessage({ type: 'error', text: 'Asset does not match the selected Revit Category / Ifc Class.' });
+      return;
+    }
 
     // Enforce same type as first selected asset
     if (allowedAssetType && type !== allowedAssetType) {
@@ -6158,6 +6446,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
                   type="button"
                   onClick={() => {
                     if (!assetsLoaded && !assetsLoading) setAssetsLoaded(false);
+                    // Auto-apply category/IFC filters based on form selection
+                    try {
+                      if (f.revitCategory) setAssetCategoryFilter(f.revitCategory);
+                      if (f.ifcClass) setAssetIfcClassFilter(f.ifcClass);
+                    } catch {}
                     setShowAssetPicker(true);
                   }}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
@@ -6255,131 +6548,31 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
         </button>
       </div>
 
-      {/* Asset Picker Modal */}
+      {/* Asset Picker Modal (replaced with the same Asset List UI + selection checkboxes) */}
       {showAssetPicker && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAssetPicker(false)}>
-          <div className="bg-gray-800 rounded-lg p-4 w-full max-w-5xl flex flex-col resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">Select Asset from Register</h3>
-              <button onClick={() => setShowAssetPicker(false)} className="text-gray-400 hover:text-white text-2xl">&times;</button>
-            </div>
-
-            {/* Search Input */}
-            <input
-              type="text"
-              placeholder="Search assets by name, code, category, location, type, brand..."
-              value={assetSearch}
-              onChange={e => setAssetSearch(e.target.value)}
-              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm mb-3"
-            />
-
-            {/* Filter and Sort Controls */}
-            <div className="flex gap-2 mb-3">
-              {/* Category Filter */}
-              <div className="flex-1">
-                <label className="text-[10px] text-gray-400 block mb-1">Filter by Category</label>
-                <select
-                  value={assetCategoryFilter}
-                  onChange={e => setAssetCategoryFilter(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
-                >
-                  <option value="">Revit Categories ({assets.length})</option>
-                  {assetCategories.map(cat => {
-                    const isMaster = categoryOptions.some(co => co.label === cat);
-                    const count = assets.filter(a => a.category === cat).length;
-                    return (
-                      <option key={cat} value={cat}>
-                        {cat}{!isMaster ? ' (extra)' : ''} {count > 0 ? `(${count})` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className="flex-1">
-                <label className="text-[10px] text-gray-400 block mb-1">Ifc Class</label>
-                <select
-                  value={assetIfcClassFilter}
-                  onChange={e => setAssetIfcClassFilter(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
-                >
-                  <option value="">Ifc Class</option>
-                  {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                </select>
-              </div>
-
-              {/* Sort By */}
-              <div className="flex-1">
-                <label className="text-[10px] text-gray-400 block mb-1">Sort By</label>
-                <select
-                  value={assetSortBy}
-                  onChange={e => setAssetSortBy(e.target.value as 'name' | 'category' | 'location')}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-white text-xs"
-                >
-                  <option value="name">Name (A-Z)</option>
-                  <option value="category">Category (A-Z)</option>
-                  <option value="location">Location (A-Z)</option>
-                </select>
-              </div>
-
-              {/* Results Count */}
-              <div className="flex items-end">
-                <div className="px-3 py-1.5 bg-gray-700/50 rounded text-xs text-gray-300">
-                  {filteredAssets.length} asset{filteredAssets.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-            </div>
-
-            {/* Asset List */}
-            <div className="flex-1 overflow-auto">
-              {assetsLoading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                  <div className="text-gray-400 text-sm">Loading assets...</div>
-                </div>
-              ) : filteredAssets.length === 0 ? (
-                <div className="text-gray-400 text-center py-8">
-                  {assetSearch || assetCategoryFilter ? 'No assets match your filters' : 'No assets in register'}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredAssets.map(asset => (
-                    <div
-                      key={asset.id}
-                      onClick={() => selectAsset(asset)}
-                      className="bg-gray-700/50 hover:bg-gray-700 rounded p-3 cursor-pointer transition"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="font-semibold text-white">
-                            {asset.assetName || asset.assetCode || `Asset ${asset.id}`}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {asset.assetCode && <span className="mr-3">Code: <span className="text-blue-300">{asset.assetCode}</span></span>}
-                            {asset.category && <span className="mr-3">Category: <span className="text-emerald-300">{asset.category}</span></span>}
-                            {asset.type && <span className="mr-3">Type: <span className="text-purple-300">{asset.type}</span></span>}
-                          </div>
-                          {asset.brand && (
-                            <div className="text-xs text-gray-500 mt-1">Brand: {asset.brand}</div>
-                          )}
-                          {asset.location && (
-                            <div className="text-xs text-gray-500 mt-1">Location: {asset.location}</div>
-                          )}
-                        </div>
-                        <div className="ml-2">
-                          <span className={`text-xs px-2 py-1 rounded ${asset.source === 'BIM_MODEL' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'
-                            }`}>
-                            {asset.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <AssetListSelectionModal
+          projectId={projectId}
+          viewer={viewer}
+          initialCategory={f.revitCategory}
+          initialIfcClass={f.ifcClass}
+          multi={true}
+          onClose={() => setShowAssetPicker(false)}
+          onConfirm={(picked) => {
+            const next = picked.map(asset => ({
+              label: asset.assetName || asset.assetCode || `Asset ${asset.id}`,
+              type: asset.type || asset.category || '',
+              id: asset.id
+            }));
+            setSelectedAssets(prev => {
+              const map = new Map<string, { label: string; type?: string; id?: string }>();
+              [...prev, ...next].forEach(a => map.set((a.id || a.label)!, a));
+              return Array.from(map.values());
+            });
+            if (!allowedAssetType && next[0]?.type) setAllowedAssetType(next[0].type || null);
+            setSubmitMessage(null);
+            setErrors(prev => ({ ...prev, asset: '' }));
+          }}
+        />
       )}
     </div>
   );
