@@ -1360,8 +1360,18 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
                         // Capture minimal viewer context synchronously and persist so the standalone window can read it immediately
                         const getViewerContextSync = () => {
                           try {
-                            const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
+                            const g = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
                             const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
+                            
+                            // Create composite modelGuid: guid|urn to ensure uniqueness
+                            let modelGuid = '';
+                            if (g && typeof g === 'string') {
+                              modelGuid = g;
+                              if (urn && typeof urn === 'string') {
+                                modelGuid = `${g}|${urn}`;
+                              }
+                            }
+                            
                             return { modelGuid, urn } as { modelGuid?: string; urn?: string };
                           } catch { return {}; }
                         };
@@ -4253,7 +4263,21 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     try {
       const persisted: SpaceRecord[] = load(K.spaces(projectId), [] as SpaceRecord[]);
       if (Array.isArray(persisted) && persisted.length > 0 && rows.length === 0) {
-        setRows(persisted);
+        // Filter to current model (if known) to avoid cross-model mixing on hydrate
+        let mg: string | undefined;
+        try {
+          const g = viewer?.model?.getData?.()?.guid;
+          if (g && typeof g === 'string') mg = g; else {
+            const mid = viewer?.model?.id;
+            if (mid != null) mg = String(mid);
+          }
+          if (!mg && projectId) {
+            const ctxRaw = localStorage.getItem(`fm-context-${projectId}`);
+            if (ctxRaw) { const ctx = JSON.parse(ctxRaw || '{}'); if (ctx?.modelGuid) mg = String(ctx.modelGuid); }
+          }
+        } catch {}
+        const filtered = mg ? persisted.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg) : persisted;
+        setRows(filtered);
       }
     } catch {
       // ignore
@@ -4262,12 +4286,32 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   }, [projectId]);
 
   // Helper to get current model GUID (if viewer is present)
+  // Get unique model identifier combining guid+urn to handle cases where multiple models have same guid
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
     try {
       const g = viewer?.model?.getData?.()?.guid;
-      if (g && typeof g === 'string') return g;
-      const mid = viewer?.model?.id;
-      if (mid != null) return String(mid);
+      const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
+      
+      // Create composite key: guid|urn to ensure uniqueness across different models
+      let compositeKey = '';
+      if (g && typeof g === 'string') {
+        compositeKey = g;
+        // Append URN hash to distinguish models with same guid
+        if (urn && typeof urn === 'string') {
+          compositeKey = `${g}|${urn}`;
+        }
+      } else {
+        const mid = viewer?.model?.id;
+        if (mid != null) {
+          compositeKey = String(mid);
+          if (urn && typeof urn === 'string') {
+            compositeKey = `${mid}|${urn}`;
+          }
+        }
+      }
+      
+      if (compositeKey) return compositeKey;
+      
       // Fallback to persisted fm-context (standalone)
       try {
         const ctxRaw = projectId ? localStorage.getItem(`fm-context-${projectId}`) : null;
@@ -4275,12 +4319,14 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       } catch {}
       return undefined;
     } catch { return undefined; }
-  }, [viewer]);
+  }, [viewer, projectId]);
 
   // Merge server-returned rows with persisted client-side rows to avoid losing locally extracted/prefilled fields
   const mergeWithPersisted = (normalized: SpaceRecord[]): SpaceRecord[] => {
     try {
       const persisted: SpaceRecord[] = load(K.spaces(projectId), [] as SpaceRecord[]);
+      // Use getCurrentModelGuid for consistent composite key (guid|urn)
+      const mg = getCurrentModelGuid();
       const map = new Map<string, SpaceRecord>();
       const keyOf = (r: SpaceRecord) => (
         r.source === 'BIM_MODEL' && r.dbId != null ? `BIM|${r.modelGuid || 'g'}|${r.dbId}` : `MAN|${r.id}`
@@ -4289,6 +4335,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       for (const r of normalized) map.set(keyOf(r), r);
       // overlay persisted non-empty values so we don't lose metrics/building filled by extract or user
       for (const p of persisted) {
+        // Skip persisted BIM rows from other models to prevent cross-model mixing
+        if (p.source === 'BIM_MODEL' && mg && p.modelGuid && p.modelGuid !== mg) {
+          console.log(`[Spaces][merge] SKIP persisted BIM row from different model: dbId=${p.dbId}, name=${p.name}, modelGuid=${p.modelGuid} (current=${mg})`);
+          continue;
+        }
         const k = keyOf(p);
         const target = map.get(k);
         if (!target) {
@@ -4343,16 +4394,28 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             conflictWithId: d.conflictWithId
           }));
           
-          // Extra client-side filter for safety
+          // STRICT client-side filter for safety - ONLY spaces from current model
           const clientFiltered = mg 
-            ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+            ? normalized.filter(r => {
+                if (r.source === 'BIM_MODEL') {
+                  // BIM space: MUST match current modelGuid exactly
+                  return r.modelGuid === mg;
+                } else {
+                  // Manual space: include only if it has no modelGuid or matches current
+                  return !r.modelGuid || r.modelGuid === mg;
+                }
+              })
             : normalized;
           
-          console.log(`[Spaces] Initial load: server returned ${normalized.length}, client-filtered to ${clientFiltered.length}`);
+          console.log(`[Spaces] Initial load: server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length}`);
           // Merge with persisted to avoid losing locally extracted/prefilled fields
           const mergedClient = mergeWithPersisted(clientFiltered);
           setRows(mergedClient);
-          try { save(K.spaces(projectId), mergedClient); } catch {}
+          try {
+            const mgSave = getCurrentModelGuid();
+            const toSave = mgSave ? mergedClient.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mgSave) : mergedClient;
+            save(K.spaces(projectId), toSave);
+          } catch {}
         }
       } catch (err) { console.error(err); }
     };
@@ -4361,10 +4424,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   }, [projectId, viewer]);
 
   // Ensure current rows reflect only the current model's BIM spaces when viewer/model changes
+  // AND clear localStorage to prevent stale data accumulation
   useEffect(() => {
     const mg = getCurrentModelGuid();
     if (!mg) return;
-    setRows(prev => prev.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg));
+    
+    setRows(prev => {
+      const filtered = prev.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg);
+      // Also update localStorage immediately to purge stale BIM spaces
+      try {
+        save(K.spaces(projectId), filtered);
+      } catch {}
+      return filtered;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewer]);
 
@@ -4434,6 +4506,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     setExtractionProgress(1);
     try {
       const modelGuid = getCurrentModelGuid();
+      console.log(`[Spaces] Extracting with composite modelGuid: ${modelGuid}`);
       const dbids = await findRoomDbIds();
       if (!dbids || dbids.length === 0) {
         setExtractionProgress(100);
@@ -4678,21 +4751,60 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 conflictWithId: d.conflictWithId
               }));
               
-              // Extra client-side filter: only keep BIM spaces matching current model, plus all manual spaces
+              // STRICT client-side filter: ONLY keep spaces matching current model
+              // BIM spaces MUST have matching modelGuid; manual spaces are kept only if no modelGuid context
               const clientFiltered = mg 
-                ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                ? normalized.filter(r => {
+                    if (r.source === 'BIM_MODEL') {
+                      // BIM space: MUST match current modelGuid exactly
+                      const match = r.modelGuid === mg;
+                      if (!match) {
+                        console.log(`[Spaces] FILTERING OUT BIM space: dbId=${r.dbId}, modelGuid=${r.modelGuid} (current=${mg})`);
+                      }
+                      return match;
+                    } else {
+                      // Manual space: include only if it has no modelGuid or matches current
+                      return !r.modelGuid || r.modelGuid === mg;
+                    }
+                  })
                 : normalized;
               
-              console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
-              // Enrich server rows with freshly extracted metrics (server may not persist perimeter/volume yet)
+              console.log(`[Spaces] Server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
+              
+              // CRITICAL FIX: After extraction, ONLY keep:
+              // 1. Freshly extracted BIM spaces (from newRows - these are the current 5 rooms)
+              // 2. Manual spaces (not from BIM)
+              // Do NOT include old BIM spaces from previous extractions!
+              
               const keyOf = (r: SpaceRecord) => (
                 r.source === 'BIM_MODEL' && r.dbId != null
                   ? `BIM|${r.modelGuid || 'g'}|${r.dbId}`
                   : `ID|${r.id}`
               );
+              
+              // Build set of freshly extracted dbIds
+              const extractedDbIds = new Set(newRows.map(r => r.dbId).filter(Boolean));
+              console.log(`[Spaces] Freshly extracted dbIds:`, Array.from(extractedDbIds));
+              
+              // Filter: keep ONLY freshly extracted BIM spaces + manual spaces
+              const freshOnly = clientFiltered.filter(r => {
+                if (r.source === 'BIM_MODEL') {
+                  const isFresh = r.dbId != null && extractedDbIds.has(r.dbId);
+                  if (!isFresh) {
+                    console.log(`[Spaces] FILTERING OUT old BIM space: dbId=${r.dbId}, name=${r.name} (not in fresh extraction)`);
+                  }
+                  return isFresh;
+                }
+                // Keep all manual spaces
+                return true;
+              });
+              
+              console.log(`[Spaces] After filtering to fresh extraction: ${freshOnly.length} spaces (${newRows.length} BIM + manual)`);
+              
+              // Enrich with freshly extracted metrics
               const extractedMap = new Map<string, SpaceRecord>();
               for (const r of newRows) extractedMap.set(keyOf(r), r);
-              const enriched = clientFiltered.map(r => {
+              const enriched = freshOnly.map(r => {
                 const ex = extractedMap.get(keyOf(r));
                 if (!ex) return r;
                 const out: SpaceRecord = { ...r };
@@ -4707,7 +4819,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               });
               const mergedEnriched = mergeWithPersisted(enriched);
               setRows(mergedEnriched);
-              try { save(K.spaces(projectId), mergedEnriched); } catch {}
+              try {
+                const mgSave2 = getCurrentModelGuid();
+                const toSave2 = mgSave2 ? mergedEnriched.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mgSave2) : mergedEnriched;
+                save(K.spaces(projectId), toSave2);
+              } catch {}
             }
           }
           setExtractionProgress(100);
@@ -4739,8 +4855,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           else map.set(key, score(r) >= score(ex) ? r : ex);
         }
         const merged = Array.from(map.values());
-  setRows(merged);
-  try { save(K.spaces(projectId), merged); } catch {}
+        setRows(merged);
+        try {
+          const mgSave3 = getCurrentModelGuid();
+          const toSave3 = mgSave3 ? merged.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mgSave3) : merged;
+          save(K.spaces(projectId), toSave3);
+        } catch {}
         console.log(`[Spaces] local merge result: ${merged.length} rows`);
         setExtractionProgress(100);
       } else {
@@ -4770,12 +4890,20 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               conflictWithId: d.conflictWithId
             })) : [];
             
-            // Extra client-side filter for safety
+            // STRICT client-side filter for safety - ONLY spaces from current model
             const clientFiltered = mg 
-              ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+              ? normalized.filter(r => {
+                  if (r.source === 'BIM_MODEL') {
+                    // BIM space: MUST match current modelGuid exactly
+                    return r.modelGuid === mg;
+                  } else {
+                    // Manual space: include only if it has no modelGuid or matches current
+                    return !r.modelGuid || r.modelGuid === mg;
+                  }
+                })
               : normalized;
             
-            console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
+            console.log(`[Spaces] Server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
             // Nothing extracted this round; keep rows as-is but prefer persisted values
             setRows(mergeWithPersisted(clientFiltered));
           }
@@ -4828,8 +4956,15 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 footprint: d.footprint || undefined,
                 conflictWithId: d.conflictWithId
               }));
+              // STRICT filter: only spaces from current model
               const clientFiltered = mg 
-                ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                ? normalized.filter(r => {
+                    if (r.source === 'BIM_MODEL') {
+                      return r.modelGuid === mg;
+                    } else {
+                      return !r.modelGuid || r.modelGuid === mg;
+                    }
+                  })
                 : normalized;
               console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
               setRows(mergeWithPersisted(clientFiltered));
@@ -5064,8 +5199,15 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           footprint: d.footprint || undefined,
                           conflictWithId: d.conflictWithId
                         }));
+                        // STRICT filter: only spaces from current model
                         const clientFiltered = mg
-                          ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                          ? normalized.filter(r => {
+                              if (r.source === 'BIM_MODEL') {
+                                return r.modelGuid === mg;
+                              } else {
+                                return !r.modelGuid || r.modelGuid === mg;
+                              }
+                            })
                           : normalized;
                         console.log('[SpaceList] Normalized and setting rows:', clientFiltered.length);
                         setRows(mergeWithPersisted(clientFiltered));
@@ -5571,7 +5713,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const [assetIfcClassFilter, setAssetIfcClassFilter] = useState('');
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
 
-  const [f, setF] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
+  const [f, setF] = useState({ discipline: '', revitCategory: '', ifcClass: '', code: '', asset: '', frequency: '', timeHours: '' });
   const [selectedAssets, setSelectedAssets] = useState<{ label: string; type?: string; id?: string }[]>([]);
   const [allowedAssetType, setAllowedAssetType] = useState<string | null>(null);
   const [currentTask, setCurrentTask] = useState('');
@@ -5817,9 +5959,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     const newErrors: any = { discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' };
     let hasError = false;
 
-    // Required fields validation
-    if (!f.discipline) { newErrors.discipline = 'Required'; hasError = true; }
-    if (!f.category) { newErrors.category = 'Required'; hasError = true; }
+  // Required fields validation
+  if (!f.discipline) { newErrors.discipline = 'Required'; hasError = true; }
+  // At least one of Revit Category or Ifc Class must be selected
+  if (!f.revitCategory && !f.ifcClass) { newErrors.category = 'Select Revit Category or Ifc Class'; hasError = true; }
     if (!f.code || !f.code.trim()) { newErrors.code = 'Required'; hasError = true; }
   // legacy single-asset field removed; validate using selectedAssets
   // if any assets must be selected, ensure selectedAssets is non-empty
@@ -5845,10 +5988,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     }
 
     // Build new item
+    const combinedCategory = [f.revitCategory, f.ifcClass].filter(Boolean).join(' | ');
     const newItem: ScheduledItem = {
       id: `sched-${Date.now()}`,
       discipline: f.discipline,
-      category: f.category,
+      category: combinedCategory,
       code: f.code,
       asset: selectedAssets.map(s => s.label),
       tasks: tasks,
@@ -5917,7 +6061,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     }
 
     // Reset form
-    setF({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '' });
+  setF({ discipline: '', revitCategory: '', ifcClass: '', code: '', asset: '', frequency: '', timeHours: '' });
     setTasks([]);
     setCurrentTask('');
     setSelectedAssets([]);
@@ -5942,16 +6086,34 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
           {errors.discipline && <div className="text-[10px] text-red-400 mt-1">{errors.discipline}</div>}
         </div>
 
-        {/* Category Dropdown (from CATEGORY_MAPPING) */}
+        {/* Revit Category Dropdown */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Category *</label>
+          <label className="text-[11px] text-gray-400 block mb-1">Revit Category</label>
           <select
-            value={f.category}
-            onChange={e => { setF(v => ({ ...v, category: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
+            value={f.revitCategory}
+            onChange={e => { setF(v => ({ ...v, revitCategory: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
           >
-            <option value="">Select Category</option>
-            {categoryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            <option value="">Select Revit Category</option>
+            {REVIT_CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          {errors.category && <div className="text-[10px] text-red-400 mt-1">{errors.category}</div>}
+        </div>
+
+        {/* IFC Class Dropdown */}
+        <div>
+          <label className="text-[11px] text-gray-400 block mb-1">Ifc Class</label>
+          <select
+            value={f.ifcClass}
+            onChange={e => { setF(v => ({ ...v, ifcClass: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
+            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
+          >
+            <option value="">Select Ifc Class</option>
+            {IFCCLASSES_UNIQUE.map(ic => (
+              <option key={ic} value={ic}>{ic}</option>
+            ))}
           </select>
           {errors.category && <div className="text-[10px] text-red-400 mt-1">{errors.category}</div>}
         </div>
