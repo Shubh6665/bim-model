@@ -1357,23 +1357,34 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
                   title="Open in new window"
                   onClick={() => {
                     try {
+                        // Capture minimal viewer context synchronously and persist so the standalone window can read it immediately
+                        const getViewerContextSync = () => {
+                          try {
+                            const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
+                            const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
+                            return { modelGuid, urn } as { modelGuid?: string; urn?: string };
+                          } catch { return {}; }
+                        };
+                        try {
+                          const ctxSync = getViewerContextSync();
+                          if (projectId) {
+                            try {
+                              localStorage.setItem(`fm-context-${projectId}`, JSON.stringify(ctxSync));
+                              console.log(`[Spaces][open] wrote fm-context-${projectId} =>`, ctxSync);
+                            } catch {}
+                          }
+                        } catch { }
+
                         // Open window synchronously FIRST to avoid popup blockers
                         const features = `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`;
                         const s = encodeURIComponent(JSON.stringify(section));
                         const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
                         const w = window.open(url, `_blank`, features);
                         if (w) childWinRef.current = w;
-                        
-                        // Now capture context/prefill asynchronously and save to localStorage
+
+                        // Now capture prefill snapshot asynchronously and save to localStorage (non-blocking)
                         (async () => {
                           try {
-                            const getViewerContext = () => {
-                              try {
-                                const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
-                                const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
-                                return { modelGuid, urn } as { modelGuid?: string; urn?: string };
-                              } catch { return {}; }
-                            };
                             const capturePrefillSnapshot = async (): Promise<Partial<AssetRecord> | null> => {
                               try {
                                 if (!viewer) return null;
@@ -1462,12 +1473,9 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
                                 } as Partial<AssetRecord>;
                               } catch { return null; }
                             };
-
-                            const ctx = getViewerContext();
                             const prefill = await capturePrefillSnapshot();
-                            if (projectId) {
-                              try { localStorage.setItem(`fm-context-${projectId}`, JSON.stringify(ctx)); } catch {}
-                              try { if (prefill) localStorage.setItem(`fm-prefill-${projectId}`, JSON.stringify(prefill)); } catch {}
+                            if (projectId && prefill) {
+                              try { localStorage.setItem(`fm-prefill-${projectId}`, JSON.stringify(prefill)); } catch {}
                             }
                           } catch (err) { console.error('Failed to capture context/prefill', err); }
                         })();
@@ -4342,7 +4350,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           
           console.log(`[Spaces] Initial load: server returned ${normalized.length}, client-filtered to ${clientFiltered.length}`);
           // Merge with persisted to avoid losing locally extracted/prefilled fields
-          setRows(mergeWithPersisted(clientFiltered));
+          const mergedClient = mergeWithPersisted(clientFiltered);
+          setRows(mergedClient);
+          try { save(K.spaces(projectId), mergedClient); } catch {}
         }
       } catch (err) { console.error(err); }
     };
@@ -4695,7 +4705,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 if ((!out.building || out.building === '') && ex.building) out.building = ex.building;
                 return out;
               });
-              setRows(mergeWithPersisted(enriched));
+              const mergedEnriched = mergeWithPersisted(enriched);
+              setRows(mergedEnriched);
+              try { save(K.spaces(projectId), mergedEnriched); } catch {}
             }
           }
           setExtractionProgress(100);
@@ -4727,7 +4739,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           else map.set(key, score(r) >= score(ex) ? r : ex);
         }
         const merged = Array.from(map.values());
-        setRows(merged);
+  setRows(merged);
+  try { save(K.spaces(projectId), merged); } catch {}
         console.log(`[Spaces] local merge result: ${merged.length} rows`);
         setExtractionProgress(100);
       } else {
