@@ -256,6 +256,9 @@ interface SpaceRecord {
   level?: string;
   name?: string;
   area?: number;
+  perimeter?: number;
+  volume?: number;
+  occupancy?: number;
   spaceCode?: string;
   building?: string;
   description?: string;
@@ -1352,118 +1355,124 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
 
                 <button
                   title="Open in new window"
-                  onClick={async () => {
+                  onClick={() => {
                     try {
-                        // Capture current model context and a prefill snapshot so the standalone window can work without the viewer
-                        const getViewerContext = () => {
+                        // Open window synchronously FIRST to avoid popup blockers
+                        const features = `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`;
+                        const s = encodeURIComponent(JSON.stringify(section));
+                        const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
+                        const w = window.open(url, `_blank`, features);
+                        if (w) childWinRef.current = w;
+                        
+                        // Now capture context/prefill asynchronously and save to localStorage
+                        (async () => {
                           try {
-                            const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
-                            const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
-                            return { modelGuid, urn } as { modelGuid?: string; urn?: string };
-                          } catch { return {}; }
-                        };
-                        const capturePrefillSnapshot = async (): Promise<Partial<AssetRecord> | null> => {
-                          try {
-                            if (!viewer) return null;
-                            const getAgg = () => new Promise<any>((resolve) => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
-                            let dbId: number | undefined; let model: any = viewer.model;
-                            const agg = await getAgg();
-                            if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
-                            else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
-                            if (dbId == null || !model) return null;
-                            const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
-                            const propArray: any[] = Array.isArray(props?.properties) ? props.properties : [];
-                            const propsMap: Record<string, any> = {};
-                            const propsLower: Record<string, any> = {};
-                            for (const prop of propArray) {
-                              const name = (prop?.displayName ?? '').toString();
-                              if (!name) continue;
-                              const value = prop?.displayValue;
-                              propsMap[name] = value;
-                              propsLower[name.toLowerCase().trim()] = value;
-                            }
-                            const pick = (...keys: string[]): string | undefined => {
-                              for (const key of keys) {
-                                const direct = propsMap[key];
-                                if (direct !== undefined && direct !== null && direct !== '') return direct.toString();
-                                const lk = key.toLowerCase().trim();
-                                const lowerVal = propsLower[lk];
-                                if (lowerVal !== undefined && lowerVal !== null && lowerVal !== '') return lowerVal.toString();
-                              }
-                              return undefined;
+                            const getViewerContext = () => {
+                              try {
+                                const modelGuid = viewer?.model?.getData?.()?.guid || (viewer?.model?.id != null ? String(viewer.model.id) : undefined);
+                                const urn = viewer?.model?.getData?.()?.urn || (viewer?.impl?.model?.myData?.urn);
+                                return { modelGuid, urn } as { modelGuid?: string; urn?: string };
+                              } catch { return {}; }
                             };
-                            const PROP_ALIASES: Record<string, string[]> = {
-                              brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
-                              modelName: ['Model', 'Type Name', 'Model Number', 'Nome del tipo', 'Nome del tipo'],
-                              serial: ['Serial Number', 'Serial', 'Numero di serie'],
-                              installDate: ['Install Date', 'Installation Date', 'Data di installazione'],
-                              power: ['Power', 'Power Rating', 'kW', 'Dati elettrici', 'Alimentazione apparente'],
-                              capacity: ['Capacity', 'Capacità'],
-                              weight: ['Weight', 'Peso'],
-                              length: ['Length', 'Lunghezza'],
-                              width: ['Width', 'Larghezza'],
-                              height: ['Height', 'Thickness', 'Altezza'],
-                              material: ['Material', 'Structural Material', 'Materiale', 'Materiale strutturale'],
-                              level: ['Schedule Level','Livello abaco','Base Level','Reference Level','Livello di base','Livello superiore','Vincolo di base','Vincolo parte superiore','Base Constraint','Top Constraint','Constraint','Vincolo','Livello','Level','Piano','Piano Terra','Level 1'],
-                              room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
-                              rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
-                            };
-                            const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
-                            const brand = pickAlias('brand');
-                            const modelName = pickAlias('modelName');
-                            const serial = pickAlias('serial');
-                            const installDate = pickAlias('installDate');
-                            const power = pickAlias('power');
-                            const capacity = pickAlias('capacity');
-                            const weight = pickAlias('weight');
-                            const length = pickAlias('length');
-                            const width = pickAlias('width');
-                            const height = pickAlias('height');
-                            const material = pickAlias('material');
-                            const level = pickAlias('level');
-                            const room = pickAlias('room');
-                            const rawCategory = pickAlias('rawCategory') || pick('Category','Categoria','OmniClass Title','OmniClass','Tipo');
-                            const mapToStandardCategoryLocal = (category?: string): string | undefined => {
-                              if (!category) return undefined;
-                              const cat = category.toLowerCase();
-                              for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
-                                if (cat.includes(it.toLowerCase()) || cat.includes(m.english.toLowerCase()) || cat.includes(m.ifc.toLowerCase())) {
-                                  return `${it} / ${m.english} (${m.ifc})`;
+                            const capturePrefillSnapshot = async (): Promise<Partial<AssetRecord> | null> => {
+                              try {
+                                if (!viewer) return null;
+                                const getAgg = () => new Promise<any>((resolve) => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+                                let dbId: number | undefined; let model: any = viewer.model;
+                                const agg = await getAgg();
+                                if (agg && agg.length > 0 && agg[0].selection?.length > 0) { dbId = agg[0].selection[0]; model = agg[0].model; }
+                                else { const sel = viewer.getSelection?.(); if (sel && sel.length > 0) dbId = sel[0]; }
+                                if (dbId == null || !model) return null;
+                                const props: any = await new Promise(resolve => model.getProperties(dbId!, resolve));
+                                const propArray: any[] = Array.isArray(props?.properties) ? props.properties : [];
+                                const propsMap: Record<string, any> = {};
+                                const propsLower: Record<string, any> = {};
+                                for (const prop of propArray) {
+                                  const name = (prop?.displayName ?? '').toString();
+                                  if (!name) continue;
+                                  const value = prop?.displayValue;
+                                  propsMap[name] = value;
+                                  propsLower[name.toLowerCase().trim()] = value;
                                 }
-                              }
-                              return category;
+                                const pick = (...keys: string[]): string | undefined => {
+                                  for (const key of keys) {
+                                    const direct = propsMap[key];
+                                    if (direct !== undefined && direct !== null && direct !== '') return direct.toString();
+                                    const lk = key.toLowerCase().trim();
+                                    const lowerVal = propsLower[lk];
+                                    if (lowerVal !== undefined && lowerVal !== null && lowerVal !== '') return lowerVal.toString();
+                                  }
+                                  return undefined;
+                                };
+                                const PROP_ALIASES: Record<string, string[]> = {
+                                  brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
+                                  modelName: ['Model', 'Type Name', 'Model Number', 'Nome del tipo', 'Nome del tipo'],
+                                  serial: ['Serial Number', 'Serial', 'Numero di serie'],
+                                  installDate: ['Install Date', 'Installation Date', 'Data di installazione'],
+                                  power: ['Power', 'Power Rating', 'kW', 'Dati elettrici', 'Alimentazione apparente'],
+                                  capacity: ['Capacity', 'Capacità'],
+                                  weight: ['Weight', 'Peso'],
+                                  length: ['Length', 'Lunghezza'],
+                                  width: ['Width', 'Larghezza'],
+                                  height: ['Height', 'Thickness', 'Altezza'],
+                                  material: ['Material', 'Structural Material', 'Materiale', 'Materiale strutturale'],
+                                  level: ['Schedule Level','Livello abaco','Base Level','Reference Level','Livello di base','Livello superiore','Vincolo di base','Vincolo parte superiore','Base Constraint','Top Constraint','Constraint','Vincolo','Livello','Level','Piano','Piano Terra','Level 1'],
+                                  room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
+                                  rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
+                                };
+                                const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
+                                const brand = pickAlias('brand');
+                                const modelName = pickAlias('modelName');
+                                const serial = pickAlias('serial');
+                                const installDate = pickAlias('installDate');
+                                const power = pickAlias('power');
+                                const capacity = pickAlias('capacity');
+                                const weight = pickAlias('weight');
+                                const length = pickAlias('length');
+                                const width = pickAlias('width');
+                                const height = pickAlias('height');
+                                const material = pickAlias('material');
+                                const level = pickAlias('level');
+                                const room = pickAlias('room');
+                                const rawCategory = pickAlias('rawCategory') || pick('Category','Categoria','OmniClass Title','OmniClass','Tipo');
+                                const mapToStandardCategoryLocal = (category?: string): string | undefined => {
+                                  if (!category) return undefined;
+                                  const cat = category.toLowerCase();
+                                  for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                                    if (cat.includes(it.toLowerCase()) || cat.includes(m.english.toLowerCase()) || cat.includes(m.ifc.toLowerCase())) {
+                                      return `${it} / ${m.english} (${m.ifc})`;
+                                    }
+                                  }
+                                  return category;
+                                };
+                                const category = mapToStandardCategoryLocal(rawCategory);
+                                const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
+                                return {
+                                  brand: brand || '',
+                                  model: modelName || '',
+                                  serialNumber: serial || '',
+                                  installationDate: installDate || '',
+                                  powerRating: power || '',
+                                  capacity: capacity || '',
+                                  weight: weight || '',
+                                  dimensions: dimensions || '',
+                                  material: material || '',
+                                  location: [level, room].filter(Boolean).join(' - ') || '',
+                                  category: category || ''
+                                } as Partial<AssetRecord>;
+                              } catch { return null; }
                             };
-                            const category = mapToStandardCategoryLocal(rawCategory);
-                            const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
-                            return {
-                              brand: brand || '',
-                              model: modelName || '',
-                              serialNumber: serial || '',
-                              installationDate: installDate || '',
-                              powerRating: power || '',
-                              capacity: capacity || '',
-                              weight: weight || '',
-                              dimensions: dimensions || '',
-                              material: material || '',
-                              location: [level, room].filter(Boolean).join(' - ') || '',
-                              category: category || ''
-                            } as Partial<AssetRecord>;
-                          } catch { return null; }
-                        };
 
-                        const ctx = getViewerContext();
-                        const prefill = await capturePrefillSnapshot();
-                        if (projectId) {
-                          try { localStorage.setItem(`fm-context-${projectId}`, JSON.stringify(ctx)); } catch {}
-                          try { if (prefill) localStorage.setItem(`fm-prefill-${projectId}`, JSON.stringify(prefill)); } catch {}
-                        }
-                      const s = encodeURIComponent(JSON.stringify(section));
-                      const url = `${window.location.origin}/fm-standalone?section=${s}${projectId ? `&projectId=${projectId}` : ''}`;
-                      const w = window.open(url, `_blank`, `width=${Math.min(window.innerWidth-100, 1200)},height=${Math.min(window.innerHeight-100, 800)}`);
-                      if (w) {
-                        childWinRef.current = w;
-                      }
-                        // Close the current popup when opening a new window
+                            const ctx = getViewerContext();
+                            const prefill = await capturePrefillSnapshot();
+                            if (projectId) {
+                              try { localStorage.setItem(`fm-context-${projectId}`, JSON.stringify(ctx)); } catch {}
+                              try { if (prefill) localStorage.setItem(`fm-prefill-${projectId}`, JSON.stringify(prefill)); } catch {}
+                            }
+                          } catch (err) { console.error('Failed to capture context/prefill', err); }
+                        })();
+                        
+                        // Close the current modal when opening new window
                         setShowModal(false);
                         setSection(s => s ? { ...s, item: null } : s);
                     } catch (err) { console.error('Failed to open standalone window', err); }
@@ -1484,15 +1493,10 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
                 </button>
               </div>
             </div>
-            {/* Body */}
-            {!showModalMinimized ? (
-              // Allow the modal body to scroll and not trap all scrolling events
-              <div className="p-4 flex-1 flex flex-col min-h-0 overflow-auto">
-                {renderSectionContent()}
-              </div>
-            ) : (
-              <div className="p-4 flex items-center justify-center text-sm text-gray-400">Minimized — model visible. Click Restore to open panel.</div>
-            )}
+            {/* Body - keep mounted; hide when minimized to avoid unmount/reload flicker */}
+            <div className={`p-4 flex-1 flex flex-col min-h-0 overflow-auto ${showModalMinimized ? 'hidden' : ''}`}>
+              {renderSectionContent()}
+            </div>
             {/* Resize Handle */}
             <div
               onMouseDown={onResizeMouseDown}
@@ -1911,8 +1915,25 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : [];
-            setRows(dedupeAssets(filterAssetsForCurrentModel(list)));
-            save(K.assets(projectId), dedupeAssets(filterAssetsForCurrentModel(list)));
+            // Merge with cached local to preserve edited fields
+            const currentCachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+            const currentGuid = ctx?.modelGuid || getCurrentModelGuid();
+            const cached = currentCachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid);
+            const mergedById = list.map(b => {
+              const c = cached.find(x => x.id === b.id) || {} as any;
+              const merged: any = { ...b };
+              const isEdited = (c as any).userEdited === true;
+              for (const [key, val] of Object.entries(c)) {
+                if (isEdited && (EDITABLE_FIELDS as any).includes(key)) merged[key] = val;
+              }
+              return merged as AssetRecord;
+            });
+            const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
+            const finalList = [...mergedById, ...cachedOnly];
+            const filtered = filterAssetsForCurrentModel(finalList);
+            const deduped = dedupeAssets(filtered);
+            setRows(deduped);
+            save(K.assets(projectId), deduped);
           }
         } else {
           // Local-only update
@@ -3594,6 +3615,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         }
       }
 
+      // Safety: if in edit mode but no override provided, do NOT create a new asset
+      if (mode === 'edit' && !onSaveOverride) {
+        console.warn('[CreateAsset] Edit mode without onSaveOverride - blocking create to avoid duplicates');
+        setSaveError('Cannot save edit at the moment. Please retry.');
+        setTimeout(() => setSaveError(null), 3000);
+        setIsSaving(false);
+        return;
+      }
+
       // Save to backend if projectId is available
       if (projectId) {
         console.log(`💾 [CreateAsset] Saving asset to backend for project: ${projectId}`, rec);
@@ -3836,6 +3866,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       }));
     } catch { }
   };
+
+  // Standalone auto-prefill on mount if viewer is not present
+  useEffect(() => {
+    if (!viewer) {
+      // Try immediately from local snapshot; if empty, nothing happens
+      prefillFromSelection();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
 
@@ -4137,7 +4176,7 @@ const EditSpaceFormInline: React.FC<{
 };
 
 const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
-  const [rows, setRows] = useState<SpaceRecord[]>([]);
+  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   // Pagination
@@ -4148,13 +4187,24 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Edit modal
   const [editModal, setEditModal] = useState<{ open: boolean; space?: SpaceRecord }>({ open: false });
 
+  // Persist spaces to local storage to avoid flicker on minimize/restore and enable instant load
+  useEffect(() => {
+    try { save(K.spaces(projectId), rows); } catch {}
+  }, [rows, projectId]);
+
   // Helper to get current model GUID (if viewer is present)
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
     try {
       const g = viewer?.model?.getData?.()?.guid;
       if (g && typeof g === 'string') return g;
       const mid = viewer?.model?.id;
-      return (mid != null) ? String(mid) : undefined;
+      if (mid != null) return String(mid);
+      // Fallback to persisted fm-context (standalone)
+      try {
+        const ctxRaw = projectId ? localStorage.getItem(`fm-context-${projectId}`) : null;
+        if (ctxRaw) { const ctx = JSON.parse(ctxRaw || '{}'); if (ctx?.modelGuid) return String(ctx.modelGuid); }
+      } catch {}
+      return undefined;
     } catch { return undefined; }
   }, [viewer]);
 
@@ -4176,6 +4226,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             level: d.level,
             name: d.name,
             area: d.area,
+            perimeter: d.perimeter,
+            volume: d.volume,
+            occupancy: d.occupancy,
             spaceCode: d.spaceCode,
             building: d.building,
             description: d.description,
@@ -4209,10 +4262,45 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   }, [viewer]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const [spaceSearch, setSpaceSearch] = useState('');
+  const [spaceSortBy, setSpaceSortBy] = useState<'name'|'level'|'area'|'perimeter'|'volume'|'occupancy'>('name');
+  const [spaceSortDir, setSpaceSortDir] = useState<'asc'|'desc'>('asc');
   const pageClamped = Math.min(Math.max(1, page), totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = Math.min(rows.length, startIndex + pageSize);
-  const paginatedRows = rows.slice(startIndex, endIndex);
+  const filteredRowsSpaces = React.useMemo(() => {
+    if (!spaceSearch) return rows;
+    const q = spaceSearch.toLowerCase();
+    return rows.filter(r => (
+      (r.name || '').toLowerCase().includes(q) ||
+      (r.spaceCode || '').toLowerCase().includes(q) ||
+      (r.level || '').toLowerCase().includes(q) ||
+      (r.building || '').toLowerCase().includes(q) ||
+      (r.description || '').toLowerCase().includes(q)
+    ));
+  }, [rows, spaceSearch]);
+  const sortedRowsSpaces = React.useMemo(() => {
+    const arr = [...filteredRowsSpaces];
+    const cmp = (a: any, b: any) => {
+      const dir = spaceSortDir === 'asc' ? 1 : -1;
+      const get = (r: any) => {
+        switch (spaceSortBy) {
+          case 'level': return (r.level || '').toString().toLowerCase();
+          case 'area': return Number(r.area || 0);
+          case 'perimeter': return Number(r.perimeter || 0);
+          case 'volume': return Number(r.volume || 0);
+          case 'occupancy': return Number(r.occupancy || 0);
+          default: return (r.name || '').toString().toLowerCase();
+        }
+      };
+      const va = get(a), vb = get(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    };
+    return arr.sort(cmp);
+  }, [filteredRowsSpaces, spaceSortBy, spaceSortDir]);
+  const paginatedRows = sortedRowsSpaces.slice(startIndex, endIndex);
 
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
@@ -4256,6 +4344,54 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         setExtractionProgress(Math.min(80, Math.max(base, pct)));
       }
       let kept = 0, skipped = 0;
+      // Helper: robust numeric parsing with unit normalization and locale support
+      const parseMeasure = (raw: any, kind: 'length' | 'area' | 'volume'): number | undefined => {
+        if (raw == null) return undefined;
+        if (typeof raw === 'number' && !isNaN(raw)) {
+          // Auto-detect likely units based on magnitude
+          if (kind === 'length') {
+            // If > 100, likely mm; convert to m
+            return raw > 100 ? raw / 1000 : raw;
+          }
+          if (kind === 'area') {
+            // If > 1000, likely mm²; convert to m²
+            return raw > 1000 ? raw / 1_000_000 : raw;
+          }
+          if (kind === 'volume') {
+            // If > 10000, likely mm³; convert to m³
+            return raw > 10000 ? raw / 1_000_000_000 : raw;
+          }
+          return raw;
+        }
+        let s = String(raw).trim();
+        const sLower = s.toLowerCase();
+        s = s.replace(/\u00A0/g, ' ').replace(/,/g, '.');
+        const match = s.match(/-?[0-9]+(?:\.[0-9]+)?/g);
+        if (!match || !match.length) return undefined;
+        const num = parseFloat(match[match.length - 1]);
+        if (!isFinite(num)) return undefined;
+        const has = (u: string) => sLower.includes(u);
+        if (kind === 'length') {
+          if (has('mm')) return num / 1000;
+          if (has('cm')) return num / 100;
+          if (has('ft') || has('feet')) return num * 0.3048;
+          // Auto-detect: if > 100, likely mm
+          return num > 100 ? num / 1000 : num;
+        }
+        if (kind === 'area') {
+          if (has('mm2') || has('mm^2') || has('mm²')) return num / 1_000_000;
+          if (has('cm2') || has('cm^2') || has('cm²')) return num / 10_000;
+          if (has('ft2') || has('ft^2') || has('ft²') || has('sf') || has('sq ft')) return num * 0.09290304;
+          // Auto-detect: if > 1000, likely mm²
+          return num > 1000 ? num / 1_000_000 : num;
+        }
+        // volume
+        if (has('mm3') || has('mm^3') || has('mm³')) return num / 1_000_000_000;
+        if (has('cm3') || has('cm^3') || has('cm³')) return num / 1_000_000;
+        if (has('ft3') || has('ft^3') || has('ft³') || has('cf') || has('cu ft')) return num * 0.028316846592;
+        // Auto-detect: if > 10000, likely mm³
+        return num > 10000 ? num / 1_000_000_000 : num;
+      };
       const candidates: SpaceRecord[] = propsList.map((p: any) => {
         const get = (names: string[]): string | undefined => {
           const lower = names.map(n => n.toLowerCase());
@@ -4293,8 +4429,33 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         const name = p?.name || get(['Name', 'Room Name', 'Space Name', 'Nome', 'Nome stanza', 'Nome spazio', 'Nome locale', 'Nome ambiente', 'Denominazione']);
         const code = get(['Number', 'Room Number', 'Space Number', 'Numero', 'Numero stanza', 'Numero spazio', 'Numero locale', 'Codice', 'Codice locale', 'Codice stanza', 'ID', 'ID locale', 'ID stanza']);
         const desc = get(['Comments', 'Description', 'Commenti', 'Descrizione']);
-        const areaStr = get(['Area', 'Superficie', 'Superficie utile', 'Superficie netta', 'Area utile', 'Area netta', 'Superficie (m²)']);
-        const areaNum = areaStr ? Number((areaStr as string).toString().replace(/[^0-9.\-]/g, '')) : undefined;
+        
+        // Try ALL possible property names for area/perimeter/volume/occupancy
+        const areaStr = get([
+          'Area', 'Superficie', 'Superficie utile', 'Superficie netta', 'Area utile', 'Area netta', 
+          'Superficie (m²)', 'Gross Area', 'Area Computed', 'Computed Area', 'Room Area'
+        ]);
+        const areaNum = parseMeasure(areaStr, 'area');
+        
+        const perimeterStr = get([
+          'Perimeter', 'Perimetro', 'Perimeter (Gross)', 'Room Perimeter', 'Gross Perimeter'
+        ]);
+        const perimeterNum = parseMeasure(perimeterStr, 'length');
+        
+        const volumeStr = get([
+          'Volume', 'Volumetria', 'Volume Lordo', 'Gross Volume', 'GrossVolume', 'Room Volume', 'Computed Volume',
+          'Altezza non delimitata'  // Italian Revit uses this for unbounded height/volume calculation
+        ]);
+        const volumeNum = parseMeasure(volumeStr, 'volume');
+        
+        const occupancyStr = get([
+          'Occupancy', 'Occupazione', 'Numero persone', 'Number of People', 'Occupanti', 'People Count', 'Occupant'
+        ]);
+        const occupancyNum = occupancyStr ? (() => {
+          const s = String(occupancyStr).replace(/\u00A0/g, ' ').replace(/,/g, '.');
+          const m = s.match(/-?[0-9]+(?:\.[0-9]+)?/);
+          return m ? Number(m[0]) : undefined;
+        })() : undefined;
 
         // Filter: must be Rooms/Spaces category and have a name or code; Level/Area are optional (we'll include if missing)
         let skipReason: string | null = null;
@@ -4322,6 +4483,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           level: level || undefined,
           name: name || (p as any).__syntheticName || undefined,
           area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
+          perimeter: isNaN(Number(perimeterNum)) ? undefined : Number(perimeterNum),
+          volume: isNaN(Number(volumeNum)) ? undefined : Number(volumeNum),
+          occupancy: isNaN(Number(occupancyNum)) ? undefined : Number(occupancyNum),
           spaceCode: code || undefined,
           description: desc || undefined,
           source: 'BIM_MODEL',
@@ -4362,6 +4526,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 level: d.level,
                 name: d.name,
                 area: d.area,
+                perimeter: d.perimeter,
+                volume: d.volume,
+                occupancy: d.occupancy,
                 spaceCode: d.spaceCode,
                 building: d.building,
                 description: d.description,
@@ -4378,7 +4545,26 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 : normalized;
               
               console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
-              setRows(clientFiltered);
+              // Enrich server rows with freshly extracted metrics (server may not persist perimeter/volume yet)
+              const keyOf = (r: SpaceRecord) => (
+                r.source === 'BIM_MODEL' && r.dbId != null
+                  ? `BIM|${r.modelGuid || 'g'}|${r.dbId}`
+                  : `ID|${r.id}`
+              );
+              const extractedMap = new Map<string, SpaceRecord>();
+              for (const r of newRows) extractedMap.set(keyOf(r), r);
+              const enriched = clientFiltered.map(r => {
+                const ex = extractedMap.get(keyOf(r));
+                if (!ex) return r;
+                const out: SpaceRecord = { ...r };
+                // Only fill when missing/zero on the server response
+                if ((out.area == null || Number(out.area) === 0) && ex.area != null) out.area = ex.area;
+                if ((out.perimeter == null || Number(out.perimeter) === 0) && ex.perimeter != null) out.perimeter = ex.perimeter;
+                if ((out.volume == null || Number(out.volume) === 0) && ex.volume != null) out.volume = ex.volume;
+                if ((out.occupancy == null || Number(out.occupancy) === 0) && ex.occupancy != null) out.occupancy = ex.occupancy;
+                return out;
+              });
+              setRows(enriched);
             }
           }
           setExtractionProgress(100);
@@ -4427,6 +4613,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               level: d.level,
               name: d.name,
               area: d.area,
+              perimeter: d.perimeter,
+              volume: d.volume,
+              occupancy: d.occupancy,
               spaceCode: d.spaceCode,
               building: d.building,
               description: d.description,
@@ -4443,6 +4632,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               : normalized;
             
             console.log(`[Spaces] Server returned ${normalized.length}, client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
+            // Nothing extracted this round; keep rows as-is
             setRows(clientFiltered);
           }
         } catch (e) {
@@ -4460,11 +4650,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Auto-refresh spaces when Space list opens (once per mount)
   const autoExtractSpacesOnceRef = React.useRef(false);
   useEffect(() => {
+    // Disabled auto-extract per requirements: refresh only on explicit extract or space-created event
+    // Keeping ref logic in case we re-enable later
     if (autoExtractSpacesOnceRef.current) return;
-    if (!projectId || !viewer) return;
     autoExtractSpacesOnceRef.current = true;
-    console.log('🔁 [Spaces] Auto-extract on open (background refresh)');
-    extractRoomsFromBIM();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, viewer]);
 
@@ -4483,6 +4672,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 level: d.level,
                 name: d.name,
                 area: d.area,
+                perimeter: d.perimeter,
+                volume: d.volume,
+                occupancy: d.occupancy,
                 spaceCode: d.spaceCode,
                 building: d.building,
                 description: d.description,
@@ -4520,7 +4712,36 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
         <div className="text-white font-semibold text-sm">Space List</div>
-        <div className="mt-2">
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search rooms by name, code, level, building…"
+                value={spaceSearch}
+                onChange={e => { setSpaceSearch(e.target.value); setPage(1); }}
+                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
+              />
+              <select
+                value={spaceSortBy}
+                onChange={e => { setSpaceSortBy(e.target.value as any); setPage(1); }}
+                className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
+                title="Sort By"
+              >
+                <option value="name">Sort by Name</option>
+                <option value="level">Sort by Level</option>
+                <option value="area">Sort by Area</option>
+                <option value="perimeter">Sort by Perimeter</option>
+                <option value="volume">Sort by Volume</option>
+                <option value="occupancy">Sort by Occupancy</option>
+              </select>
+              <button
+                onClick={() => setSpaceSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                className="px-2 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+                title="Toggle sort direction"
+              >
+                {spaceSortDir === 'asc' ? 'Asc' : 'Desc'}
+              </button>
+            </div>
           <button
             onClick={extractRoomsFromBIM}
             disabled={isExtracting}
@@ -4543,18 +4764,24 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               <th className="text-left px-3 py-2">Level</th>
               <th className="text-left px-3 py-2">Room name</th>
               <th className="text-left px-3 py-2">Area (m²)</th>
+              <th className="text-left px-3 py-2">Perimeter (m)</th>
+              <th className="text-left px-3 py-2">Volume (m³)</th>
+              <th className="text-left px-3 py-2">Occupancy</th>
               <th className="text-left px-3 py-2">Description</th>
               <th className="text-center px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
             ) : paginatedRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50">
                 <td className="px-3 py-2 text-gray-100">{r.level || '-'}</td>
                 <td className="px-3 py-2 text-gray-200 cursor-pointer hover:text-white" onClick={() => onRowClick(r)}>{r.name || '-'}</td>
                 <td className="px-3 py-2 text-gray-200">{r.area != null ? (typeof r.area === 'string' ? parseFloat(r.area).toFixed(2) : r.area.toFixed(2)) : '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.perimeter != null ? Number(r.perimeter).toFixed(2) : '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.volume != null ? Number(r.volume).toFixed(2) : '-'}</td>
+                <td className="px-3 py-2 text-gray-200">{r.occupancy != null ? Number(r.occupancy) : '-'}</td>
                 <td className="px-3 py-2 text-gray-300">{r.description || '-'}</td>
                 <td className="px-3 py-2 text-center flex gap-1 justify-center">
                   <button
@@ -4590,8 +4817,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
-        <div className="flex-1 text-center text-gray-400 truncate">
-          {rows.length === 0 ? '0' : `${startIndex + 1}-${Math.min(endIndex, rows.length)}`} of {rows.length}
+        <div className="flex-1 text-center text-gray-4 00 truncate">
+          {sortedRowsSpaces.length === 0 ? '0' : `${startIndex + 1}-${Math.min(endIndex, sortedRowsSpaces.length)}`} of {sortedRowsSpaces.length}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -4669,7 +4896,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 (async () => {
                   try {
                     console.log('[SpaceList] Reloading spaces after edit...');
-                    const res = await fetch(`/api/projects/${projectId}/spaces`);
+                    const mg = getCurrentModelGuid();
+                    const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
                     if (res.ok) {
                       const data = await res.json();
                       console.log('[SpaceList] Reloaded spaces:', data.length, 'items');
@@ -4679,6 +4907,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           level: d.level,
                           name: d.name,
                           area: d.area,
+                          perimeter: d.perimeter,
+                          volume: d.volume,
+                          occupancy: d.occupancy,
                           spaceCode: d.spaceCode,
                           building: d.building,
                           description: d.description,
@@ -4688,8 +4919,11 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                           footprint: d.footprint || undefined,
                           conflictWithId: d.conflictWithId
                         }));
-                        console.log('[SpaceList] Normalized and setting rows:', normalized.length);
-                        setRows(normalized);
+                        const clientFiltered = mg
+                          ? normalized.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg)
+                          : normalized;
+                        console.log('[SpaceList] Normalized and setting rows:', clientFiltered.length);
+                        setRows(clientFiltered);
                       }
                     } else {
                       console.error('[SpaceList] Reload failed with status:', res.status);
@@ -5978,6 +6212,48 @@ const TicketForm: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [isStandalone, projectName]);
+
+  // Auto-request selection in standalone and fallback to prefill snapshot if no response
+  useEffect(() => {
+    if (!isStandalone) return;
+    let responded = false;
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || typeof d !== 'object') return;
+      if (d.type === 'FM_SELECTION_DATA' || d.type === 'FM_SELECTION_CANCELLED') {
+        responded = true;
+        window.removeEventListener('message', onMessage as any);
+      }
+    };
+    window.addEventListener('message', onMessage as any);
+    try {
+      setWaitingForSelection(true);
+      (window as any).opener?.postMessage?.({ type: 'FM_SELECT_OBJECT_START' }, '*');
+    } catch {}
+    const t = window.setTimeout(() => {
+      if (!responded) {
+        // Fallback to local snapshot
+        try {
+          const raw = projectId ? localStorage.getItem(`fm-prefill-${projectId}`) : null;
+          if (raw) {
+            const snap = JSON.parse(raw || '{}');
+            setForm(v => ({
+              ...v,
+              item: snap.item || v.item || '',
+              itemDbId: snap.itemDbId || v.itemDbId || null,
+              category: snap.category || v.category || '',
+              building: snap.building || projectName || v.building || '',
+              level: snap.level || v.level || '',
+              room: snap.room || v.room || '',
+              spaceCode: snap.spaceCode || v.spaceCode || ''
+            }));
+          }
+        } catch {}
+        setWaitingForSelection(false);
+      }
+    }, 1200);
+    return () => { window.clearTimeout(t); window.removeEventListener('message', onMessage as any); };
+  }, [isStandalone, projectId, projectName]);
 
   const [form, setForm] = useState(() => {
     // Load from localStorage on init
