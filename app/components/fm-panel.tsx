@@ -4223,7 +4223,8 @@ const EditSpaceFormInline: React.FC<{
 };
 
 const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
-  const [rows, setRows] = useState<SpaceRecord[]>(() => load(K.spaces(projectId), [] as SpaceRecord[]));
+  // Start empty to avoid reading localStorage during SSR (prevents hydration mismatch).
+  const [rows, setRows] = useState<SpaceRecord[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   // Pagination
@@ -4238,6 +4239,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   useEffect(() => {
     try { save(K.spaces(projectId), rows); } catch {}
   }, [rows, projectId]);
+
+  // Hydrate from localStorage on client after mount. This avoids SSR/CSR mismatch.
+  useEffect(() => {
+    try {
+      const persisted: SpaceRecord[] = load(K.spaces(projectId), [] as SpaceRecord[]);
+      if (Array.isArray(persisted) && persisted.length > 0 && rows.length === 0) {
+        setRows(persisted);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Helper to get current model GUID (if viewer is present)
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
@@ -5062,14 +5076,15 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows, setRows] = useState<SpaceRecord[]>([]);
-  const [f, setF] = useState(() => {
-    // Load from localStorage on init
-    const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
-    return {
-      building: '', level: '', name: '', spaceCode: '', area: '', description: '',
-      ...saved
-    };
-  });
+  // Don't read localStorage during SSR - hydrate draft on client after mount
+  const [f, setF] = useState({ building: '', level: '', name: '', spaceCode: '', area: '', description: '' });
+  useEffect(() => {
+    try {
+      const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
+      if (saved) setF(prev => ({ ...prev, ...saved }));
+    } catch { }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const [projectName, setProjectName] = useState<string>('');
 
