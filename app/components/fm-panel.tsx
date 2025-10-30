@@ -1094,8 +1094,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
     if (section.group === 'maintenance' && section.item === 'ticket') return <TicketForm projectId={projectId} viewer={viewer} />;
     if (section.group === 'work-orders' && section.item === 'service-requests') return <ServiceRequests projectId={projectId} />;
     if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
-    if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
-    if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} />;
+  if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
+  if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} viewer={viewer} />;
 
     return null;
   };
@@ -9046,7 +9046,7 @@ const OngoingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 };
 
 // Planned Maintenance - Refactored with Table Structure
-const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -9058,6 +9058,119 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
   const [historyFor, setHistoryFor] = useState<ScheduledItem | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyOrders, setHistoryOrders] = useState<WorkOrderItem[]>([]);
+  // Filters
+  const [filters, setFilters] = useState<{ search: string; discipline: string; revitCategory: string; ifcClass: string; level: string; room: string }>(
+    { search: '', discipline: 'all', revitCategory: 'all', ifcClass: 'all', level: 'all', room: 'all' }
+  );
+  // Cache of computed Level/Room for assets (viewer-assisted lookups)
+  const [assetLocCache, setAssetLocCache] = useState<Record<string, { level?: string; room?: string }>>({});
+  
+  // Helper: find asset by label appearing in scheduled.asset list
+  const findAssetByLabel = React.useCallback((label?: string): AssetRecord | undefined => {
+    if (!label) return undefined;
+    const key = String(label).trim().toLowerCase();
+    // exact matches first
+    let found = assets.find(a => (a.assetName || '').toLowerCase() === key || (a.assetCode || '').toLowerCase() === key);
+    if (found) return found;
+    // containment matches
+    found = assets.find(a => (a.assetName || '').toLowerCase().includes(key) || (a.assetCode || '').toLowerCase().includes(key));
+    return found;
+  }, [assets]);
+
+  // Expand rows: for items with multiple assets, create one row per asset
+  const expandedRows = React.useMemo(() => {
+    const out: Array<{ base: ScheduledItem; assetLabel: string; level: string; room: string; asset?: AssetRecord }>[] = [] as any;
+    const rows: Array<{ base: ScheduledItem; assetLabel: string; level: string; room: string; asset?: AssetRecord } > = [];
+    for (const s of scheduled) {
+      const labels = Array.isArray(s.asset) ? s.asset : [s.asset].filter(Boolean) as string[];
+      if (!labels.length) {
+        rows.push({ base: s, assetLabel: '—', level: '—', room: '—', asset: undefined });
+        continue;
+      }
+      for (const lab of labels) {
+        const a = findAssetByLabel(lab);
+        let level = '—';
+        let room = '—';
+        if (a?.location) {
+          const parts = String(a.location).split(' - ').map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 1) level = parts[0];
+          if (parts.length >= 2) room = parts[1];
+        }
+        // Use cached viewer-derived level/room when not available from location
+        const cacheKey = a ? (a.id || `db-${a.dbId}`) : lab;
+        if ((level === '—' || !level) && cacheKey && assetLocCache[cacheKey]?.level) level = assetLocCache[cacheKey].level as string;
+        if ((room === '—' || !room) && cacheKey && assetLocCache[cacheKey]?.room) room = assetLocCache[cacheKey].room as string;
+        rows.push({ base: s, assetLabel: lab, level, room, asset: a });
+      }
+    }
+    return rows;
+  }, [scheduled, findAssetByLabel, assetLocCache]);
+
+  // Unique values for filter dropdowns
+  const uniqueDisciplines = React.useMemo(() => Array.from(new Set(scheduled.map(s => s.discipline).filter(Boolean))) as string[], [scheduled]);
+  // Revit categories derived from assets for practical dropdown size
+  const uniqueRevitCategories = React.useMemo(() => Array.from(new Set(assets.map(a => a.category).filter(Boolean))).sort() as string[], [assets]);
+  const uniqueIfcClasses = React.useMemo(() => {
+    const set = new Set<string>();
+    assets.forEach(a => {
+      const arr = ((a as any).ifcCandidates as string[] | undefined) || [ (a as any).ifcClass, (a as any).ifcType, (a as any).ifcPredefined ].filter(Boolean) as string[];
+      arr.forEach(c => { if (c) set.add(String(c)); });
+    });
+    return Array.from(set).sort();
+  }, [assets]);
+  const uniqueLevels = React.useMemo(() => Array.from(new Set(expandedRows.map(r => r.level).filter(v => v && v !== '—'))) as string[], [expandedRows]);
+  const uniqueRooms = React.useMemo(() => Array.from(new Set(expandedRows.map(r => r.room).filter(v => v && v !== '—'))) as string[], [expandedRows]);
+
+  // Apply filters
+  const filteredRows = React.useMemo(() => {
+    const search = filters.search.trim().toLowerCase();
+    return expandedRows.filter(r => {
+      if (filters.discipline !== 'all' && r.base.discipline !== filters.discipline) return false;
+      // Revit Category filter: check asset.category first, fallback to scheduled.category
+      if (filters.revitCategory !== 'all') {
+        const cat = (r.asset?.category || r.base.category || '').toLowerCase();
+        const sel = filters.revitCategory.toLowerCase();
+        if (!(cat === sel || cat.includes(sel) || sel.includes(cat))) return false;
+      }
+      // IFC Class filter: match any candidate fields available on asset
+      if (filters.ifcClass !== 'all') {
+        const sel = filters.ifcClass.toLowerCase();
+        const arr = (r.asset && (((r.asset as any).ifcCandidates as string[] | undefined) || [ (r.asset as any).ifcClass, (r.asset as any).ifcType, (r.asset as any).ifcPredefined ].filter(Boolean) as string[])) || [];
+        const ok = arr.some(c => String(c || '').toLowerCase().includes(sel));
+        if (!ok) return false;
+      }
+      if (filters.level !== 'all' && r.level !== filters.level) return false;
+      if (filters.room !== 'all' && r.room !== filters.room) return false;
+      if (search) {
+        const blob = [r.assetLabel, r.base.code, r.base.category, r.base.discipline].join(' ').toLowerCase();
+        if (!blob.includes(search)) return false;
+      }
+      return true;
+    });
+  }, [expandedRows, filters]);
+
+  // Viewer selection for highlight
+  const selectRowAssetInViewer = React.useCallback((row: { asset?: AssetRecord }) => {
+    try {
+      if (!viewer || !row.asset || row.asset.dbId == null) return;
+      const allModels: any[] = typeof (viewer as any).getAllModels === 'function'
+        ? ((viewer as any).getAllModels() || [])
+        : [viewer.model].filter(Boolean);
+      const target = (row.asset.modelId != null)
+        ? (allModels.find(m => (typeof m.getModelId === 'function' ? m.getModelId() : m?.id) === row.asset!.modelId))
+        : null;
+      const m = target || viewer.model;
+      if (!m) return;
+      try {
+        if (typeof (viewer as any).select === 'function') {
+          (viewer as any).select([row.asset.dbId], m);
+        }
+        if (typeof (viewer as any).fitToView === 'function') {
+          (viewer as any).fitToView([row.asset.dbId], m);
+        }
+      } catch {}
+    } catch {}
+  }, [viewer]);
   
   const [edit, setEdit] = useState<{ discipline: string; category: string; code: string; assetType: string; assetsText: string; tasksText: string; frequency: string; timeHours: string; level: string; room: string }>({
     discipline: '', category: '', code: '', assetType: '', assetsText: '', tasksText: '', frequency: '', timeHours: '', level: '', room: ''
@@ -9115,6 +9228,84 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
     fetchAssets();
   }, [projectId]);
+
+  // Viewer-assisted Level/Room enrichment for assets missing clear location
+  useEffect(() => {
+    let aborted = false;
+    const run = async () => {
+      try {
+        if (!viewer || !assets || assets.length === 0) return;
+        const allModels: any[] = typeof (viewer as any).getAllModels === 'function'
+          ? ((viewer as any).getAllModels() || [])
+          : [viewer.model].filter(Boolean);
+        const modelById = (mid: number | undefined) => {
+          if (mid == null) return viewer.model;
+          return allModels.find(m => (typeof m.getModelId === 'function' ? m.getModelId() : m?.id) === mid) || viewer.model;
+        };
+
+        // Pick assets lacking level or room in location string
+        const todo = assets.filter(a => {
+          const loc = String(a.location || '') || '';
+          const hasLevel = !!loc && loc.includes(' - ') ? true : !!loc; // if any location, assume maybe level
+          const needLevel = !hasLevel;
+          const needRoom = !loc.includes(' - ');
+          const cacheKey = a.id || `db-${a.dbId}`;
+          const cached = cacheKey && assetLocCache[cacheKey];
+          return (needLevel || needRoom) && !cached && a.dbId != null;
+        }).slice(0, 200); // Safety cap
+
+        if (!todo.length) return;
+
+        const next: Record<string, { level?: string; room?: string }> = {};
+        for (const a of todo) {
+          if (aborted) break;
+          try {
+            const m = modelById(a.modelId as number | undefined);
+            if (!m || typeof m.getProperties !== 'function' || a.dbId == null) continue;
+            const props: any = await new Promise(resolve => m.getProperties(a.dbId as number, resolve));
+            const getProp = (names: string[]): string | undefined => {
+              const lower = names.map(n => n.toLowerCase());
+              const p = props?.properties?.find((p: any) => {
+                const dn = p.displayName?.toLowerCase?.();
+                return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+              });
+              return p?.displayValue?.toString();
+            };
+
+            let level = getProp(['Schedule Level','Livello abaco','Base Level','Reference Level','Livello','Level','Piano']);
+            // Prefer descriptive level: if numeric only, try alternative occurrences
+            if (!level || /^\d+(\.\d+)?$/.test(level)) {
+              try {
+                const levelProps = (props?.properties || []).filter((p: any) => (p.displayName || '').toString().toLowerCase() === 'level');
+                const preferred = levelProps.find((p: any) => p.type === 20 || (p.displayCategory || '').toString().toLowerCase() === 'constraints')
+                  || levelProps[levelProps.length - 1];
+                if (preferred && preferred.displayValue != null) level = preferred.displayValue.toString();
+              } catch {}
+            }
+
+            let room = getProp(['Room','Space','Locale','Stanza']);
+            if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
+              try {
+                const roomData = (window as any).sensorContext.findRoomForObject(a.dbId);
+                if (roomData?.name) room = roomData.name;
+              } catch {}
+            }
+
+            const key = a.id || `db-${a.dbId}`;
+            next[key] = { level, room };
+            // Throttle slightly to keep UI smooth
+            await new Promise(r => setTimeout(r, 5));
+          } catch { }
+        }
+
+        if (!aborted && Object.keys(next).length) {
+          setAssetLocCache(prev => ({ ...prev, ...next }));
+        }
+      } catch { }
+    };
+    run();
+    return () => { aborted = true; };
+  }, [viewer, assets, assetLocCache]);
 
   // Open and load maintenance history for an item (within PlannedMaintenance)
   const openHistory = async (item: ScheduledItem) => {
@@ -9249,48 +9440,88 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
       ) : (
         <div className="flex-1 overflow-auto pr-2">
           {/* Table Header */}
-          <div className="sticky top-0 bg-gray-900/80 border border-gray-700 rounded-t-lg mb-0">
+          <div className="sticky top-0 bg-gray-900/90 border border-gray-700 rounded-t-lg mb-0 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
             <div className="grid grid-cols-12 gap-2 px-3 py-2.5 text-xs font-semibold text-gray-300 border-b border-gray-700">
-              <div className="col-span-1">Actions</div>
-              <div className="col-span-2">Discipline</div>
-              <div className="col-span-2">Category</div>
-              <div className="col-span-1">Asset Type</div>
-              <div className="col-span-1">Code</div>
-              <div className="col-span-2">Asset</div>
-              <div className="col-span-1">Level</div>
-              <div className="col-span-1">Room</div>
-              <div className="col-span-1">Frequency</div>
-              <div className="col-span-1">Time</div>
+              <div className="col-span-1 whitespace-nowrap">Actions</div>
+              <div className="col-span-2 whitespace-nowrap">Discipline</div>
+              <div className="col-span-2 whitespace-nowrap">Category</div>
+              <div className="col-span-1 whitespace-nowrap">Asset Type</div>
+              <div className="col-span-1 whitespace-nowrap">Code</div>
+              <div className="col-span-1 whitespace-nowrap">Asset</div>
+              <div className="col-span-1 whitespace-nowrap">Level</div>
+              <div className="col-span-1 whitespace-nowrap">Room</div>
+              <div className="col-span-1 whitespace-nowrap">Frequency</div>
+              <div className="col-span-1 whitespace-nowrap">Time</div>
+            </div>
+            {/* Filters Row - column aligned */}
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-gray-900/60 border-b border-gray-700 text-xs">
+              <div className="col-span-1"></div>
+              <div className="col-span-2">
+                <select value={filters.discipline} onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                  <option value="all">All</option>
+                  {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              {/* Category cell now holds Revit Category + IFC Class side-by-side */}
+              <div className="col-span-2 flex gap-2">
+                <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                  <option value="all">Revit: All</option>
+                  {uniqueRevitCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                  <option value="all">IFC: All</option>
+                  {uniqueIfcClasses.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                </select>
+              </div>
+              <div className="col-span-1"></div>
+              <div className="col-span-1"></div>
+              <div className="col-span-1">
+                <input value={filters.search} onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))} placeholder="Search asset/code..." className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-400" />
+              </div>
+              <div className="col-span-1">
+                <select value={filters.level} onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                  <option value="all">All</option>
+                  {uniqueLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="col-span-1">
+                <select value={filters.room} onChange={e => setFilters(prev => ({ ...prev, room: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
+                  <option value="all">All</option>
+                  {uniqueRooms.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="col-span-1"></div>
+              <div className="col-span-1"></div>
             </div>
           </div>
 
           {/* Table Rows */}
           <div className="space-y-0 border border-gray-700 border-t-0 rounded-b-lg overflow-hidden bg-gray-800/20">
-            {scheduled.map((item, idx) => (
+            {filteredRows.map((row, idx) => (
               <div
-                key={item.id}
+                key={`${row.base.id}-${row.assetLabel}-${idx}`}
                 className={`grid grid-cols-12 gap-2 px-3 py-2.5 items-center border-b border-gray-700/50 hover:bg-gray-700/20 transition-colors ${
-                  idx === scheduled.length - 1 ? 'border-b-0' : ''
+                  idx === filteredRows.length - 1 ? 'border-b-0' : ''
                 }`}
               >
                 {/* Action Buttons */}
                 <div className="col-span-1 flex gap-1 justify-start">
                   <button
-                    onClick={() => beginEditAsset(item)}
+                    onClick={() => beginEditAsset(row.base)}
                     className="p-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
                     title="Edit asset information"
                   >
                     <Wrench size={14} />
                   </button>
                   <button
-                    onClick={() => beginEditTasks(item)}
+                    onClick={() => beginEditTasks(row.base)}
                     className="p-1.5 rounded bg-green-600/80 hover:bg-green-500 text-white transition-colors"
                     title="Edit maintenance tasks"
                   >
                     <ClipboardList size={14} />
                   </button>
                   <button
-                    onClick={() => openHistory(item)}
+                    onClick={() => openHistory(row.base)}
                     className="p-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white transition-colors"
                     title="View maintenance history"
                   >
@@ -9300,47 +9531,47 @@ const PlannedMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
                 {/* Discipline */}
                 <div className="col-span-2 text-xs text-gray-200 truncate">
-                  {item.discipline || '—'}
+                  {row.base.discipline || '—'}
                 </div>
 
                 {/* Category */}
                 <div className="col-span-2 text-xs text-gray-300 truncate">
-                  {item.category || '—'}
+                  {row.base.category || '—'}
                 </div>
 
                 {/* Asset Type */}
                 <div className="col-span-1 text-xs text-gray-300 truncate">
-                  {item.category?.split('/')[0].trim() || '—'}
+                  {row.base.category?.split('/')[0].trim() || '—'}
                 </div>
 
                 {/* Code */}
                 <div className="col-span-1 text-xs text-blue-300 font-mono truncate">
-                  {item.code || '—'}
+                  {row.base.code || '—'}
                 </div>
 
                 {/* Asset */}
-                <div className="col-span-2 text-xs text-gray-300 truncate">
-                  {Array.isArray(item.asset) ? item.asset.slice(0, 2).join(', ') + (item.asset.length > 2 ? '...' : '') : item.asset || '—'}
+                <div className="col-span-1 text-xs text-gray-300 truncate cursor-pointer hover:text-white" onClick={() => selectRowAssetInViewer(row)} title="Click to highlight in model">
+                  {row.assetLabel || '—'}
                 </div>
 
                 {/* Level */}
                 <div className="col-span-1 text-xs text-gray-400">
-                  —
+                  {row.level || '—'}
                 </div>
 
                 {/* Room */}
                 <div className="col-span-1 text-xs text-gray-400">
-                  —
+                  {row.room || '—'}
                 </div>
 
                 {/* Frequency */}
-                <div className="col-span-1 text-xs text-emerald-300">
-                  {item.frequency}/yr
+                <div className="col-span-1 text-xs text-emerald-300 whitespace-nowrap">
+                  {row.base.frequency}/yr
                 </div>
 
                 {/* Time */}
-                <div className="col-span-1 text-xs text-emerald-300">
-                  {item.timeHours}h
+                <div className="col-span-1 text-xs text-emerald-300 whitespace-nowrap">
+                  {row.base.timeHours}h
                 </div>
               </div>
             ))}
