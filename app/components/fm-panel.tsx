@@ -9108,16 +9108,9 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
 
   // Unique values for filter dropdowns
   const uniqueDisciplines = React.useMemo(() => Array.from(new Set(scheduled.map(s => s.discipline).filter(Boolean))) as string[], [scheduled]);
-  // Revit categories derived from assets for practical dropdown size
-  const uniqueRevitCategories = React.useMemo(() => Array.from(new Set(assets.map(a => a.category).filter(Boolean))).sort() as string[], [assets]);
-  const uniqueIfcClasses = React.useMemo(() => {
-    const set = new Set<string>();
-    assets.forEach(a => {
-      const arr = ((a as any).ifcCandidates as string[] | undefined) || [ (a as any).ifcClass, (a as any).ifcType, (a as any).ifcPredefined ].filter(Boolean) as string[];
-      arr.forEach(c => { if (c) set.add(String(c)); });
-    });
-    return Array.from(set).sort();
-  }, [assets]);
+  // Use canonical Revit categories and IFC classes lists directly
+  const uniqueRevitCategories = React.useMemo(() => REVIT_CATEGORIES, []);
+  const uniqueIfcClasses = React.useMemo(() => IFCCLASSES_UNIQUE, []);
   const uniqueLevels = React.useMemo(() => Array.from(new Set(expandedRows.map(r => r.level).filter(v => v && v !== '—'))) as string[], [expandedRows]);
   const uniqueRooms = React.useMemo(() => Array.from(new Set(expandedRows.map(r => r.room).filter(v => v && v !== '—'))) as string[], [expandedRows]);
 
@@ -9465,11 +9458,11 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
               {/* Category cell now holds Revit Category + IFC Class side-by-side */}
               <div className="col-span-2 flex gap-2">
                 <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">Revit: All</option>
+                  <option value="all">All</option>
                   {uniqueRevitCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">IFC: All</option>
+                  <option value="all">All</option>
                   {uniqueIfcClasses.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                 </select>
               </div>
