@@ -455,6 +455,8 @@ export class ViewerLeafAssetExtractor {
 
     // Define properties to fetch (multilingual)
     const propertiesToFetch = [
+      // Instance name (most important - shows actual element name like "ACE-RIS-Ventilconvettore-01 [180402]")
+      'Name', 'Nome', 'Label', 'Etichetta', 'Element Name', 'Nome elemento', 'Instance Name', 'Nome istanza',
       'Category', 'Categoria',
       'Family', 'Family Name', 'Famiglia',
       'Type', 'Type Name', 'Tipo', 'Nome del tipo', 'Nome Tipo', 'Tipologia',
@@ -478,7 +480,7 @@ export class ViewerLeafAssetExtractor {
       'Export IFC Type',
       'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC', 'Tipo: Tipo predefinito IFC',
       'IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId', 'Tipo IfcGUID',
-      'Name', 'Nome', 'Number', 'Numero'
+      'Number', 'Numero'
     ];
 
     // Get bulk properties (fast, batched request). getBulkProperties expects an array of property names.
@@ -575,7 +577,35 @@ export class ViewerLeafAssetExtractor {
     const brand = pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore');
     const model = pick('Model','Modello');
     const serialNumber = pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || pick('Mark','Contrassegno');
-    const displayName = pick('Name','Nome') || result.name;
+    
+    // Try to get instance name from properties (not family/type name)
+    // Common instance name properties: 'Name', 'Nome', 'Mark', 'Contrassegno', 'Label', 'Etichetta'
+    // These typically contain values like "ACE-RIS-Ventilconvettore-01 [180402]"
+    const displayName = pick(
+      'Name', 'Nome', 'Label', 'Etichetta', 
+      'Element Name', 'Nome elemento',
+      'Instance Name', 'Nome istanza'
+    ) || result.name;
+
+    // Log the name extraction for debugging
+    try {
+      const allNameCandidates = {
+        'Name': propsMap['Name'] || lowerMap['name'],
+        'Nome': propsMap['Nome'] || lowerMap['nome'],
+        'Label': propsMap['Label'] || lowerMap['label'],
+        'Etichetta': propsMap['Etichetta'] || lowerMap['etichetta'],
+        'Mark': propsMap['Mark'] || lowerMap['mark'],
+        'Contrassegno': propsMap['Contrassegno'] || lowerMap['contrassegno'],
+        'result.name': result.name,
+        'displayName': displayName,
+        'dbId': result.dbId,
+        'category': category,
+        'type': type
+      };
+      if (displayName === result.name || displayName?.includes('Element')) {
+        console.log(`[ViewerLeafExtractor] Instance name extraction for dbId ${result.dbId}:`, allNameCandidates);
+      }
+    } catch {}
 
     return {
       dbId: result.dbId,

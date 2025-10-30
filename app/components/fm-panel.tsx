@@ -1988,6 +1988,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       });
 
       console.log(`✅ [AssetList] Extraction complete: ${viewerAssets.length} assets`);
+      
+      // Log sample of extracted names for debugging
+      try {
+        const samples = viewerAssets.slice(0, 3).map(a => ({ dbId: a.dbId, name: a.name, type: a.type, category: a.category }));
+        console.log('[AssetList] Sample extracted assets (name field):', samples);
+      } catch {}
 
       console.log('🔄 [AssetList] Converting viewer assets to AssetRecord format...');
       const currentGuid = getCurrentModelGuid();
@@ -2003,6 +2009,21 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           }
           return undefined;
         };
+
+        // Log instance name extraction for debugging
+        const instanceNameDebug = {
+          'asset.name': asset.name,
+          'Name': props['Name'],
+          'Nome': props['Nome'],
+          'Mark': props['Mark'],
+          'Contrassegno': props['Contrassegno'],
+          'dbId': asset.dbId,
+          'category': asset.category,
+          'type': asset.type
+        };
+        if (asset.name?.includes('Element') || !asset.name) {
+          console.log('[AssetList][map] Instance name for dbId', asset.dbId, ':', instanceNameDebug);
+        }
 
         const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || asset.family || 'Unknown';
         const model = asset.model || pick('Model','Modello','Type Name','Nome del tipo','Nome Tipo','Tipo') || asset.type || 'Unknown';
@@ -5727,7 +5748,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
 
   const [f, setF] = useState({ discipline: '', revitCategory: '', ifcClass: '', code: '', asset: '', frequency: '', timeHours: '' });
-  const [selectedAssets, setSelectedAssets] = useState<{ label: string; type?: string; id?: string }[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<{ label: string; type?: string; id?: string; assetRecord?: AssetRecord }[]>([]);
   const [allowedAssetType, setAllowedAssetType] = useState<string | null>(null);
   const [currentTask, setCurrentTask] = useState('');
   const [tasks, setTasks] = useState<string[]>([]);
@@ -6015,6 +6036,16 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
 
           const filtered = filterAssetsForCurrentModelLocal(base);
           const deduped = dedupeAssetsLocal(filtered);
+          console.log('[AssetListSelectionModal] Assets loaded:', {
+            totalCount: deduped.length,
+            samples: deduped.slice(0, 3).map(a => ({
+              id: a.id,
+              assetName: a.assetName,
+              assetCode: a.assetCode,
+              category: a.category,
+              type: a.type
+            }))
+          });
           setAssets(deduped);
         } catch (err) {
           console.error('[AssetListSelectionModal] Failed to load assets:', err);
@@ -6073,6 +6104,19 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
 
     const confirm = () => {
       const picked = filtered.filter(a => selected.has(a.id));
+      console.log('[AssetListSelectionModal.confirm] picked assets count:', picked.length);
+      picked.forEach((asset, idx) => {
+        console.log(`[AssetListSelectionModal] Picked asset ${idx}:`, {
+          id: asset.id,
+          assetName: asset.assetName,
+          assetCode: asset.assetCode,
+          category: asset.category,
+          type: asset.type,
+          location: asset.location,
+          source: asset.source,
+          dbId: asset.dbId
+        });
+      });
       onConfirm(picked);
       onClose();
     };
@@ -6558,15 +6602,55 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
           multi={true}
           onClose={() => setShowAssetPicker(false)}
           onConfirm={(picked) => {
-            const next = picked.map(asset => ({
-              label: asset.assetName || asset.assetCode || `Asset ${asset.id}`,
-              type: asset.type || asset.category || '',
-              id: asset.id
-            }));
+            console.log('[ScheduledMaintenance] onConfirm: picked assets count =', picked.length);
+            picked.forEach((asset, idx) => {
+              console.log(`[ScheduledMaintenance] Asset ${idx}:`, {
+                id: asset.id,
+                assetName: asset.assetName,
+                assetCode: asset.assetCode,
+                category: asset.category,
+                type: asset.type,
+                location: asset.location,
+                source: asset.source
+              });
+            });
+            
+            const next = picked.map(asset => {
+              // Build name from available fields: prefer type (Revit name), then assetCode, then assetName, then fallback
+              // type = Revit Family/Type name like "ACE-RIS-INT-UnitàInternaCondizionatore_850x300mm-01"
+              // assetName = often auto-generated like "Element 3312", so we de-prioritize it
+              const displayName = asset.type?.trim() 
+                ? asset.type 
+                : asset.assetCode?.trim() 
+                ? asset.assetCode 
+                : asset.assetName?.trim()
+                ? asset.assetName
+                : asset.category || `Asset ${asset.id}`;
+              
+              console.log(`[ScheduledMaintenance] Mapping asset to displayName: "${displayName}"`, {
+                type: asset.type,
+                assetCode: asset.assetCode,
+                assetName: asset.assetName,
+                category: asset.category
+              });
+              
+              return {
+                label: displayName,
+                type: asset.type || asset.category || '',
+                id: asset.id,
+                // Store full asset record for reference
+                assetRecord: asset
+              };
+            });
+            
+            console.log('[ScheduledMaintenance] Mapped next items:', next.map(n => ({ label: n.label, id: n.id })));
+            
             setSelectedAssets(prev => {
-              const map = new Map<string, { label: string; type?: string; id?: string }>();
+              const map = new Map<string, any>();
               [...prev, ...next].forEach(a => map.set((a.id || a.label)!, a));
-              return Array.from(map.values());
+              const result = Array.from(map.values());
+              console.log('[ScheduledMaintenance] Updated selectedAssets count:', result.length);
+              return result;
             });
             if (!allowedAssetType && next[0]?.type) setAllowedAssetType(next[0].type || null);
             setSubmitMessage(null);
