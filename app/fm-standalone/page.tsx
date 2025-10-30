@@ -1,8 +1,10 @@
 "use client";
 import React, { Suspense } from 'react';
-import FMPanel from '../components/fm-panel';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+
+const FMPanel = dynamic(() => import('../components/fm-panel'), { ssr: false });
 
 function FMStandaloneContent() {
   const params = useSearchParams();

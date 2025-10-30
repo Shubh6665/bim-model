@@ -8,7 +8,6 @@ import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
 import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
-import FMPanel from "../components/fm-panel";
 import FileViewer from "../components/file-viewer";
 import dynamic from "next/dynamic";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
@@ -58,6 +57,8 @@ interface Project {
 
 // PdfViewer is heavy and uses pdfjs; disable SSR to avoid server-side canvas issues
 const PdfViewer = dynamic(() => import("../components/pdf-viewer"), { ssr: false });
+
+const FMPanel = dynamic(() => import("../components/fm-panel"), { ssr: false });
 
 function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);

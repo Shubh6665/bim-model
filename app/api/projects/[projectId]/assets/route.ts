@@ -65,11 +65,32 @@ export async function GET(
 
     // Optional filter to scope BIM assets to a specific model
     const url = new URL(_req.url);
-    const modelGuid = url.searchParams.get('modelGuid') || undefined;
+    const rawModelGuid = url.searchParams.get('modelGuid') || undefined;
 
-    const query = modelGuid
-      ? { projectId, $or: [ { source: 'MANUAL' }, { source: 'BIM_MODEL', modelGuid } ] }
-      : { projectId };
+    const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    let query: any = { projectId };
+    if (rawModelGuid) {
+      const mg = String(rawModelGuid || '').trim();
+      if (!mg) {
+        query = { projectId };
+      } else {
+        // Build a robust BIM filter that matches:
+        // - exact modelGuid (e.g., 'guid|urn')
+        // - left-part guid/id only (e.g., 'guid' or '1')
+        // - any stored value ending with '|urn'
+        const parts = mg.split('|');
+        const left = parts[0] || '';
+        const right = parts.length > 1 ? parts.slice(1).join('|') : '';
+
+        const orVariants: any[] = [ { modelGuid: mg } ];
+        if (left) orVariants.push({ modelGuid: left });
+        if (right) orVariants.push({ modelGuid: { $regex: `\\|${escapeRegExp(right)}$` } });
+
+        const bimFilter = { $and: [ { source: 'BIM_MODEL' }, { $or: orVariants } ] };
+        query = { projectId, $or: [ { source: 'MANUAL' }, bimFilter ] };
+      }
+    }
 
     const assets = await col.find(query).sort({ updatedAt: -1 }).toArray();
     // Normalize id

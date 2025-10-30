@@ -1836,11 +1836,35 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     } catch { return undefined; }
   }, [viewer]);
 
+  // Treat modelGuid variants as equivalent:
+  // - plain guid/id (e.g., '1' or 'a1b2c3')
+  // - composite 'guid|urn'
+  // - any string ending with '|urn'
+  const parseModelGuid = (mg?: string) => {
+    if (!mg) return { raw: '', left: '', right: '' };
+    const raw = String(mg);
+    const i = raw.indexOf('|');
+    if (i === -1) return { raw, left: raw, right: '' };
+    return { raw, left: raw.slice(0, i), right: raw.slice(i + 1) };
+  };
+  const isSameModelGuid = (a?: string, b?: string): boolean => {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const A = parseModelGuid(a);
+    const B = parseModelGuid(b);
+    if (A.left && B.left && A.left === B.left) return true;
+    if (A.right && B.right && A.right === B.right) return true;
+    // Allow matching when one is composite and the other is its left part
+    if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+    if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+    return false;
+  };
+
   const filterAssetsForCurrentModel = React.useCallback((arr: AssetRecord[]): AssetRecord[] => {
     const g = getCurrentModelGuid();
     if (!g) return arr; // if no model, do not filter
-    // Strict: include manual always; BIM only for current modelGuid
-    return arr.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === g);
+    // Include manual always; BIM only when modelGuid matches current model (equivalence-aware)
+    return arr.filter(a => a.source !== 'BIM_MODEL' || isSameModelGuid(a.modelGuid, g));
   }, [getCurrentModelGuid]);
 
   // Build master category labels from CATEGORY_MAPPING used in Ticket-based Maintenance
@@ -5707,7 +5731,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     }
     return sum;
   };
-  const prefillBuildingAndLevel = async () => {
+  const prefillBuildingAndLevel = async (zHint?: number | null) => {
     try {
       if (!viewer) return;
       if (!f.building || String(f.building).trim() === '') {
@@ -5725,17 +5749,34 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
               return p?.displayValue?.toString?.();
             };
             const building = getPropFrom(rootProps, ['Building', 'Edificio', 'Building Name', 'Nome edificio', 'Project Name']);
-            if (building) setF(prev => ({ ...prev, building }));
+            if (building) { setF(prev => ({ ...prev, building })); console.log('[CreateSpace][prefill] Building from model root:', building); }
           }
         } catch {}
       }
       try {
-        const ext = (typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+        let ext = (typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+        if (!ext && typeof (viewer as any).loadExtension === 'function') {
+          try { ext = await (viewer as any).loadExtension('Autodesk.AEC.LevelsExtension'); } catch {}
+        }
         const fs = (ext as any)?.floorSelector;
+        const floors = fs?.floorData || [];
+        let levelName = '';
+        // Prefer active floor
         const idx = typeof fs?.getActiveFloor === 'function' ? fs.getActiveFloor() : undefined;
-        const name = (typeof idx === 'number') ? (fs?.floorData?.[idx]?.name || '') : '';
-        if (name) setF(prev => ({ ...prev, level: name }));
-      } catch {}
+        if (typeof idx === 'number' && floors[idx]?.name) levelName = floors[idx].name;
+        // Fallback: infer by z if available
+        if (!levelName && floors?.length && (zHint != null)) {
+          const z = Number(zHint);
+          let best: { name: string; dist: number } | null = null;
+          for (const fdata of floors) {
+            const zMin = Number(fdata?.zMin ?? 0), zMax = Number(fdata?.zMax ?? 0);
+            const dist = (z < zMin) ? (zMin - z) : (z > zMax ? (z - zMax) : 0);
+            if (best == null || dist < best.dist) best = { name: String(fdata?.name || ''), dist };
+          }
+          levelName = best?.name || '';
+        }
+        if (levelName) { setF(prev => ({ ...prev, level: levelName })); console.log('[CreateSpace][prefill] Level set to:', levelName); }
+      } catch (e) { console.warn('[CreateSpace][prefill] Level prefill failed', e); }
     } catch {}
   };
   const sanitizePolygon = (pts: { x: number; y: number; z: number }[]) => {
@@ -6001,9 +6042,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         const a = Math.abs(signedArea(pts));
         const per = polygonPerimeter2D(pts);
         computedPerimeterRef.current = per;
+        console.log('[CreateSpace][finishDrawing] Computed area/perimeter:', a, per);
         setF(prev => ({ ...prev, area: a.toFixed(2) }));
         // Prefill building/level
-        prefillBuildingAndLevel();
+        prefillBuildingAndLevel(baseZRef.current);
         setFootprint(fp);
         drawFinalPolygon(pts);
         setConfirmOpen(true);
@@ -6104,10 +6146,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           const a = Math.abs(signedArea(pts2d));
           const per = polygonPerimeter2D(pts2d);
           computedPerimeterRef.current = per;
+          console.log('[CreateSpace][remoteDone] Computed area/perimeter:', a, per);
           setF(prev => ({ ...prev, area: a.toFixed(2) }));
         } catch {}
         // Prefill building and level and restore modal
-        prefillBuildingAndLevel();
+        prefillBuildingAndLevel(fp?.z ?? null);
         setConfirmOpen(true);
         try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
         try { save(footprintDraftKey, fp.points); } catch {}
