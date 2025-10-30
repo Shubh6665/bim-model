@@ -421,6 +421,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   const remoteBaseZRef = useRef<number | null>(null);
   const remoteOverlay = 'fm-remote-footprint-preview';
   const remoteHoverRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const remoteSnapperRef = useRef<any>(null);
   // Remote placement (manual asset) bridge
   const remotePlaceActiveRef = useRef(false);
   const remotePlaceAssetRef = useRef<{ assetId: string; shape: 'cube' | 'sphere'; size: number } | null>(null);
@@ -554,26 +555,51 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   const remoteOnViewerClick = (ev: MouseEvent) => {
     try {
       if (!viewer?.impl || !remoteActiveRef.current) return;
+      console.log('[FMPanel][remoteOnViewerClick] Click detected, remoteActive:', remoteActiveRef.current);
       if (remoteBaseZRef.current == null) {
         const hit = viewer.impl.hitTest(ev.clientX, ev.clientY, true);
         if (hit?.point?.z != null) remoteBaseZRef.current = hit.point.z; else {
           try { remoteBaseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { remoteBaseZRef.current = 0; }
         }
+        console.log('[FMPanel][remoteOnViewerClick] Base Z initialized:', remoteBaseZRef.current);
       }
       const z = remoteBaseZRef.current ?? 0;
-      const p = remoteWorldOnZ(ev.clientX, ev.clientY, z);
+      let p = null as any;
+      // Try snapper first
+      try {
+        if (remoteSnapperRef.current && typeof remoteSnapperRef.current.getSnapResult === 'function') {
+          const sr = remoteSnapperRef.current.getSnapResult();
+          if (sr) {
+            const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
+            if (gp && gp.x != null && gp.y != null && gp.z != null) {
+              p = gp;
+              console.log('[FMPanel][remoteOnViewerClick] Snapped point:', p);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[FMPanel][remoteOnViewerClick] Snap failed:', e);
+      }
+      if (!p) {
+        p = remoteWorldOnZ(ev.clientX, ev.clientY, z);
+        console.log('[FMPanel][remoteOnViewerClick] Fallback worldOnZ point:', p);
+      }
       if (!p) return;
       if (remotePointsRef.current.length >= 3 && remoteIsNearFirst(p)) {
         // auto finish
+        console.log('[FMPanel][remoteOnViewerClick] Near first point, finishing. Total points:', remotePointsRef.current.length);
         try { childWinRef.current?.postMessage?.({ type: 'FM_DRAW_DONE', points: remotePointsRef.current }, '*'); } catch { }
         remoteDetach();
         return;
       }
       const point = { x: p.x, y: p.y, z };
       remotePointsRef.current.push(point);
+      console.log('[FMPanel][remoteOnViewerClick] Point added. Total:', remotePointsRef.current.length, 'Point:', point);
       childWinRef.current?.postMessage?.({ type: 'FM_DRAW_POINT', point }, '*');
       remoteDrawPreview();
-    } catch { }
+    } catch (e) {
+      console.error('[FMPanel][remoteOnViewerClick] Error:', e);
+    }
   };
   const remoteOnViewerDblClick = (ev: MouseEvent) => {
     try {
@@ -584,31 +610,76 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       }
     } catch { }
   };
-  const remoteAttach = () => {
+  const remoteAttach = async () => {
     try {
-      if (!viewer || remoteActiveRef.current) return;
+      if (!viewer || remoteActiveRef.current) {
+        console.warn('[FMPanel][remoteAttach] Cannot attach: viewer:', !!viewer, 'already active:', remoteActiveRef.current);
+        return;
+      }
+      console.log('[FMPanel][remoteAttach] Attaching remote drawing handlers');
       remotePointsRef.current = [];
       remoteBaseZRef.current = null;
       remoteHoverRef.current = null;
       remoteActiveRef.current = true;
+      // Load snapper if not already loaded
+      console.log('[FMPanel][remoteAttach] Loading snapper extensions...');
+      try {
+        const measureExt = await viewer.loadExtension?.('Autodesk.Measure');
+        const maybeSnapper = measureExt?.getSnapper?.();
+        if (maybeSnapper) {
+          remoteSnapperRef.current = maybeSnapper;
+          try { maybeSnapper.activateSnap?.(true); } catch {}
+          console.log('[FMPanel][remoteAttach] Measure snapper activated');
+        }
+      } catch (e) {
+        console.warn('[FMPanel][remoteAttach] Measure extension failed:', e);
+      }
+      try {
+        if (!remoteSnapperRef.current) {
+          await viewer.loadExtension?.('Autodesk.Snapping');
+          const S = (window as any).Autodesk?.Viewing?.Extensions?.Snapping;
+          if (S) {
+            const sn = new S.Snapper(viewer, true);
+            viewer.toolController?.registerTool?.(sn);
+            viewer.toolController?.activateTool?.(sn.getName?.());
+            try { sn.activateSnap?.(true); } catch {}
+            remoteSnapperRef.current = sn;
+            console.log('[FMPanel][remoteAttach] Snapping tool activated');
+          }
+        }
+      } catch (e) {
+        console.warn('[FMPanel][remoteAttach] Snapping extension failed:', e);
+      }
       viewer.container?.addEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', remoteOnViewerMove as any, true);
       viewer.container?.addEventListener('dblclick', remoteOnViewerDblClick as any, true);
       try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'crosshair'); } catch { }
       if (!viewer.impl.overlayScenes?.[remoteOverlay]) viewer.impl.createOverlayScene(remoteOverlay);
-    } catch { }
+      console.log('[FMPanel][remoteAttach] Remote drawing activated, listeners attached');
+    } catch (e) {
+      console.error('[FMPanel][remoteAttach] Error:', e);
+    }
   };
   const remoteDetach = () => {
     try {
+      console.log('[FMPanel][remoteDetach] Detaching remote drawing handlers');
       if (!viewer) return;
       viewer.container?.removeEventListener('click', remoteOnViewerClick as any, true);
       viewer.container?.removeEventListener('mousemove', remoteOnViewerMove as any, true);
       viewer.container?.removeEventListener('dblclick', remoteOnViewerDblClick as any, true);
       try { viewer.container && ((viewer.container as HTMLElement).style.cursor = 'default'); } catch { }
+      try { remoteSnapperRef.current?.deactivateSnap?.(); } catch {}
+      try {
+        const name = remoteSnapperRef.current?.getName?.();
+        if (name) viewer.toolController?.deactivateTool?.(name);
+      } catch {}
       remoteActiveRef.current = false;
       remoteHoverRef.current = null;
       remoteClearOverlay();
-    } catch { }
+      console.log('[FMPanel][remoteDetach] Remote drawing deactivated');
+    } catch (e) {
+      console.error('[FMPanel][remoteDetach] Error:', e);
+    }
   };
 
   // Remote placement handlers (single-point manual asset)
@@ -810,34 +881,88 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
     }
   }, [section]);
 
+  // Allow feature panels (e.g., CreateSpace) to programmatically minimize/restore modal and adjust overlay blur
+  const drawOverlayPrevRef = useRef<{ backdrop?: string; bg?: string; bgColor?: string } | null>(null);
+  useEffect(() => {
+    const onMin = () => {
+      try {
+        console.log('[FMPanel] fm-modal-minimize received');
+        setShowModalMinimized(true);
+        const ov = document.getElementById('fm-modal-overlay') as HTMLElement | null;
+        if (ov) {
+          drawOverlayPrevRef.current = { backdrop: ov.style.backdropFilter, bg: ov.style.background, bgColor: ov.style.backgroundColor };
+          ov.style.pointerEvents = 'none';
+          ov.style.backdropFilter = 'none';
+          ov.style.background = 'transparent';
+          ov.style.backgroundColor = 'transparent';
+        }
+      } catch {}
+    };
+    const onRestore = () => {
+      try {
+        console.log('[FMPanel] fm-modal-restore received');
+        setShowModalMinimized(false);
+        const ov = document.getElementById('fm-modal-overlay') as HTMLElement | null;
+        if (ov) {
+          const prev = drawOverlayPrevRef.current;
+          ov.style.pointerEvents = '';
+          if (prev) {
+            ov.style.backdropFilter = prev.backdrop || '';
+            ov.style.background = prev.bg || '';
+            ov.style.backgroundColor = prev.bgColor || '';
+          } else {
+            ov.style.backdropFilter = '';
+            ov.style.background = '';
+            ov.style.backgroundColor = '';
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('fm-modal-minimize', onMin as any);
+    window.addEventListener('fm-modal-restore', onRestore as any);
+    return () => {
+      window.removeEventListener('fm-modal-minimize', onMin as any);
+      window.removeEventListener('fm-modal-restore', onRestore as any);
+    };
+  }, []);
+
   // Bridge messages from child standalone window (only in main window)
   useEffect(() => {
     if (isStandalone) return; // child handles its own UI
     const onMsg = (e: MessageEvent) => {
       const d: any = e.data;
       if (!d || typeof d !== 'object') return;
+      console.log('[FMPanel][onMsg] Received message from child:', d.type, d);
       if (d.type === 'FM_DRAW_START') {
         if (!viewer) {
+          console.warn('[FMPanel][onMsg] No viewer, cancelling remote draw');
           try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NO_VIEWER' }, '*'); } catch { }
           return;
         }
+        console.log('[FMPanel][onMsg] Starting remote drawing for child window');
         // Remember sender as our child window for point streaming
         try { childWinRef.current = (e.source as Window) || null; } catch { }
         remoteAttach();
       } else if (d.type === 'FM_DRAW_UNDO') {
         // Remove last point and update preview
+        console.log('[FMPanel][onMsg] Undo last point. Before:', remotePointsRef.current.length);
         remotePointsRef.current.pop();
+        console.log('[FMPanel][onMsg] After undo:', remotePointsRef.current.length);
         remoteDrawPreview();
       } else if (d.type === 'FM_DRAW_FINISH') {
         if (!viewer) return;
         const pts = remotePointsRef.current;
+        console.log('[FMPanel][onMsg] Finish requested. Points:', pts.length);
         if (pts.length >= 3) {
+          console.log('[FMPanel][onMsg] Sending FM_DRAW_DONE with', pts.length, 'points');
           try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_DONE', points: pts }, '*'); } catch { }
         } else {
+          console.warn('[FMPanel][onMsg] Not enough points, cancelling');
           try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED', reason: 'NOT_ENOUGH_POINTS' }, '*'); } catch { }
         }
         remoteDetach();
       } else if (d.type === 'FM_DRAW_CANCEL') {
+        console.log('[FMPanel][onMsg] Cancel requested');
         try { (e.source as Window | null)?.postMessage?.({ type: 'FM_DRAW_CANCELLED' }, '*'); } catch { }
         remoteDetach();
       } else if (d.type === 'FM_PLACE_START') {
@@ -4966,46 +5091,54 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   // Listen for space-created events to refresh list
   useEffect(() => {
     const handleSpaceCreated = (e: CustomEvent) => {
-      if (e.detail?.projectId === projectId) {
-        console.log('[SpaceList] Space created event received, reloading from DB');
-        const mg = getCurrentModelGuid();
-        fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`)
-          .then(res => res.json())
-          .then(data => {
-            if (Array.isArray(data)) {
-              const normalized: SpaceRecord[] = data.map((d: any) => ({
-                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
-                level: d.level,
-                name: d.name,
-                area: d.area,
-                perimeter: d.perimeter,
-                volume: d.volume,
-                occupancy: d.occupancy,
-                spaceCode: d.spaceCode,
-                building: d.building,
-                description: d.description,
-                source: d.source,
-                dbId: d.dbId ?? null,
-                modelGuid: d.modelGuid,
-                footprint: d.footprint || undefined,
-                conflictWithId: d.conflictWithId
-              }));
-              // STRICT filter: only spaces from current model
-              const clientFiltered = mg 
-                ? normalized.filter(r => {
-                    if (r.source === 'BIM_MODEL') {
-                      return r.modelGuid === mg;
-                    } else {
-                      return !r.modelGuid || r.modelGuid === mg;
-                    }
-                  })
-                : normalized;
-              console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
-              setRows(mergeWithPersisted(clientFiltered));
-            }
-          })
-          .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
+      if (e.detail?.projectId !== projectId) return;
+      const mg = getCurrentModelGuid();
+      // Optimistic insert at top if event contains the space
+      const spaceRaw = e.detail?.space as any;
+      const space = (spaceRaw && spaceRaw.space) ? (spaceRaw.space as SpaceRecord) : (spaceRaw as SpaceRecord);
+      if (space) {
+        const passes = !mg || !space.modelGuid || space.modelGuid === mg;
+        if (passes) {
+          setRows(prev => [space, ...prev]);
+        }
       }
+      console.log('[SpaceList] Space created event received, reloading from DB');
+      fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const normalized: SpaceRecord[] = data.map((d: any) => ({
+              id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+              level: d.level,
+              name: d.name,
+              area: d.area,
+              perimeter: d.perimeter,
+              volume: d.volume,
+              occupancy: d.occupancy,
+              spaceCode: d.spaceCode,
+              building: d.building,
+              description: d.description,
+              source: d.source,
+              dbId: d.dbId ?? null,
+              modelGuid: d.modelGuid,
+              footprint: d.footprint || undefined,
+              conflictWithId: d.conflictWithId
+            }));
+            // STRICT filter: only spaces from current model
+            const clientFiltered = mg 
+              ? normalized.filter(r => {
+                  if (r.source === 'BIM_MODEL') {
+                    return r.modelGuid === mg;
+                  } else {
+                    return !r.modelGuid || r.modelGuid === mg;
+                  }
+                })
+              : normalized;
+            console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
+            setRows(mergeWithPersisted(clientFiltered));
+          }
+        })
+        .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
     };
     
     window.addEventListener('space-created', handleSpaceCreated as any);
@@ -5367,6 +5500,24 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const hoverRef = useRef<{ x: number; y: number; z: number } | null>(null);
   const snapperRef = useRef<any>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const footprintDraftKey = `fm-footprint-draft-${projectId || 'global'}`;
+  const computedPerimeterRef = useRef<number | null>(null);
+
+  // Restore footprint from localStorage when panel opens again (after minimize/restore)
+  useEffect(() => {
+    try {
+      const saved: any = load(footprintDraftKey, []);
+      if (Array.isArray(saved) && saved.length >= 3) {
+        pointsRef.current = saved.map((p: any) => ({ x: Number(p.x), y: Number(p.y), z: Number(p.z) }));
+        setPointCount(pointsRef.current.length);
+        const pts = sanitizePolygon(pointsRef.current);
+        setFootprint({ points: [...pts], z: pts[0]?.z, levelIndex: undefined });
+        if (viewer?.impl) drawFinalPolygon(pts);
+        setConfirmOpen(true);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, viewer]);
 
   const clearOverlay = () => {
     try {
@@ -5543,6 +5694,50 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     }
     return 0.5 * s;
   };
+  const polygonPerimeter2D = (pts: { x: number; y: number }[]): number => {
+    if (!Array.isArray(pts) || pts.length < 2) return 0;
+    let sum = 0;
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % n];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      sum += Math.hypot(dx, dy);
+    }
+    return sum;
+  };
+  const prefillBuildingAndLevel = async () => {
+    try {
+      if (!viewer) return;
+      if (!f.building || String(f.building).trim() === '') {
+        try {
+          const rootId = viewer?.model?.getRootId ? viewer.model.getRootId() : null;
+          if (rootId != null) {
+            const rootProps: any = await new Promise(resolve => { try { viewer.getProperties(rootId, resolve); } catch { resolve(null); } });
+            const getPropFrom = (propsObj: any, names: string[]) => {
+              if (!propsObj || !Array.isArray(propsObj.properties)) return undefined;
+              const lower = names.map(n => n.toLowerCase());
+              const p = propsObj.properties.find((p: any) => {
+                const dn = p.displayName?.toLowerCase?.();
+                return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+              });
+              return p?.displayValue?.toString?.();
+            };
+            const building = getPropFrom(rootProps, ['Building', 'Edificio', 'Building Name', 'Nome edificio', 'Project Name']);
+            if (building) setF(prev => ({ ...prev, building }));
+          }
+        } catch {}
+      }
+      try {
+        const ext = (typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+        const fs = (ext as any)?.floorSelector;
+        const idx = typeof fs?.getActiveFloor === 'function' ? fs.getActiveFloor() : undefined;
+        const name = (typeof idx === 'number') ? (fs?.floorData?.[idx]?.name || '') : '';
+        if (name) setF(prev => ({ ...prev, level: name }));
+      } catch {}
+    } catch {}
+  };
   const sanitizePolygon = (pts: { x: number; y: number; z: number }[]) => {
     let arr = dedupeAndSimplify(pts);
     if (arr.length < 3) return arr;
@@ -5597,6 +5792,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         if (hit?.point?.z != null) baseZRef.current = hit.point.z; else {
           try { baseZRef.current = viewer.model?.getBoundingBox?.().min?.z ?? 0; } catch { baseZRef.current = 0; }
         }
+        console.log('[CreateSpace][onViewerClick] Base Z initialized:', baseZRef.current);
       }
       const z = baseZRef.current ?? 0;
       let p = null as any;
@@ -5605,20 +5801,33 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           const sr = snapperRef.current.getSnapResult();
           if (sr) {
             const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
-            if (gp && gp.x != null && gp.y != null && gp.z != null) p = gp;
+            if (gp && gp.x != null && gp.y != null && gp.z != null) {
+              p = gp;
+              console.log('[CreateSpace][onViewerClick] Snapped point:', p);
+            }
           }
         }
-      } catch {}
-      if (!p) p = worldOnZ(ev.clientX, ev.clientY, z);
+      } catch (e) {
+        console.warn('[CreateSpace][onViewerClick] Snap failed:', e);
+      }
+      if (!p) {
+        p = worldOnZ(ev.clientX, ev.clientY, z);
+        console.log('[CreateSpace][onViewerClick] Fallback worldOnZ point:', p);
+      }
       if (!p) return;
       if (pointsRef.current.length >= 3 && isNearFirst(p)) {
+        console.log('[CreateSpace][onViewerClick] Near first point, finishing drawing');
         finishDrawing();
         return;
       }
       pointsRef.current.push({ x: p.x, y: p.y, z });
       setPointCount(pointsRef.current.length);
+      try { save(footprintDraftKey, pointsRef.current); } catch {}
+      console.log('[CreateSpace][onViewerClick] Point added. Total:', pointsRef.current.length, 'Point:', p);
       drawPreview();
-    } catch { }
+    } catch (e) {
+      console.error('[CreateSpace][onViewerClick] Error:', e);
+    }
   };
 
   const onViewerMove = (ev: MouseEvent) => {
@@ -5673,25 +5882,40 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   };
 
   const startDrawing = async () => {
+    console.log('[CreateSpace][startDrawing] Called. viewer:', !!viewer, 'isRemote:', isRemote);
     if (!viewer) {
       // Remote drawing: request main window to start capture
       try {
+        console.log('[CreateSpace][startDrawing] Remote mode: sending FM_DRAW_START to opener');
         (window as any).opener?.postMessage?.({ type: 'FM_DRAW_START' }, '*');
         setFootprint(null);
         pointsRef.current = [];
         baseZRef.current = null;
         setDrawing(true);
-        try { (window as any).opener?.focus?.(); window.blur?.(); } catch {}
-      } catch { }
+        setPointCount(0);
+        console.log('[CreateSpace][startDrawing] Remote: minimizing popup window');
+        try { 
+          if (window.opener) {
+            window.opener.focus();
+          }
+          window.blur();
+        } catch (e) {
+          console.warn('[CreateSpace][startDrawing] Failed to minimize popup:', e);
+        }
+      } catch (e) {
+        console.error('[CreateSpace][startDrawing] Remote mode error:', e);
+      }
       return;
     }
     try {
+      console.log('[CreateSpace][startDrawing] Main window mode: initializing drawing');
       setFootprint(null);
       pointsRef.current = [];
       baseZRef.current = null;
       hoverRef.current = null;
       setDrawing(true);
       setPointCount(0);
+      console.log('[CreateSpace][startDrawing] Loading snapper extensions...');
       // Prefer Measure extension's snapper
       try {
         const measureExt = await viewer.loadExtension?.('Autodesk.Measure');
@@ -5699,8 +5923,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         if (maybeSnapper) {
           snapperRef.current = maybeSnapper;
           try { maybeSnapper.activateSnap?.(true); } catch {}
+          console.log('[CreateSpace][startDrawing] Measure snapper activated');
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[CreateSpace][startDrawing] Measure extension failed:', e);
+      }
       // Fallback: standalone snapping tool
       try {
         if (!snapperRef.current) {
@@ -5712,9 +5939,12 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
             viewer.toolController?.activateTool?.(sn.getName?.());
             try { sn.activateSnap?.(true); } catch {}
             snapperRef.current = sn;
+            console.log('[CreateSpace][startDrawing] Snapping tool activated');
           }
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[CreateSpace][startDrawing] Snapping extension failed:', e);
+      }
       viewer.container?.addEventListener('click', onViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
       viewer.container?.addEventListener('dblclick', onViewerDblClick as any, true);
@@ -5726,13 +5956,19 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         container.style.cursor = 'crosshair';
         container.style.setProperty('cursor', 'crosshair', 'important');
       }
-    } catch { }
+      console.log('[CreateSpace][startDrawing] Drawing mode activated, listeners attached');
+      try { window.dispatchEvent(new Event('fm-modal-minimize')); } catch {}
+    } catch (e) {
+      console.error('[CreateSpace][startDrawing] Error in main mode:', e);
+    }
   };
 
   const finishDrawing = () => {
     try {
+      console.log('[CreateSpace][finishDrawing] Called. isRemote:', isRemote, 'pointsRef.current.length:', pointsRef.current.length);
       if (isRemote) {
         // Ask main window to finalize and send us the points
+        console.log('[CreateSpace][finishDrawing] Remote: sending FM_DRAW_FINISH to opener');
         (window as any).opener?.postMessage?.({ type: 'FM_DRAW_FINISH' }, '*');
         setDrawing(false);
         try { window.focus?.(); } catch {}
@@ -5755,17 +5991,33 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         if (name) viewer.toolController?.deactivateTool?.(name);
       } catch {}
       const raw = pointsRef.current;
+      console.log('[CreateSpace][finishDrawing] Raw points before sanitize:', raw.length);
       let pts = sanitizePolygon(raw);
+      console.log('[CreateSpace][finishDrawing] Sanitized points:', pts.length);
       if (pts.length >= 3) {
-        setFootprint({ points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined });
+        const fp = { points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined };
+        try { save(footprintDraftKey, fp.points); } catch {}
+        // compute area/perimeter and prefill area field
+        const a = Math.abs(signedArea(pts));
+        const per = polygonPerimeter2D(pts);
+        computedPerimeterRef.current = per;
+        setF(prev => ({ ...prev, area: a.toFixed(2) }));
+        // Prefill building/level
+        prefillBuildingAndLevel();
+        setFootprint(fp);
         drawFinalPolygon(pts);
         setConfirmOpen(true);
+        try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
+        console.log('[CreateSpace][finishDrawing] Footprint set and confirmation opened:', fp);
       } else {
         // not enough points
+        console.warn('[CreateSpace][finishDrawing] Not enough points after sanitize');
         setFootprint(null);
         clearOverlay();
       }
-    } catch { }
+    } catch (e) {
+      console.error('[CreateSpace][finishDrawing] Error:', e);
+    }
   };
 
   const cancelDrawing = () => {
@@ -5786,6 +6038,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         if (name) viewer.toolController?.deactivateTool?.(name);
       } catch {}
       clearOverlay();
+      try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
       try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch { }
     } catch { }
   };
@@ -5821,28 +6074,57 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   // Remote drawing: receive points and completion from main window
   useEffect(() => {
     if (!isRemote) return;
+    console.log('[CreateSpace][useEffect] Setting up remote message listener');
     const onMsg = (e: MessageEvent) => {
       const d: any = e.data;
       if (!d || typeof d !== 'object') return;
+      console.log('[CreateSpace][onMsg] Received message:', d.type, d);
       if (d.type === 'FM_DRAW_POINT' && d.point) {
         try {
           const p = d.point as { x: number; y: number; z: number };
           pointsRef.current.push(p);
+          setPointCount(pointsRef.current.length);
+          try { save(footprintDraftKey, pointsRef.current); } catch {}
           // keep latest summary for UI
           setFootprint(prev => ({ points: [...pointsRef.current], z: pointsRef.current[0]?.z, levelIndex: undefined }));
-        } catch { }
+          console.log('[CreateSpace][onMsg] Point added remotely. Total:', pointsRef.current.length);
+        } catch (e) {
+          console.error('[CreateSpace][onMsg] Error adding point:', e);
+        }
       } else if (d.type === 'FM_DRAW_DONE' && Array.isArray(d.points)) {
+        console.log('[CreateSpace][onMsg] Drawing done. Points received:', d.points.length);
         setDrawing(false);
         pointsRef.current = d.points;
-        setFootprint({ points: [...d.points], z: d.points[0]?.z, levelIndex: undefined });
+        setPointCount(d.points.length);
+        const fp = { points: [...d.points], z: d.points[0]?.z, levelIndex: undefined };
+        setFootprint(fp);
+        // compute area/perimeter and prefill area
+        try {
+          const pts2d = fp.points.map(p => ({ x: p.x, y: p.y }));
+          const a = Math.abs(signedArea(pts2d));
+          const per = polygonPerimeter2D(pts2d);
+          computedPerimeterRef.current = per;
+          setF(prev => ({ ...prev, area: a.toFixed(2) }));
+        } catch {}
+        // Prefill building and level and restore modal
+        prefillBuildingAndLevel();
+        setConfirmOpen(true);
+        try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
+        try { save(footprintDraftKey, fp.points); } catch {}
+        console.log('[CreateSpace][onMsg] Footprint set from remote:', fp);
       } else if (d.type === 'FM_DRAW_CANCELLED') {
+        console.log('[CreateSpace][onMsg] Drawing cancelled remotely');
         setDrawing(false);
         pointsRef.current = [];
+        setPointCount(0);
         setFootprint(null);
       }
     };
     window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
+    return () => {
+      console.log('[CreateSpace][useEffect] Removing remote message listener');
+      window.removeEventListener('message', onMsg);
+    };
   }, [isRemote]);
   const onSave = async () => {
     const rec: SpaceRecord = {
@@ -5854,7 +6136,9 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       area: f.area ? Number(f.area) : undefined,
       description: f.description || undefined,
       source: 'MANUAL',
-      dbId: null
+      dbId: null,
+      modelGuid: (() => { try { return viewer?.model?.getData?.()?.guid || undefined; } catch { return undefined; } })(),
+      perimeter: computedPerimeterRef.current || undefined
     };
     
     if (!projectId) {
@@ -5870,14 +6154,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       });
       
       if (res.ok) {
+        let saved: any = null; try { saved = await res.json(); } catch {}
         console.log('[CreateSpace] Space saved to DB successfully');
         // Trigger a refresh event so SpaceList reloads
-        window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId } }));
+        const savedSpace = saved?.space || saved || rec;
+        window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId, space: savedSpace } }));
         
         // Clear form
         const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', description: '' };
         setF(emptyForm);
         save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
+        try { save(footprintDraftKey, []); } catch {}
         
         // Clear footprint
         setFootprint(null);
@@ -5911,12 +6198,23 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         </div>
         <div className="text-[11px] text-gray-500 mt-2">
           {drawing
-            ? 'Click on the model to add points. Press Enter to finish, ESC to cancel.'
+            ? `Drawing... ${pointCount} point${pointCount !== 1 ? 's' : ''} added. Click to add more, Enter to finish, ESC to cancel.`
             : footprint
               ? `${footprint.points.length} points captured at z=${(footprint.z ?? 0).toFixed?.(2)}`
               : 'No footprint set.'}
         </div>
       </div>
+      {confirmOpen && footprint && (
+        <div className="mt-3 border border-gray-700 rounded p-2 bg-gray-900 text-xs text-gray-200">
+          <div className="mb-2 font-semibold">Footprint Points (x, y, z):</div>
+          <div className="max-h-40 overflow-auto space-y-1 bg-gray-950 p-2 rounded">
+            {footprint.points.map((p, i) => (
+              <div key={i} className="font-mono">{i + 1}. ({p.x.toFixed(3)}, {p.y.toFixed(3)}, {p.z.toFixed(3)})</div>
+            ))}
+          </div>
+          <div className="mt-2"><button onClick={() => { console.log('[CreateSpace][confirmClose] Closing confirmation'); setConfirmOpen(false); }} className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Close</button></div>
+        </div>
+      )}
       <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
     </div>
   );
