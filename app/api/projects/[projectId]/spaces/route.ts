@@ -95,6 +95,32 @@ export async function POST(
   }
 }
 
+function polygonArea2D(points: { x: number; y: number }[]): number {
+  if (!Array.isArray(points) || points.length < 3) return 0;
+  let sum = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    sum += (a.x * b.y) - (b.x * a.y);
+  }
+  return Math.abs(sum) * 0.5;
+}
+
+function polygonPerimeter2D(points: { x: number; y: number }[]): number {
+  if (!Array.isArray(points) || points.length < 2) return 0;
+  let sum = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % n];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    sum += Math.hypot(dx, dy);
+  }
+  return sum;
+}
+
 async function upsertOne(col: any, projectId: string, raw: any) {
   const now = new Date().toISOString();
   const doc = {
@@ -107,6 +133,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     spaceCode: raw?.spaceCode || undefined,
     description: raw?.description || undefined,
     area: typeof raw?.area === 'number' ? raw.area : (raw?.area ? Number(raw.area) : undefined),
+    perimeter: typeof raw?.perimeter === 'number' ? raw.perimeter : (raw?.perimeter ? Number(raw.perimeter) : undefined),
     dbId: raw?.dbId ?? null,
     footprint: raw?.footprint ? {
       points: Array.isArray(raw.footprint.points) ? raw.footprint.points.map((p: any) => ({ x: Number(p.x), y: Number(p.y), z: Number(p.z) })) : [],
@@ -116,6 +143,16 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     conflictWithId: raw?.conflictWithId || null,
     updatedAt: now,
   } as any;
+
+  if (doc?.footprint?.points && Array.isArray(doc.footprint.points) && doc.footprint.points.length >= 3) {
+    try {
+      const pts2d = doc.footprint.points.map((p: any) => ({ x: Number(p.x), y: Number(p.y) }));
+      const a = polygonArea2D(pts2d);
+      const per = polygonPerimeter2D(pts2d);
+      doc.area = a;
+      doc.perimeter = per;
+    } catch {}
+  }
 
   // For BIM extraction upserts, preserve user-edited fields (building, description)
   // Only update BIM-specific fields (name, level, area, spaceCode, dbId, footprint)
@@ -127,6 +164,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     level: doc.level,
     spaceCode: doc.spaceCode,
     area: doc.area,
+    perimeter: doc.perimeter,
     dbId: doc.dbId,
     footprint: doc.footprint,
     conflictWithId: doc.conflictWithId,

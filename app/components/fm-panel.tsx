@@ -5021,6 +5021,51 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     } catch { }
   };
 
+  const savedOverlayName = 'fm-saved-footprint';
+  const clearSavedFootprint = () => {
+    try {
+      if (!viewer?.impl) return;
+      const scn = (viewer.impl.overlayScenes || {})[savedOverlayName];
+      const scene = scn?.scene;
+      if (scene) {
+        const children = [...scene.children];
+        children.forEach(ch => scene.remove(ch));
+        viewer.impl.invalidate(true);
+      }
+    } catch { }
+  };
+
+  const drawSavedFootprint = (fp?: { points?: { x: number; y: number; z?: number }[]; z?: number | null }) => {
+    try {
+      if (!viewer?.impl || !fp || !Array.isArray(fp.points) || fp.points.length < 3) { clearSavedFootprint(); return; }
+      const pts = fp.points;
+      const THREE = (window as any).THREE;
+      if (!THREE) return;
+      if (!(viewer.impl.overlayScenes || {})[savedOverlayName]) viewer.impl.createOverlayScene(savedOverlayName);
+      clearSavedFootprint();
+      const z = (fp.z != null ? fp.z : (pts[0]?.z ?? 0));
+
+      // outline
+      const closed = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, z));
+      const lineGeom = new THREE.BufferGeometry().setFromPoints(closed);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x00aaff, linewidth: 3, depthTest: false, transparent: true, opacity: 0.9 });
+      const line = new THREE.Line(lineGeom, lineMat);
+      line.renderOrder = 1000;
+      viewer.impl.addOverlay(savedOverlayName, line);
+
+      // fill
+      const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.y)));
+      const fillGeom = new THREE.ShapeGeometry(shape);
+      const fillMat = new THREE.MeshBasicMaterial({ color: 0x00aaff, opacity: 0.18, transparent: true, depthWrite: false, depthTest: false });
+      const mesh = new THREE.Mesh(fillGeom, fillMat);
+      mesh.position.z = z;
+      mesh.renderOrder = 999;
+      viewer.impl.addOverlay(savedOverlayName, mesh);
+
+      viewer.impl.invalidate(true);
+    } catch { }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="p-3 border-b border-gray-800">
@@ -5088,7 +5133,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             {rows.length === 0 ? (
               <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
             ) : paginatedRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50"
+                  onMouseEnter={() => drawSavedFootprint(r.footprint || undefined)}
+                  onMouseLeave={() => clearSavedFootprint()}>
                 <td className="px-3 py-2 text-gray-100">{r.level || '-'}</td>
                 <td className="px-3 py-2 text-gray-200 cursor-pointer hover:text-white" onClick={() => onRowClick(r)}>{r.name || '-'}</td>
                 <td className="px-3 py-2 text-gray-200">{r.area != null ? (typeof r.area === 'string' ? parseFloat(r.area).toFixed(2) : r.area.toFixed(2)) : '-'}</td>
@@ -5311,12 +5358,15 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   }, [f, projectId]);
   // Footprint drawing state
   const [drawing, setDrawing] = useState(false);
+  const [pointCount, setPointCount] = useState(0);
   const [footprint, setFootprint] = useState<{ points: { x: number; y: number; z: number }[]; z?: number; levelIndex?: number } | null>(null);
   const pointsRef = useRef<{ x: number; y: number; z: number }[]>([]);
   const baseZRef = useRef<number | null>(null);
   const overlayName = 'fm-footprint-editor';
   const isRemote = !viewer && !!standalone; // standalone window without viewer
   const hoverRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const snapperRef = useRef<any>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const clearOverlay = () => {
     try {
@@ -5336,6 +5386,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       if (!viewer?.impl || pts.length < 3) return;
       if (!(viewer.impl.overlayScenes || {})[overlayName]) viewer.impl.createOverlayScene(overlayName);
       clearOverlay();
+      pts = sanitizePolygon(pts);
       const THREE = (window as any).THREE;
       if (!THREE) return;
 
@@ -5367,7 +5418,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         viewer.impl.createOverlayScene(overlayName);
       }
       clearOverlay();
-      const pts = pointsRef.current;
+      const pts = pointsRef.current; // use raw for line preview to avoid jumpy feedback
       const hover = hoverRef.current;
       const THREE = (window as any).THREE;
       if (!THREE) { viewer.impl.invalidate(true); return; }
@@ -5396,13 +5447,14 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
 
       // Draw closing line preview (back to first point) - THICKER & DARKER
       if (pts.length >= 3) {
-        const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
+        const clean = sanitizePolygon(pts);
+        const closedPts = [...clean, clean[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
         const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
         const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x0088ff, linewidth: 4, depthTest: false, opacity: 0.7, transparent: true }));
         line2.renderOrder = 999;
         viewer.impl.addOverlay(overlayName, line2);
         // Filled polygon for visibility (DARKER)
-        const shape = new THREE.Shape(pts.map((p, i) => new THREE.Vector2(p.x, p.y)));
+        const shape = new THREE.Shape(clean.map((p, i) => new THREE.Vector2(p.x, p.y)));
         const fillGeom = new THREE.ShapeGeometry(shape);
         const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.25, transparent: true, depthWrite: false, depthTest: false });
         const mesh = new THREE.Mesh(fillGeom, fillMat);
@@ -5447,11 +5499,93 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     return point;
   };
 
-  const isNearFirst = (p: { x: number; y: number; z: number }, eps = 0.4) => {
+  const isNearFirst = (p: { x: number; y: number; z: number }, eps = 0.25) => {
     if (pointsRef.current.length < 1) return false;
     const a = pointsRef.current[0];
     const dx = p.x - a.x, dy = p.y - a.y;
     return Math.hypot(dx, dy) <= eps;
+  };
+
+  const almostEqual = (a: number, b: number, eps = 1e-3) => Math.abs(a - b) <= eps;
+  const dedupeAndSimplify = (pts: { x: number; y: number; z: number }[], eps = 1e-3) => {
+    if (!Array.isArray(pts) || pts.length === 0) return [] as typeof pts;
+    // remove consecutive duplicates (within eps)
+    const out: { x: number; y: number; z: number }[] = [];
+    for (const p of pts) {
+      const last = out[out.length - 1];
+      if (!last || !(almostEqual(last.x, p.x, eps) && almostEqual(last.y, p.y, eps))) out.push(p);
+    }
+    // if last equals first, drop last duplicate
+    if (out.length >= 2) {
+      const f = out[0], l = out[out.length - 1];
+      if (almostEqual(f.x, l.x, eps) && almostEqual(f.y, l.y, eps)) out.pop();
+    }
+    // drop colinear points
+    const colinear = (a: any, b: any, c: any, tol = 1e-6) => {
+      const abx = b.x - a.x, aby = b.y - a.y;
+      const bcx = c.x - b.x, bcy = c.y - b.y;
+      return Math.abs(abx * bcy - aby * bcx) <= tol;
+    };
+    const simp: typeof out = [];
+    for (let i = 0; i < out.length; i++) {
+      const prev = out[(i - 1 + out.length) % out.length];
+      const curr = out[i];
+      const next = out[(i + 1) % out.length];
+      if (!colinear(prev, curr, next)) simp.push(curr);
+    }
+    return simp;
+  };
+  const signedArea = (pts: { x: number; y: number }[]) => {
+    let s = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      s += a.x * b.y - b.x * a.y;
+    }
+    return 0.5 * s;
+  };
+  const sanitizePolygon = (pts: { x: number; y: number; z: number }[]) => {
+    let arr = dedupeAndSimplify(pts);
+    if (arr.length < 3) return arr;
+    // 2-opt untangle: remove self-intersections by reversing subpaths
+    const cross = (p1: any, p2: any, p3: any, p4: any) => {
+      const d = (a: any, b: any, c: any) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      const o1 = d(p1, p2, p3);
+      const o2 = d(p1, p2, p4);
+      const o3 = d(p3, p4, p1);
+      const o4 = d(p3, p4, p2);
+      if (o1 === 0 && o2 === 0 && o3 === 0 && o4 === 0) return false;
+      return (o1 * o2 < 0) && (o3 * o4 < 0);
+    };
+    const untangle = (poly: typeof arr) => {
+      const n = poly.length;
+      if (n < 4) return poly;
+      let improved = true;
+      let guard = 0;
+      while (improved && guard++ < 50) {
+        improved = false;
+        for (let i = 0; i < n; i++) {
+          const i2 = (i + 1) % n;
+          for (let j = i + 2; j < n; j++) {
+            const j2 = (j + 1) % n;
+            // skip adjacent and wraparound pair
+            if (i === j2) continue;
+            if (cross(poly[i], poly[i2], poly[j], poly[j2])) {
+              // reverse between i2..j inclusive
+              const a = i2;
+              const b = j;
+              const segment = poly.slice(a, b + 1).reverse();
+              poly = [...poly.slice(0, a), ...segment, ...poly.slice(b + 1)];
+              improved = true;
+            }
+          }
+        }
+      }
+      return poly;
+    };
+    arr = untangle(arr);
+    // ensure consistent winding (CCW) for fill
+    if (signedArea(arr) < 0) arr = [...arr].reverse();
+    return arr;
   };
 
   const onViewerClick = (ev: MouseEvent) => {
@@ -5465,13 +5599,24 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         }
       }
       const z = baseZRef.current ?? 0;
-      const p = worldOnZ(ev.clientX, ev.clientY, z);
+      let p = null as any;
+      try {
+        if (snapperRef.current && typeof snapperRef.current.getSnapResult === 'function') {
+          const sr = snapperRef.current.getSnapResult();
+          if (sr) {
+            const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
+            if (gp && gp.x != null && gp.y != null && gp.z != null) p = gp;
+          }
+        }
+      } catch {}
+      if (!p) p = worldOnZ(ev.clientX, ev.clientY, z);
       if (!p) return;
       if (pointsRef.current.length >= 3 && isNearFirst(p)) {
         finishDrawing();
         return;
       }
       pointsRef.current.push({ x: p.x, y: p.y, z });
+      setPointCount(pointsRef.current.length);
       drawPreview();
     } catch { }
   };
@@ -5486,7 +5631,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         }
       }
       const z = baseZRef.current ?? 0;
-      const p = worldOnZ(ev.clientX, ev.clientY, z);
+      let p = null as any;
+      try {
+        if (snapperRef.current && typeof snapperRef.current.getSnapResult === 'function') {
+          const sr = snapperRef.current.getSnapResult();
+          if (sr) {
+            const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
+            if (gp && gp.x != null && gp.y != null && gp.z != null) p = gp;
+          }
+        }
+      } catch {}
+      if (!p) p = worldOnZ(ev.clientX, ev.clientY, z);
       if (!p) return;
       // snap-to-start preview
       if (pointsRef.current.length >= 2 && isNearFirst(p)) {
@@ -5510,13 +5665,14 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     if (ev.key === 'Enter') {
       ev.preventDefault();
       finishDrawing();
+      setConfirmOpen(true);
     } else if (ev.key === 'Escape') {
       ev.preventDefault();
       cancelDrawing();
     }
   };
 
-  const startDrawing = () => {
+  const startDrawing = async () => {
     if (!viewer) {
       // Remote drawing: request main window to start capture
       try {
@@ -5525,6 +5681,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         pointsRef.current = [];
         baseZRef.current = null;
         setDrawing(true);
+        try { (window as any).opener?.focus?.(); window.blur?.(); } catch {}
       } catch { }
       return;
     }
@@ -5534,6 +5691,30 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       baseZRef.current = null;
       hoverRef.current = null;
       setDrawing(true);
+      setPointCount(0);
+      // Prefer Measure extension's snapper
+      try {
+        const measureExt = await viewer.loadExtension?.('Autodesk.Measure');
+        const maybeSnapper = measureExt?.getSnapper?.();
+        if (maybeSnapper) {
+          snapperRef.current = maybeSnapper;
+          try { maybeSnapper.activateSnap?.(true); } catch {}
+        }
+      } catch {}
+      // Fallback: standalone snapping tool
+      try {
+        if (!snapperRef.current) {
+          await viewer.loadExtension?.('Autodesk.Snapping');
+          const S = (window as any).Autodesk?.Viewing?.Extensions?.Snapping;
+          if (S) {
+            const sn = new S.Snapper(viewer, true);
+            viewer.toolController?.registerTool?.(sn);
+            viewer.toolController?.activateTool?.(sn.getName?.());
+            try { sn.activateSnap?.(true); } catch {}
+            snapperRef.current = sn;
+          }
+        }
+      } catch {}
       viewer.container?.addEventListener('click', onViewerClick as any, true);
       viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
       viewer.container?.addEventListener('dblclick', onViewerDblClick as any, true);
@@ -5554,6 +5735,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         // Ask main window to finalize and send us the points
         (window as any).opener?.postMessage?.({ type: 'FM_DRAW_FINISH' }, '*');
         setDrawing(false);
+        try { window.focus?.(); } catch {}
         return;
       }
       setDrawing(false);
@@ -5567,11 +5749,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         container.style.cursor = 'default';
         container.style.removeProperty('cursor');
       }
-      const pts = pointsRef.current;
+      try { snapperRef.current?.deactivateSnap?.(); } catch {}
+      try {
+        const name = snapperRef.current?.getName?.();
+        if (name) viewer.toolController?.deactivateTool?.(name);
+      } catch {}
+      const raw = pointsRef.current;
+      let pts = sanitizePolygon(raw);
       if (pts.length >= 3) {
         setFootprint({ points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined });
-        // Draw final polygon and keep it visible
         drawFinalPolygon(pts);
+        setConfirmOpen(true);
       } else {
         // not enough points
         setFootprint(null);
@@ -5592,6 +5780,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
       viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
+      try { snapperRef.current?.deactivateSnap?.(); } catch {}
+      try {
+        const name = snapperRef.current?.getName?.();
+        if (name) viewer.toolController?.deactivateTool?.(name);
+      } catch {}
       clearOverlay();
       try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch { }
     } catch { }
@@ -5604,9 +5797,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         (window as any).opener?.postMessage?.({ type: 'FM_DRAW_UNDO' }, '*');
         // locally reflect count for button state
         pointsRef.current.pop();
+        setPointCount(pointsRef.current.length);
         return;
       }
       pointsRef.current.pop();
+      setPointCount(pointsRef.current.length);
       drawPreview();
     } catch { }
   };
@@ -5710,7 +5905,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         <div className="text-xs text-gray-400 mb-2">2D Footprint (optional)</div>
         <div className="flex flex-wrap gap-2">
           <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-gray-700 text-gray-400' : 'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
-          <button onClick={finishDrawing} disabled={!drawing || pointsRef.current.length < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
+          <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
           <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-gray-700 text-gray-400' : 'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
           <button onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
         </div>
