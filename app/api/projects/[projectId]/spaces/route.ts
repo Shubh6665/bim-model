@@ -36,8 +36,15 @@ export async function GET(
     const modelGuid = url.searchParams.get('modelGuid') || undefined;
     const findFilter: any = { projectId };
     if (modelGuid) {
-      findFilter.modelGuid = modelGuid;
-      console.log(`[Spaces][GET] Filtering by modelGuid=${modelGuid}`);
+      // Equivalence-aware filtering: accept composite guid|urn or plain guid
+      const left = String(modelGuid).split('|')[0];
+      const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      findFilter.$or = [
+        { modelGuid: modelGuid },
+        { modelGuid: left },
+        { modelGuid: { $regex: `^${escape(left)}\\|` } }
+      ];
+      console.log(`[Spaces][GET] Filtering by modelGuid (equivalence-aware) modelGuid=${modelGuid} left=${left}`);
     } else {
       console.log(`[Spaces][GET] No modelGuid filter - returning all spaces for project`);
     }

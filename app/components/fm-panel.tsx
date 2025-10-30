@@ -4564,17 +4564,23 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             conflictWithId: d.conflictWithId
           }));
           
-          // STRICT client-side filter for safety - ONLY spaces from current model
+          // STRICT client-side filter: use equivalence-aware modelGuid match
+          const parseModelGuid = (s?: string) => {
+            if (!s) return { raw: '', left: '', right: '' };
+            const i = s.indexOf('|');
+            return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+          };
+          const isSameModelGuid = (a?: string, b?: string) => {
+            if (!a || !b) return false; if (a === b) return true;
+            const A = parseModelGuid(a), B = parseModelGuid(b);
+            if (A.left && B.left && A.left === B.left) return true;
+            if (A.right && B.right && A.right === B.right) return true;
+            if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+            if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+            return false;
+          };
           const clientFiltered = mg 
-            ? normalized.filter(r => {
-                if (r.source === 'BIM_MODEL') {
-                  // BIM space: MUST match current modelGuid exactly
-                  return r.modelGuid === mg;
-                } else {
-                  // Manual space: include only if it has no modelGuid or matches current
-                  return !r.modelGuid || r.modelGuid === mg;
-                }
-              })
+            ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
             : normalized;
           
           console.log(`[Spaces] Initial load: server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length}`);
@@ -5121,7 +5127,21 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       const spaceRaw = e.detail?.space as any;
       const space = (spaceRaw && spaceRaw.space) ? (spaceRaw.space as SpaceRecord) : (spaceRaw as SpaceRecord);
       if (space) {
-        const passes = !mg || !space.modelGuid || space.modelGuid === mg;
+        const parseModelGuid = (s?: string) => {
+          if (!s) return { raw: '', left: '', right: '' };
+          const i = s.indexOf('|');
+          return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+        };
+        const isSameModelGuid = (a?: string, b?: string) => {
+          if (!a || !b) return false; if (a === b) return true;
+          const A = parseModelGuid(a), B = parseModelGuid(b);
+          if (A.left && B.left && A.left === B.left) return true;
+          if (A.right && B.right && A.right === B.right) return true;
+          if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+          if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+          return false;
+        };
+        const passes = !mg || !space.modelGuid || isSameModelGuid(space.modelGuid as any, mg);
         if (passes) {
           setRows(prev => [space, ...prev]);
         }
@@ -5148,15 +5168,23 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               footprint: d.footprint || undefined,
               conflictWithId: d.conflictWithId
             }));
-            // STRICT filter: only spaces from current model
+            // STRICT filter: equivalence-aware modelGuid
+            const parseModelGuid = (s?: string) => {
+              if (!s) return { raw: '', left: '', right: '' };
+              const i = s.indexOf('|');
+              return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+            };
+            const isSameModelGuid = (a?: string, b?: string) => {
+              if (!a || !b) return false; if (a === b) return true;
+              const A = parseModelGuid(a), B = parseModelGuid(b);
+              if (A.left && B.left && A.left === B.left) return true;
+              if (A.right && B.right && A.right === B.right) return true;
+              if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+              if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+              return false;
+            };
             const clientFiltered = mg 
-              ? normalized.filter(r => {
-                  if (r.source === 'BIM_MODEL') {
-                    return r.modelGuid === mg;
-                  } else {
-                    return !r.modelGuid || r.modelGuid === mg;
-                  }
-                })
+              ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
               : normalized;
             console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
             setRows(mergeWithPersisted(clientFiltered));
@@ -6230,7 +6258,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       description: f.description || undefined,
       source: 'MANUAL',
       dbId: null,
-      modelGuid: (() => { try { return viewer?.model?.getData?.()?.guid || undefined; } catch { return undefined; } })(),
+      modelGuid: (() => {
+        try {
+          const data = viewer?.model?.getData?.();
+          const g = data?.guid;
+          const urn = data?.urn || (viewer as any)?.impl?.model?.myData?.urn;
+          if (g && urn) return `${g}|${urn}`;
+          if (g) return g;
+          const mid = (viewer as any)?.model?.id;
+          return mid != null ? String(mid) : undefined;
+        } catch { return undefined; }
+      })(),
       perimeter: (computedPerimeterRef.current != null) ? computedPerimeterRef.current : (f as any).perimeter ? Number((f as any).perimeter) : undefined
     };
     
