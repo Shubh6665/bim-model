@@ -5530,6 +5530,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const [confirmOpen, setConfirmOpen] = useState(false);
   const footprintDraftKey = `fm-footprint-draft-${projectId || 'global'}`;
   const computedPerimeterRef = useRef<number | null>(null);
+  const suppressAutoFillRef = useRef<boolean>(false);
   const logFormState = (where: string) => { try { console.log('[CreateSpace][form]', where, { building: f.building, level: f.level, area: f.area, perimeter: (f as any).perimeter, name: f.name, spaceCode: f.spaceCode }); } catch {} };
   useEffect(() => { logFormState('state changed'); // trace every form update
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5840,6 +5841,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   // After footprint changes, ensure form fields are filled if still empty
   useEffect(() => {
     try {
+      if (suppressAutoFillRef.current) {
+        console.log('[CreateSpace][footprintEffect] Suppressed autofill due to manual form clear');
+        suppressAutoFillRef.current = false;
+        return;
+      }
       if (!footprint || !Array.isArray(footprint.points) || footprint.points.length < 3) return;
       // Fill area/perimeter if missing
       const needArea = !f.area;
@@ -5862,7 +5868,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [footprint, f.area, (f as any).perimeter, f.level]);
+  }, [footprint]);
 
   const onViewerClick = (ev: MouseEvent) => {
     try {
@@ -6120,6 +6126,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         if (name) viewer.toolController?.deactivateTool?.(name);
       } catch {}
       clearOverlay();
+      // Ensure footprint and confirmation are cleared too
+      setFootprint(null);
+      setConfirmOpen(false);
+      try { save(footprintDraftKey, []); } catch {}
       try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
       try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch { }
     } catch { }
@@ -6259,9 +6269,23 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       console.error('[CreateSpace] Error saving space:', e);
     }
   };
+  const clearForm = () => {
+    try {
+      suppressAutoFillRef.current = true;
+      const next = { building: f.building || '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' } as any;
+      setF(next);
+      computedPerimeterRef.current = null;
+      try { save(`fm-create-space-draft-${projectId || 'global'}`, next); } catch {}
+      console.log('[CreateSpace][form] Cleared form fields (kept building)', next);
+    } catch {}
+  };
+
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Create New Space</div>
+      <div className="flex items-center justify-between">
+        <div className="text-white font-semibold text-sm">Create New Space</div>
+        <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Clear</button>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
@@ -6278,7 +6302,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-gray-700 text-gray-400' : 'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
           <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
           <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-gray-700 text-gray-400' : 'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
-          <button onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
+          <button type="button" onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
         </div>
         <div className="text-[11px] text-gray-500 mt-2">
           {drawing
