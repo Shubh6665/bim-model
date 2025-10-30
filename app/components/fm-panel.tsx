@@ -4540,15 +4540,59 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       try {
         const mg = getCurrentModelGuid();
         console.log(`[Spaces] Initial load with modelGuid=${mg}`);
+        // Prepare floors for display normalization
+        let floors: any[] = [];
+        try {
+          let ext = (viewer && typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+          if (!ext && viewer && typeof (viewer as any).loadExtension === 'function') {
+            try { ext = await (viewer as any).loadExtension('Autodesk.AEC.LevelsExtension'); } catch {}
+          }
+          const fs = (ext as any)?.floorSelector;
+          floors = Array.isArray(fs?.floorData) ? fs.floorData : [];
+        } catch {}
+        const normalizeLevel = (lv: any) => {
+          try {
+            const s = lv != null ? String(lv) : '';
+            if (!s) return undefined;
+            const n = Number(s);
+            if (!isNaN(n) && floors[n]?.name) return String(floors[n].name);
+            const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+            if (m && floors[Number(m[2])]?.name) return String(floors[Number(m[2])].name);
+            return s;
+          } catch { return lv; }
+        };
+        const inferLevelByDbId = (dbId?: number | null): string | undefined => {
+          try {
+            if (dbId == null || !viewer?.model) return undefined;
+            const it = viewer.model.getData?.()?.instanceTree;
+            const fragList = viewer.model.getFragmentList?.();
+            const THREE = (window as any).THREE;
+            if (!it || !fragList || !THREE) return undefined;
+            const fragIds: number[] = [];
+            it.enumNodeFragments(dbId, (fid: number) => fragIds.push(fid));
+            if (!fragIds.length) return undefined;
+            const bbox = new THREE.Box3();
+            const tmp = new THREE.Box3();
+            for (const fid of fragIds) { fragList.getWorldBounds(fid, tmp); bbox.union(tmp); }
+            const zc = (bbox.min.z + bbox.max.z) / 2;
+            let best: { name: string; dist: number } | null = null;
+            for (const f of floors) {
+              const zMin = Number(f?.zMin ?? -Infinity), zMax = Number(f?.zMax ?? Infinity);
+              const dist = (zc < zMin) ? (zMin - zc) : (zc > zMax ? (zc - zMax) : 0);
+              if (best == null || dist < best.dist) best = { name: String(f?.name || ''), dist };
+            }
+            return best?.name || undefined;
+          } catch { return undefined; }
+        };
         const url = mg ? `/api/projects/${projectId}/spaces?modelGuid=${encodeURIComponent(mg)}` : `/api/projects/${projectId}/spaces`;
         const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         if (Array.isArray(data)) {
           // Normalize ids
-          const normalized: SpaceRecord[] = data.map((d: any) => ({
-            id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
-            level: d.level,
+          let normalized: SpaceRecord[] = data.map((d: any) => ({
+            id: d.id || d._id || d.idStr || `${d.source || 'BIM_MODEL'}-${d.dbId || d.name || Math.random()}`,
+            level: normalizeLevel(d.level),
             name: d.name,
             area: d.area,
             perimeter: d.perimeter,
@@ -4563,6 +4607,14 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             footprint: d.footprint || undefined,
             conflictWithId: d.conflictWithId
           }));
+          // Correct level using Z inference for BIM records where possible
+          normalized = normalized.map(r => {
+            if (r.source === 'BIM_MODEL' && r.dbId != null) {
+              const byZ = inferLevelByDbId(r.dbId);
+              if (byZ) return { ...r, level: byZ };
+            }
+            return r;
+          });
           
           // STRICT client-side filter: use equivalence-aware modelGuid match
           const parseModelGuid = (s?: string) => {
@@ -4683,6 +4735,58 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     try {
       const modelGuid = getCurrentModelGuid();
       console.log(`[Spaces] Extracting with composite modelGuid: ${modelGuid}`);
+      // Prepare floor names and floors data for normalization
+      let floorNames: string[] = [];
+      let floors2: any[] = [];
+      try {
+        let ext = (viewer && typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+        if (!ext && viewer && typeof (viewer as any).loadExtension === 'function') {
+          try { ext = await (viewer as any).loadExtension('Autodesk.AEC.LevelsExtension'); } catch {}
+        }
+        const fs = (ext as any)?.floorSelector;
+        if (Array.isArray(fs?.floorData)) {
+          floorNames = fs.floorData.map((f: any) => String(f?.name || ''));
+          floors2 = fs.floorData;
+        } else {
+          floorNames = [];
+          floors2 = [];
+        }
+      } catch {}
+      const normalizeLevel = (lv: any) => {
+        try {
+          const s = lv != null ? String(lv) : '';
+          if (!s) return undefined;
+          const n = Number(s);
+          if (!isNaN(n) && floorNames[n]) return floorNames[n];
+          const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+          if (m && floorNames[Number(m[2])]) return floorNames[Number(m[2])];
+          return s;
+        } catch { return lv; }
+      };
+      const inferLevelByDbId = (dbId?: number | null): string | undefined => {
+        try {
+          if (dbId == null || !viewer?.model) return undefined;
+          const it = viewer.model.getData?.()?.instanceTree;
+          const fragList = viewer.model.getFragmentList?.();
+          const THREE = (window as any).THREE;
+          if (!it || !fragList || !THREE) return undefined;
+          const fragIds: number[] = [];
+          it.enumNodeFragments(dbId, (fid: number) => fragIds.push(fid));
+          if (!fragIds.length) return undefined;
+          const bbox = new THREE.Box3();
+          const tmp = new THREE.Box3();
+          for (const fid of fragIds) { fragList.getWorldBounds(fid, tmp); bbox.union(tmp); }
+          const zc = (bbox.min.z + bbox.max.z) / 2;
+          let best: { name: string; dist: number } | null = null;
+          if (!Array.isArray(floors2) || floors2.length === 0) return undefined;
+          for (const f of floors2) {
+            const zMin = Number((f as any)?.zMin ?? -Infinity), zMax = Number((f as any)?.zMax ?? Infinity);
+            const dist = (zc < zMin) ? (zMin - zc) : (zc > zMax ? (zc - zMax) : 0);
+            if (best == null || dist < best.dist) best = { name: String((f as any)?.name || ''), dist };
+          }
+          return best?.name || undefined;
+        } catch { return undefined; }
+      };
       const dbids = await findRoomDbIds();
       if (!dbids || dbids.length === 0) {
         setExtractionProgress(100);
@@ -4880,7 +4984,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
         return {
           id: `space-${modelGuid || 'g'}-${p?.dbId ?? p?.externalId ?? Date.now()}`,
-          level: level || undefined,
+          level: normalizeLevel(level) || inferLevelByDbId(p?.dbId) || undefined,
           name: name || (p as any).__syntheticName || undefined,
           area: isNaN(Number(areaNum)) ? undefined : Number(areaNum),
           perimeter: isNaN(Number(perimeterNum)) ? undefined : Number(perimeterNum),
@@ -5151,51 +5255,104 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
-            const normalized: SpaceRecord[] = data.map((d: any) => ({
-              id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
-              level: d.level,
-              name: d.name,
-              area: d.area,
-              perimeter: d.perimeter,
-              volume: d.volume,
-              occupancy: d.occupancy,
-              spaceCode: d.spaceCode,
-              building: d.building,
-              description: d.description,
-              source: d.source,
-              dbId: d.dbId ?? null,
-              modelGuid: d.modelGuid,
-              footprint: d.footprint || undefined,
-              conflictWithId: d.conflictWithId
-            }));
-            // STRICT filter: equivalence-aware modelGuid
-            const parseModelGuid = (s?: string) => {
-              if (!s) return { raw: '', left: '', right: '' };
-              const i = s.indexOf('|');
-              return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
-            };
-            const isSameModelGuid = (a?: string, b?: string) => {
-              if (!a || !b) return false; if (a === b) return true;
-              const A = parseModelGuid(a), B = parseModelGuid(b);
-              if (A.left && B.left && A.left === B.left) return true;
-              if (A.right && B.right && A.right === B.right) return true;
-              if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
-              if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
-              return false;
-            };
-            const clientFiltered = mg 
-              ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
-              : normalized;
-            console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
-            setRows(mergeWithPersisted(clientFiltered));
-          }
-        })
-        .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
-    };
-    
-    window.addEventListener('space-created', handleSpaceCreated as any);
-    return () => window.removeEventListener('space-created', handleSpaceCreated as any);
-  }, [projectId, getCurrentModelGuid]);
+            // Prepare floors for normalization
+            let floors: any[] = [] as any[];
+            (async () => {
+              try {
+                let ext = (viewer && typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+                if (!ext && viewer && typeof (viewer as any).loadExtension === 'function') {
+                  try { ext = await (viewer as any).loadExtension('Autodesk.AEC.LevelsExtension'); } catch {}
+                }
+                const fs = (ext as any)?.floorSelector;
+                floors = Array.isArray(fs?.floorData) ? fs.floorData : [];
+              } catch {}
+              const normalizeLevel = (lv: any) => {
+                try {
+                  const s = lv != null ? String(lv) : '';
+                  if (!s) return undefined;
+                  const n = Number(s);
+                  if (!isNaN(n) && floors[n]?.name) return String(floors[n].name);
+                  const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+                  if (m && floors[Number(m[2])]?.name) return String(floors[Number(m[2])].name);
+                  return s;
+                } catch { return lv; }
+              };
+              const inferLevelByDbId = (dbId?: number | null): string | undefined => {
+                try {
+                  if (dbId == null || !viewer?.model) return undefined;
+                  const it = viewer.model.getData?.()?.instanceTree;
+                  const fragList = viewer.model.getFragmentList?.();
+                  const THREE = (window as any).THREE;
+                  if (!it || !fragList || !THREE) return undefined;
+                  const fragIds: number[] = [];
+                  it.enumNodeFragments(dbId, (fid: number) => fragIds.push(fid));
+                  if (!fragIds.length) return undefined;
+                  const bbox = new THREE.Box3();
+                  const tmp = new THREE.Box3();
+                  for (const fid of fragIds) { fragList.getWorldBounds(fid, tmp); bbox.union(tmp); }
+                  const zc = (bbox.min.z + bbox.max.z) / 2;
+                  let best: { name: string; dist: number } | null = null;
+                  for (const f of floors) {
+                    const zMin = Number(f?.zMin ?? -Infinity), zMax = Number(f?.zMax ?? Infinity);
+                    const dist = (zc < zMin) ? (zMin - zc) : (zc > zMax ? (zc - zMax) : 0);
+                    if (best == null || dist < best.dist) best = { name: String(f?.name || ''), dist };
+                  }
+                  return best?.name || undefined;
+                } catch { return undefined; }
+              };
+              let normalized: SpaceRecord[] = data.map((d: any) => ({
+                id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
+                level: normalizeLevel(d.level),
+                name: d.name,
+                area: d.area,
+                perimeter: d.perimeter,
+                volume: d.volume,
+                occupancy: d.occupancy,
+                spaceCode: d.spaceCode,
+                building: d.building,
+                description: d.description,
+                source: d.source,
+                dbId: d.dbId ?? null,
+                modelGuid: d.modelGuid,
+                footprint: d.footprint || undefined,
+                conflictWithId: d.conflictWithId
+              }));
+              normalized = normalized.map(r => {
+                if (r.source === 'BIM_MODEL' && r.dbId != null) {
+                  const byZ = inferLevelByDbId(r.dbId);
+                  if (byZ) return { ...r, level: byZ };
+                }
+                return r;
+              });
+              // STRICT filter: equivalence-aware modelGuid
+              const parseModelGuid = (s?: string) => {
+                if (!s) return { raw: '', left: '', right: '' };
+                const i = s.indexOf('|');
+                return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+              };
+              const isSameModelGuid = (a?: string, b?: string) => {
+                if (!a || !b) return false; if (a === b) return true;
+                const A = parseModelGuid(a), B = parseModelGuid(b);
+                if (A.left && B.left && A.left === B.left) return true;
+                if (A.right && B.right && A.right === B.right) return true;
+                if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+                if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+                return false;
+              };
+              const clientFiltered = mg 
+                ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
+                : normalized;
+              console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
+              setRows(mergeWithPersisted(clientFiltered));
+              })();
+            }
+          })
+          .catch(err => console.error('[SpaceList] Failed to reload after space-created', err));
+        };
+        
+        window.addEventListener('space-created', handleSpaceCreated as any);
+        return () => window.removeEventListener('space-created', handleSpaceCreated as any);
+      }, [projectId, getCurrentModelGuid]);
 
   const onRowClick = (r: SpaceRecord) => {
     try {
@@ -5448,9 +5605,30 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                       const data = await res.json();
                       console.log('[SpaceList] Reloaded spaces:', data.length, 'items');
                       if (Array.isArray(data)) {
+                        // Prepare floor names for normalization
+                        let floorNames: string[] = [];
+                        try {
+                          let ext = (viewer && typeof viewer.getExtension === 'function') ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null;
+                          if (!ext && viewer && typeof (viewer as any).loadExtension === 'function') {
+                            try { ext = await (viewer as any).loadExtension('Autodesk.AEC.LevelsExtension'); } catch {}
+                          }
+                          const fs = (ext as any)?.floorSelector;
+                          floorNames = Array.isArray(fs?.floorData) ? fs.floorData.map((f: any) => String(f?.name || '')) : [];
+                        } catch {}
+                        const normalizeLevel = (lv: any) => {
+                          try {
+                            const s = lv != null ? String(lv) : '';
+                            if (!s) return undefined;
+                            const n = Number(s);
+                            if (!isNaN(n) && floorNames[n]) return floorNames[n];
+                            const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+                            if (m && floorNames[Number(m[2])]) return floorNames[Number(m[2])];
+                            return s;
+                          } catch { return lv; }
+                        };
                         const normalized: SpaceRecord[] = data.map((d: any) => ({
                           id: d.id || d._id || d.idStr || `${d.source || 'MANUAL'}-${d.dbId || d.name || Math.random()}`,
-                          level: d.level,
+                          level: normalizeLevel(d.level),
                           name: d.name,
                           area: d.area,
                           perimeter: d.perimeter,
