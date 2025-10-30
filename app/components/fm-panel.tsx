@@ -5470,11 +5470,14 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boolean; }> = ({ projectId, viewer, standalone }) => {
   const [rows, setRows] = useState<SpaceRecord[]>([]);
   // Don't read localStorage during SSR - hydrate draft on client after mount
-  const [f, setF] = useState({ building: '', level: '', name: '', spaceCode: '', area: '', description: '' });
+  const [f, setF] = useState({ building: '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' });
   useEffect(() => {
     try {
       const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
-      if (saved) setF(prev => ({ ...prev, ...saved }));
+      if (saved) {
+        console.log('[CreateSpace][draft] Loaded create-space draft from LS:', saved);
+        setF(prev => ({ ...prev, ...saved }));
+      }
     } catch { }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -5504,7 +5507,8 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   // When projectName becomes available, prefill building if empty
   useEffect(() => {
     if (projectName && (!f.building || f.building.trim() === '')) {
-      setF(prev => ({ ...prev, building: projectName }));
+      console.log('[CreateSpace][prefill] Building from project name:', projectName);
+      setF(prev => { const next = { ...prev, building: projectName }; console.log('[CreateSpace][prefill] Form after project-name building set', next); return next; });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectName]);
@@ -5526,11 +5530,16 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const [confirmOpen, setConfirmOpen] = useState(false);
   const footprintDraftKey = `fm-footprint-draft-${projectId || 'global'}`;
   const computedPerimeterRef = useRef<number | null>(null);
+  const logFormState = (where: string) => { try { console.log('[CreateSpace][form]', where, { building: f.building, level: f.level, area: f.area, perimeter: (f as any).perimeter, name: f.name, spaceCode: f.spaceCode }); } catch {} };
+  useEffect(() => { logFormState('state changed'); // trace every form update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f]);
 
   // Restore footprint from localStorage when panel opens again (after minimize/restore)
   useEffect(() => {
     try {
       const saved: any = load(footprintDraftKey, []);
+      console.log('[CreateSpace][restore] Footprint from LS:', Array.isArray(saved) ? saved.length : 'invalid');
       if (Array.isArray(saved) && saved.length >= 3) {
         pointsRef.current = saved.map((p: any) => ({ x: Number(p.x), y: Number(p.y), z: Number(p.z) }));
         setPointCount(pointsRef.current.length);
@@ -5538,6 +5547,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         setFootprint({ points: [...pts], z: pts[0]?.z, levelIndex: undefined });
         if (viewer?.impl) drawFinalPolygon(pts);
         setConfirmOpen(true);
+        console.log('[CreateSpace][restore] Restored footprint and opened confirmation');
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5734,6 +5744,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const prefillBuildingAndLevel = async (zHint?: number | null) => {
     try {
       if (!viewer) return;
+      console.log('[CreateSpace][prefill] Start. zHint=', zHint);
       if (!f.building || String(f.building).trim() === '') {
         try {
           const rootId = viewer?.model?.getRootId ? viewer.model.getRootId() : null;
@@ -5760,13 +5771,16 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         }
         const fs = (ext as any)?.floorSelector;
         const floors = fs?.floorData || [];
+        console.log('[CreateSpace][prefill] Floors available:', floors?.length, floors);
         let levelName = '';
         // Prefer active floor
         const idx = typeof fs?.getActiveFloor === 'function' ? fs.getActiveFloor() : undefined;
+        console.log('[CreateSpace][prefill] Active floor idx:', idx);
         if (typeof idx === 'number' && floors[idx]?.name) levelName = floors[idx].name;
         // Fallback: infer by z if available
         if (!levelName && floors?.length && (zHint != null)) {
           const z = Number(zHint);
+          console.log('[CreateSpace][prefill] Inferring by zHint:', z);
           let best: { name: string; dist: number } | null = null;
           for (const fdata of floors) {
             const zMin = Number(fdata?.zMin ?? 0), zMax = Number(fdata?.zMax ?? 0);
@@ -5823,6 +5837,32 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     if (signedArea(arr) < 0) arr = [...arr].reverse();
     return arr;
   };
+  // After footprint changes, ensure form fields are filled if still empty
+  useEffect(() => {
+    try {
+      if (!footprint || !Array.isArray(footprint.points) || footprint.points.length < 3) return;
+      // Fill area/perimeter if missing
+      const needArea = !f.area;
+      const needPer = !(f as any).perimeter;
+      if (needArea || needPer) {
+        const pts2d = footprint.points.map(p => ({ x: p.x, y: p.y }));
+        const a = Math.abs(signedArea(pts2d));
+        const per = polygonPerimeter2D(pts2d);
+        computedPerimeterRef.current = per;
+        console.log('[CreateSpace][footprintEffect] Recomputed area/perimeter:', a, per);
+        setF(prev => ({
+          ...prev,
+          area: needArea ? a.toFixed(2) : prev.area,
+          perimeter: needPer ? per.toFixed(2) : (prev as any).perimeter
+        } as any));
+      }
+      // Fill level if still empty (prefer z from footprint)
+      if (!f.level) {
+        prefillBuildingAndLevel(footprint.z ?? baseZRef.current ?? null);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [footprint, f.area, (f as any).perimeter, f.level]);
 
   const onViewerClick = (ev: MouseEvent) => {
     try {
@@ -6043,7 +6083,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         const per = polygonPerimeter2D(pts);
         computedPerimeterRef.current = per;
         console.log('[CreateSpace][finishDrawing] Computed area/perimeter:', a, per);
-        setF(prev => ({ ...prev, area: a.toFixed(2) }));
+        setF(prev => { const next = { ...prev, area: a.toFixed(2), perimeter: per.toFixed(2) } as any; console.log('[CreateSpace][finishDrawing] Form after area/perimeter set', next); return next; });
         // Prefill building/level
         prefillBuildingAndLevel(baseZRef.current);
         setFootprint(fp);
@@ -6147,7 +6187,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           const per = polygonPerimeter2D(pts2d);
           computedPerimeterRef.current = per;
           console.log('[CreateSpace][remoteDone] Computed area/perimeter:', a, per);
-          setF(prev => ({ ...prev, area: a.toFixed(2) }));
+          setF(prev => { const next = { ...prev, area: a.toFixed(2), perimeter: per.toFixed(2) } as any; console.log('[CreateSpace][remoteDone] Form after area/perimeter set', next); return next; });
         } catch {}
         // Prefill building and level and restore modal
         prefillBuildingAndLevel(fp?.z ?? null);
@@ -6181,7 +6221,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       source: 'MANUAL',
       dbId: null,
       modelGuid: (() => { try { return viewer?.model?.getData?.()?.guid || undefined; } catch { return undefined; } })(),
-      perimeter: computedPerimeterRef.current || undefined
+      perimeter: (computedPerimeterRef.current != null) ? computedPerimeterRef.current : (f as any).perimeter ? Number((f as any).perimeter) : undefined
     };
     
     if (!projectId) {
@@ -6204,7 +6244,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId, space: savedSpace } }));
         
         // Clear form
-        const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', description: '' };
+        const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' };
         setF(emptyForm);
         save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
         try { save(footprintDraftKey, []); } catch {}
@@ -6223,11 +6263,12 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
     <div className="p-3 space-y-3">
       <div className="text-white font-semibold text-sm">Create New Space</div>
       <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => setF(v => ({ ...v, building: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => setF(v => ({ ...v, level: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div><label className="text-[12px] text-gray-300 block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e => setF(v => ({ ...v, area: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e => { console.log('[CreateSpace][input] area change:', e.target.value); setF(v => ({ ...v, area: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-gray-300 block mb-1">Perimeter (m)</label><input value={(f as any).perimeter} onChange={e => { console.log('[CreateSpace][input] perimeter change:', e.target.value); setF(v => ({ ...(v as any), perimeter: e.target.value } as any)); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
         <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
       </div>
       {/* Footprint Editor */}
