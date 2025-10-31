@@ -4712,45 +4712,18 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const findRoomDbIds = async (): Promise<number[]> => {
     if (!viewer) return [];
     // Restrict to clear room/space categories only to avoid false positives
-    const queries = ['Revit Rooms', 'Rooms', 'Spaces', 'Stanze', 'Spazi', 'Locali', 'Locale', 'Ambiente', 'Revit Stanze', 'Revit Locali'];
+  const queries = ['Revit Rooms', 'Rooms', 'Spaces', 'Stanze', 'Spazi', 'Locali', 'Locale', 'Ambiente', 'Revit Stanze', 'Revit Locali'];
     const all = new Set<number>();
-    
-    // Add timeout and error handling to prevent hanging
-    const searchWithTimeout = (query: string): Promise<number[]> => {
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          console.warn(`[Spaces] Search for '${query}' timed out`);
-          resolve([]);
-        }, 5000); // 5 second timeout
-        
+    for (const q of queries) {
+      // eslint-disable-next-line no-await-in-loop
+      const ids: number[] = await new Promise(resolve => {
         try {
-          viewer.search(query, (dbids: number[]) => {
-            clearTimeout(timeout);
-            resolve(dbids || []);
-          }, (error: any) => {
-            clearTimeout(timeout);
-            console.warn(`[Spaces] Search for '${query}' failed:`, error);
-            resolve([]);
-          }, ['Category'], { searchHidden: true });
-        } catch (err) {
-          clearTimeout(timeout);
-          console.warn(`[Spaces] Search for '${query}' threw error:`, err);
-          resolve([]);
-        }
+          viewer.search(q, (dbids: number[]) => resolve(dbids || []), () => resolve([]), ['Category'], { searchHidden: true });
+        } catch { resolve([]); }
       });
-    };
-    
-    // Execute searches in parallel with better error handling
-    try {
-      const results = await Promise.all(queries.map(searchWithTimeout));
-      results.forEach((ids, index) => {
-        console.log(`[Spaces] search '${queries[index]}' -> ${ids.length}`);
-        ids.forEach(id => all.add(id));
-      });
-    } catch (error) {
-      console.error('[Spaces] Parallel search failed:', error);
+      console.log(`[Spaces] search '${q}' -> ${ids.length}`);
+      ids.forEach(id => all.add(id));
     }
-    
     console.log(`[Spaces] total unique dbIds found: ${all.size}`);
     return Array.from(all);
   };
@@ -5807,10 +5780,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       clearOverlay();
       pts = sanitizePolygon(pts);
       const THREE = (window as any).THREE;
-      if (!THREE) {
-        console.warn('[CreateSpace][drawFinalPolygon] THREE.js not available');
-        return;
-      }
+      if (!THREE) return;
 
       // Draw final closed polygon with THICK DARK GREEN lines
       const closedPts = [...pts, pts[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
@@ -5818,23 +5788,19 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       const mat = new THREE.LineBasicMaterial({ color: 0x00aa00, linewidth: 5, depthTest: false });
       const line = new THREE.Line(geom, mat);
       line.renderOrder = 999;
-      const scn = (viewer.impl.overlayScenes || {})[overlayName];
-      scn?.scene?.add(line);
+      viewer.impl.addOverlay(overlayName, line);
 
-      // Draw vertices as slightly larger spheres (BRIGHT GREEN)
-      pts.forEach((p, i) => {
-        const geom = new THREE.SphereGeometry(0.4, 8, 6);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, depthTest: false });
-        const mesh = new THREE.Mesh(geom, mat);
-        mesh.position.set(p.x, p.y, p.z);
-        mesh.renderOrder = 1000;
-        scn?.scene?.add(mesh);
-      });
+      // Filled polygon (darker green)
+      const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.y)));
+      const fillGeom = new THREE.ShapeGeometry(shape);
+      const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.3, transparent: true, depthWrite: false, depthTest: false });
+      const mesh = new THREE.Mesh(fillGeom, fillMat);
+      if (baseZRef.current != null) mesh.position.z = baseZRef.current;
+      mesh.renderOrder = 998;
+      viewer.impl.addOverlay(overlayName, mesh);
 
       viewer.impl.invalidate(true);
-    } catch (e) {
-      console.error('[CreateSpace][drawFinalPolygon] Error:', e);
-    }
+    } catch { }
   };
 
   const drawPreview = () => {
@@ -5847,11 +5813,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       const pts = pointsRef.current; // use raw for line preview to avoid jumpy feedback
       const hover = hoverRef.current;
       const THREE = (window as any).THREE;
-      if (!THREE) {
-        console.warn('[CreateSpace][drawPreview] THREE.js not available');
-        viewer.impl.invalidate(true);
-        return;
-      }
+      if (!THREE) { viewer.impl.invalidate(true); return; }
 
       // Draw polyline through all clicked points (THICKER & DARKER)
       if (pts.length >= 2) {
@@ -5859,44 +5821,41 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         const mat = new THREE.LineBasicMaterial({ color: 0x00dd00, linewidth: 4, depthTest: false });
         const line = new THREE.Line(geom, mat);
         line.renderOrder = 999;
-        const scn = (viewer.impl.overlayScenes || {})[overlayName];
-        scn?.scene?.add(line);
+        viewer.impl.addOverlay(overlayName, line);
       }
 
-      // Draw points as small spheres (BIGGER & BRIGHTER)
-      pts.forEach((p, i) => {
-        const geom = new THREE.SphereGeometry(0.3, 8, 6);
-        const mat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0x00ff00 : 0xffffff, depthTest: false });
-        const mesh = new THREE.Mesh(geom, mat);
-        mesh.position.set(p.x, p.y, p.z);
-        mesh.renderOrder = 1000;
-        const scn = (viewer.impl.overlayScenes || {})[overlayName];
-        scn?.scene?.add(mesh);
-      });
-
-      // Draw hover preview line from last point to hover
-      if (pts.length >= 1 && hover) {
-        const previewPts = [pts[pts.length - 1], hover];
-        const geom = new THREE.BufferGeometry().setFromPoints(previewPts.map(p => new THREE.Vector3(p.x, p.y, p.z)));
-        const mat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2, depthTest: false });
-        const line = new THREE.Line(geom, mat);
-        line.renderOrder = 998;
-        const scn = (viewer.impl.overlayScenes || {})[overlayName];
-        scn?.scene?.add(line);
-
-        // Draw hover point as small red sphere
-        const hoverGeom = new THREE.SphereGeometry(0.2, 8, 6);
-        const hoverMat = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false });
-        const hoverMesh = new THREE.Mesh(hoverGeom, hoverMat);
-        hoverMesh.position.set(hover.x, hover.y, hover.z);
-        hoverMesh.renderOrder = 1001;
-        scn?.scene?.add(hoverMesh);
+      // Draw preview line from LAST point to hover (THICKER)
+      if (hover && pts.length >= 1) {
+        const lastPt = pts[pts.length - 1];
+        const previewGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(lastPt.x, lastPt.y, lastPt.z),
+          new THREE.Vector3(hover.x, hover.y, hover.z)
+        ]);
+        const previewMat = new THREE.LineBasicMaterial({ color: 0xff8800, linewidth: 4, depthTest: false, opacity: 0.8, transparent: true });
+        const previewLine = new THREE.Line(previewGeom, previewMat);
+        previewLine.renderOrder = 999;
+        viewer.impl.addOverlay(overlayName, previewLine);
       }
 
+      // Draw closing line preview (back to first point) - THICKER & DARKER
+      if (pts.length >= 3) {
+        const clean = sanitizePolygon(pts);
+        const closedPts = [...clean, clean[0]].map(p => new THREE.Vector3(p.x, p.y, p.z));
+        const geom2 = new THREE.BufferGeometry().setFromPoints(closedPts);
+        const line2 = new THREE.Line(geom2, new THREE.LineBasicMaterial({ color: 0x0088ff, linewidth: 4, depthTest: false, opacity: 0.7, transparent: true }));
+        line2.renderOrder = 999;
+        viewer.impl.addOverlay(overlayName, line2);
+        // Filled polygon for visibility (DARKER)
+        const shape = new THREE.Shape(clean.map((p, i) => new THREE.Vector2(p.x, p.y)));
+        const fillGeom = new THREE.ShapeGeometry(shape);
+        const fillMat = new THREE.MeshBasicMaterial({ color: 0x00dd00, opacity: 0.25, transparent: true, depthWrite: false, depthTest: false });
+        const mesh = new THREE.Mesh(fillGeom, fillMat);
+        if (baseZRef.current != null) mesh.position.z = baseZRef.current;
+        mesh.renderOrder = 998;
+        viewer.impl.addOverlay(overlayName, mesh);
+      }
       viewer.impl.invalidate(true);
-    } catch (e) {
-      console.error('[CreateSpace][drawPreview] Error:', e);
-    }
+    } catch { }
   };
 
   // Compute world point on constant Z plane from screen xy
@@ -6249,20 +6208,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       hoverRef.current = null;
       setDrawing(true);
       setPointCount(0);
-      
-      // Check for THREE.js availability first
-      const THREE = (window as any).THREE;
-      if (!THREE) {
-        console.error('[CreateSpace][startDrawing] THREE.js not available');
-        setDrawing(false);
-        return;
-      }
-      
       console.log('[CreateSpace][startDrawing] Loading snapper extensions...');
-      
-      // Initialize snapper with better error handling
-      let snapperLoaded = false;
-      
       // Prefer Measure extension's snapper
       try {
         const measureExt = await viewer.loadExtension?.('Autodesk.Measure');
@@ -6271,15 +6217,13 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           snapperRef.current = maybeSnapper;
           try { maybeSnapper.activateSnap?.(true); } catch {}
           console.log('[CreateSpace][startDrawing] Measure snapper activated');
-          snapperLoaded = true;
         }
       } catch (e) {
         console.warn('[CreateSpace][startDrawing] Measure extension failed:', e);
       }
-      
       // Fallback: standalone snapping tool
-      if (!snapperLoaded) {
-        try {
+      try {
+        if (!snapperRef.current) {
           await viewer.loadExtension?.('Autodesk.Snapping');
           const S = (window as any).Autodesk?.Viewing?.Extensions?.Snapping;
           if (S) {
@@ -6289,38 +6233,26 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
             try { sn.activateSnap?.(true); } catch {}
             snapperRef.current = sn;
             console.log('[CreateSpace][startDrawing] Snapping tool activated');
-            snapperLoaded = true;
           }
-        } catch (e) {
-          console.warn('[CreateSpace][startDrawing] Snapping extension failed:', e);
         }
+      } catch (e) {
+        console.warn('[CreateSpace][startDrawing] Snapping extension failed:', e);
       }
-      
-      // Create overlay scene if it doesn't exist
-      if (!viewer.impl.overlayScenes?.[overlayName]) {
-        viewer.impl.createOverlayScene(overlayName);
-      }
-      
-      // Add event listeners with proper error handling
-      const container = viewer.container;
-      if (container) {
-        container.addEventListener('click', onViewerClick as any, { capture: true, passive: false });
-        container.addEventListener('mousemove', onViewerMove as any, { capture: true, passive: false });
-        container.addEventListener('dblclick', onViewerDblClick as any, { capture: true, passive: false });
-      }
+      viewer.container?.addEventListener('click', onViewerClick as any, true);
+      viewer.container?.addEventListener('mousemove', onViewerMove as any, true);
+      viewer.container?.addEventListener('dblclick', onViewerDblClick as any, true);
       window.addEventListener('keydown', onKeyDown as any, true);
-      
+      if (!viewer.impl.overlayScenes?.[overlayName]) viewer.impl.createOverlayScene(overlayName);
       // Force crosshair cursor
-      if (container) {
+      if (viewer.container) {
+        const container = viewer.container as HTMLElement;
         container.style.cursor = 'crosshair';
         container.style.setProperty('cursor', 'crosshair', 'important');
       }
-      
       console.log('[CreateSpace][startDrawing] Drawing mode activated, listeners attached');
       try { window.dispatchEvent(new Event('fm-modal-minimize')); } catch {}
     } catch (e) {
       console.error('[CreateSpace][startDrawing] Error in main mode:', e);
-      setDrawing(false);
     }
   };
 
@@ -6336,54 +6268,47 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         return;
       }
       setDrawing(false);
-      
-      // Remove event listeners with proper error handling
-      const container = viewer?.container;
-      if (container) {
-        container.removeEventListener('click', onViewerClick as any, { capture: true } as any);
-        container.removeEventListener('mousemove', onViewerMove as any, { capture: true } as any);
-        container.removeEventListener('dblclick', onViewerDblClick as any, { capture: true } as any);
-      }
+      viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+      viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
-      
       // Restore cursor
-      if (container) {
+      if (viewer?.container) {
+        const container = viewer.container as HTMLElement;
         container.style.cursor = 'default';
         container.style.removeProperty('cursor');
       }
-      
-      // Deactivate snapper
       try { snapperRef.current?.deactivateSnap?.(); } catch {}
       try {
         const name = snapperRef.current?.getName?.();
         if (name) viewer.toolController?.deactivateTool?.(name);
       } catch {}
-      
       const raw = pointsRef.current;
       console.log('[CreateSpace][finishDrawing] Raw points before sanitize:', raw.length);
-      if (raw.length < 3) {
-        console.warn('[CreateSpace][finishDrawing] Not enough points');
-        setFootprint(null);
-        clearOverlay();
+      let pts = sanitizePolygon(raw);
+      console.log('[CreateSpace][finishDrawing] Sanitized points:', pts.length);
+      if (pts.length >= 3) {
+        const fp = { points: [...pts], z: baseZRef.current ?? undefined, levelIndex: undefined };
+        try { save(footprintDraftKey, fp.points); } catch {}
+        // compute area/perimeter and prefill area field
+        const a = Math.abs(signedArea(pts));
+        const per = polygonPerimeter2D(pts);
+        computedPerimeterRef.current = per;
+        console.log('[CreateSpace][finishDrawing] Computed area/perimeter:', a, per);
+        setF(prev => { const next = { ...prev, area: a.toFixed(2), perimeter: per.toFixed(2) } as any; console.log('[CreateSpace][finishDrawing] Form after area/perimeter set', next); return next; });
+        // Prefill building/level
+        prefillBuildingAndLevel(baseZRef.current);
+        setFootprint(fp);
+        drawFinalPolygon(pts);
+        setConfirmOpen(true);
         try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
-        return;
-      }
-      const sanitized = sanitizePolygon(raw);
-      console.log('[CreateSpace][finishDrawing] After sanitize:', sanitized.length);
-      if (sanitized.length < 3) {
+        console.log('[CreateSpace][finishDrawing] Footprint set and confirmation opened:', fp);
+      } else {
+        // not enough points
         console.warn('[CreateSpace][finishDrawing] Not enough points after sanitize');
         setFootprint(null);
         clearOverlay();
-        try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
-        return;
       }
-      const fp = { points: sanitized, z: sanitized[0]?.z ?? 0 };
-      setFootprint(fp);
-      drawFinalPolygon(sanitized);
-      try { save(footprintDraftKey, []); } catch {}
-      try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
-      setConfirmOpen(true);
-      console.log('[CreateSpace][finishDrawing] Footprint set and confirmation opened:', fp);
     } catch (e) {
       console.error('[CreateSpace][finishDrawing] Error:', e);
     }
@@ -6397,34 +6322,22 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       setDrawing(false);
       pointsRef.current = [];
       baseZRef.current = null;
-      
-      // Remove event listeners with proper error handling
-      const container = viewer?.container;
-      if (container) {
-        container.removeEventListener('click', onViewerClick as any, { capture: true } as any);
-        container.removeEventListener('mousemove', onViewerMove as any, { capture: true } as any);
-        container.removeEventListener('dblclick', onViewerDblClick as any, { capture: true } as any);
-      }
+      viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+      viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
+      viewer?.container?.removeEventListener('dblclick', onViewerDblClick as any, true);
       window.removeEventListener('keydown', onKeyDown as any, true);
-      
-      // Deactivate snapper
       try { snapperRef.current?.deactivateSnap?.(); } catch {}
       try {
         const name = snapperRef.current?.getName?.();
         if (name) viewer.toolController?.deactivateTool?.(name);
       } catch {}
-      
       clearOverlay();
       // Ensure footprint and confirmation are cleared too
       setFootprint(null);
       setConfirmOpen(false);
       try { save(footprintDraftKey, []); } catch {}
       try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
-      try { 
-        if (container) {
-          container.style.cursor = 'default';
-        }
-      } catch { }
+      try { (viewer?.container as HTMLElement).style.cursor = 'default'; } catch { }
     } catch { }
   };
 
@@ -6448,12 +6361,8 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   useEffect(() => {
     return () => {
       try {
-        const container = viewer?.container;
-        if (container) {
-          container.removeEventListener('click', onViewerClick as any, { capture: true } as any);
-          container.removeEventListener('mousemove', onViewerMove as any, { capture: true } as any);
-          container.removeEventListener('dblclick', onViewerDblClick as any, { capture: true } as any);
-        }
+        viewer?.container?.removeEventListener('click', onViewerClick as any, true);
+        viewer?.container?.removeEventListener('mousemove', onViewerMove as any, true);
         window.removeEventListener('keydown', onKeyDown as any, true);
         clearOverlay();
       } catch { }
