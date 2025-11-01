@@ -1697,6 +1697,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '', selectedOnly: false, selectedKeys: [] as string[] });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
   const showToast = (type: 'success' | 'error' | 'info', text: string) => {
     setToast({ type, text });
@@ -2537,6 +2538,24 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     } catch { }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const ids = paginatedRows.map(r => r.id);
+      const allSelected = ids.length > 0 && ids.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) ids.forEach(id => next.delete(id)); else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
   // Conflict resolution modal state
   const [conflictModal, setConflictModal] = useState<{ open: boolean; manualId?: string; bimId?: string }>({ open: false });
 
@@ -2771,14 +2790,21 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     }
   };
 
-  // Export CSV of current assets
+  // Export CSV of selected or filtered assets
   const exportCSV = () => {
     const headers = [
       'id', 'assetCode', 'assetName', 'category', 'type', 'brand', 'model', 'serialNumber', 'installationDate',
       'material', 'dimensions', 'weight', 'capacity', 'powerRating', 'location', 'condition', 'source'
     ];
+    // Prefer explicitly checkbox-selected rows; otherwise export the currently filtered rows
+    const data = (selectedIds.size > 0)
+      ? rows.filter(r => selectedIds.has(r.id))
+      : filteredRows;
+
+    if (data.length === 0) { showToast('info', 'No assets to export'); return; }
+
     const lines = [headers.join(',')];
-    rows.forEach(r => {
+    data.forEach(r => {
       const vals = headers.map(h => {
         const v = (r as any)[h];
         const s = (v == null ? '' : String(v));
@@ -3441,6 +3467,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
             <tr>
+              <th className="px-2 py-1.5 w-8">
+                <input
+                  type="checkbox"
+                  checked={paginatedRows.length > 0 && paginatedRows.every(r => selectedIds.has(r.id))}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               {visibleFields.basic && (
                 <>
                   <th className="text-left px-2 py-1.5">Source</th>
@@ -3515,6 +3548,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               </tr>
             ) : paginatedRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
+                <td className="px-2 py-1.5 w-8" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                </td>
                 {visibleFields.basic && (
                   <>
                     <td className="px-2 py-1.5">
