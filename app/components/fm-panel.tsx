@@ -1694,7 +1694,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
     compliance: false,
     relationships: false
   });
-  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '' });
+  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '', selectedOnly: false, selectedKeys: [] as string[] });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
@@ -2672,11 +2672,21 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       if (!anyHit) return false;
     }
     if (filter.classification && (r.assetClassification || '').toLowerCase() !== filter.classification.toLowerCase()) return false;
+    // When "Show Selected" is enabled, only include rows matching current selection keys
+    if (filter.selectedOnly) {
+      const keys = new Set(filter.selectedKeys || []);
+      const did = r.dbId != null ? String(r.dbId) : '';
+      if (!did) return false; // only BIM-backed assets can match
+      const mid = (r as any).modelId != null ? String((r as any).modelId) : '';
+      const key1 = mid ? `${mid}:${did}` : '';
+      const key2 = `*:${did}`;
+      if (!(key1 && keys.has(key1)) && !keys.has(key2)) return false;
+    }
     return true;
   });
 
   // Reset page when filters or page size change
-  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, pageSize]);
+  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, filter.selectedOnly, filter.selectedKeys, pageSize]);
 
   // Persist page number per project so minimize/maximize (or remount) keeps the same page
   useEffect(() => {
@@ -2715,6 +2725,42 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const paginatedRows = filteredRows.slice(startIndex, endIndex);
+
+  // Build selection keys from viewer selection (multi-model safe): `${modelId}:${dbId}` and fallback `*:${dbId}`
+  const getCurrentSelectionKeys = React.useCallback(async (): Promise<string[]> => {
+    try {
+      if (!viewer) return [];
+      const uniq = new Set<string>();
+      const agg: any = await new Promise(resolve => viewer.getAggregateSelection ? viewer.getAggregateSelection(resolve) : resolve(null));
+      if (Array.isArray(agg) && agg.length > 0) {
+        for (const item of agg) {
+          const sel: number[] = Array.isArray(item?.selection) ? item.selection : [];
+          const model = item?.model;
+          const mid = model ? String((typeof model.getModelId === 'function' ? model.getModelId() : model.id) ?? '') : '';
+          for (const id of sel) { uniq.add(`${mid}:${id}`); uniq.add(`*:${id}`); }
+        }
+      } else {
+        const sel: number[] = viewer.getSelection?.() || [];
+        const model = viewer.model;
+        const mid = model ? String((typeof model.getModelId === 'function' ? model.getModelId() : model.id) ?? '') : '';
+        for (const id of sel) { uniq.add(`${mid}:${id}`); uniq.add(`*:${id}`); }
+      }
+      return Array.from(uniq.values());
+    } catch { return []; }
+  }, [viewer]);
+
+  const toggleShowSelected = async () => {
+    try {
+      if (!viewer) return;
+      if (!filter.selectedOnly) {
+        const keys = await getCurrentSelectionKeys();
+        if (!keys.length) { showToast('info', 'Select one or more objects in the model first'); return; }
+        setFilter(f => ({ ...f, selectedOnly: true, selectedKeys: keys }));
+      } else {
+        setFilter(f => ({ ...f, selectedOnly: false, selectedKeys: [] }));
+      }
+    } catch {}
+  };
 
   const applyFilterToViewer = () => {
     if (!viewer || filteredRows.length === 0) return;
@@ -3367,12 +3413,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 w-full">
+            <div className="mt-2 grid grid-cols-3 gap-2 w-full">
               <button
                 onClick={applyFilterToViewer}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
               >
                 Apply to Model
+              </button>
+              <button
+                onClick={toggleShowSelected}
+                className={`w-full text-white text-xs py-1 rounded ${filter.selectedOnly ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                Show Selected
               </button>
               <button
                 onClick={exportCSV}
