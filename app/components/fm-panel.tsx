@@ -3383,7 +3383,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
         {filtersOpen && (
           <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-800 w-full">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">Revit Categories</option>
                 {assetCategories.map(cat => {
@@ -3408,23 +3408,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 <option value="">All Locations</option>
                 {distinct.locations.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs col-span-2">
+              <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
                 <option value="">All Classifications</option>
                 {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2 w-full">
-              <button
-                onClick={applyFilterToViewer}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
-              >
-                Apply to Model
-              </button>
               <button
                 onClick={toggleShowSelected}
                 className={`w-full text-white text-xs py-1 rounded ${filter.selectedOnly ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-700 hover:bg-gray-600'}`}
               >
                 Show Selected
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 w-full">
+              <button
+                onClick={applyFilterToViewer}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
+              >
+                Apply to Model
               </button>
               <button
                 onClick={exportCSV}
