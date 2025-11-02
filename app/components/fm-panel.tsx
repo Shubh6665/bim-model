@@ -402,6 +402,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   const [showModal, setShowModal] = useState(false);
   const modalRef = React.useRef<HTMLDivElement | null>(null);
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [preSelectedAssets, setPreSelectedAssets] = useState<AssetRecord[]>([]);
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
   const [showModalMinimized, setShowModalMinimized] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -1211,11 +1212,15 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       );
     }
 
-    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} />;
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} onScheduleMaintenance={(assets) => {
+      setPreSelectedAssets(assets);
+      setSection({ group: 'maintenance', item: 'scheduled' });
+      if (!isStandalone) setShowModal(true);
+    }} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
-  if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} viewer={viewer} />;
+  if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} viewer={viewer} preSelectedAssets={preSelectedAssets} onClearPreSelected={() => setPreSelectedAssets([])} />;
     if (section.group === 'maintenance' && section.item === 'ticket') return <TicketForm projectId={projectId} viewer={viewer} />;
     if (section.group === 'work-orders' && section.item === 'service-requests') return <ServiceRequests projectId={projectId} />;
     if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
@@ -1667,7 +1672,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
   );
 }
 
-const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId, viewer }) => {
+const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintenance?: (assets: AssetRecord[]) => void; }> = ({ projectId, viewer, onScheduleMaintenance }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
@@ -3744,6 +3749,21 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Schedule Maintenance Button */}
+      {onScheduleMaintenance && selectedIds.size > 0 && (
+        <div className="px-2 py-1.5 border-t border-gray-800 flex justify-end">
+          <button
+            onClick={() => {
+              const selectedAssets = rows.filter(r => selectedIds.has(r.id));
+              onScheduleMaintenance(selectedAssets);
+            }}
+            className="text-[11px] py-1 px-2 rounded border border-blue-500 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 transition"
+          >
+            Schedule Maintenance ({selectedIds.size})
+          </button>
         </div>
       )}
 
@@ -6632,7 +6652,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   );
 };
 
-const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ projectId, viewer }) => {
+const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSelectedAssets?: AssetRecord[]; onClearPreSelected?: () => void; }> = ({ projectId, viewer, preSelectedAssets, onClearPreSelected }) => {
   // Prepare category options from CATEGORY_MAPPING
   const categoryOptions = React.useMemo(() => {
     return Object.entries(CATEGORY_MAPPING).map(([italian, mapping]) => ({
@@ -6782,6 +6802,45 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any }> = ({ 
     };
     fetchAssets();
   }, [projectId, assetsLoaded]);
+
+  // Handle pre-selected assets from Asset List
+  useEffect(() => {
+    if (preSelectedAssets && preSelectedAssets.length > 0) {
+      // Convert pre-selected assets to the format expected by selectedAssets
+      const formattedAssets = preSelectedAssets.map(asset => ({
+        label: asset.assetName || asset.assetCode || asset.id,
+        type: asset.category,
+        id: asset.id,
+        assetRecord: asset
+      }));
+      
+      setSelectedAssets(formattedAssets);
+      
+      // Set the category if all assets have the same category
+      const categories = preSelectedAssets.map(a => a.category).filter(Boolean);
+      if (categories.length > 0) {
+        const firstCategory = categories[0];
+        const allSame = categories.every(c => c === firstCategory);
+        if (allSame && firstCategory) {
+          // Try to find matching master label
+          for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+            const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
+            const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
+            if (tokens.some(t => String(firstCategory).toLowerCase().includes(String(t).toLowerCase()))) {
+              setF(prev => ({ ...prev, revitCategory: label }));
+              setAllowedAssetType(label);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Clear pre-selected assets after processing
+      if (onClearPreSelected) {
+        onClearPreSelected();
+      }
+    }
+  }, [preSelectedAssets, onClearPreSelected]);
 
   // Filtered assets for picker
   const filteredAssets = React.useMemo(() => {
