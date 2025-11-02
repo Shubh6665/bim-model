@@ -117,7 +117,12 @@ const EDITABLE_FIELDS: (keyof AssetRecord)[] = [
   'purchaseCost','maintenanceCost','manuals','warranties','certifications','regulations','safetyNotes'
 ];
 
-// IFC class list (provided)
+  // Fields that can be explicitly cleared (null) when an asset is converted to MANUAL
+  const CLEARABLE_FIELDS: (keyof AssetRecord)[] = [
+    'dbId','modelGuid','modelId','ifcGuid','ifcClass','ifcType','ifcPredefined','conflictWithId','linkedAssetId'
+  ];
+
+  // IFC class list (provided)
 const IFCCLASSES: string[] = [
   'IfcBuildingElementProxy',
   'IfcAirTerminal',
@@ -1713,6 +1718,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   const [editModal, setEditModal] = useState<{ open: boolean; id?: string }>({ open: false });
   const [editSection, setEditSection] = useState<'basic'|'identification'|'technical'|'documentation'|'lifecycle'|'maintenance'|'economic'|'compliance'|'relationships'>('basic');
   const [edit, setEdit] = useState<Partial<AssetRecord>>({});
+  // Sequential Edit queue for "Edit Selected"
+  const [editQueue, setEditQueue] = useState<string[]>([]);
+  const [editIndex, setEditIndex] = useState<number>(0);
 
   const pickEditable = (r: Partial<AssetRecord>): Partial<AssetRecord> => {
     const out: Partial<AssetRecord> = {};
@@ -1732,20 +1740,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   const persistEditToBackend = async (id: string, fields: Partial<AssetRecord>) => {
     if (!projectId) return;
     try {
-      // Prefer a strict update endpoint to avoid accidental creations
-      const res = await fetch(`/api/projects/${projectId}/assets/${encodeURIComponent(id)}`, {
+      // First try explicit action endpoint to avoid 404 on PATCH route
+      const resPost = await fetch(`/api/projects/${projectId}/assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateFields', id, fields, noCreate: true })
+      });
+      if (resPost.ok) return;
+      // Fallback: try direct PATCH if supported
+      await fetch(`/api/projects/${projectId}/assets/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fields)
-      });
-      if (!res.ok) {
-        // Fallback to explicit action that must not create new records
-        await fetch(`/api/projects/${projectId}/assets`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'updateFields', id, fields, noCreate: true })
-        }).catch(() => {});
-      }
+      }).catch(() => {});
     } catch {}
   };
 
@@ -1754,15 +1761,68 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     if (!id) { setEditModal({ open: false }); return; }
     try {
       const fields = pickEditable(edit);
-      setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r));
+      // Keep the asset source as-is (BIM stays BIM, Manual stays Manual)
+      // userEdited flag ensures changes persist across merges
+      const current = rows.find(r => r.id === id);
+      const oldConflict = current?.conflictWithId;
+      // Clear conflicts but don't convert source
+      const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
+
+      setRows(prev => {
+        // First update this record
+        let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
+        // Clear conflicts on any counterpart that pointed to this id; hide and link counterparts to this edited record
+        next = next.map(r => {
+          if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
+            return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
+          }
+          return r;
+        });
+        return next;
+      });
       showToast('success', 'Asset updated');
       // Persist to local immediately (handled by rows effect) and try backend
-      await persistEditToBackend(id, fields);
+      await persistEditToBackend(id, mergedFields);
+      // Persist any BIM counterparts we modified locally (hidden/link + clear conflict)
+      try {
+        const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
+        await Promise.allSettled(counterparts.map(c => {
+          const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+          return persistEditToBackend(c.id, upd);
+        }));
+      } catch {}
+      // Also persist counterpart conflict cleanup to localStorage
+      try {
+        const key = K.assets(projectId);
+        const currentLs = load(key, [] as AssetRecord[]);
+        const updated = currentLs.map(r => {
+          if (r.id === id) return { ...r, ...mergedFields, userEdited: true };
+          if (r.conflictWithId === id || (oldConflict && r.id === oldConflict)) {
+            return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+          }
+          return r;
+        });
+        save(key, updated);
+      } catch {}
     } catch (e) {
       showToast('error', 'Failed to update asset');
     } finally {
       setEditModal({ open: false });
     }
+  };
+  
+  // Start sequential edit over selected assets
+  const startSequentialEdit = () => {
+    try {
+      const idsOrdered = filteredRows.map(r => r.id).filter(id => selectedIds.has(id));
+      const ids = idsOrdered.length ? idsOrdered : Array.from(selectedIds.values());
+      if (!ids.length) return;
+      setEditQueue(ids);
+      setEditIndex(0);
+      const first = rows.find(r => r.id === ids[0]);
+      if (!first) return;
+      openEditAsset(first);
+    } catch {}
   };
   
 
@@ -1808,6 +1868,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Helper: deduplicate BIM assets (by dbId) and keep best record; manual assets by id
   const dedupeAssets = React.useCallback((arr: AssetRecord[]): AssetRecord[] => {
     const score = (x: AssetRecord) => {
+      // Prioritize user-edited assets heavily
+      if ((x as any).userEdited === true) return 10000;
       const fields: (keyof AssetRecord)[] = [
         'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
         'material','dimensions','weight','capacity','powerRating','location','description'
@@ -1933,14 +1995,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             // Prefer cached values when backend has null/empty fields, and ALWAYS prefer user edits on editable fields
             const merged: any = { ...b };
             const isEdited = (c as any).userEdited === true;
+            const isManual = (c as any).source === 'MANUAL';
             for (const key of Object.keys(c)) {
               const val = (c as any)[key];
               if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
                 merged[key] = val; // user edited fields always win
+              } else if (isManual && (CLEARABLE_FIELDS as any).includes(key)) {
+                // Allow manual assets to explicitly clear fields (null)
+                merged[key] = val;
               } else if (val !== null && val !== undefined && val !== '') {
                 merged[key] = val;
               }
             }
+            // Preserve critical flags and state
+            if (isEdited) merged.userEdited = true;
+            if ((c as any).hidden === true) merged.hidden = true;
+            if ((c as any).linkedAssetId) merged.linkedAssetId = (c as any).linkedAssetId;
+            if ((c as any).conflictWithId === undefined) merged.conflictWithId = undefined;
             return merged as AssetRecord;
           });
           // Include any cached-only records (not returned by backend), but only for current model (manual always ok)
@@ -2005,14 +2076,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               if (!c) return b;
               const merged: any = { ...b };
               const isEdited = (c as any).userEdited === true;
+              const isManual = (c as any).source === 'MANUAL';
               for (const key of Object.keys(c)) {
                 const val = (c as any)[key];
                 if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
                   merged[key] = val; // user edited fields always win
+                } else if (isManual && (CLEARABLE_FIELDS as any).includes(key)) {
+                  merged[key] = val; // allow nulls to clear
                 } else if (val !== null && val !== undefined && val !== '') {
                   merged[key] = val;
                 }
               }
+              // Preserve critical flags and state
+              if (isEdited) merged.userEdited = true;
+              if ((c as any).hidden === true) merged.hidden = true;
+              if ((c as any).linkedAssetId) merged.linkedAssetId = (c as any).linkedAssetId;
+              if ((c as any).conflictWithId === undefined) merged.conflictWithId = undefined;
               return merged as AssetRecord;
             });
             const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
@@ -2096,9 +2175,16 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               const c = cached.find(x => x.id === b.id) || {} as any;
               const merged: any = { ...b };
               const isEdited = (c as any).userEdited === true;
+              const isManual = (c as any).source === 'MANUAL';
               for (const [key, val] of Object.entries(c)) {
-                if (isEdited && (EDITABLE_FIELDS as any).includes(key)) merged[key] = val;
+                if ((EDITABLE_FIELDS as any).includes(key) && isEdited) merged[key] = val;
+                else if (isManual && (CLEARABLE_FIELDS as any).includes(key)) merged[key] = val;
               }
+              // Preserve critical flags and state
+              if (isEdited) merged.userEdited = true;
+              if ((c as any).hidden === true) merged.hidden = true;
+              if ((c as any).linkedAssetId) merged.linkedAssetId = (c as any).linkedAssetId;
+              if ((c as any).conflictWithId === undefined) merged.conflictWithId = undefined;
               return merged as AssetRecord;
             });
             const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
@@ -2295,19 +2381,33 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
       // Merge newly extracted BIM assets with any locally edited versions (editable fields win)
       const newAssetsMerged = newAssets.map(a => {
+        // Check if this BIM asset was previously edited
         const old = rows.find(r => r.id === a.id && r.userEdited);
         if (!old) return a;
+        // Preserve ALL user-edited fields from the old version
         const merged: any = { ...a };
         for (const key of EDITABLE_FIELDS) {
           const v = (old as any)[key];
           if (v !== undefined) merged[key] = v;
         }
         merged.userEdited = true;
+        // Clear any conflicts that were on the old version
+        merged.conflictWithId = undefined;
         return merged as AssetRecord;
       });
 
       // Replace BIM assets with the current model's assets; keep manual assets
-      const combined = [...existingManualAssets, ...newAssetsMerged];
+      // But HIDE manual assets that conflict with edited BIM assets
+      const editedBimIds = new Set(newAssetsMerged.filter(a => a.userEdited).map(a => a.id));
+      const existingManualAssetsFiltered = existingManualAssets.map(m => {
+        // If this manual asset conflicts with an edited BIM asset, hide it
+        if (m.conflictWithId && editedBimIds.has(m.conflictWithId)) {
+          return { ...m, hidden: true, linkedAssetId: m.conflictWithId, conflictWithId: undefined };
+        }
+        return m;
+      });
+      
+      const combined = [...existingManualAssetsFiltered, ...newAssetsMerged];
 
       // Deduplicate by stable id to avoid React duplicate key warnings (e.g., "universal-4087")
       const uniqueById = Array.from(new Map(combined.map(a => [a.id, a])).values());
@@ -2390,14 +2490,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               if (!c) return b;
               const merged: any = { ...b };
               const isEdited = (c as any).userEdited === true;
+              const isManual = (c as any).source === 'MANUAL';
               for (const key of Object.keys(c)) {
                 const val = (c as any)[key];
                 if (isEdited && (EDITABLE_FIELDS as any).includes(key)) {
                   merged[key] = val; // user edited fields always win
+                } else if (isManual && (CLEARABLE_FIELDS as any).includes(key)) {
+                  merged[key] = val; // allow nulls to clear
                 } else if (val !== null && val !== undefined && val !== '') {
                   merged[key] = val;
                 }
               }
+              // Preserve critical flags and state
+              if (isEdited) merged.userEdited = true;
+              if ((c as any).hidden === true) merged.hidden = true;
+              if ((c as any).linkedAssetId) merged.linkedAssetId = (c as any).linkedAssetId;
+              if ((c as any).conflictWithId === undefined) merged.conflictWithId = undefined;
               return merged as AssetRecord;
             });
             const cachedOnly = cached.filter(c => !list.find(b => b.id === c.id));
@@ -3720,23 +3828,55 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
       {/* Edit Asset Modal - reuse CreateAsset UI so the edit dialog is identical to create */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => { setEditModal({ open: false }); setEditQueue([]); setEditIndex(0); }}>
           <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[1100px] max-w-[98vw] max-h-[90vh] overflow-auto resize" style={{ minWidth: '640px', minHeight: '420px', resize: 'both' }} onClick={e => e.stopPropagation()}>
             <CreateAsset
               projectId={projectId}
               viewer={viewer}
-              title="Edit Asset"
+              title={`Edit Asset${editQueue.length > 1 ? ` (${editIndex+1}/${editQueue.length})` : ''}`}
               initial={edit}
               mode="edit"
               onSaveOverride={async (rec) => {
                 try {
                   const id = editModal.id;
                   if (!id) throw new Error('Missing edit id');
+                  const current = rows.find(r => r.id === id);
+                  const oldConflict = current?.conflictWithId;
                   const fields = pickEditable(rec);
-                  setRows(prev => prev.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r));
+                  // Don't convert source - keep BIM as BIM, Manual as Manual
+                  const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
+                  setRows(prev => {
+                    let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
+                    next = next.map(r => {
+                      if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
+                        return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
+                      }
+                      return r;
+                    });
+                    return next;
+                  });
                   // persist to backend if possible
-                  await persistEditToBackend(id, fields);
-                  try { const key = K.assets(projectId); const current = load(key, [] as AssetRecord[]); const updated = current.map(r => r.id === id ? { ...r, ...fields, userEdited: true } : r); save(key, updated); } catch {}
+                  await persistEditToBackend(id, mergedFields);
+                  // Persist any BIM counterparts we modified locally
+                  try {
+                    const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
+                    await Promise.allSettled(counterparts.map(c => {
+                      const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+                      return persistEditToBackend(c.id, upd);
+                    }));
+                  } catch {}
+                  try {
+                    const key = K.assets(projectId);
+                    const currentLs = load(key, [] as AssetRecord[]);
+                    const updated = currentLs.map(r => {
+                      if (r.id === id) return { ...r, ...mergedFields, userEdited: true };
+                      if (r.conflictWithId === id || (oldConflict && r.id === oldConflict)) {
+                        return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+                      }
+                      return r;
+                    });
+                    save(key, updated);
+                  } catch {}
                   try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
                   showToast('success', 'Asset updated');
                 } catch (err) {
@@ -3744,7 +3884,26 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   showToast('error', 'Failed to update asset');
                   throw err;
                 } finally {
-                  setEditModal({ open: false });
+                  // If editing a sequence, move to next; else close
+                  setTimeout(() => {
+                    setEditModal(prev => {
+                      if (editQueue.length > 0 && editIndex < editQueue.length - 1) {
+                        const nextIndex = editIndex + 1;
+                        const nextId = editQueue[nextIndex];
+                        const next = rows.find(r => r.id === nextId);
+                        if (next) {
+                          setEditIndex(nextIndex);
+                          setEdit({ ...pickEditable(next) });
+                          setEditSection('basic');
+                          return { open: true, id: nextId };
+                        }
+                      }
+                      // Done with sequence
+                      setEditQueue([]);
+                      setEditIndex(0);
+                      return { open: false };
+                    });
+                  }, 50);
                 }
               }}
             />
@@ -3752,18 +3911,27 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         </div>
       )}
 
-      {/* Schedule Maintenance Button */}
-      {onScheduleMaintenance && selectedIds.size > 0 && (
-        <div className="px-2 py-1.5 border-t border-gray-800 flex justify-end">
+      {/* Bottom Action Bar: Edit Selected (sequential) and Schedule Maintenance */}
+      {selectedIds.size > 0 && (
+        <div className="px-2 py-1.5 border-t border-gray-800 flex justify-end gap-2">
           <button
-            onClick={() => {
-              const selectedAssets = rows.filter(r => selectedIds.has(r.id));
-              onScheduleMaintenance(selectedAssets);
-            }}
-            className="text-[11px] py-1 px-2 rounded border border-blue-500 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 transition"
+            onClick={startSequentialEdit}
+            className="text-[11px] py-1 px-2 rounded border border-amber-500 bg-amber-600/20 hover:bg-amber-600/40 text-amber-200 transition"
+            title="Edit selected assets one by one"
           >
-            Schedule Maintenance ({selectedIds.size})
+            Edit Selected ({selectedIds.size})
           </button>
+          {onScheduleMaintenance && (
+            <button
+              onClick={() => {
+                const selectedAssets = rows.filter(r => selectedIds.has(r.id));
+                onScheduleMaintenance(selectedAssets);
+              }}
+              className="text-[11px] py-1 px-2 rounded border border-blue-500 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 transition"
+            >
+              Schedule Maintenance ({selectedIds.size})
+            </button>
+          )}
         </div>
       )}
 
@@ -3891,8 +4059,10 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         condition: f.condition || 'Good'
       };
 
-      console.log('🔍 [CreateAsset] Form data being saved:', f);
-      console.log('🔍 [CreateAsset] Asset record being created:', rec);
+      if (!onSaveOverride) {
+        console.log('🔍 [CreateAsset] Form data being saved:', f);
+        console.log('🔍 [CreateAsset] Asset record being created:', rec);
+      }
 
       // If caller provided an override handler (edit mode), use it and skip default upsert
       if (onSaveOverride) {
