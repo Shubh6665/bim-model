@@ -1739,21 +1739,52 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
   const persistEditToBackend = async (id: string, fields: Partial<AssetRecord>) => {
     if (!projectId) return;
+
+    const asset = rows.find(r => r.id === id);
+    console.log('📤 [persistEditToBackend] Attempting to save edit...');
+    console.log('📤 [persistEditToBackend] Asset ID:', id);
+    console.log('📤 [persistEditToBackend] Fields to update:', fields);
+
+    if (!asset) {
+      console.warn('⚠️ [persistEditToBackend] Asset not found in current rows; skipping backend save');
+      return;
+    }
+
     try {
-      // First try explicit action endpoint to avoid 404 on PATCH route
+      // Build a full payload so the server upsert doesn't null-out fields we don't send
+      // For BIM assets, server upserts by (projectId, source=BIM_MODEL, modelGuid, dbId)
+      // For MANUAL assets, server upserts by _id when id is provided
+      const isBim = asset.source === 'BIM_MODEL';
+      const payload: any = {
+        ...(asset as any),
+        ...fields,
+      };
+
+      if (isBim) {
+        payload.source = 'BIM_MODEL';
+        payload.modelGuid = asset.modelGuid;
+        payload.dbId = asset.dbId;
+        // Ensure we don't force manual _id path for BIM upsert
+        delete payload.id;
+      } else {
+        payload.source = 'MANUAL';
+        payload.id = id; // manual path uses _id filter
+      }
+
       const resPost = await fetch(`/api/projects/${projectId}/assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'updateFields', id, fields, noCreate: true })
+        body: JSON.stringify(payload)
       });
-      if (resPost.ok) return;
-      // Fallback: try direct PATCH if supported
-      await fetch(`/api/projects/${projectId}/assets/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fields)
-      }).catch(() => {});
-    } catch {}
+      console.log('📤 [persistEditToBackend] POST response status:', resPost.status);
+      if (resPost.ok) {
+        console.log('✅ [persistEditToBackend] POST succeeded');
+      } else {
+        console.warn('⚠️ [persistEditToBackend] POST failed');
+      }
+    } catch (err) {
+      console.error('❌ [persistEditToBackend] Error:', err);
+    }
   };
 
   const saveEditAsset = async () => {
@@ -1838,22 +1869,36 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     const id = deleteModal.id;
     if (!id) { setDeleteModal({ open: false }); return; }
 
+    console.log('🗑️ [performDelete] Deleting asset with ID:', id);
+    console.log('🗑️ [performDelete] Current rows before delete:', rows.length);
+
     try {
       // Optimistically remove from UI
-      setRows(prev => prev.filter(a => a.id !== id));
-      save(K.assets(projectId), rows.filter(a => a.id !== id));
+      setRows(prev => {
+        const filtered = prev.filter(a => a.id !== id);
+        console.log('🗑️ [performDelete] setRows - Filtered rows:', filtered.length);
+        console.log('🗑️ [performDelete] setRows - Remaining userEdited assets:', filtered.filter(a => (a as any).userEdited).length);
+        return filtered;
+      });
+      
+      const updatedRows = rows.filter(a => a.id !== id);
+      save(K.assets(projectId), updatedRows);
+      console.log('🗑️ [performDelete] Saved to localStorage - count:', updatedRows.length);
 
       // Delete from backend if we have a valid ObjectId and projectId
       if (projectId && isHexObjectId(id)) {
+        console.log('🗑️ [performDelete] Deleting from backend...');
         const res = await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
         if (!res.ok) {
           const txt = await res.text().catch(() => '');
           console.warn('⚠️ [AssetList] Backend delete failed:', res.status, txt);
           showToast('error', 'Failed to delete from server — removed locally');
         } else {
+          console.log('✅ [performDelete] Backend delete successful');
           showToast('success', 'Asset deleted');
         }
       } else {
+        console.log('🗑️ [performDelete] Local-only deletion (not a backend ID)');
         // Local-only deletion
         showToast('success', 'Asset deleted locally');
       }
@@ -1867,6 +1912,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
   // Helper: deduplicate BIM assets (by dbId) and keep best record; manual assets by id
   const dedupeAssets = React.useCallback((arr: AssetRecord[]): AssetRecord[] => {
+    console.log('🔄 [dedupeAssets] Input array length:', arr.length);
+    console.log('🔄 [dedupeAssets] Assets with userEdited flag:', arr.filter(a => (a as any).userEdited).length);
+    
     const score = (x: AssetRecord) => {
       // Prioritize user-edited assets heavily
       if ((x as any).userEdited === true) return 10000;
@@ -1883,10 +1931,29 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         ? `BIM|${a.modelGuid || 'g'}|${a.dbId}`
         : `ID|${a.id}`;
       const ex = map.get(key);
-      if (!ex) map.set(key, a);
-      else map.set(key, score(a) >= score(ex) ? a : ex);
+      
+      if (!ex) {
+        map.set(key, a);
+      } else {
+        const aScore = score(a);
+        const exScore = score(ex);
+        const winner = aScore >= exScore ? a : ex;
+        if (a.userEdited || ex.userEdited) {
+          console.log(`🔄 [dedupeAssets] Dedup conflict for key ${key}:`, {
+            existing: { id: ex.id, source: ex.source, userEdited: (ex as any).userEdited, score: exScore, assetName: ex.assetName },
+            new: { id: a.id, source: a.source, userEdited: (a as any).userEdited, score: aScore, assetName: a.assetName },
+            winner: winner.id
+          });
+        }
+        map.set(key, winner);
+      }
     }
-    return Array.from(map.values());
+    
+    const result = Array.from(map.values());
+    console.log('🔄 [dedupeAssets] Output array length:', result.length);
+    console.log('🔄 [dedupeAssets] Output assets with userEdited:', result.filter(a => (a as any).userEdited).length);
+    
+    return result;
   }, []);
 
   const getCurrentModelGuid = React.useCallback((): string | undefined => {
@@ -2379,18 +2446,17 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         }
       });
 
-      // Merge newly extracted BIM assets with any locally edited versions (editable fields win)
+      // Merge newly extracted BIM assets with any locally cached or backend-loaded versions
+      // Prefer existing values for editable fields (backend values or local edits) so extraction doesn't overwrite
       const newAssetsMerged = newAssets.map(a => {
-        // Check if this BIM asset was previously edited
-        const old = rows.find(r => r.id === a.id && r.userEdited);
+        const old = rows.find(r => r.id === a.id);
         if (!old) return a;
-        // Preserve ALL user-edited fields from the old version
         const merged: any = { ...a };
         for (const key of EDITABLE_FIELDS) {
           const v = (old as any)[key];
-          if (v !== undefined) merged[key] = v;
+          if (v !== undefined && v !== null && v !== '') merged[key] = v;
         }
-        merged.userEdited = true;
+        if ((old as any).userEdited) merged.userEdited = true;
         // Clear any conflicts that were on the old version
         merged.conflictWithId = undefined;
         return merged as AssetRecord;
@@ -2451,13 +2517,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             return { controller, timer };
           };
 
-          console.log(`💾 [AssetList] BG save ${newAssets.length} assets to backend (projectId: ${projectId})...`);
+          console.log(`💾 [AssetList] BG save ${newAssetsMerged.length} assets to backend (projectId: ${projectId})...`);
           const saveCtrl = new AbortController();
           const saveTimer = setTimeout(() => saveCtrl.abort('timeout'), 60000);
           const saveRes = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'replaceForModel', modelGuid: currentGuid, assets: newAssets }),
+            // IMPORTANT: send merged assets so backend stores user fields too
+            body: JSON.stringify({ action: 'replaceForModel', modelGuid: currentGuid, assets: newAssetsMerged }),
             signal: saveCtrl.signal
           }).catch(err => { throw err; });
           clearTimeout(saveTimer);
@@ -3838,14 +3905,31 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               mode="edit"
               onSaveOverride={async (rec) => {
                 try {
+                  console.log('🔧 [Edit Override] Starting edit save for asset:', editModal.id);
+                  console.log('🔧 [Edit Override] Received form data:', rec);
+                  
                   const id = editModal.id;
                   if (!id) throw new Error('Missing edit id');
+                  
                   const current = rows.find(r => r.id === id);
+                  console.log('🔧 [Edit Override] Current asset being edited:', current);
+                  
                   const oldConflict = current?.conflictWithId;
                   const fields = pickEditable(rec);
+                  
+                  console.log('🔧 [Edit Override] Picked editable fields:', fields);
+                  
                   // Don't convert source - keep BIM as BIM, Manual as Manual
                   const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
+                  
+                  console.log('🔧 [Edit Override] Merged fields to apply:', mergedFields);
+                  console.log('🔧 [Edit Override] Current source:', current?.source);
+                  
+                  // Capture the updated rows for localStorage save
+                  let updatedRows: AssetRecord[] = [];
+                  
                   setRows(prev => {
+                    console.log('🔧 [Edit Override] setRows - updating asset with ID:', id);
                     let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
                     next = next.map(r => {
                       if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
@@ -3853,8 +3937,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                       }
                       return r;
                     });
+                    console.log('🔧 [Edit Override] setRows - Updated rows count:', next.length);
+                    console.log('🔧 [Edit Override] setRows - Updated asset:', next.find(r => r.id === id));
+                    updatedRows = next; // Capture for localStorage save
                     return next;
                   });
+                  
+                  // IMPORTANT: Save updated rows to localStorage immediately to preserve userEdited flag
+                  try {
+                    const key = K.assets(projectId);
+                    save(key, updatedRows);
+                    console.log('💾 [Edit Override] Saved to localStorage with userEdited flag');
+                  } catch {}
+                  
                   // persist to backend if possible
                   await persistEditToBackend(id, mergedFields);
                   // Persist any BIM counterparts we modified locally
@@ -3864,18 +3959,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                       const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
                       return persistEditToBackend(c.id, upd);
                     }));
-                  } catch {}
-                  try {
-                    const key = K.assets(projectId);
-                    const currentLs = load(key, [] as AssetRecord[]);
-                    const updated = currentLs.map(r => {
-                      if (r.id === id) return { ...r, ...mergedFields, userEdited: true };
-                      if (r.conflictWithId === id || (oldConflict && r.id === oldConflict)) {
-                        return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
-                      }
-                      return r;
-                    });
-                    save(key, updated);
                   } catch {}
                   try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
                   showToast('success', 'Asset updated');
@@ -4039,6 +4122,11 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const onSave = async () => {
+    console.log('💾 [CreateAsset onSave] Starting save...');
+    console.log('💾 [CreateAsset onSave] mode:', mode);
+    console.log('💾 [CreateAsset onSave] onSaveOverride exists:', !!onSaveOverride);
+    console.log('💾 [CreateAsset onSave] Form data (f):', f);
+    
     // Validate required fields
     if (!f.assetName && !f.brand && !f.model) {
       setSaveError('Please provide at least Asset Name, Brand, or Model');
@@ -4050,24 +4138,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     setSaveError(null);
 
     try {
-      const rec: AssetRecord = {
-        ...f as AssetRecord,
-        id: `asset-${Date.now()}`,
-        dbId: null,
-        source: 'MANUAL',
-        // Set default condition if not provided
-        condition: f.condition || 'Good'
-      };
-
-      if (!onSaveOverride) {
-        console.log('🔍 [CreateAsset] Form data being saved:', f);
-        console.log('🔍 [CreateAsset] Asset record being created:', rec);
-      }
-
       // If caller provided an override handler (edit mode), use it and skip default upsert
+      // In edit mode, pass ONLY the editable fields, not a new asset record
       if (onSaveOverride) {
+        console.log('✅ [CreateAsset onSave] EDIT MODE - calling onSaveOverride');
+        console.log('✅ [CreateAsset onSave] Passing form fields:', f);
         try {
-          await onSaveOverride(rec);
+          // Pass just the form fields - the override handler will merge with existing asset
+          await onSaveOverride(f as AssetRecord);
+          console.log('✅ [CreateAsset onSave] onSaveOverride completed successfully');
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 1800);
           setIsSaving(false);
@@ -4080,6 +4159,20 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           return;
         }
       }
+
+      // CREATE MODE: Build a new asset record
+      console.log('🆕 [CreateAsset onSave] CREATE MODE - building new MANUAL asset');
+      const rec: AssetRecord = {
+        ...f as AssetRecord,
+        id: `asset-${Date.now()}`,
+        dbId: null,
+        source: 'MANUAL',
+        // Set default condition if not provided
+        condition: f.condition || 'Good'
+      };
+
+      console.log('🔍 [CreateAsset] Form data being saved:', f);
+      console.log('🔍 [CreateAsset] Asset record being created:', rec);
 
       // Safety: if in edit mode but no override provided, do NOT create a new asset
       if (mode === 'edit' && !onSaveOverride) {
