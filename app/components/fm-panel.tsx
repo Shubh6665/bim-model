@@ -4431,6 +4431,23 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     } catch { }
   };
 
+  // Clear all form fields (Create New Asset)
+  const clearForm = () => {
+    const emptyForm = {
+      category: '', type: '', brand: '', model: '', description: '', location: '',
+      assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+      material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
+      manuals: '', warranties: '', certifications: '',
+      condition: '', serviceDate: '', expectedLife: '',
+      maintenanceSchedule: '', lastService: '', nextService: '',
+      purchaseCost: '', maintenanceCost: '',
+      regulations: '', safetyNotes: '',
+      parentAsset: '', suppliers: ''
+    } as Partial<AssetRecord>;
+    setF(emptyForm);
+    save(`fm-create-asset-draft-${projectId || 'global'}`, emptyForm);
+  };
+
   // Standalone auto-prefill on mount if viewer is not present
   useEffect(() => {
     if (!viewer) {
@@ -4446,12 +4463,22 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
-        <button
-          className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
-          onClick={prefillFromSelection}
-        >
-          Prefill from Selection
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
+            onClick={prefillFromSelection}
+          >
+            Prefill from Selection
+          </button>
+          {mode !== 'edit' && (
+            <button
+              className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
+              onClick={clearForm}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Section selector */}
