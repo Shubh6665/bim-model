@@ -2448,10 +2448,15 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
       // Merge newly extracted BIM assets with any locally cached or backend-loaded versions
       // Prefer existing values for editable fields (backend values or local edits) so extraction doesn't overwrite
+      // Merge extracted assets with any existing rows. Match by id OR by stable BIM key (modelGuid+dbId).
+      // If an existing record is found prefer its id (this may be a DB ObjectId) so we keep continuity
+      // between local cache and backend records. Also preserve editable fields and userEdited flag.
       const newAssetsMerged = newAssets.map(a => {
-        const old = rows.find(r => r.id === a.id);
+        const byId = rows.find(r => r.id === a.id);
+        const byDbId = rows.find(r => r.source === 'BIM_MODEL' && r.dbId != null && a.dbId != null && r.dbId === a.dbId && r.modelGuid === a.modelGuid);
+        const old = byId || byDbId;
         if (!old) return a;
-        const merged: any = { ...a };
+        const merged: any = { ...a, id: old.id };
         for (const key of EDITABLE_FIELDS) {
           const v = (old as any)[key];
           if (v !== undefined && v !== null && v !== '') merged[key] = v;
