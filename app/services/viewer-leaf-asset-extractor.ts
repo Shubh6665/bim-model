@@ -26,6 +26,8 @@ export interface ViewerAsset {
   brand?: string;
   model?: string;
   serialNumber?: string;
+  elementId?: string;  // ElementId for unique asset identification
+  mark?: string;       // Mark field as fallback identifier
   modelId?: number;
   properties: Record<string, any>;
 }
@@ -205,8 +207,14 @@ export class ViewerLeafAssetExtractor {
       });
       try {
         const sample = results.slice(0, Math.min(3, results.length));
-        const samples = sample.map(r => ({ dbId: r.dbId, keys: Array.isArray(r.properties) ? r.properties.map((p:any)=>p.displayName) : [] }));
-        console.log(`[ViewerLeafExtractor][bulk] Properties fetched for ${results.length} items. Samples:`, samples);
+        const samples = sample.map(r => ({ 
+          dbId: r.dbId, 
+          propCount: Array.isArray(r.properties) ? r.properties.length : 0,
+          hasName: Array.isArray(r.properties) ? r.properties.some((p:any) => p.displayName === 'Name' || p.displayName === 'Nome') : false,
+          nameValue: Array.isArray(r.properties) ? r.properties.find((p:any) => p.displayName === 'Name' || p.displayName === 'Nome')?.displayValue : null,
+          sampleKeys: Array.isArray(r.properties) ? r.properties.slice(0, 10).map((p:any)=>p.displayName) : []
+        }));
+        console.log(`[ViewerLeafExtractor][bulk] Properties fetched for ${results.length} items. Samples with Name check:`, samples);
       } catch {}
       const mid = (typeof entry.model?.getModelId === 'function') ? entry.model.getModelId() : (entry.model?.id ?? undefined);
       const assets: ViewerAsset[] = results.map(result => ({ ...this.convertToAsset(result), modelId: mid }));
@@ -557,6 +565,10 @@ export class ViewerLeafAssetExtractor {
     const model = pick('Model','Modello');
     const serialNumber = pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || pick('Mark','Contrassegno');
     
+    // Extract ElementId and Mark explicitly for asset code priority
+    const elementId = pick('ElementId', 'Element Id', 'elementId', 'element id');
+    const mark = pick('Mark', 'Contrassegno');
+    
     // Try to get instance name from properties (not family/type name)
     // Common instance name properties: 'Name', 'Nome', 'Mark', 'Contrassegno', 'Label', 'Etichetta'
     // These typically contain values like "ACE-RIS-Ventilconvettore-01 [180402]" or "RPC Tree - Deciduous [947273]"
@@ -571,27 +583,32 @@ export class ViewerLeafAssetExtractor {
     // NEVER use result.name as it's unreliable (often just "Element {dbId}")
     const displayName = nameFromProps || type || category || `Element ${result.dbId}`;
 
-    // Log the name extraction for debugging when name is missing or generic
+    // Log the name extraction for debugging - ALWAYS log to see what's happening
     try {
+      const allProps = Object.keys(propsMap);
+      const hasNameProp = allProps.some(k => k === 'Name' || k === 'Nome' || k.toLowerCase() === 'name');
+      
       const allNameCandidates = {
-        'Name (property)': propsMap['Name'],
-        'Nome (property)': propsMap['Nome'],
-        'name (lowercase)': lowerMap['name'],
-        'nome (lowercase)': lowerMap['nome'],
+        'dbId': result.dbId,
+        'Total properties': allProps.length,
+        'Has Name property': hasNameProp,
+        'Name (exact)': propsMap['Name'],
+        'Nome (exact)': propsMap['Nome'],
+        'name (lowercase map)': lowerMap['name'],
+        'nome (lowercase map)': lowerMap['nome'],
         'Label': propsMap['Label'],
         'Mark': propsMap['Mark'],
-        'Contrassegno': propsMap['Contrassegno'],
-        'result.name (API)': result.name,
-        'nameFromProps': nameFromProps,
+        'result.name (API default)': result.name,
+        '---': '---',
+        'nameFromProps (picked)': nameFromProps,
+        'type (fallback)': type,
+        'category (fallback)': category,
         'Final displayName': displayName,
-        'dbId': result.dbId,
-        'category': category,
-        'type': type
+        '---properties sample': allProps.slice(0, 15).join(', ')
       };
-      // Log when we didn't find a proper Name property
-      if (!nameFromProps || nameFromProps?.includes('Element')) {
-        console.log(`[ViewerLeafExtractor] Instance name extraction for dbId ${result.dbId}:`, allNameCandidates);
-      }
+      
+      // ALWAYS log for debugging
+      console.log(`[ViewerLeafExtractor][convertToAsset] dbId ${result.dbId}:`, allNameCandidates);
     } catch {}
 
     return {
@@ -607,6 +624,8 @@ export class ViewerLeafAssetExtractor {
       brand,
       model,
       serialNumber,
+      elementId,  // Add explicitly for asset code priority
+      mark,       // Add explicitly for asset code fallback
       properties: propsMap
     };
   }

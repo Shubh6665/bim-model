@@ -2407,11 +2407,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           parsedAssetCode = nameMatch[2];
         }
         
-        // Fallback for assetCode: use parsed code, or Mark, or ElementId, or BIM-dbId
+        // PRIORITY FIX: Use extracted elementId and mark directly from asset object
+        // Priority: 1) ID from brackets in Name, 2) ElementId, 3) Mark, 4) BIM-dbId
         const finalAssetCode = parsedAssetCode || 
-                              pick('Mark', 'Contrassegno') || 
-                              pick('ElementId', 'Element Id') || 
-                              `BIM-${asset.dbId}`;
+                              asset.elementId || `BIM-${asset.dbId}` ||
+                              asset.mark
+                              ;
         
         // Fallback for assetName: if still empty, use type or category
         const finalAssetName = parsedAssetName || asset.type || asset.category || 'Unknown Asset';

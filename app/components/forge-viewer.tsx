@@ -2250,15 +2250,12 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
             details.assetName = parsed.assetName;
             details.idFromNameBrackets = parsed.idInBrackets;
             
-            // Determine final assetCode with priority:
-            // 1. ID from brackets in Name field (highest priority)
-            // 2. Mark/Contrassegno field
-            // 3. ElementId
-            // 4. BIM-{dbId}
+            // PRIORITY FIX: ElementId is the MOST reliable identifier
+            // Priority: 1) ID from brackets in Name, 2) ElementId, 3) Mark, 4) BIM-{dbId}
             details.assetCode = parsed.idInBrackets || 
-                               details.mark || 
-                               details.elementId || 
-                               (dbId ? `BIM-${dbId}` : 'N/A');
+                               details.elementId || `BIM-${dbId}` || 
+                               details.mark 
+                               ;
             
             // If assetName is still empty after parsing, use fallbacks
             if (!details.assetName) {
@@ -2268,13 +2265,13 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 details._assetNameSource = 'name_field';
             }
             
-            // Track code source
+            // Track code source (updated priority)
             if (parsed.idInBrackets) {
                 details._assetCodeSource = 'name_brackets';
-            } else if (details.mark) {
-                details._assetCodeSource = 'mark_field';
             } else if (details.elementId) {
                 details._assetCodeSource = 'element_id';
+            } else if (details.mark) {
+                details._assetCodeSource = 'mark_field';
             } else {
                 details._assetCodeSource = 'bim_dbid';
             }
