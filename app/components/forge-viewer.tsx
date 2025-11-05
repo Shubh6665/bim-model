@@ -2172,11 +2172,126 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
         };
     }, [viewer, insertMode, activePanel, getFilteredSensors, onSensorClick, onEmptyClick, getRoomForDbId]);
 
-    // Global selection listener: log enclosing room for any selected object
+    // Global selection listener: log enclosing room and comprehensive asset details for any selected object
     useEffect(() => {
         const v = viewerRef.current;
         const Autodesk = (window as any).Autodesk;
         if (!v || !Autodesk || !Autodesk.Viewing) return;
+
+        // Helper to parse Name field which may contain "[ID]" at the end
+        // Examples: "White Porcelain Plate [997068]" or "POR-ASB-Emergenza-01 [169069]"
+        const parseNameField = (nameValue: string): { assetName: string; idInBrackets: string | null } => {
+            if (!nameValue) return { assetName: '', idInBrackets: null };
+            
+            // Check if name contains [number] pattern at the end
+            const match = nameValue.match(/^(.+?)\s*\[(\d+)\]\s*$/);
+            if (match) {
+                return {
+                    assetName: match[1].trim(),
+                    idInBrackets: match[2]
+                };
+            }
+            
+            // No brackets found, return full name
+            return { assetName: nameValue.trim(), idInBrackets: null };
+        };
+
+        // Helper to extract all asset details from properties
+        const extractAssetDetails = (properties: any[] = [], dbId?: number): Record<string, any> => {
+            const details: Record<string, any> = {};
+            
+            // Property name variations (English and Italian)
+            const propertyMap: Record<string, string[]> = {
+                rawName: ['Name', 'Nome'],
+                elementId: ['ElementId', 'Element Id', 'ID'],
+                mark: ['Mark', 'Contrassegno'],
+                category: ['Category', 'Categoria'],
+                family: ['Family', 'Family Name', 'Famiglia'],
+                type: ['Type Name', 'Nome del tipo', 'Type', 'Tipo'],
+                level: ['Level', 'Reference Level', 'Base Level', 'Schedule Level', 'Livello', 'Livello abaco', 'Piano'],
+                material: ['Material', 'Structural Material', 'Materiale', 'Materiale strutturale'],
+                room: ['Room', 'Space', 'To Room', 'From Room', 'Locale', 'Locali'],
+                brand: ['Brand', 'Manufacturer', 'Marca', 'Produttore', 'Fabbricante', 'Costruttore'],
+                model: ['Model', 'Modello', 'Model Number', 'Numero Modello'],
+                serialNumber: ['Serial Number', 'Numero di Serie', 'Numero di serie', 'Matricola', 'Seriale'],
+                warranty: ['Warranty', 'Warranty Period', 'Garanzia', 'Periodo di Garanzia', 'Warranty Date', 'Data Garanzia'],
+                warrantyExpiry: ['Warranty Expiry', 'Data Scadenza Garanzia', 'Warranty End Date', 'Data Fine Garanzia'],
+                installDate: ['Install Date', 'Installation Date', 'Data Installazione', 'Data di Installazione'],
+                serviceDate: ['Service Date', 'Last Service', 'Data di Manutenzione', 'Ultima Manutenzione'],
+                volume: ['Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)'],
+                area: ['Area', 'Superficie'],
+                length: ['Length', 'Lunghezza'],
+                width: ['Width', 'Larghezza'],
+                height: ['Height', 'Altezza', 'Thickness', 'Spessore'],
+                weight: ['Weight', 'Peso'],
+                capacity: ['Capacity', 'Capacità'],
+                powerRating: ['Power', 'Power Rating', 'kW', 'Potenza', 'Potenza Nominale'],
+                description: ['Description', 'Descrizione', 'Comments', 'Commenti', 'Notes', 'Note'],
+                specifications: ['Specifications', 'Specifiche', 'Technical Data', 'Dati Tecnici'],
+                maintenanceSchedule: ['Maintenance Schedule', 'Programma di Manutenzione', 'Service Schedule'],
+                nextService: ['Next Service', 'Prossima Manutenzione', 'Next Maintenance'],
+                condition: ['Condition', 'Condizione', 'Status', 'Stato'],
+                supplier: ['Supplier', 'Fornitori', 'Supplier Name', 'Nome Fornitore'],
+                ifcGuid: ['IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId'],
+                ifcClass: ['IFC Class', 'IfcClass', 'Classe IFC'],
+                ifcType: ['IFC Type', 'Tipo IFC', 'Esporta tipo in formato IFC con nome', 'Esporta in formato IFC con nome'],
+            };
+            
+            // Extract all available properties
+            for (const [key, variations] of Object.entries(propertyMap)) {
+                const prop = properties.find(p => variations.includes(p.displayName));
+                if (prop?.displayValue !== undefined && prop.displayValue !== null && prop.displayValue !== '') {
+                    details[key] = prop.displayValue;
+                }
+            }
+            
+            // Parse the Name field to extract asset name and code
+            const parsed = parseNameField(details.rawName || '');
+            details.assetName = parsed.assetName;
+            details.idFromNameBrackets = parsed.idInBrackets;
+            
+            // Determine final assetCode with priority:
+            // 1. ID from brackets in Name field (highest priority)
+            // 2. Mark/Contrassegno field
+            // 3. ElementId
+            // 4. BIM-{dbId}
+            details.assetCode = parsed.idInBrackets || 
+                               details.mark || 
+                               details.elementId || 
+                               (dbId ? `BIM-${dbId}` : 'N/A');
+            
+            // If assetName is still empty after parsing, use fallbacks
+            if (!details.assetName) {
+                details.assetName = details.type || details.category || details.family || 'Unknown Asset';
+                details._assetNameSource = 'fallback';
+            } else {
+                details._assetNameSource = 'name_field';
+            }
+            
+            // Track code source
+            if (parsed.idInBrackets) {
+                details._assetCodeSource = 'name_brackets';
+            } else if (details.mark) {
+                details._assetCodeSource = 'mark_field';
+            } else if (details.elementId) {
+                details._assetCodeSource = 'element_id';
+            } else {
+                details._assetCodeSource = 'bim_dbid';
+            }
+            
+            // Also include any other properties not in the standard map
+            const mappedKeys = new Set(Object.values(propertyMap).flat());
+            for (const prop of properties) {
+                if (!mappedKeys.has(prop.displayName) && prop.displayValue) {
+                    const key = prop.displayName.toLowerCase().replace(/\s+/g, '_');
+                    if (!details[key]) {
+                        details[key] = prop.displayValue;
+                    }
+                }
+            }
+            
+            return details;
+        };
 
         const onAggSel = async (ev: any) => {
             try {
@@ -2188,9 +2303,101 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 for (const s of sels) {
                     const mdl = s.model || v.model;
                     const dbIds: number[] = s.dbIdArray || [];
-                    // Immediate one-liners per dbId, independent of properties speed
+                    
                     for (const dbId of dbIds) {
-                        console.log(`🖱️ [Click] dbId=${dbId} (resolving room...)`);
+                        console.log(`\n${'='.repeat(80)}`);
+                        console.log(`🔍 ASSET DETAILS EXTRACTED (dbId=${dbId})`);
+                        console.log(`${'='.repeat(80)}`);
+
+                        try {
+                            // Fetch full properties
+                            const props: any = await new Promise((resolve) => mdl.getProperties(dbId, resolve));
+                            const propertiesArr = props?.properties || [];
+                            
+                            // Extract asset details (pass dbId for fallback generation)
+                            const assetDetails = extractAssetDetails(propertiesArr, dbId);
+                            
+                            // Create a nice formatted output object
+                            const outputObj: Record<string, any> = {
+                                dbId,
+                                '📦 Basic Information': {
+                                    assetName: assetDetails.assetName || 'N/A',
+                                    assetCode: assetDetails.assetCode || 'N/A',
+                                    category: assetDetails.category || 'N/A',
+                                    type: assetDetails.type || 'N/A',
+                                    family: assetDetails.family || 'N/A',
+                                },
+                                '🏢 Manufacturer & Model': {
+                                    brand: assetDetails.brand || 'N/A',
+                                    model: assetDetails.model || 'N/A',
+                                    serialNumber: assetDetails.serialNumber || 'N/A',
+                                },
+                                '🛡️ Warranty & Service': {
+                                    warranty: assetDetails.warranty || 'N/A',
+                                    warrantyExpiry: assetDetails.warrantyExpiry || 'N/A',
+                                    installDate: assetDetails.installDate || 'N/A',
+                                    serviceDate: assetDetails.serviceDate || 'N/A',
+                                    nextService: assetDetails.nextService || 'N/A',
+                                    maintenanceSchedule: assetDetails.maintenanceSchedule || 'N/A',
+                                },
+                                '📐 Physical Specifications': {
+                                    material: assetDetails.material || 'N/A',
+                                    dimensions: [assetDetails.length, assetDetails.width, assetDetails.height].filter(Boolean).join(' x ') || 'N/A',
+                                    volume: assetDetails.volume || 'N/A',
+                                    area: assetDetails.area || 'N/A',
+                                    weight: assetDetails.weight || 'N/A',
+                                },
+                                '⚡ Technical Data': {
+                                    powerRating: assetDetails.powerRating || 'N/A',
+                                    capacity: assetDetails.capacity || 'N/A',
+                                    specifications: assetDetails.specifications || 'N/A',
+                                },
+                                '📍 Location & Building': {
+                                    level: assetDetails.level || 'N/A',
+                                    room: assetDetails.room || 'N/A',
+                                },
+                                '🏥 Status & Condition': {
+                                    condition: assetDetails.condition || 'N/A',
+                                    supplier: assetDetails.supplier || 'N/A',
+                                    description: assetDetails.description || 'N/A',
+                                },
+                                '🔗 IFC Data': {
+                                    ifcGuid: assetDetails.ifcGuid || 'N/A',
+                                    ifcClass: assetDetails.ifcClass || 'N/A',
+                                    ifcType: assetDetails.ifcType || 'N/A',
+                                },
+                                '🔑 Source Tracking': {
+                                    assetNameSource: assetDetails._assetNameSource || 'N/A',
+                                    assetCodeSource: assetDetails._assetCodeSource || 'N/A',
+                                    rawNameField: assetDetails.rawName || 'N/A',
+                                    markField: assetDetails.mark || 'N/A',
+                                    elementIdField: assetDetails.elementId || 'N/A',
+                                }
+                            };
+
+                            // Log the formatted object
+                            console.group('📋 Extracted Asset Data');
+                            console.table(outputObj);
+                            console.groupEnd();
+
+                            // Log raw properties for reference
+                            console.group('📝 All Raw Properties');
+                            console.log(propertiesArr.map((p: any) => ({
+                                displayName: p.displayName,
+                                displayValue: p.displayValue,
+                                units: p.units
+                            })));
+                            console.groupEnd();
+
+                            // Log complete asset object as JSON for copy/paste
+                            console.group('💾 Complete Asset Object (JSON)');
+                            console.log(JSON.stringify(assetDetails, null, 2));
+                            console.groupEnd();
+                        } catch (err) {
+                            console.error(`❌ Failed to fetch properties for dbId=${dbId}`, err);
+                        }
+
+                        // Fetch and log room information
                         (async () => {
                             try {
                                 const roomInfo: any = await Promise.race([
@@ -2198,35 +2405,16 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                                     new Promise((_, reject) => setTimeout(() => reject(new Error('room-timeout')), 1500))
                                 ]);
                                 if (roomInfo?.roomName && roomInfo?.roomId != null) {
-                                    console.log(`🖱️ [Click] dbId=${dbId} → roomName='${roomInfo.roomName}', roomId=${roomInfo.roomId}`);
+                                    console.log(`\n🏠 ENCLOSING ROOM: ${roomInfo.roomName} (dbId: ${roomInfo.roomId})`);
                                 } else {
-                                    console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                                    console.log(`\n🏠 ENCLOSING ROOM: None`);
                                 }
                             } catch {
-                                console.log(`🖱️ [Click] dbId=${dbId} → room: none`);
+                                console.log(`\n🏠 ENCLOSING ROOM: Could not determine`);
                             }
                         })();
-                    }
-                    for (const dbId of dbIds) {
-                        let name: string | undefined = undefined;
-                        let category: string | undefined = undefined;
-                        try {
-                            const props: any = await new Promise((resolve) => mdl.getProperties(dbId, resolve));
-                            const arr = props?.properties || [];
-                            name = arr.find((p: any) => p.displayName === 'Name')?.displayValue;
-                            category = arr.find((p: any) => p.displayName === 'Category')?.displayValue;
-                        } catch {}
-                        let roomInfo: any = null;
-                        try {
-                            if (typeof getRoomForDbId === 'function') {
-                                roomInfo = await getRoomForDbId(dbId);
-                            }
-                        } catch {}
-                        if (roomInfo) {
-                            console.log(`🏠 [Select] Object dbId=${dbId}${name?` (${name})`:''}${category?` [${category}]`:''} → Room: ${roomInfo.roomName} (dbId: ${roomInfo.roomId})`);
-                        } else {
-                            console.log(`ℹ️ [Select] Object dbId=${dbId}${name?` (${name})`:''}${category?` [${category}]`:''} → No enclosing room`);
-                        }
+
+                        console.log(`${'='.repeat(80)}\n`);
                     }
                 }
             } catch (e) {

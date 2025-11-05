@@ -2395,11 +2395,32 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         else if (/(furniture|casework)/.test(catLower)) assetClassification = 'FURNITURE';
         else if (/equipment/.test(catLower)) assetClassification = 'EQUIPMENT';
 
+        // Parse asset.name to extract name and code from brackets
+        // Examples: "White Porcelain Plate [997068]" or "POR-ASB-Emergenza-01 [169069]"
+        let parsedAssetName = asset.name || '';
+        let parsedAssetCode = '';
+        
+        const nameMatch = (asset.name || '').match(/^(.+?)\s*\[(\d+)\]\s*$/);
+        if (nameMatch) {
+          // Name contains [ID] pattern
+          parsedAssetName = nameMatch[1].trim();
+          parsedAssetCode = nameMatch[2];
+        }
+        
+        // Fallback for assetCode: use parsed code, or Mark, or ElementId, or BIM-dbId
+        const finalAssetCode = parsedAssetCode || 
+                              pick('Mark', 'Contrassegno') || 
+                              pick('ElementId', 'Element Id') || 
+                              `BIM-${asset.dbId}`;
+        
+        // Fallback for assetName: if still empty, use type or category
+        const finalAssetName = parsedAssetName || asset.type || asset.category || 'Unknown Asset';
+
         return {
           id: `viewer-${currentGuid}-${asset.dbId}`,
           dbId: asset.dbId,
-          assetCode: `BIM-${asset.dbId}`,
-          assetName: asset.name,
+          assetCode: finalAssetCode,
+          assetName: finalAssetName,
           category: asset.category,
           type: asset.type,
           brand,

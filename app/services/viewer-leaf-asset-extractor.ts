@@ -187,39 +187,18 @@ export class ViewerLeafAssetExtractor {
 
   private async getBulkPropertiesForAssetsPerModel(entries: Array<{ model: any; dbIds: number[] }>): Promise<ViewerAsset[]> {
     const all: ViewerAsset[] = [];
-    const propertiesToFetch = [
-      'Category', 'Categoria',
-      'Family', 'Family Name', 'Famiglia',
-      'Type', 'Type Name', 'Tipo', 'Nome del tipo', 'Nome Tipo', 'Tipologia',
-      'Level', 'Reference Level', 'Base Level', 'Schedule Level', 'Livello', 'Livello abaco', 'Livello di base', 'Livello superiore', 'Vincolo di base', 'Vincolo parte superiore', 'Base Constraint', 'Top Constraint', 'Constraint', 'Vincolo', 'Piano',
-      'Material', 'Structural Material', 'Materiale', 'Materiale strutturale',
-      'Room', 'Space', 'To Room', 'From Room', 'Locale', 'Locali', 'Aree',
-      'Brand', 'Manufacturer', 'Marca', 'Produttore', 'Fabbricante', 'Costruttore',
-      'Model', 'Modello',
-      'Serial Number', 'Numero di Serie', 'Numero di serie', 'Matricola', 'Seriale',
-      'Mark', 'Contrassegno',
-      'Volume', 'Volumen', 'Volume (netto)', 'Volume (lordo)',
-      'Area', 'Superficie',
-      'Length', 'Lunghezza',
-      // IFC related keys (class/type/GUID) including Italian export/type names
-      'IFC Class', 'IfcClass', 'Classe IFC',
-      'Esporta tipo in formato IFC con nome',
-      'Esporta in formato IFC con nome',
-      'Esporta tipo in IFC con nome',
-      'Export type in IFC with name',
-      'Export type to IFC as name',
-      'Export IFC Type',
-      'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC', 'Tipo: Tipo predefinito IFC',
-      'IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId', 'Tipo IfcGUID',
-      'Name', 'Nome', 'Number', 'Numero'
-    ];
+    
+    // CRITICAL FIX: Request ALL properties instead of specific list
+    // When you specify properties, getBulkProperties sometimes misses the Name field
+    // By not specifying properties (passing null/undefined), we get EVERYTHING
     for (const entry of entries) {
       if (!entry.dbIds.length) continue;
       // eslint-disable-next-line no-await-in-loop
       const results = await new Promise<any[]>((resolve, reject) => {
+        // Call getBulkProperties WITHOUT the properties parameter to get ALL properties
         entry.model.getBulkProperties(
           entry.dbIds,
-          propertiesToFetch,
+          undefined,  // ← Changed from propertiesToFetch to undefined = get ALL properties
           (res: any[]) => resolve(res),
           (error: any) => reject(error)
         );
@@ -580,29 +559,37 @@ export class ViewerLeafAssetExtractor {
     
     // Try to get instance name from properties (not family/type name)
     // Common instance name properties: 'Name', 'Nome', 'Mark', 'Contrassegno', 'Label', 'Etichetta'
-    // These typically contain values like "ACE-RIS-Ventilconvettore-01 [180402]"
-    const displayName = pick(
+    // These typically contain values like "ACE-RIS-Ventilconvettore-01 [180402]" or "RPC Tree - Deciduous [947273]"
+    // CRITICAL: Use properties FIRST, never fall back to result.name which is often just "Element {dbId}"
+    const nameFromProps = pick(
       'Name', 'Nome', 'Label', 'Etichetta', 
       'Element Name', 'Nome elemento',
       'Instance Name', 'Nome istanza'
-    ) || result.name;
+    );
+    
+    // Use properties-based name if available, otherwise use type or category as fallback
+    // NEVER use result.name as it's unreliable (often just "Element {dbId}")
+    const displayName = nameFromProps || type || category || `Element ${result.dbId}`;
 
-    // Log the name extraction for debugging
+    // Log the name extraction for debugging when name is missing or generic
     try {
       const allNameCandidates = {
-        'Name': propsMap['Name'] || lowerMap['name'],
-        'Nome': propsMap['Nome'] || lowerMap['nome'],
-        'Label': propsMap['Label'] || lowerMap['label'],
-        'Etichetta': propsMap['Etichetta'] || lowerMap['etichetta'],
-        'Mark': propsMap['Mark'] || lowerMap['mark'],
-        'Contrassegno': propsMap['Contrassegno'] || lowerMap['contrassegno'],
-        'result.name': result.name,
-        'displayName': displayName,
+        'Name (property)': propsMap['Name'],
+        'Nome (property)': propsMap['Nome'],
+        'name (lowercase)': lowerMap['name'],
+        'nome (lowercase)': lowerMap['nome'],
+        'Label': propsMap['Label'],
+        'Mark': propsMap['Mark'],
+        'Contrassegno': propsMap['Contrassegno'],
+        'result.name (API)': result.name,
+        'nameFromProps': nameFromProps,
+        'Final displayName': displayName,
         'dbId': result.dbId,
         'category': category,
         'type': type
       };
-      if (displayName === result.name || displayName?.includes('Element')) {
+      // Log when we didn't find a proper Name property
+      if (!nameFromProps || nameFromProps?.includes('Element')) {
         console.log(`[ViewerLeafExtractor] Instance name extraction for dbId ${result.dbId}:`, allNameCandidates);
       }
     } catch {}
