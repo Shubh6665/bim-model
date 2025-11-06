@@ -109,6 +109,14 @@ const REVIT_CATEGORIES: string[] = [
   'Zone riscaldamento ventilazione e aria condizionata'
 ];
 
+  // Helper: remove any leading 'Revit' prefix from category strings for UI display
+  function stripRevitPrefix(s?: string | null) {
+    if (!s) return s;
+    try {
+      return String(s).replace(/^\s*revit\s*[:\-–—]?\s*/i, '').trim();
+    } catch { return s; }
+  }
+
 // Fields users are allowed to edit and that must always win during backend merges
 const EDITABLE_FIELDS: (keyof AssetRecord)[] = [
   'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
@@ -1730,6 +1738,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     }
     return out;
   };
+  
 
   const openEditAsset = (row: AssetRecord) => {
     setEditModal({ open: true, id: row.id });
@@ -2828,7 +2837,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
   // Build distinct option lists for dropdown filters
   const distinct = {
-    categories: Array.from(new Set(rows.map(r => r.category).filter(Boolean))).sort() as string[],
+    // Use sanitized category labels (no leading 'Revit' prefix)
+    categories: Array.from(new Set(rows.map(r => stripRevitPrefix(r.category)).filter(Boolean))).sort() as string[],
     types: Array.from(new Set(rows.map(r => r.type).filter(Boolean))).sort() as string[],
     locations: Array.from(new Set(rows.map(r => r.location).filter(Boolean))).sort() as string[],
     // conditions removed from UI per request; keep computed list in case used elsewhere
@@ -3013,7 +3023,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     const lines = [headers.join(',')];
     data.forEach(r => {
       const vals = headers.map(h => {
-        const v = (r as any)[h];
+        let v = (r as any)[h];
+        // sanitize category column for export
+        if (h === 'category') v = stripRevitPrefix(v);
         const s = (v == null ? '' : String(v));
         return '"' + s.replace(/"/g, '""') + '"';
       });
@@ -3769,7 +3781,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                       </span>
                       {r.conflictWithId && <span className="ml-2 text-[10px] text-red-300">⚠ Conflict</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-100">{r.category || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-100">{stripRevitPrefix(r.category) || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.type || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
@@ -9262,7 +9274,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                     <td className="px-2 py-1.5 text-gray-500">{r.contact || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-500">{r.location || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-500">{r.discipline || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.category || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{stripRevitPrefix(r.category) || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-500">{r.description || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-500">
                       <div className="max-w-[220px] truncate" title={r.interventionDetails || ''}>{r.interventionDetails || '-'}</div>
