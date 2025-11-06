@@ -4508,12 +4508,6 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
         <div className="flex items-center gap-2">
-          <button
-            className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
-            onClick={prefillFromSelection}
-          >
-            Prefill from Selection
-          </button>
           {mode !== 'edit' && (
             <button
               className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
