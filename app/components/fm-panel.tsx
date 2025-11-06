@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import MaintenanceReport from "./fm-maintenance-report";
+import PdfViewer from "./pdf-viewer";
 import { WorkOrderItem as WOType } from "./fm-panel-types";
 import { X, Minimize2, ExternalLink, Building2, Square, Wrench, ClipboardList, CalendarClock, Package } from "lucide-react";
 import { APSAssetExtractor, type APSAsset } from '../services/aps-asset-extractor';
@@ -1729,6 +1730,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Sequential Edit queue for "Edit Selected"
   const [editQueue, setEditQueue] = useState<string[]>([]);
   const [editIndex, setEditIndex] = useState<number>(0);
+  // PDF Viewer modal state
+  const [pdfModal, setPdfModal] = useState<{ open: boolean; fileId?: string; fileName?: string }>({ open: false });
 
   const pickEditable = (r: Partial<AssetRecord>): Partial<AssetRecord> => {
     const out: Partial<AssetRecord> = {};
@@ -3617,7 +3620,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                 ['Technical', 'technical'],
                 ['Documentation', 'documentation'],
                 ['Lifecycle', 'lifecycle'],
-                ['Maintenance', 'maintenance'],
                 ['Economic', 'economic'],
                 ['Compliance', 'compliance'],
                 ['Relationships', 'relationships']
@@ -3739,12 +3741,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   <th className="text-left px-2 py-1.5">Expected Life</th>
                 </>
               )}
-              {visibleFields.maintenance && (
-                <>
-                  <th className="text-left px-2 py-1.5">Last Service</th>
-                  <th className="text-left px-2 py-1.5">Next Service</th>
-                </>
-              )}
               {visibleFields.economic && (
                 <>
                   <th className="text-left px-2 py-1.5">Purchase Cost</th>
@@ -3759,7 +3755,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               )}
               {visibleFields.relationships && (
                 <>
-                  <th className="text-left px-2 py-1.5">Location</th>
                   <th className="text-left px-2 py-1.5">Suppliers</th>
                 </>
               )}
@@ -3814,7 +3809,39 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                 )}
                 {visibleFields.documentation && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.manuals || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">
+                      {r.manuals ? (
+                        <div className="flex flex-wrap gap-1">
+                          {r.manuals.split(', ').map((fileName, idx) => (
+                            <button
+                              key={idx}
+                              onClick={(e) => { 
+                                e.stopPropagation();
+                                const openFile = async () => {
+                                  try {
+                                    const response = await fetch(`/api/projects/${projectId}/files/by-name?fileName=${encodeURIComponent(fileName)}`);
+                                    if (response.ok) {
+                                      const fileRecord = await response.json();
+                                      setPdfModal({ open: true, fileId: fileRecord._id || fileRecord.fileId, fileName: fileName });
+                                    } else {
+                                      showToast('error', `File "${fileName}" not found`);
+                                    }
+                                  } catch (err) {
+                                    console.error('Error opening file:', err);
+                                    showToast('error', 'Failed to open file');
+                                  }
+                                };
+                                openFile();
+                              }}
+                              className="text-blue-400 hover:text-blue-300 underline text-xs break-all"
+                              title={`Open ${fileName}`}
+                            >
+                              {fileName}
+                            </button>
+                          ))}
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td className="px-2 py-1.5 text-gray-200">{r.warranties || '-'}</td>
                   </>
                 )}
@@ -3822,12 +3849,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   <>
                     <td className="px-2 py-1.5 text-gray-200">{r.condition || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.expectedLife || '-'}</td>
-                  </>
-                )}
-                {visibleFields.maintenance && (
-                  <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.lastService || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.nextService || '-'}</td>
                   </>
                 )}
                 {visibleFields.economic && (
@@ -3844,7 +3865,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                 )}
                 {visibleFields.relationships && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.location || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.suppliers || '-'}</td>
                   </>
                 )}
@@ -4128,6 +4148,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           </button>
         </div>
       </div>
+
+      {/* PDF Viewer Modal */}
+      {pdfModal.open && pdfModal.fileId && projectId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1002]" onClick={() => setPdfModal({ open: false })}>
+          <div className="bg-gray-900 border border-gray-700 rounded w-[95vw] h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex-1 overflow-hidden">
+              <PdfViewer
+                projectId={projectId}
+                fileId={pdfModal.fileId}
+                fileName={pdfModal.fileName}
+                onClose={() => setPdfModal({ open: false })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -4336,7 +4372,6 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     { key: 'technical' as const, label: 'Technical & Construction' },
     { key: 'documentation' as const, label: 'Documentation' },
     { key: 'lifecycle' as const, label: 'Status & Lifecycle' },
-    { key: 'maintenance' as const, label: 'Maintenance Management' },
     { key: 'economic' as const, label: 'Economic Aspects' },
     { key: 'compliance' as const, label: 'Compliance & Safety' },
     { key: 'relationships' as const, label: 'Links & Relationships' }
@@ -4568,7 +4603,65 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
 
         {activeSection === 'documentation' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Manuals</label><input value={f.manuals || ''} onChange={e => updateField('manuals', e.target.value)} placeholder="Link or file reference" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div>
+              <label className="text-[11px] text-gray-300 block mb-1">Manuals</label>
+              <div className="space-y-2">
+                <input 
+                  type="file" 
+                  multiple 
+                  onChange={async (e) => { 
+                    const files = e.target.files; 
+                    if (files && projectId) {
+                      try {
+                        const fileNames: string[] = [];
+                        
+                        // Upload each file
+                        for (const file of Array.from(files)) {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          
+                          const response = await fetch(`/api/projects/${projectId}/files`, {
+                            method: 'POST',
+                            body: formData
+                          });
+                          
+                          if (response.ok) {
+                            const fileRecord = await response.json();
+                            fileNames.push(file.name);
+                            console.log(`✅ Uploaded file: ${file.name}`);
+                          } else {
+                            console.error(`Failed to upload ${file.name}`);
+                          }
+                        }
+                        
+                        if (fileNames.length > 0) {
+                          updateField('manuals', fileNames.join(', '));
+                        }
+                      } catch (err) {
+                        console.error('Error uploading files:', err);
+                      }
+                      // Reset input so user can upload same file again if needed
+                      e.target.value = '';
+                    }
+                  }} 
+                  placeholder="Select one or more files" 
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" 
+                />
+                {f.manuals && (
+                  <div className="bg-gray-700/40 border border-gray-600 rounded px-2 py-1.5 text-[11px] text-gray-300">
+                    <div className="font-semibold text-gray-400 mb-1">Uploaded files:</div>
+                    <div className="text-gray-400 whitespace-pre-wrap break-words">{f.manuals}</div>
+                    <button
+                      type="button"
+                      onClick={() => updateField('manuals', '')}
+                      className="mt-2 text-xs text-red-400 hover:text-red-300 underline"
+                    >
+                      Clear files
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
@@ -4591,14 +4684,6 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           </div>
         )}
 
-        {activeSection === 'maintenance' && (
-          <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Maintenance Schedule</label><input value={f.maintenanceSchedule || ''} onChange={e => updateField('maintenanceSchedule', e.target.value)} placeholder="Weekly, Monthly, Annually" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Last Service</label><input type="date" value={f.lastService || ''} onChange={e => updateField('lastService', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Next Service</label><input type="date" value={f.nextService || ''} onChange={e => updateField('nextService', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-          </div>
-        )}
-
         {activeSection === 'economic' && (
           <div className="grid grid-cols-2 gap-2">
             <div><label className="text-[11px] text-gray-300 block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
@@ -4616,7 +4701,6 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         {activeSection === 'relationships' && (
           <div className="grid grid-cols-1 gap-2">
             <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Location</label><input value={f.location || ''} onChange={e => updateField('location', e.target.value)} placeholder="Building, Floor, Room" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
           </div>
         )}
