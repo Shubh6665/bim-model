@@ -3601,8 +3601,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         {fieldsOpen && (
           <div className="mt-2 p-2 text-xs bg-gray-900/60 rounded border border-gray-800 w-full">
             <div className="grid grid-cols-2 gap-2">
+              {/* Basic checkbox - always checked and disabled */}
+              <label className="flex items-center gap-1 text-gray-300 cursor-not-allowed opacity-75">
+                <input
+                  type="checkbox"
+                  checked={true}
+                  disabled={true}
+                  className="w-3 h-3"
+                />
+                <span>Basic</span>
+              </label>
+              
               {[
-                ['Basic', 'basic'],
                 ['Identification', 'identification'],
                 ['Technical', 'technical'],
                 ['Documentation', 'documentation'],

@@ -57,3 +57,22 @@ input[type="date"]:focus::-webkit-datetime-edit-text {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) opacity(0.8);
 }
+
+/* Simple, minimal form input styling - no fancy effects on focus */
+input,
+textarea,
+select {
+  outline: none !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  background-color: inherit;
+  border-color: inherit;
+}
+
