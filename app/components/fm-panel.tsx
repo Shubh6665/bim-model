@@ -3700,7 +3700,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   <th className="text-left px-2 py-1.5">Type</th>
                   <th className="text-left px-2 py-1.5">Brand</th>
                   <th className="text-left px-2 py-1.5">Model</th>
-                  <th className="text-left px-2 py-1.5">Actions</th>
                 </>
               )}
               {visibleFields.identification && (
@@ -3754,6 +3753,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   <th className="text-left px-2 py-1.5">Suppliers</th>
                 </>
               )}
+              <th className="text-left px-2 py-1.5">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3785,52 +3785,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     <td className="px-2 py-1.5 text-gray-200">{r.type || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditAsset(r); }}
-                          title="Edit Asset"
-                          className="inline-flex items-center justify-center h-6 px-2 rounded border text-[11px] bg-amber-800/30 border-amber-700 text-amber-200 hover:bg-amber-800/50"
-                        >Edit</button>
-                        {r.source === 'MANUAL' && (
-                          <>
-                          <select
-                            value={r.placeholderShape || 'cube'}
-                            onClick={e => e.stopPropagation()}
-                            onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
-                            className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                          >
-                            <option value="cube">Cube</option>
-                            <option value="sphere">Sphere</option>
-                          </select>
-                          <input
-                            onClick={e => e.stopPropagation()}
-                            value={r.placeholderSize ?? 0.3}
-                            onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
-                            className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                            placeholder="m"
-                          />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); placeManual(r); }}
-                            disabled={placingAssetId === r.id}
-                            className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
-                          >
-                            {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
-                            title="Delete"
-                            className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
-                          >
-                            ×
-                          </button>
-                          </>
-                        )}
-                        {r.conflictWithId && (
-                          <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
-                        )}
-                      </div>
-                    </td>
                   </>
                 )}
                 {visibleFields.identification && (
@@ -3884,6 +3838,52 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     <td className="px-2 py-1.5 text-gray-200">{r.suppliers || '-'}</td>
                   </>
                 )}
+                <td className="px-2 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEditAsset(r); }}
+                      title="Edit Asset"
+                      className="inline-flex items-center justify-center h-6 px-2 rounded border text-[11px] bg-amber-800/30 border-amber-700 text-amber-200 hover:bg-amber-800/50"
+                    >Edit</button>
+                    {r.source === 'MANUAL' && (
+                      <>
+                      <select
+                        value={r.placeholderShape || 'cube'}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
+                        className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                      >
+                        <option value="cube">Cube</option>
+                        <option value="sphere">Sphere</option>
+                      </select>
+                      <input
+                        onClick={e => e.stopPropagation()}
+                        value={r.placeholderSize ?? 0.3}
+                        onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
+                        className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                        placeholder="m"
+                      />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); placeManual(r); }}
+                        disabled={placingAssetId === r.id}
+                        className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                      >
+                        {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); confirmDelete(r); }}
+                        title="Delete"
+                        className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded border text-[12px] font-bold bg-red-900/30 border-red-700 text-red-300 hover:bg-red-800/40"
+                      >
+                        ×
+                      </button>
+                      </>
+                    )}
+                    {r.conflictWithId && (
+                      <button onClick={(e) => { e.stopPropagation(); openConflictResolver(r); }} className="ml-2 text-[10px] text-red-300 underline">Resolve</button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
