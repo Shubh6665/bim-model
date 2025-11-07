@@ -4647,7 +4647,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       {/* Bulk Edit Notification */}
       {bulkEditMode && (
         <div className="px-2 py-2 bg-blue-900/40 border border-blue-700 rounded text-blue-200 text-xs">
-          <div className="font-semibold mb-1">📋 Bulk Edit Mode</div>
+          
           <div>Fields left empty will not be changed. Asset Code and Asset Name cannot be bulk edited.</div>
         </div>
       )}
@@ -4672,8 +4672,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code {bulkEditMode && <span className="text-red-400">(bulk: disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(bulk: disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
               <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select category</option>
