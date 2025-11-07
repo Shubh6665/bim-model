@@ -206,6 +206,7 @@ interface AssetRecord {
   model?: string;
   serialNumber?: string;
   installationDate?: string;
+  elementId?: string;  // BIM Element ID
   // Classification (from universal extractor)
   assetClassification?: 'STRUCTURAL' | 'ARCHITECTURAL' | 'MEP' | 'FURNITURE' | 'EQUIPMENT' | 'OTHER';
   // Technical and Construction Data
@@ -2377,9 +2378,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           console.log('[AssetList][map] Instance name for dbId', asset.dbId, ':', instanceNameDebug);
         }
 
-        const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || asset.family || 'Unknown';
-        const model = asset.model || pick('Model','Modello','Type Name','Nome del tipo','Nome Tipo','Tipo') || asset.type || 'Unknown';
-        const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale','Mark','Contrassegno') || undefined;
+        // Brand must coincide with Manufacturer attribute - default to 'Unknown' if not found
+        const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || 'Unknown';
+        // Model must coincide with Model attribute - default to 'Unknown' if not found
+        const model = asset.model || pick('Model','Modello') || 'Unknown';
+        // Serial number - remove Mark fallback, only use Serial Number attributes
+        const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || undefined;
         const installDate = props['Install Date'] || props['Installation Date'] || undefined;
         const power = props['Power'] || props['Power Rating'] || props['kW'] || undefined;
         const capacity = props['Capacity'] || undefined;
@@ -2451,12 +2455,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           parsedAssetCode = nameMatch[2];
         }
         
-        // PRIORITY FIX: Use extracted elementId and mark directly from asset object
-        // Priority: 1) ID from brackets in Name, 2) ElementId, 3) Mark, 4) BIM-dbId
-        const finalAssetCode = parsedAssetCode || 
-                              asset.elementId || `BIM-${asset.dbId}` ||
-                              asset.mark
-                              ;
+        // ASSET CODE: Only use ElementId if available, otherwise leave blank
+        // Do NOT use dbId or Mark as fallbacks
+        const finalAssetCode = parsedAssetCode || asset.elementId || '';
         
         // Fallback for assetName: if still empty, use type or category
         const finalAssetName = parsedAssetName || asset.type || asset.category || 'Unknown Asset';
@@ -4542,8 +4543,11 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       // Accept a broad set of property display names (English + Italian + common variants)
       const PROP_ALIASES: Record<string, string[]> = {
         brand: ['Manufacturer', 'Brand', 'Manufacturer Name', 'Produttore', 'Marca'],
-        modelName: ['Model', 'Type Name', 'Model Number', 'Nome del tipo', 'Nome del tipo'],
+        modelName: ['Model', 'Modello'],
         serial: ['Serial Number', 'Serial', 'Numero di serie'],
+        elementId: ['ElementId', 'Element Id', 'ElementId', 'ID'],
+        ifcGuid: ['IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId'],
+        ifcClass: ['IfcClass', 'IFC Class', 'Classe IFC', 'Esporta tipo in formato IFC con nome', 'Tipo: Tipo predefinito IFC'],
         installDate: ['Install Date', 'Installation Date', 'Data di installazione'],
         power: ['Power', 'Power Rating', 'kW', 'Dati elettrici', 'Alimentazione apparente'],
         capacity: ['Capacity', 'Capacità'],
@@ -4566,9 +4570,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
 
       const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
 
-      const brand = pickAlias('brand');
-      const modelName = pickAlias('modelName');
+      const brand = pickAlias('brand') || 'Unknown';
+      const modelName = pickAlias('modelName') || 'Unknown';
       const serial = pickAlias('serial');
+      const elementId = pickAlias('elementId');
+      const ifcGuid = pickAlias('ifcGuid');
+      const ifcClass = pickAlias('ifcClass');
       const installDate = pickAlias('installDate');
       const power = pickAlias('power');
       const capacity = pickAlias('capacity');
@@ -4587,9 +4594,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       setF(v => ({
         ...v,
         // Replace with new selection data (clear fields if not present in new selection)
-        brand: brand || '',
-        model: modelName || '',
+        brand: brand,
+        model: modelName,
         serialNumber: serial || '',
+        elementId: elementId || '',
+        ifcGuid: ifcGuid || '',
+        ifcClass: ifcClass || '',
         installationDate: installDate || '',
         powerRating: power || '',
         capacity: capacity || '',
@@ -4597,7 +4607,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         dimensions: dimensions || '',
         material: material || '',
         location: [level, room].filter(Boolean).join(' - ') || '',
-        category: category || ''
+        category: category || '',
+        description: 'Asset extracted from BIM model'
       }));
     } catch { }
   };
@@ -4606,7 +4617,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   const clearForm = () => {
     const emptyForm = {
       category: '', type: '', brand: '', model: '', description: '', location: '',
-      assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+      assetCode: '', assetName: '', serialNumber: '', installationDate: '', elementId: '', ifcGuid: '', ifcClass: '',
       material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
       manuals: '', warranties: '', certifications: '',
       condition: '', serviceDate: '', expectedLife: '',
@@ -4674,20 +4685,39 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Discipline</label>
+              <select value={f.assetClassification || ''} onChange={e => updateField('assetClassification', e.target.value as any)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+                <option value="">Select discipline</option>
+                <option value="ARCHITECTURAL">Architecture</option>
+                <option value="STRUCTURAL">Structure</option>
+                <option value="MEP">Mechanical System</option>
+                <option value="MEP">Electrical System</option>
+                <option value="MEP">Plumbing System</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
               <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select category</option>
                 {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} placeholder="Leave blank if unknown" value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">BIM Id (ElementId)</label><input value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="BIM Element ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Ifc Class</label>
+              <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+                <option value="">Select Ifc Class</option>
+                {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+              </select>
+            </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
+            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Asset extracted from BIM model" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
           </div>
         )}
 
