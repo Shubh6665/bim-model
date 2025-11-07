@@ -28,6 +28,7 @@ export interface ViewerAsset {
   serialNumber?: string;
   elementId?: string;  // ElementId for unique asset identification
   mark?: string;       // Mark field as fallback identifier
+  ifcExportType?: string;  // IFC Export Type / Ifc Class (from IfcExportType attribute)
   modelId?: number;
   properties: Record<string, any>;
 }
@@ -465,6 +466,7 @@ export class ViewerLeafAssetExtractor {
       'Export type in IFC with name',
       'Export type to IFC as name',
       'Export IFC Type',
+      'IfcExportType', 'IFC Export Type', 'Esporta in IFC con nome',
       'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC', 'Tipo: Tipo predefinito IFC',
       'IfcGUID', 'IFC GUID', 'IFC GlobalId', 'GlobalId', 'Tipo IfcGUID',
       'Number', 'Numero'
@@ -569,6 +571,14 @@ export class ViewerLeafAssetExtractor {
     const elementId = pick('ElementId', 'Element Id', 'elementId', 'element id');
     const mark = pick('Mark', 'Contrassegno');
     
+    // Extract IFC Export Type / Ifc Class from IfcExportType or related attributes
+    const ifcExportType = pick(
+      'IfcExportType', 'IFC Export Type', 'Esporta in IFC con nome',
+      'Export to IFC', 'Esporta in IFC',
+      'IFC Class', 'IfcClass', 'Classe IFC',
+      'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC'
+    ) || 'Unknown';
+    
     // Try to get instance name from properties (not family/type name)
     // Common instance name properties: 'Name', 'Nome', 'Mark', 'Contrassegno', 'Label', 'Etichetta'
     // These typically contain values like "ACE-RIS-Ventilconvettore-01 [180402]" or "RPC Tree - Deciduous [947273]"
@@ -626,6 +636,7 @@ export class ViewerLeafAssetExtractor {
       serialNumber,
       elementId,  // Add explicitly for asset code priority
       mark,       // Add explicitly for asset code fallback
+      ifcExportType,  // IFC Export Type / Ifc Class
       properties: propsMap
     };
   }

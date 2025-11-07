@@ -2423,7 +2423,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           'Export type in IFC with name',
           'Export type to IFC as name',
           'Export IFC Type'
-        );
+        ) || asset.ifcExportType;  // Fall back to ifcExportType from viewer asset
         const ifcType = pick('IFC Type','IfcType','Tipo IFC');
         const ifcPredefined = pick('Predefined Type','PredefinedType','Tipo predefinito IFC','Tipo: Tipo predefinito IFC');
         const ifcCandidates = [ifcClass, ifcType, ifcPredefined]
@@ -3744,6 +3744,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                   <th className="text-left px-2 py-1.5">Type</th>
                   <th className="text-left px-2 py-1.5">Brand</th>
                   <th className="text-left px-2 py-1.5">Model</th>
+                  <th className="text-left px-2 py-1.5">Ifc Class</th>
                 </>
               )}
               {visibleFields.identification && (
@@ -3822,6 +3823,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     <td className="px-2 py-1.5 text-gray-200">{r.type || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
                     <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
+                    <td className="px-2 py-1.5 text-gray-200">{r.ifcClass || 'Unknown'}</td>
                   </>
                 )}
                 {visibleFields.identification && (
