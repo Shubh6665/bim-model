@@ -7187,6 +7187,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
   const [assetIfcClassFilter, setAssetIfcClassFilter] = useState('');
   const [assetSortBy, setAssetSortBy] = useState<'name' | 'category' | 'location'>('name');
 
+  // Store previously filled values to enable inheritance
+  const [previousFormValues, setPreviousFormValues] = useState({ discipline: '', revitCategory: '', ifcClass: '' });
   const [f, setF] = useState({ discipline: '', revitCategory: '', ifcClass: '', code: '', asset: '', frequency: '', timeHours: '' });
   const [selectedAssets, setSelectedAssets] = useState<{ label: string; type?: string; id?: string; assetRecord?: AssetRecord }[]>([]);
   const [allowedAssetType, setAllowedAssetType] = useState<string | null>(null);
@@ -7445,6 +7447,18 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
     const [sortBy, setSortBy] = useState<'name' | 'category' | 'location'>('name');
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
+    // Column widths state for resizable columns
+    const [columnWidths, setColumnWidths] = useState({
+      checkbox: 50,
+      source: 90,
+      category: 150,
+      assetCode: 140,
+      assetName: 180,
+      type: 150,
+      brand: 120,
+      model: 120
+    });
+
     // Helpers adapted from Asset List and Scheduled Maintenance loaders
     const dedupeAssetsLocal = (arr: AssetRecord[]): AssetRecord[] => {
       const score = (x: AssetRecord) => {
@@ -7642,43 +7656,207 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 <div className="text-gray-400 text-sm">Loading assets...</div>
               </div>
             ) : (
-              <table className="w-full text-xs">
+              <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
                 <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
                   <tr>
-                    <th className="px-2 py-1.5"><input type="checkbox" onChange={e => {
-                      const allIds = filtered.map(a => a.id);
-                      setSelected(prev => {
-                        const next = new Set<string>();
-                        if (e.target.checked) allIds.forEach(id => next.add(id));
-                        return next;
-                      });
-                    }} /></th>
-                    <th className="text-left px-2 py-1.5">Source</th>
-                    <th className="text-left px-2 py-1.5">Category</th>
-                    <th className="text-left px-2 py-1.5">Type</th>
-                    <th className="text-left px-2 py-1.5">Brand</th>
-                    <th className="text-left px-2 py-1.5">Model</th>
+                    <th className="py-1.5 relative" style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <input type="checkbox" onChange={e => {
+                        const allIds = filtered.map(a => a.id);
+                        setSelected(prev => {
+                          const next = new Set<string>();
+                          if (e.target.checked) allIds.forEach(id => next.add(id));
+                          return next;
+                        });
+                      }} />
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.checkbox;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, checkbox: Math.max(40, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Source
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.source;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, source: Math.max(60, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Category
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.category;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, category: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Asset Code
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.assetCode;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, assetCode: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Asset Name
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.assetName;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, assetName: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Type
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.type;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, type: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Brand
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.brand;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, brand: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
+                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                      Model
+                      <div 
+                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startWidth = columnWidths.model;
+                          const onMouseMove = (e: MouseEvent) => {
+                            const diff = e.clientX - startX;
+                            setColumnWidths(prev => ({ ...prev, model: Math.max(80, startWidth + diff) }));
+                          };
+                          const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                          };
+                          document.addEventListener('mousemove', onMouseMove);
+                          document.addEventListener('mouseup', onMouseUp);
+                        }}
+                      />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-gray-400">No assets</td>
+                      <td colSpan={8} className="px-3 py-6 text-center text-gray-400">No assets</td>
                     </tr>
                   ) : filtered.map(a => (
                     <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/60">
-                      <td className="px-2 py-1.5">
+                      <td style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }} className="py-1.5">
                         <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
                       </td>
-                      <td className="px-2 py-1.5">
+                      <td style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded ${a.source === 'BIM_MODEL' ? 'bg-green-900/40 text-green-300' : 'bg-blue-900/40 text-blue-300'}`}>
                           {a.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                         </span>
                       </td>
-                      <td className="px-2 py-1.5 text-gray-100">{a.category || '-'}</td>
-                      <td className="px-2 py-1.5 text-gray-200">{a.type || '-'}</td>
-                      <td className="px-2 py-1.5 text-gray-200">{a.brand || '-'}</td>
-                      <td className="px-2 py-1.5 text-gray-200">{a.model || '-'}</td>
+                      <td style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={a.category || '-'}>{a.category || '-'}</td>
+                      <td style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
+                      <td style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
+                      <td style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.type || '-'}>{a.type || '-'}</td>
+                      <td style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.brand || '-'}>{a.brand || '-'}</td>
+                      <td style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.model || '-'}>{a.model || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -7871,8 +8049,23 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       setLoading(false);
     }
 
-    // Reset form
-  setF({ discipline: '', revitCategory: '', ifcClass: '', code: '', asset: '', frequency: '', timeHours: '' });
+    // Store current values for inheritance
+    setPreviousFormValues({
+      discipline: f.discipline,
+      revitCategory: f.revitCategory,
+      ifcClass: f.ifcClass
+    });
+
+    // Reset form but inherit Discipline, Revit Category, and IFC Class
+    setF({ 
+      discipline: f.discipline, 
+      revitCategory: f.revitCategory, 
+      ifcClass: f.ifcClass, 
+      code: '', 
+      asset: '', 
+      frequency: '', 
+      timeHours: '' 
+    });
     setTasks([]);
     setCurrentTask('');
     setSelectedAssets([]);
