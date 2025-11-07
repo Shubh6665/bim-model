@@ -1730,6 +1730,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Sequential Edit queue for "Edit Selected"
   const [editQueue, setEditQueue] = useState<string[]>([]);
   const [editIndex, setEditIndex] = useState<number>(0);
+  // Bulk Edit mode: when multiple assets selected with same category
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEditIds, setBulkEditIds] = useState<string[]>([]);
   // PDF Viewer modal state
   const [pdfModal, setPdfModal] = useState<{ open: boolean; fileId?: string; fileName?: string }>({ open: false });
 
@@ -1854,17 +1857,46 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     }
   };
   
-  // Start sequential edit over selected assets
+  // Start sequential edit over selected assets or bulk edit if same category
   const startSequentialEdit = () => {
     try {
       const idsOrdered = filteredRows.map(r => r.id).filter(id => selectedIds.has(id));
       const ids = idsOrdered.length ? idsOrdered : Array.from(selectedIds.values());
       if (!ids.length) return;
-      setEditQueue(ids);
-      setEditIndex(0);
-      const first = rows.find(r => r.id === ids[0]);
-      if (!first) return;
-      openEditAsset(first);
+      
+      // Get all selected assets
+      const selectedAssets = rows.filter(r => ids.includes(r.id));
+      
+      // Check if all assets have the same category
+      const categories = new Set(selectedAssets.map(a => a.category).filter(Boolean));
+      
+      if (categories.size === 0) {
+        // No category assigned, cannot bulk edit
+        showToast('error', 'Assets must have a category to bulk edit. Please assign categories first.');
+        return;
+      }
+      
+      if (categories.size > 1) {
+        // Different categories - cannot bulk edit
+        showToast('error', `Cannot bulk edit: assets belong to ${categories.size} different categories. Please select assets from the same category.`);
+        return;
+      }
+      
+      // All assets have same category - enable bulk edit mode
+      if (ids.length > 1) {
+        console.log(`📋 [Bulk Edit] Starting bulk edit for ${ids.length} assets with category: ${Array.from(categories)[0]}`);
+        setBulkEditMode(true);
+        setBulkEditIds(ids);
+        setEdit({}); // Empty form for bulk edit - user fills in what they want to apply to all
+        setEditModal({ open: true, id: `bulk-${ids[0]}` }); // Special ID to indicate bulk mode
+      } else {
+        // Single asset - use sequential edit
+        setEditQueue(ids);
+        setEditIndex(0);
+        const first = rows.find(r => r.id === ids[0]);
+        if (!first) return;
+        openEditAsset(first);
+      }
     } catch {}
   };
   
@@ -3969,93 +4001,150 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             <CreateAsset
               projectId={projectId}
               viewer={viewer}
-              title={`Edit Asset${editQueue.length > 1 ? ` (${editIndex+1}/${editQueue.length})` : ''}`}
+              title={bulkEditMode ? `Bulk Edit ${bulkEditIds.length} Assets` : `Edit Asset${editQueue.length > 1 ? ` (${editIndex+1}/${editQueue.length})` : ''}`}
               initial={edit}
               mode="edit"
+              bulkEditMode={bulkEditMode}
               onSaveOverride={async (rec) => {
                 try {
-                  console.log('🔧 [Edit Override] Starting edit save for asset:', editModal.id);
-                  console.log('🔧 [Edit Override] Received form data:', rec);
-                  
-                  const id = editModal.id;
-                  if (!id) throw new Error('Missing edit id');
-                  
-                  const current = rows.find(r => r.id === id);
-                  console.log('🔧 [Edit Override] Current asset being edited:', current);
-                  
-                  const oldConflict = current?.conflictWithId;
-                  const fields = pickEditable(rec);
-                  
-                  console.log('🔧 [Edit Override] Picked editable fields:', fields);
-                  
-                  // Don't convert source - keep BIM as BIM, Manual as Manual
-                  const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
-                  
-                  console.log('🔧 [Edit Override] Merged fields to apply:', mergedFields);
-                  console.log('🔧 [Edit Override] Current source:', current?.source);
-                  
-                  // Capture the updated rows for localStorage save
-                  let updatedRows: AssetRecord[] = [];
-                  
-                  setRows(prev => {
-                    console.log('🔧 [Edit Override] setRows - updating asset with ID:', id);
-                    let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
-                    next = next.map(r => {
-                      if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
-                        return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
-                      }
-                      return r;
+                  if (bulkEditMode) {
+                    // BULK EDIT: Apply changes to all selected assets
+                    console.log('📋 [Bulk Edit Override] Starting bulk edit for', bulkEditIds.length, 'assets');
+                    console.log('📋 [Bulk Edit Override] Received form data:', rec);
+                    
+                    // Get only the non-empty fields (user only fills in what they want to apply)
+                    const filledFields = Object.entries(rec)
+                      .filter(([_key, value]) => value !== '' && value !== undefined && value !== null)
+                      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as Partial<AssetRecord>);
+                    
+                    console.log('� [Bulk Edit Override] Filled fields to apply:', filledFields);
+                    
+                    // Don't allow bulk edit of assetCode and assetName (these should be per-asset)
+                    const forbiddenFields = ['assetCode', 'assetName', 'id', 'dbId', 'source'];
+                    forbiddenFields.forEach(f => delete (filledFields as any)[f]);
+                    
+                    console.log('📋 [Bulk Edit Override] Final fields to apply (forbidden removed):', filledFields);
+                    
+                    let updatedRows: AssetRecord[] = [];
+                    
+                    setRows(prev => {
+                      let next = prev.map(r => 
+                        bulkEditIds.includes(r.id) 
+                          ? { ...r, ...filledFields, userEdited: true } 
+                          : r
+                      );
+                      console.log('📋 [Bulk Edit Override] Updated', bulkEditIds.length, 'assets');
+                      updatedRows = next;
+                      return next;
                     });
-                    console.log('🔧 [Edit Override] setRows - Updated rows count:', next.length);
-                    console.log('🔧 [Edit Override] setRows - Updated asset:', next.find(r => r.id === id));
-                    updatedRows = next; // Capture for localStorage save
-                    return next;
-                  });
-                  
-                  // IMPORTANT: Save updated rows to localStorage immediately to preserve userEdited flag
-                  try {
-                    const key = K.assets(projectId);
-                    save(key, updatedRows);
-                    console.log('💾 [Edit Override] Saved to localStorage with userEdited flag');
-                  } catch {}
-                  
-                  // persist to backend if possible
-                  await persistEditToBackend(id, mergedFields);
-                  // Persist any BIM counterparts we modified locally
-                  try {
-                    const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
-                    await Promise.allSettled(counterparts.map(c => {
-                      const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
-                      return persistEditToBackend(c.id, upd);
-                    }));
-                  } catch {}
-                  try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
-                  showToast('success', 'Asset updated');
+                    
+                    // Save to localStorage
+                    try {
+                      const key = K.assets(projectId);
+                      save(key, updatedRows);
+                      console.log('💾 [Bulk Edit Override] Saved to localStorage');
+                    } catch {}
+                    
+                    // Persist to backend for each asset
+                    try {
+                      await Promise.allSettled(
+                        bulkEditIds.map(id => persistEditToBackend(id, filledFields))
+                      );
+                    } catch {}
+                    
+                    try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId } })); } catch {}
+                    showToast('success', `Bulk edit applied to ${bulkEditIds.length} assets`);
+                    
+                    // Close modal and reset bulk edit mode
+                    setEditModal({ open: false });
+                    setBulkEditMode(false);
+                    setBulkEditIds([]);
+                    setSelectedIds(new Set());
+                  } else {
+                    // SINGLE EDIT (original sequential logic)
+                    console.log('�🔧 [Edit Override] Starting edit save for asset:', editModal.id);
+                    console.log('🔧 [Edit Override] Received form data:', rec);
+                    
+                    const id = editModal.id;
+                    if (!id) throw new Error('Missing edit id');
+                    
+                    const current = rows.find(r => r.id === id);
+                    console.log('🔧 [Edit Override] Current asset being edited:', current);
+                    
+                    const oldConflict = current?.conflictWithId;
+                    const fields = pickEditable(rec);
+                    
+                    console.log('🔧 [Edit Override] Picked editable fields:', fields);
+                    
+                    // Don't convert source - keep BIM as BIM, Manual as Manual
+                    const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
+                    
+                    console.log('🔧 [Edit Override] Merged fields to apply:', mergedFields);
+                    console.log('🔧 [Edit Override] Current source:', current?.source);
+                    
+                    // Capture the updated rows for localStorage save
+                    let updatedRows: AssetRecord[] = [];
+                    
+                    setRows(prev => {
+                      console.log('🔧 [Edit Override] setRows - updating asset with ID:', id);
+                      let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
+                      next = next.map(r => {
+                        if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
+                          return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
+                        }
+                        return r;
+                      });
+                      console.log('🔧 [Edit Override] setRows - Updated rows count:', next.length);
+                      console.log('🔧 [Edit Override] setRows - Updated asset:', next.find(r => r.id === id));
+                      updatedRows = next; // Capture for localStorage save
+                      return next;
+                    });
+                    
+                    // IMPORTANT: Save updated rows to localStorage immediately to preserve userEdited flag
+                    try {
+                      const key = K.assets(projectId);
+                      save(key, updatedRows);
+                      console.log('💾 [Edit Override] Saved to localStorage with userEdited flag');
+                    } catch {}
+                    
+                    // persist to backend if possible
+                    await persistEditToBackend(id, mergedFields);
+                    // Persist any BIM counterparts we modified locally
+                    try {
+                      const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
+                      await Promise.allSettled(counterparts.map(c => {
+                        const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+                        return persistEditToBackend(c.id, upd);
+                      }));
+                    } catch {}
+                    try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
+                    showToast('success', 'Asset updated');
+                    
+                    // If editing a sequence, move to next; else close
+                    setTimeout(() => {
+                      setEditModal(prev => {
+                        if (editQueue.length > 0 && editIndex < editQueue.length - 1) {
+                          const nextIndex = editIndex + 1;
+                          const nextId = editQueue[nextIndex];
+                          const next = rows.find(r => r.id === nextId);
+                          if (next) {
+                            setEditIndex(nextIndex);
+                            setEdit({ ...pickEditable(next) });
+                            setEditSection('basic');
+                            return { open: true, id: nextId };
+                          }
+                        }
+                        // Done with sequence
+                        setEditQueue([]);
+                        setEditIndex(0);
+                        return { open: false };
+                      });
+                    }, 50);
+                  }
                 } catch (err) {
                   console.error('[EditModal] onSaveOverride error', err);
-                  showToast('error', 'Failed to update asset');
+                  showToast('error', 'Failed to update asset' + (bulkEditMode ? 's' : ''));
                   throw err;
-                } finally {
-                  // If editing a sequence, move to next; else close
-                  setTimeout(() => {
-                    setEditModal(prev => {
-                      if (editQueue.length > 0 && editIndex < editQueue.length - 1) {
-                        const nextIndex = editIndex + 1;
-                        const nextId = editQueue[nextIndex];
-                        const next = rows.find(r => r.id === nextId);
-                        if (next) {
-                          setEditIndex(nextIndex);
-                          setEdit({ ...pickEditable(next) });
-                          setEditSection('basic');
-                          return { open: true, id: nextId };
-                        }
-                      }
-                      // Done with sequence
-                      setEditQueue([]);
-                      setEditIndex(0);
-                      return { open: false };
-                    });
-                  }, 50);
                 }
               }}
             />
@@ -4168,7 +4257,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   );
 };
 
-const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; initial?: Partial<AssetRecord>; onSaveOverride?: (asset: AssetRecord) => Promise<void>; mode?: 'create'|'edit' }> = ({ projectId, viewer, title, initial, onSaveOverride, mode = 'create' }) => {
+const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; initial?: Partial<AssetRecord>; onSaveOverride?: (asset: AssetRecord) => Promise<void>; mode?: 'create'|'edit'; bulkEditMode?: boolean }> = ({ projectId, viewer, title, initial, onSaveOverride, mode = 'create', bulkEditMode = false }) => {
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
   const [f, setF] = useState<Partial<AssetRecord>>(() => {
@@ -4211,9 +4300,10 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     console.log('💾 [CreateAsset onSave] mode:', mode);
     console.log('💾 [CreateAsset onSave] onSaveOverride exists:', !!onSaveOverride);
     console.log('💾 [CreateAsset onSave] Form data (f):', f);
+    console.log('💾 [CreateAsset onSave] bulkEditMode:', bulkEditMode);
     
-    // Validate required fields
-    if (!f.assetName && !f.brand && !f.model) {
+    // Validate required fields - but NOT for bulk edit (in bulk edit, empty fields mean "don't change")
+    if (!bulkEditMode && !f.assetName && !f.brand && !f.model) {
       setSaveError('Please provide at least Asset Name, Brand, or Model');
       setTimeout(() => setSaveError(null), 3000);
       return;
@@ -4554,6 +4644,14 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         </div>
       </div>
 
+      {/* Bulk Edit Notification */}
+      {bulkEditMode && (
+        <div className="px-2 py-2 bg-blue-900/40 border border-blue-700 rounded text-blue-200 text-xs">
+          <div className="font-semibold mb-1">📋 Bulk Edit Mode</div>
+          <div>Fields left empty will not be changed. Asset Code and Asset Name cannot be bulk edited.</div>
+        </div>
+      )}
+
       {/* Section selector */}
       <div className="flex gap-1 overflow-x-auto pb-2">
         {sections.map(sec => (
@@ -4574,8 +4672,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name</label><input value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code {bulkEditMode && <span className="text-red-400">(bulk: disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(bulk: disabled)</span>}</label><input disabled={bulkEditMode} value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
               <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select category</option>
