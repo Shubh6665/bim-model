@@ -2447,6 +2447,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         else if (/(furniture|casework)/.test(catLower)) assetClassification = 'FURNITURE';
         else if (/equipment/.test(catLower)) assetClassification = 'EQUIPMENT';
 
+        // Extract description from IFC metadata (Description attribute)
+        // Priority: 1) Description attribute 2) asset.name with bracket parsing 3) type 4) category
+        const descriptionFromMetadata = pick('Description', 'Descrizione', 'Description attribute');
+        
         // Parse asset.name to extract name and code from brackets
         // Examples: "White Porcelain Plate [997068]" or "POR-ASB-Emergenza-01 [169069]"
         let parsedAssetName = asset.name || '';
@@ -2463,8 +2467,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         // Do NOT use dbId or Mark as fallbacks
         const finalAssetCode = parsedAssetCode || asset.elementId || '';
         
-        // Fallback for assetName: if still empty, use type or category
-        const finalAssetName = parsedAssetName || asset.type || asset.category || 'Unknown Asset';
+        // Asset Name Priority: 1) Description from IFC metadata 2) Parsed asset.name 3) Type 4) Category 5) Default
+        const finalAssetName = (descriptionFromMetadata && String(descriptionFromMetadata).trim()) 
+          || parsedAssetName 
+          || asset.type 
+          || asset.category 
+          || 'Unknown Asset';
 
         return {
           id: `viewer-${currentGuid}-${asset.dbId}`,
