@@ -7723,8 +7723,23 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
         );
       }
       if (categoryFilter) {
-        // Exact match vs REVIT label
-        result = result.filter(a => (a.category || '') === categoryFilter || (a.category || '').toLowerCase().includes(categoryFilter.toLowerCase()));
+        // Find English equivalent from CATEGORY_MAPPING if Italian category is selected
+        const mapping = Object.entries(CATEGORY_MAPPING).find(([italian]) => italian === categoryFilter);
+        const englishEquivalent = mapping ? mapping[1].english : null;
+        
+        result = result.filter(a => {
+          const assetCategory = (a.category || '').toLowerCase();
+          const filterLower = categoryFilter.toLowerCase();
+          
+          // Match if:
+          // 1. Exact match with selected category (Italian)
+          // 2. Contains selected category name
+          // 3. Matches English equivalent (e.g., "Porte" matches "Door", "Doors")
+          const matchesItalian = (a.category || '') === categoryFilter || assetCategory.includes(filterLower);
+          const matchesEnglish = englishEquivalent && assetCategory.includes(englishEquivalent.toLowerCase());
+          
+          return matchesItalian || matchesEnglish;
+        });
       }
       if (ifcFilter) {
         const sel = ifcFilter.toLowerCase();
