@@ -563,8 +563,15 @@ export class ViewerLeafAssetExtractor {
     );
     const material = pick('Material','Structural Material','Materiale','Materiale strutturale');
     const room = pick('Room','Space','To Room','From Room','Locale','Locali','Aree');
-    const brand = pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore');
-    const model = pick('Model','Modello');
+    
+    // Brand: Priority check for Manufacturer/Produttore attributes
+    // If found, use it. Otherwise default to 'Unknown' (NOT 'N/A')
+    const brand = pick('Manufacturer','Brand','Produttore','Marca','Fabbricante','Costruttore') || undefined;
+    
+    // Model: Priority check for Model/Modello attributes
+    // If found, use it. Otherwise default to undefined (will be 'Unknown' in fm-panel)
+    const model = pick('Model','Modello','Type Name','Nome del tipo') || undefined;
+    
     const serialNumber = pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || pick('Mark','Contrassegno');
     
     // Extract ElementId and Mark explicitly for asset code priority

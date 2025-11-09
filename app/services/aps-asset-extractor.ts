@@ -330,8 +330,16 @@ export class APSAssetExtractor {
     const material = propsMap['Material'] || propsMap['Structural Material'] || propsMap['Materiale'];
     const room = propsMap['Room'] || propsMap['Space'] || propsMap['To Room'] || propsMap['From Room'] || propsMap['Locale'];
     const building = propsMap['Building'] || propsMap['Edificio'];
-    const brand = propsMap['Brand'] || propsMap['Manufacturer'] || propsMap['Marca'];
-    const model = propsMap['Model'] || propsMap['Modello'];
+    
+    // Brand: Priority check for Manufacturer/Produttore attributes
+    // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
+    const brand = propsMap['Manufacturer'] || propsMap['Produttore'] || propsMap['Brand'] || 
+                  propsMap['Marca'] || propsMap['Fabbricante'] || propsMap['Costruttore'];
+    
+    // Model: Priority check for Model/Modello attributes
+    // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
+    const model = propsMap['Model'] || propsMap['Modello'] || propsMap['Type Name'] || propsMap['Nome del tipo'];
+    
     const serialNumber = propsMap['Serial Number'] || propsMap['Numero di Serie'];
     const mark = propsMap['Mark'] || propsMap['Contrassegno'];
     const volume = propsMap['Volume'] || propsMap['Volumen'];

@@ -288,11 +288,21 @@ export class AssetExtractionService {
             name: props.name || `Object ${dbId}`,
             category: mappedCategory,
             type: this.getPropertyValue(props, 'Type') || this.getPropertyValue(props, 'Family'),
-            brand: this.getPropertyValue(props, 'Brand') || 
-                   this.getPropertyValue(props, 'Manufacturer') || 
+            // Brand: Priority check for Manufacturer/Produttore attributes
+            // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
+            brand: this.getPropertyValue(props, 'Manufacturer') ||
+                   this.getPropertyValue(props, 'Produttore') ||
+                   this.getPropertyValue(props, 'Brand') ||
+                   this.getPropertyValue(props, 'Marca') ||
+                   this.getPropertyValue(props, 'Fabbricante') ||
+                   this.getPropertyValue(props, 'Costruttore') ||
                    this.getPropertyValue(props, 'Make'),
-            model: this.getPropertyValue(props, 'Model') || 
-                   this.getPropertyValue(props, 'Type Name'),
+            // Model: Priority check for Model/Modello attributes
+            // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
+            model: this.getPropertyValue(props, 'Model') ||
+                   this.getPropertyValue(props, 'Modello') ||
+                   this.getPropertyValue(props, 'Type Name') ||
+                   this.getPropertyValue(props, 'Nome del tipo'),
             material: this.getPropertyValue(props, 'Material') || 
                      this.getPropertyValue(props, 'Structural Material'),
             location: this.extractLocation(props),

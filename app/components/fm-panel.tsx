@@ -2471,9 +2471,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         }
 
         // Brand must coincide with Manufacturer attribute - default to 'Unknown' if not found
-        const brand = asset.brand || pick('Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore') || 'Unknown';
+        const brand = asset.brand || pick('Manufacturer','Produttore','Brand','Marca','Fabbricante','Costruttore') || 'Unknown';
         // Model must coincide with Model attribute - default to 'Unknown' if not found
-        const model = asset.model || pick('Model','Modello') || 'Unknown';
+        const model = asset.model || pick('Model','Modello','Type Name','Nome del tipo') || 'Unknown';
         // Serial number - remove Mark fallback, only use Serial Number attributes
         const serial = asset.serialNumber || pick('Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale') || undefined;
         const installDate = props['Install Date'] || props['Installation Date'] || undefined;

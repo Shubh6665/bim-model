@@ -379,10 +379,21 @@ export class ImprovedAssetExtractor {
         const classification = this.classifyAsset(name, category, type);
         
         // Extract additional properties
-        const brand = this.getPropertyValue(properties, 'Brand') || 
-                     this.getPropertyValue(properties, 'Manufacturer');
+        // Brand: Priority check for Manufacturer/Produttore attributes
+        // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
+        const brand = this.getPropertyValue(properties, 'Manufacturer') ||
+                     this.getPropertyValue(properties, 'Produttore') ||
+                     this.getPropertyValue(properties, 'Brand') ||
+                     this.getPropertyValue(properties, 'Marca') ||
+                     this.getPropertyValue(properties, 'Fabbricante') ||
+                     this.getPropertyValue(properties, 'Costruttore');
+        
+        // Model: Priority check for Model/Modello attributes
+        // If found, use it. Otherwise defaults to undefined (will be 'Unknown' in fm-panel)
         const model = this.getPropertyValue(properties, 'Model') ||
-                     this.getPropertyValue(properties, 'Type Mark');
+                     this.getPropertyValue(properties, 'Modello') ||
+                     this.getPropertyValue(properties, 'Type Name') ||
+                     this.getPropertyValue(properties, 'Nome del tipo');
         const serialNumber = this.getPropertyValue(properties, 'Serial Number') ||
                            this.getPropertyValue(properties, 'Mark');
         const material = this.getPropertyValue(properties, 'Material') ||
