@@ -376,8 +376,89 @@ const K = {
   uiSection: (pid?: string) => `fm-ui-section-${pid || 'global'}`,
 };
 
-function load<T>(key: string, def: T): T { if (typeof window === 'undefined') return def; try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : def; } catch { return def; } }
-function save<T>(key: string, val: T) { if (typeof window === 'undefined') return; try { localStorage.setItem(key, JSON.stringify(val)); } catch { } }
+// Optimized cache functions with versioning and timestamp validation
+interface CachedData<T> {
+  version: number;
+  timestamp: number;
+  data: T;
+}
+
+const CACHE_VERSION = 1;
+const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+function load<T>(key: string, def: T): T {
+  if (typeof window === 'undefined') return def;
+  try {
+    const v = localStorage.getItem(key);
+    if (!v) return def;
+    
+    const cached = JSON.parse(v) as CachedData<T>;
+    
+    // Validate cache version and age
+    if (cached.version !== CACHE_VERSION) {
+      console.warn(`⚠️ [Cache] Version mismatch for ${key}. Clearing stale cache.`);
+      localStorage.removeItem(key);
+      return def;
+    }
+    
+    const age = Date.now() - cached.timestamp;
+    if (age > CACHE_MAX_AGE) {
+      console.warn(`⚠️ [Cache] Expired cache for ${key} (${Math.round(age / 1000)}s old). Clearing.`);
+      localStorage.removeItem(key);
+      return def;
+    }
+    
+    return cached.data as T;
+  } catch (e) {
+    console.error(`❌ [Cache] Load error for ${key}:`, e);
+    return def;
+  }
+}
+
+function save<T>(key: string, val: T) {
+  if (typeof window === 'undefined') return;
+  try {
+    const cached: CachedData<T> = {
+      version: CACHE_VERSION,
+      timestamp: Date.now(),
+      data: val
+    };
+    localStorage.setItem(key, JSON.stringify(cached));
+    console.log(`✅ [Cache] Saved ${key} (${JSON.stringify(cached).length} bytes)`);
+  } catch (e) {
+    console.error(`❌ [Cache] Save error for ${key}:`, e);
+    // Attempt to clear localStorage if quota exceeded
+    if (e instanceof Error && e.message.includes('QuotaExceededError')) {
+      console.warn(`⚠️ [Cache] Storage quota exceeded. Clearing old data...`);
+      try {
+        localStorage.clear();
+      } catch {}
+    }
+  }
+}
+
+// Manual cache clear function for admin/debug
+function clearAssetCache(projectId?: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (projectId) {
+      localStorage.removeItem(K.assets(projectId));
+      console.log(`✅ [Cache] Cleared assets for project: ${projectId}`);
+    } else {
+      // Clear all FM cache
+      const keys = Object.keys(localStorage).filter(k => k.includes('fm-') || k.includes('assets'));
+      keys.forEach(k => localStorage.removeItem(k));
+      console.log(`✅ [Cache] Cleared all FM cache (${keys.length} items)`);
+    }
+  } catch (e) {
+    console.error('❌ [Cache] Clear error:', e);
+  }
+}
+
+// Make cache clear available in console
+if (typeof window !== 'undefined') {
+  (window as any).clearAssetCache = clearAssetCache;
+}
 
 const MenuButton: React.FC<{ label: string; active?: boolean; onClick: () => void }> = ({ label, onClick }) => (
   <button onClick={onClick} className={"w-full text-left px-3 py-2 rounded-md text-sm transition-colors text-gray-300 hover:text-white hover:bg-gray-800"}>{label}</button>
@@ -2092,7 +2173,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
       console.log(`🔄 [AssetList] Loading assets from backend for project: ${projectId}, modelGuid: ${currentGuid}`);
       try {
-        const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(currentGuid)}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        
+        const res = await fetch(`/api/projects/${projectId}/assets?modelGuid=${encodeURIComponent(currentGuid)}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : [];
@@ -2102,6 +2190,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           // Filter cached to current model before merging to avoid legacy inflation
           const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
           const cached = cachedAll.filter(a => a.source !== 'BIM_MODEL' || a.modelGuid === currentGuid);
+          
+          console.log(`📦 [AssetList] Cache info - Total cached: ${cachedAll.length}, Current model: ${cached.length}`);
+          
           const mergedById = list.map(b => {
             const c = cached.find(x => x.id === b.id);
             if (!c) return b;
@@ -3606,11 +3697,31 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
       <div className="p-3 border-b border-gray-800">
         <div className="flex items-center justify-between mb-2">
           <div className="text-white font-semibold text-sm">Asset List</div>
-          <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
+            <button
+              onClick={() => {
+                clearAssetCache(projectId);
+                // Reload assets after cache clear
+                setRows([] as AssetRecord[]);
+                setTimeout(() => {
+                  const cached = load(K.assets(projectId), [] as AssetRecord[]);
+                  const filtered = filterAssetsForCurrentModel(cached);
+                  const deduped = dedupeAssets(filtered);
+                  setRows(deduped);
+                  showToast('success', 'Cache cleared and reloaded');
+                }, 100);
+              }}
+              className="text-[11px] px-2 py-0.5 rounded bg-grey-900/40 border border-gray-700 text-gray-300 hover:bg-grey-900/60 transition"
+              title="Clear cache and reload fresh data"
+            >
+              Clear Cache
+            </button>
+          </div>
         </div>
 
         {/* BIM Asset Extraction */}
-        <div className="mb-2">
+        <div className="mb-2 space-y-2">
           <button
             onClick={extractAssetsFromBIM}
             disabled={isExtracting}
@@ -3622,7 +3733,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract from BIM'}
           </button>
           {isExtracting && (
-            <div className="mt-1 bg-gray-800 rounded-full h-1">
+            <div className="bg-gray-800 rounded-full h-1">
               <div
                 className="bg-green-500 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${extractionProgress}%` }}
