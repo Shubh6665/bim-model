@@ -571,12 +571,20 @@ export class ViewerLeafAssetExtractor {
     const elementId = pick('ElementId', 'Element Id', 'elementId', 'element id');
     const mark = pick('Mark', 'Contrassegno');
     
-    // Extract IFC Export Type / Ifc Class from IfcExportType or related attributes
+    // Extract IFC Export Type / Ifc Class from IfcExportType attribute (primary source)
+    // Default to 'Unknown' if attribute is not populated
     const ifcExportType = pick(
-      'IfcExportType', 'IFC Export Type', 'Esporta in IFC con nome',
-      'Export to IFC', 'Esporta in IFC',
-      'IFC Class', 'IfcClass', 'Classe IFC',
-      'Predefined Type', 'PredefinedType', 'Tipo predefinito IFC'
+      'IfcExportType',  // Primary: Read directly from IfcExportType attribute
+      'IFC Export Type', 
+      'Esporta in IFC con nome',
+      'Export to IFC', 
+      'Esporta in IFC',
+      'IFC Class', 
+      'IfcClass', 
+      'Classe IFC',
+      'Predefined Type', 
+      'PredefinedType', 
+      'Tipo predefinito IFC'
     ) || 'Unknown';
     
     // Try to get instance name from properties (not family/type name)

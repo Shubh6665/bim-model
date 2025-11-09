@@ -123,7 +123,8 @@ const EDITABLE_FIELDS: (keyof AssetRecord)[] = [
   'assetCode','assetName','category','type','brand','model','serialNumber','installationDate',
   'material','dimensions','weight','capacity','powerRating','location','description',
   'condition','serviceDate','expectedLife','maintenanceSchedule','lastService','nextService',
-  'purchaseCost','maintenanceCost','manuals','warranties','certifications','regulations','safetyNotes'
+  'purchaseCost','maintenanceCost','manuals','warranties','certifications','regulations','safetyNotes',
+  'ifcGuid','ifcClass','ifcType','ifcPredefined'
 ];
 
   // Fields that can be explicitly cleared (null) when an asset is converted to MANUAL
@@ -2415,11 +2416,14 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         } catch {}
 
         // Normalize IFC fields from multilingual Revit properties
-        // Common keys seen: 'IFC Class', 'IfcClass', 'Classe IFC',
+        // IFC Class: Read directly from IfcExportType attribute first
+        // Common keys seen: 'IfcExportType', 'IFC Export Type', 'IFC Class', 'IfcClass', 'Classe IFC',
         // 'Esporta tipo in formato IFC con nome' (Italian: Export type to IFC with name),
         // 'Tipo predefinito IFC' (Predefined Type), 'IfcGUID'
         const ifcGuid = pick('IfcGUID','IFC GUID','IFC GlobalId','GlobalId');
         const ifcClass = pick(
+          'IfcExportType',  // Primary: Read directly from IfcExportType attribute
+          'IFC Export Type',
           'IFC Class','IfcClass','Classe IFC',
           'Esporta tipo in formato IFC con nome',
           'Esporta in formato IFC con nome',
@@ -2427,7 +2431,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           'Export type in IFC with name',
           'Export type to IFC as name',
           'Export IFC Type'
-        ) || asset.ifcExportType;  // Fall back to ifcExportType from viewer asset
+        ) || asset.ifcExportType || 'Unknown';  // Fall back to ifcExportType from viewer asset, then default to 'Unknown'
         const ifcType = pick('IFC Type','IfcType','Tipo IFC');
         const ifcPredefined = pick('Predefined Type','PredefinedType','Tipo predefinito IFC','Tipo: Tipo predefinito IFC');
         const ifcCandidates = [ifcClass, ifcType, ifcPredefined]
@@ -2485,7 +2489,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           source: 'BIM_MODEL',
           // IFC metadata for filtering
           ifcGuid: ifcGuid ? String(ifcGuid) : undefined,
-          ifcClass: ifcClass ? String(ifcClass) : undefined,
+          ifcClass: String(ifcClass),  // Always use ifcClass value (defaults to 'Unknown' from extraction)
           ifcType: ifcType ? String(ifcType) : undefined,
           ifcPredefined: ifcPredefined ? String(ifcPredefined) : undefined,
           ifcCandidates: ifcCandidates.length ? ifcCandidates : undefined,
