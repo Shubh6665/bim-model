@@ -8010,7 +8010,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                           {a.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                         </span>
                       </td>
-                      <td style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={a.category || '-'}>{a.category || '-'}</td>
+                      <td style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={stripRevitPrefix(a.category) || '-'}>{stripRevitPrefix(a.category) || '-'}</td>
                       <td style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
                       <td style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
                       <td style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.type || '-'}>{a.type || '-'}</td>
