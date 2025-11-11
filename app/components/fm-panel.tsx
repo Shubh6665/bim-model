@@ -3162,15 +3162,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   }, [filteredRows, sortKey, sortDir]);
 
   const handleSort = (key: string) => {
-    setSortKey(prevKey => {
-      if (prevKey === key) {
-        setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
-        return prevKey;
-      } else {
-        setSortDir('asc');
-        return key;
-      }
-    });
+    if (sortKey === key) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   };
 
   const sortIndicator = (key: string) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
