@@ -7630,6 +7630,52 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       model: 120
     });
 
+    // Persist widths so user sizing sticks while using the app
+    const COL_WIDTHS_STORAGE_KEY = React.useMemo(() => `fm-sched-assetlist-colwidths-${projectId || 'global'}`, [projectId]);
+    useEffect(() => {
+      try {
+        const saved = localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            setColumnWidths(prev => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch {}
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [COL_WIDTHS_STORAGE_KEY]);
+    useEffect(() => {
+      try { localStorage.setItem(COL_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths)); } catch {}
+    }, [COL_WIDTHS_STORAGE_KEY, columnWidths]);
+
+    // Reusable column resize starter for headers
+    const startColumnResize = (key: keyof typeof columnWidths, minWidth = 60) => (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startWidth = columnWidths[key];
+
+      const onMouseMove = (ev: MouseEvent) => {
+        const diff = ev.clientX - startX;
+        setColumnWidths(prev => ({ ...prev, [key]: Math.max(minWidth, Math.round(startWidth + diff)) }));
+      };
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        try {
+          document.body.style.cursor = '';
+          document.body.classList.remove('select-none');
+        } catch {}
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      try {
+        document.body.style.cursor = 'col-resize';
+        document.body.classList.add('select-none');
+      } catch {}
+    };
+
     // Helpers adapted from Asset List and Scheduled Maintenance loaders
     const dedupeAssetsLocal = (arr: AssetRecord[]): AssetRecord[] => {
       const score = (x: AssetRecord) => {
@@ -7845,7 +7891,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
               <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
                 <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
                   <tr>
-                    <th className="py-1.5 relative" style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <th className="py-1.5 relative group" style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <input type="checkbox" onChange={e => {
                         const allIds = filtered.map(a => a.id);
                         setSelected(prev => {
@@ -7854,171 +7900,51 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                           return next;
                         });
                       }} />
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.checkbox;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, checkbox: Math.max(40, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('checkbox', 40)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Source
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.source;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, source: Math.max(60, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('source', 60)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Category
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.category;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, category: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('category', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Asset Code
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.assetCode;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, assetCode: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('assetCode', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Asset Name
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.assetName;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, assetName: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('assetName', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Type
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.type;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, type: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('type', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Brand
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.brand;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, brand: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('brand', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
-                    <th className="text-left py-1.5 relative" style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }}>
+                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }}>
                       Model
-                      <div 
-                        className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-blue-500 cursor-col-resize hover:w-1.5 hover:from-cyan-300 hover:to-blue-400 transition-all"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startWidth = columnWidths.model;
-                          const onMouseMove = (e: MouseEvent) => {
-                            const diff = e.clientX - startX;
-                            setColumnWidths(prev => ({ ...prev, model: Math.max(80, startWidth + diff) }));
-                          };
-                          const onMouseUp = () => {
-                            document.removeEventListener('mousemove', onMouseMove);
-                            document.removeEventListener('mouseup', onMouseUp);
-                          };
-                          document.addEventListener('mousemove', onMouseMove);
-                          document.addEventListener('mouseup', onMouseUp);
-                        }}
-                      />
+                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('model', 80)}>
+                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                      </div>
                     </th>
                   </tr>
                 </thead>
