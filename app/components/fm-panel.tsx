@@ -4848,6 +4848,9 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
             <div><label className="text-[11px] text-gray-300 block mb-1">Ifc Class</label>
               <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select Ifc Class</option>
+                {f.ifcClass && !IFCCLASSES_UNIQUE.includes(f.ifcClass) && (
+                  <option key={f.ifcClass} value={f.ifcClass}>{f.ifcClass} (current)</option>
+                )}
                 {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
             </div>
