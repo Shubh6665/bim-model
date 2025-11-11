@@ -1831,7 +1831,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
   const openEditAsset = (row: AssetRecord) => {
     setEditModal({ open: true, id: row.id });
-    setEdit({ ...pickEditable(row) });
+    // Prefill form with asset data, normalizing category to remove Revit prefix
+    const editData = { ...pickEditable(row) };
+    if (editData.category) {
+      editData.category = stripRevitPrefix(editData.category) || editData.category;
+    }
+    setEdit(editData);
     setEditSection('basic');
   };
 
@@ -4827,6 +4832,9 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
             <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
               <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
                 <option value="">Select category</option>
+                {f.category && !categoryOptions.includes(f.category) && (
+                  <option key={f.category} value={f.category}>{f.category} (current)</option>
+                )}
                 {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
