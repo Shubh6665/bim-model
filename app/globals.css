@@ -76,3 +76,20 @@ select:focus {
   border-color: inherit;
 }
 
+/* Fix dropdown option visibility - ensure text is dark and readable */
+select option {
+  color: #171717; /* Dark text for visibility on white background */
+  background-color: #ffffff; /* White background for options dropdown */
+}
+
+/* Alternative styling for option hover state (supported in some browsers) */
+select option:hover {
+  background-color: #e5e7eb; /* Light gray hover state */
+}
+
+/* WebKit specific fix for selected option in dropdown */
+select option:checked {
+  color: #ffffff;
+  background: linear-gradient(#3b82f6, #3b82f6); /* Blue background for selected */
+}
+
