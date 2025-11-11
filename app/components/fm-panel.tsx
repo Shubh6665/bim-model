@@ -4601,24 +4601,25 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     setF(v => ({ ...v, [key]: value }));
   };
 
-  // Build category options from CATEGORY_MAPPING in Italian / English (IFC)
+  // Use Revit categories from REVIT_CATEGORIES (same as Asset List filter dropdown)
   const categoryOptions: string[] = React.useMemo(() => {
-    const opts: string[] = [];
-    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
-      opts.push(`${it} / ${m.english} (${m.ifc})`);
-    }
-    return opts.sort();
+    return REVIT_CATEGORIES;
   }, []);
 
   const mapToStandardCategory = (category?: string): string | undefined => {
     if (!category) return undefined;
-    const cat = category.toLowerCase();
-    for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
-      if (cat.includes(it.toLowerCase()) || cat.includes(m.english.toLowerCase()) || cat.includes(m.ifc.toLowerCase())) {
-        return `${it} / ${m.english} (${m.ifc})`;
-      }
-    }
-    return category;
+    // Strip 'Revit' prefix if present
+    const stripped = stripRevitPrefix(category);
+    if (!stripped) return category;
+    
+    // Try to find exact match in REVIT_CATEGORIES (case-insensitive)
+    const cat = stripped.toLowerCase();
+    const match = REVIT_CATEGORIES.find(rc => rc.toLowerCase() === cat);
+    if (match) return match;
+    
+    // Try partial match
+    const partialMatch = REVIT_CATEGORIES.find(rc => rc.toLowerCase().includes(cat) || cat.includes(rc.toLowerCase()));
+    return partialMatch || category;
   };
 
   // Prefill from current model selection
