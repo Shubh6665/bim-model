@@ -1955,33 +1955,49 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
       // Get all selected assets
       const selectedAssets = rows.filter(r => ids.includes(r.id));
       
-      // Check if all assets have the same category
-      const categories = new Set(selectedAssets.map(a => a.category).filter(Boolean));
+      // Group assets by category
+      const categoryMap = new Map<string, string[]>();
+      selectedAssets.forEach(a => {
+        const cat = a.category || 'Uncategorized';
+        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+        categoryMap.get(cat)!.push(a.id);
+      });
       
-      if (categories.size === 0) {
-        // No category assigned, cannot bulk edit
+      // Find the most common category (largest group)
+      let dominantCategory = '';
+      let dominantIds: string[] = [];
+      let maxCount = 0;
+      
+      categoryMap.forEach((assetIds, cat) => {
+        if (assetIds.length > maxCount) {
+          maxCount = assetIds.length;
+          dominantCategory = cat;
+          dominantIds = assetIds;
+        }
+      });
+      
+      if (maxCount === 0) {
         showToast('error', 'Assets must have a category to bulk edit. Please assign categories first.');
         return;
       }
       
-      if (categories.size > 1) {
-        // Different categories - cannot bulk edit
-        showToast('error', `Cannot bulk edit: assets belong to ${categories.size} different categories. Please select assets from the same category.`);
-        return;
+      // If there are assets from other categories, show warning
+      if (categoryMap.size > 1) {
+        showToast('info', `Found assets from ${categoryMap.size} categories. Editing ${dominantIds.length} assets from "${dominantCategory}" category.`);
       }
       
-      // All assets have same category - enable bulk edit mode
-      if (ids.length > 1) {
-        console.log(`📋 [Bulk Edit] Starting bulk edit for ${ids.length} assets with category: ${Array.from(categories)[0]}`);
+      // Enable bulk edit mode for the dominant category assets
+      if (dominantIds.length > 1) {
+        console.log(`📋 [Bulk Edit] Starting bulk edit for ${dominantIds.length} assets with category: ${dominantCategory}`);
         setBulkEditMode(true);
-        setBulkEditIds(ids);
+        setBulkEditIds(dominantIds);
         setEdit({}); // Empty form for bulk edit - user fills in what they want to apply to all
-        setEditModal({ open: true, id: `bulk-${ids[0]}` }); // Special ID to indicate bulk mode
-      } else {
-        // Single asset - use sequential edit
-        setEditQueue(ids);
+        setEditModal({ open: true, id: `bulk-${dominantIds[0]}` }); // Special ID to indicate bulk mode
+      } else if (dominantIds.length === 1) {
+        // Only one asset in the dominant category - use sequential edit
+        setEditQueue(dominantIds);
         setEditIndex(0);
-        const first = rows.find(r => r.id === ids[0]);
+        const first = rows.find(r => r.id === dominantIds[0]);
         if (!first) return;
         openEditAsset(first);
       }
