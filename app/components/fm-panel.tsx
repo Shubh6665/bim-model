@@ -1816,6 +1816,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Bulk Edit mode: when multiple assets selected with same category
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkEditIds, setBulkEditIds] = useState<string[]>([]);
+  const [bulkCategoryLabel, setBulkCategoryLabel] = useState<string>('');
   // PDF Viewer modal state
   const [pdfModal, setPdfModal] = useState<{ open: boolean; fileId?: string; fileName?: string }>({ open: false });
 
@@ -1830,6 +1831,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   
 
   const openEditAsset = (row: AssetRecord) => {
+    // Ensure we are NOT in bulk edit or sequential multi-edit mode when explicitly editing a single row
+    setBulkEditMode(false);
+    setBulkEditIds([]);
+    setBulkCategoryLabel('');
+    setEditQueue([]);
+    setEditIndex(0);
     setEditModal({ open: true, id: row.id });
     // Prefill form with asset data, normalizing category to remove Revit prefix
     const editData = { ...pickEditable(row) };
@@ -1991,6 +1998,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         console.log(`📋 [Bulk Edit] Starting bulk edit for ${dominantIds.length} assets with category: ${dominantCategory}`);
         setBulkEditMode(true);
         setBulkEditIds(dominantIds);
+        setBulkCategoryLabel(dominantCategory || '');
         setEdit({}); // Empty form for bulk edit - user fills in what they want to apply to all
         setEditModal({ open: true, id: `bulk-${dominantIds[0]}` }); // Special ID to indicate bulk mode
       } else if (dominantIds.length === 1) {
@@ -4179,12 +4187,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
       {/* Edit Asset Modal - reuse CreateAsset UI so the edit dialog is identical to create */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => { setEditModal({ open: false }); setEditQueue([]); setEditIndex(0); }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => { setEditModal({ open: false }); setEditQueue([]); setEditIndex(0); setBulkEditMode(false); setBulkEditIds([]); setBulkCategoryLabel(''); }}>
           <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[1100px] max-w-[98vw] max-h-[90vh] overflow-auto resize" style={{ minWidth: '640px', minHeight: '420px', resize: 'both' }} onClick={e => e.stopPropagation()}>
             <CreateAsset
               projectId={projectId}
               viewer={viewer}
-              title={bulkEditMode ? `Bulk Edit ${bulkEditIds.length} Assets` : `Edit Asset${editQueue.length > 1 ? ` (${editIndex+1}/${editQueue.length})` : ''}`}
+              title={bulkEditMode ? `Bulk Edit ${bulkEditIds.length} Assets${bulkCategoryLabel ? ` — ${bulkCategoryLabel}` : ''}` : `Edit Asset${editQueue.length > 1 ? ` (${editIndex+1}/${editQueue.length})` : ''}`}
               initial={edit}
               mode="edit"
               bulkEditMode={bulkEditMode}
@@ -4441,36 +4449,53 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 };
 
 const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; initial?: Partial<AssetRecord>; onSaveOverride?: (asset: AssetRecord) => Promise<void>; mode?: 'create'|'edit'; bulkEditMode?: boolean }> = ({ projectId, viewer, title, initial, onSaveOverride, mode = 'create', bulkEditMode = false }) => {
+  // A clean empty form used when entering bulk edit or resetting edit mode
+  const EMPTY_FORM: Partial<AssetRecord> = {
+    category: '', type: '', brand: '', model: '', description: '', location: '',
+    assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+    material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
+    manuals: '', warranties: '', certifications: '',
+    condition: '', serviceDate: '', expectedLife: '',
+    maintenanceSchedule: '', lastService: '', nextService: '',
+    purchaseCost: '', maintenanceCost: '',
+    regulations: '', safetyNotes: '',
+    parentAsset: '', suppliers: '',
+    // identification fields that might exist
+    elementId: undefined as any,
+    dbId: undefined as any,
+  };
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
   const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
   const [f, setF] = useState<Partial<AssetRecord>>(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-asset-draft-${projectId || 'global'}`, {});
     return {
-      category: '', type: '', brand: '', model: '', description: '', location: '',
-      assetCode: '', assetName: '', serialNumber: '', installationDate: '',
-      material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
-      manuals: '', warranties: '', certifications: '',
-      condition: '', serviceDate: '', expectedLife: '',
-      maintenanceSchedule: '', lastService: '', nextService: '',
-      purchaseCost: '', maintenanceCost: '',
-      regulations: '', safetyNotes: '',
-      parentAsset: '', suppliers: '',
+      ...EMPTY_FORM,
       ...saved,
       ...(initial || {})
     };
   });
 
-  // If `initial` changes (edit mode), keep form in sync
+  // If `mode`/`bulkEditMode`/`initial` change, keep form in correct state
   useEffect(() => {
-    if (initial) setF(prev => ({ ...prev, ...(initial as Partial<AssetRecord>) }));
-  }, [initial]);
+    if (mode === 'edit') {
+      if (bulkEditMode) {
+        // Bulk edit must start with a clean form so no stale values are applied
+        setF({ ...EMPTY_FORM });
+      } else if (initial) {
+        // Single edit should reflect the asset being edited (hard reset rather than merge)
+        setF({ ...EMPTY_FORM, ...(initial as Partial<AssetRecord>) });
+      }
+    }
+  }, [mode, bulkEditMode, initial]);
 
 
-  // Auto-save draft to localStorage on every field change
+  // Auto-save draft to localStorage on every field change (only in create mode)
   useEffect(() => {
-    save(`fm-create-asset-draft-${projectId || 'global'}`, f);
-  }, [f, projectId]);
+    if (mode === 'create' && !bulkEditMode) {
+      save(`fm-create-asset-draft-${projectId || 'global'}`, f);
+    }
+  }, [f, projectId, mode, bulkEditMode]);
 
   useEffect(() => save(K.assets(projectId), rows), [rows, projectId]);
 
