@@ -3125,6 +3125,56 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     return true;
   });
 
+  // Sorting state for Asset List
+  const [sortKey, setSortKey] = useState<string>('assetName');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const getComparable = (r: AssetRecord, key: string): string => {
+    try {
+      if (key === 'source') return r.source === 'BIM_MODEL' ? 'BIM' : 'Manual';
+      if (key === 'category') return (stripRevitPrefix(r.category) || '').toString();
+      if (key === 'ifcClass') return ((r as any).ifcClass || 'Unknown').toString();
+      return ((r as any)[key] ?? '').toString();
+    } catch { return ''; }
+  };
+
+  const compareStr = (a: string, b: string): number => {
+    const aa = a.trim().toLowerCase();
+    const bb = b.trim().toLowerCase();
+    const aEmpty = aa.length === 0;
+    const bEmpty = bb.length === 0;
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1; // empty goes to end for asc
+    if (bEmpty) return -1;
+    return aa.localeCompare(bb, undefined, { numeric: false, sensitivity: 'base' });
+  };
+
+  const sortedRows = React.useMemo(() => {
+    const arr = [...filteredRows];
+    if (!sortKey) return arr;
+    arr.sort((ra, rb) => {
+      const va = getComparable(ra, sortKey);
+      const vb = getComparable(rb, sortKey);
+      const cmp = compareStr(va, vb);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [filteredRows, sortKey, sortDir]);
+
+  const handleSort = (key: string) => {
+    setSortKey(prevKey => {
+      if (prevKey === key) {
+        setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+        return prevKey;
+      } else {
+        setSortDir('asc');
+        return key;
+      }
+    });
+  };
+
+  const sortIndicator = (key: string) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+
   // Reset page when filters or page size change
   useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, filter.selectedOnly, filter.selectedKeys, pageSize]);
 
@@ -3160,11 +3210,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   }, [filter.ifcClass, rows]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const pageClamped = Math.min(page, totalPages);
   const startIndex = (pageClamped - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedRows = filteredRows.slice(startIndex, endIndex);
+  const paginatedRows = sortedRows.slice(startIndex, endIndex);
 
   // Build selection keys from viewer selection (multi-model safe): `${modelId}:${dbId}` and fallback `*:${dbId}`
   const getCurrentSelectionKeys = React.useCallback(async (): Promise<string[]> => {
@@ -3928,56 +3978,56 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               </th>
               {visibleFields.basic && (
                 <>
-                  <th className="text-left px-2 py-1.5">Source</th>
-                  <th className="text-left px-2 py-1.5">Category</th>
-                  <th className="text-left px-2 py-1.5">Type</th>
-                  <th className="text-left px-2 py-1.5">Brand</th>
-                  <th className="text-left px-2 py-1.5">Model</th>
-                  <th className="text-left px-2 py-1.5">Ifc Class</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('source')}>Source{sortIndicator('source')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('category')}>Category{sortIndicator('category')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('type')}>Type{sortIndicator('type')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('brand')}>Brand{sortIndicator('brand')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('model')}>Model{sortIndicator('model')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('ifcClass')}>Ifc Class{sortIndicator('ifcClass')}</th>
                 </>
               )}
               {visibleFields.identification && (
                 <>
-                  <th className="text-left px-2 py-1.5">Code</th>
-                  <th className="text-left px-2 py-1.5">Name</th>
-                  <th className="text-left px-2 py-1.5">Serial</th>
-                  <th className="text-left px-2 py-1.5">Install Date</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('assetCode')}>Code{sortIndicator('assetCode')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('assetName')}>Name{sortIndicator('assetName')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('serialNumber')}>Serial{sortIndicator('serialNumber')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('installationDate')}>Install Date{sortIndicator('installationDate')}</th>
                 </>
               )}
               {visibleFields.technical && (
                 <>
-                  <th className="text-left px-2 py-1.5">Material</th>
-                  <th className="text-left px-2 py-1.5">Dimensions</th>
-                  <th className="text-left px-2 py-1.5">Capacity</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('material')}>Material{sortIndicator('material')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('dimensions')}>Dimensions{sortIndicator('dimensions')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('capacity')}>Capacity{sortIndicator('capacity')}</th>
                 </>
               )}
               {visibleFields.documentation && (
                 <>
-                  <th className="text-left px-2 py-1.5">Manuals</th>
-                  <th className="text-left px-2 py-1.5">Warranties</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('manuals')}>Manuals{sortIndicator('manuals')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('warranties')}>Warranties{sortIndicator('warranties')}</th>
                 </>
               )}
               {visibleFields.lifecycle && (
                 <>
-                  <th className="text-left px-2 py-1.5">Condition</th>
-                  <th className="text-left px-2 py-1.5">Expected Life</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('condition')}>Condition{sortIndicator('condition')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('expectedLife')}>Expected Life{sortIndicator('expectedLife')}</th>
                 </>
               )}
               {visibleFields.economic && (
                 <>
-                  <th className="text-left px-2 py-1.5">Purchase Cost</th>
-                  <th className="text-left px-2 py-1.5">Maintenance Cost</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('purchaseCost')}>Purchase Cost{sortIndicator('purchaseCost')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('maintenanceCost')}>Maintenance Cost{sortIndicator('maintenanceCost')}</th>
                 </>
               )}
               {visibleFields.compliance && (
                 <>
-                  <th className="text-left px-2 py-1.5">Regulations</th>
-                  <th className="text-left px-2 py-1.5">Safety</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('regulations')}>Regulations{sortIndicator('regulations')}</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('safetyNotes')}>Safety{sortIndicator('safetyNotes')}</th>
                 </>
               )}
               {visibleFields.relationships && (
                 <>
-                  <th className="text-left px-2 py-1.5">Suppliers</th>
+                  <th className="text-left px-2 py-1.5 cursor-pointer select-none" onClick={() => handleSort('suppliers')}>Suppliers{sortIndicator('suppliers')}</th>
                 </>
               )}
               <th className="text-left px-2 py-1.5">Actions</th>
