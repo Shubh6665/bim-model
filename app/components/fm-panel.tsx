@@ -7750,7 +7750,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
   // master labels are like "Italian / English (IFC)"; assets may have raw categories — include them too and mark as extra
   const assetCategories = React.useMemo(() => REVIT_CATEGORIES, []);
 
-  // Reusable Asset List selection modal using the same table design as Asset List
   const AssetListSelectionModal: React.FC<{
     projectId?: string;
     viewer?: any;
@@ -7767,6 +7766,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
     const [ifcFilter, setIfcFilter] = useState(initialIfcClass || '');
     const [sortBy, setSortBy] = useState<'name' | 'category' | 'location'>('name');
     const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    // Update filters when initial values change (when modal is opened with different form selections)
+    useEffect(() => {
+      setCategoryFilter(initialCategory || '');
+      setIfcFilter(initialIfcClass || '');
+    }, [initialCategory, initialIfcClass]);
 
     // Column widths state for resizable columns
     const [columnWidths, setColumnWidths] = useState({
@@ -7909,10 +7914,17 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
           setAssets(deduped);
         } catch (err) {
           console.error('[AssetListSelectionModal] Failed to load assets:', err);
+          // Fallback to cached assets on error
+          const cachedAll = load(K.assets(projectId), [] as AssetRecord[]);
+          const filtered = filterAssetsForCurrentModelLocal(cachedAll);
+          const deduped = dedupeAssetsLocal(filtered);
+          setAssets(deduped);
         } finally {
           setAssetsLoading(false);
         }
       };
+      // Load assets immediately when modal opens
+      setAssets([]);
       fetchAssets();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
@@ -8425,7 +8437,6 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 <button
                   type="button"
                   onClick={() => {
-                    if (!assetsLoaded && !assetsLoading) setAssetsLoaded(false);
                     // Auto-apply category/IFC filters based on form selection
                     try {
                       if (f.revitCategory) setAssetCategoryFilter(f.revitCategory);
