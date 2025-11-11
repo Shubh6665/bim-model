@@ -2588,7 +2588,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           dimensions,
           material: asset.material,
           location: [levelForLocation, asset.room].filter(Boolean).join(' - ') || 'Unknown Location',
-          description: `${assetClassification} asset extracted from BIM model`,
+          description: `Asset extracted from BIM model`,
           condition: 'Good',
           source: 'BIM_MODEL',
           // IFC metadata for filtering
