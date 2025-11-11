@@ -2429,21 +2429,52 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
 
     try {
       console.log('🚀 [AssetList] Starting VIEWER LEAF NODE asset extraction (proven approach)...');
+      console.log('📋 [AssetList] Viewer info:', {
+        hasViewer: !!viewer,
+        hasModel: !!viewer?.model,
+        hasGetAllModels: typeof viewer?.getAllModels === 'function',
+        hasInstanceTree: typeof viewer?.model?.getInstanceTree === 'function'
+      });
 
       // Use proven viewer-based leaf node extraction
       const extractor = new ViewerLeafAssetExtractor(viewer);
       const viewerAssets = await extractor.extractAssets((progress) => {
         setExtractionProgress(progress.progress);
-        console.log(`📊 [${progress.stage}] ${progress.message}`);
+        console.log(`📊 [${progress.stage}] ${progress.message} (${progress.current}/${progress.total})`);
       });
 
       console.log(`✅ [AssetList] Extraction complete: ${viewerAssets.length} assets`);
       
+      // Log detailed extraction summary
+      console.log('📊 [AssetList] Extraction summary:', {
+        totalAssetsExtracted: viewerAssets.length,
+        hasCategoryData: viewerAssets.length > 0 && viewerAssets.some(a => a.category),
+        hasNameData: viewerAssets.length > 0 && viewerAssets.some(a => a.name),
+        hasTypeData: viewerAssets.length > 0 && viewerAssets.some(a => a.type),
+        categories: Array.from(new Set(viewerAssets.map(a => a.category))).slice(0, 10)
+      });
+      
       // Log sample of extracted names for debugging
       try {
-        const samples = viewerAssets.slice(0, 3).map(a => ({ dbId: a.dbId, name: a.name, type: a.type, category: a.category }));
-        console.log('[AssetList] Sample extracted assets (name field):', samples);
-      } catch {}
+        const samples = viewerAssets.slice(0, 5).map(a => ({ 
+          dbId: a.dbId, 
+          name: a.name, 
+          type: a.type, 
+          category: a.category,
+          family: a.family,
+          brand: a.brand,
+          model: a.model
+        }));
+        console.log('[AssetList] First 5 extracted assets:', samples);
+        
+        // Log any assets with missing critical data
+        const incomplete = viewerAssets.filter(a => !a.name || !a.category);
+        if (incomplete.length > 0) {
+          console.warn(`[AssetList] ⚠️ ${incomplete.length} assets missing name or category:`, incomplete.slice(0, 3));
+        }
+      } catch (e) {
+        console.error('[AssetList] Error logging sample assets:', e);
+      }
 
       console.log('🔄 [AssetList] Converting viewer assets to AssetRecord format...');
       const currentGuid = getCurrentModelGuid();

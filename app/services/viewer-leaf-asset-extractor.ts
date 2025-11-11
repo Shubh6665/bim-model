@@ -54,9 +54,16 @@ export class ViewerLeafAssetExtractor {
   private getActiveModels(): any[] {
     try {
       const arr = typeof (this.viewer as any).getAllModels === 'function' ? (this.viewer as any).getAllModels() : null;
-      if (arr && Array.isArray(arr) && arr.length) return arr;
-    } catch {}
-    return [this.viewer.model].filter(Boolean);
+      if (arr && Array.isArray(arr) && arr.length) {
+        console.log(`[ViewerLeafExtractor] Found ${arr.length} models via getAllModels()`);
+        return arr;
+      }
+    } catch (e) {
+      console.warn('[ViewerLeafExtractor] Error calling getAllModels():', e);
+    }
+    const fallback = [this.viewer.model].filter(Boolean);
+    console.log(`[ViewerLeafExtractor] Using fallback: ${fallback.length} model(s)`);
+    return fallback;
   }
 
   private async getLeafNodesForModel(model: any): Promise<number[]> {
@@ -72,12 +79,16 @@ export class ViewerLeafAssetExtractor {
             else comps.push(id);
           };
           walk(rootId);
+          console.log(`[ViewerLeafExtractor][tree] Found ${comps.length} leaf nodes using getInstanceTree`);
           resolve(comps);
           return;
         }
         if (typeof model.getObjectTree === 'function') {
           model.getObjectTree((t: any) => {
-            if (!t) return resolve([]);
+            if (!t) {
+              console.warn(`[ViewerLeafExtractor][objectTree] ObjectTree callback returned null`);
+              return resolve([]);
+            }
             const comps: number[] = [];
             const walk = (id: number) => {
               const cc = t.getChildCount(id);
@@ -86,13 +97,73 @@ export class ViewerLeafAssetExtractor {
             };
             const rootId = t.getRootId?.() ?? 1;
             walk(rootId);
+            console.log(`[ViewerLeafExtractor][objectTree] Found ${comps.length} leaf nodes using getObjectTree`);
             resolve(comps);
           });
           return;
         }
-      } catch {}
+        console.error('[ViewerLeafExtractor] No getInstanceTree or getObjectTree method available on model');
+      } catch (e) {
+        console.error('[ViewerLeafExtractor] Error getting leaf nodes:', e);
+      }
       resolve([]);
     });
+  }
+
+  // Fallback: enumerate ALL nodes (not only leaves)
+  private async getAllNodesForModel(model: any): Promise<number[]> {
+    return new Promise((resolve) => {
+      try {
+        const tree = typeof model.getInstanceTree === 'function' ? model.getInstanceTree() : null;
+        if (tree) {
+          const rootId = tree.getRootId?.() ?? 1;
+          const nodes: number[] = [];
+          const walk = (id: number) => {
+            nodes.push(id);
+            const cc = tree.getChildCount(id);
+            if (cc && cc > 0) tree.enumNodeChildren(id, (c: number) => walk(c), false);
+          };
+          walk(rootId);
+          console.log(`[ViewerLeafExtractor][tree-all] Found ${nodes.length} total nodes using getInstanceTree`);
+          resolve(nodes);
+          return;
+        }
+        if (typeof model.getObjectTree === 'function') {
+          model.getObjectTree((t: any) => {
+            if (!t) {
+              console.warn(`[ViewerLeafExtractor][objectTree-all] ObjectTree callback returned null`);
+              return resolve([]);
+            }
+            const nodes: number[] = [];
+            const walk = (id: number) => {
+              nodes.push(id);
+              const cc = t.getChildCount(id);
+              if (cc && cc > 0) t.enumNodeChildren(id, (c: number) => walk(c), false);
+            };
+            const rootId = t.getRootId?.() ?? 1;
+            walk(rootId);
+            console.log(`[ViewerLeafExtractor][objectTree-all] Found ${nodes.length} total nodes using getObjectTree`);
+            resolve(nodes);
+          });
+          return;
+        }
+        console.error('[ViewerLeafExtractor] No getInstanceTree or getObjectTree method available on model');
+      } catch (e) {
+        console.error('[ViewerLeafExtractor] Error getting all nodes:', e);
+      }
+      resolve([]);
+    });
+  }
+
+  private async getAllNodesAllModels(): Promise<Array<{ model: any; dbIds: number[] }>> {
+    const models = this.getActiveModels();
+    const out: Array<{ model: any; dbIds: number[] }> = [];
+    for (const m of models) {
+      // eslint-disable-next-line no-await-in-loop
+      const ids = await this.getAllNodesForModel(m);
+      out.push({ model: m, dbIds: ids });
+    }
+    return out;
   }
 
   private async getAllLeafNodesAllModels(): Promise<Array<{ model: any; dbIds: number[] }>> {
@@ -150,17 +221,32 @@ export class ViewerLeafAssetExtractor {
       'Description', 'Descrizione'
     ];
     const termsLower = assetCategories.map(t => t.toLowerCase());
+    
+    console.log(`[ViewerLeafExtractor][filter] Starting category filtering:`, {
+      totalLeafNodes: allLeafByModel.reduce((sum, e) => sum + e.dbIds.length, 0),
+      assetCategoriesToMatch: assetCategories.length,
+      attributesToCheck: attributes.length
+    });
+    
     const out: Array<{ model: any; dbIds: number[] }> = [];
     for (const entry of allLeafByModel) {
       const props = Array.from(new Set([
         ...attributes,
+        // IFC semantic keys
+        'Object Type','objecttype','ObjectType','type','Type','IfcGUID','IFC GUID','guid','globalid','GlobalId','Name','Nome',
         'Brand','Manufacturer','Marca','Produttore','Fabbricante','Costruttore','Model','Modello','Serial Number','Numero di Serie','Numero di serie','Matricola','Seriale'
       ]));
       // eslint-disable-next-line no-await-in-loop
       const res = await this.getBulkPropertiesForFilterPerModel(entry.model, entry.dbIds, props);
+      
+      console.log(`[ViewerLeafExtractor][filter] Retrieved ${res.length} properties for ${entry.dbIds.length} leaf nodes`);
+      
       const leafSet = new Set(entry.dbIds);
+      let rejectedCount = 0;
+      let rejectionReasons: Record<string, number> = {};
+      
       const matched = res
-        .filter(r => {
+        .filter((r, idx) => {
           const arr = (r.properties || []) as Array<{ displayName: string; displayValue: any }>;
           const map: Record<string, string> = {};
           for (const p of arr) {
@@ -173,19 +259,111 @@ export class ViewerLeafAssetExtractor {
           const family = (map['Family'] || map['Famiglia'] || '').toLowerCase();
           const type = (map['Type'] || map['Type Name'] || map['Nome del tipo'] || map['Nome Tipo'] || map['Tipo'] || '').toLowerCase();
           const desc = (map['Description'] || map['Descrizione'] || '').toLowerCase();
+          const objectType = (map['Object Type'] || map['objecttype'] || map['ObjectType'] || '').toLowerCase();
+          const rawType = (map['type'] || '').toLowerCase(); // IFC .ifc property sets sometimes lowercase this
+          const guid = (map['IfcGUID'] || map['IFC GUID'] || map['guid'] || map['globalid'] || '').toLowerCase();
           const hasManuModel = !!(map['Manufacturer'] || map['Brand'] || map['Marca'] || map['Produttore'] || map['Fabbricante'] || map['Costruttore'] || map['Model'] || map['Modello']);
           const hasSerial = !!(map['Serial Number'] || map['Numero di Serie'] || map['Numero di serie'] || map['Matricola'] || map['Seriale']);
           const termHit = termsLower.some(t => catVal.includes(t)) || termsLower.some(t => family.includes(t)) || termsLower.some(t => type.includes(t)) || termsLower.some(t => desc.includes(t));
           const ifcHit = /(ifclamp|ifcboiler|ifcspaceheater|ifcairterminal|ifcfan|ifcunitaryequipment|ifcdiscreteaccessory|ifcflowterminal)/i.test(classVal);
           const descHit = /(ventilconvettore|condizionatore|fancoil|lamp|boiler|caldaia|terminal|space heater|convector|lampada|illuminazione)/i.test(desc);
           const omniHit = !!(omniTitle || omniNum);
-          return termHit || ifcHit || descHit || omniHit || hasManuModel || hasSerial;
+          // NEW: IFC base type acceptance when category empty but IFC semantic type present
+          const ifcTypePattern = /^(ifcdoor|ifcwindow|ifcwall|ifcslab|ifcbuildingelementproxy|ifcflowterminal|ifcfurniture|ifcsanitaryterminal|ifclightfixture|ifcbeam|ifccolumn|ifcdistributionelement|ifcflowfitting|ifcflowsegment|ifcflowcontroller|ifcspace|ifcstair|ifcbuildingelement|ifchvac|ifcelectricalelement)/i;
+          const hasIfcSemanticType = ifcTypePattern.test(type) || ifcTypePattern.test(objectType) || ifcTypePattern.test(rawType);
+          // Accept if we have a GUID + IFC semantic type even if other fields missing
+          const guidIfcAcceptance = hasIfcSemanticType && !!guid;
+          // Accept if name appears like a composed Revit/IFC element name with ':' or pattern ending with digits
+          const nameProp = (map['Name'] || map['Nome'] || map['name'] || '') as string;
+          const structuralNamePattern = /[:].+|.+\[\d+\]$/; // contains colon or [digits]
+          const nameIndicatesRealElement = !!nameProp && structuralNamePattern.test(nameProp);
+          const passed = termHit || ifcHit || descHit || omniHit || hasManuModel || hasSerial || guidIfcAcceptance || nameIndicatesRealElement || hasIfcSemanticType;
+          
+          // Log first few rejections and acceptances
+          if (!passed) {
+            rejectedCount++;
+            let reason = 'noMatch';
+            if (catVal) reason = 'catMismatch';
+            else if (classVal) reason = 'ifcClassMismatch';
+            if (hasIfcSemanticType) reason = 'semanticTypeButRejected';
+            rejectionReasons[reason] = (rejectionReasons[reason] || 0) + 1;
+            if (rejectedCount <= 3) {
+              console.log(`[ViewerLeafExtractor][filter] ❌ Rejected dbId ${r.dbId}:`, {
+                category: catVal || '(empty)',
+                family: family || '(empty)',
+                type: type || '(empty)',
+                description: desc || '(empty)',
+                hasManuModel,
+                hasSerial,
+                objectType,
+                rawType,
+                guid,
+                reason
+              });
+            }
+          } else if (idx < 3) {
+            console.log(`[ViewerLeafExtractor][filter] ✅ Accepted dbId ${r.dbId}:`, {
+              category: catVal,
+              family: family,
+              type: type,
+              hasManuModel,
+              hasSerial,
+              objectType,
+              rawType,
+              guid,
+              hasIfcSemanticType,
+              nameIndicatesRealElement
+            });
+          }
+          
+          return passed;
         })
         .map(r => r.dbId)
         .filter(id => leafSet.has(id));
+      
+      console.log(`[ViewerLeafExtractor][filter] Model filtered: ${entry.dbIds.length} -> ${matched.length} assets`, {
+        rejectedCount,
+        rejectionReasons
+      });
+      
       out.push({ model: entry.model, dbIds: Array.from(new Set(matched)) });
     }
-    return out;
+    
+    const totalFiltered = out.reduce((sum, e) => sum + e.dbIds.length, 0);
+    console.log(`[ViewerLeafExtractor][filter] ✅ Total filtered to ${totalFiltered} assets across all models`);
+
+    if (totalFiltered > 0) return out;
+
+    // If still zero, run a broader fallback on ALL nodes not just leaves (maybe leaf detection mis-classified)
+    console.warn('[ViewerLeafExtractor][fallback] Zero assets after leaf filtering. Enumerating ALL nodes for semantic fallback...');
+    const allNodes = await this.getAllNodesAllModels();
+    const fallbackOut: Array<{ model: any; dbIds: number[] }> = [];
+    const ifcTypePattern = /^(ifcdoor|ifcwindow|ifcwall|ifcslab|ifcfurniture|ifcflowterminal|ifcsanitaryterminal|ifclightfixture|ifcbeam|ifccolumn|ifcspace|ifcstair|ifcbuildingelement|ifcdistributionelement|ifcflowfitting|ifcflowsegment|ifcflowcontroller)/i;
+    for (const entry of allNodes) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await this.getBulkPropertiesForFilterPerModel(entry.model, entry.dbIds, ['type','Type','Object Type','objecttype','ObjectType','Name','Nome','IfcGUID','IFC GUID','guid','globalid']);
+      const semanticIds: number[] = [];
+      for (const r of res) {
+        const arr = (r.properties || []) as Array<{ displayName: string; displayValue: any }>;
+        const map: Record<string,string> = {};
+        for (const p of arr) if (p.displayName && p.displayValue != null) map[p.displayName] = String(p.displayValue);
+        const typeVal = (map['type'] || map['Type'] || map['Object Type'] || map['objecttype'] || map['ObjectType'] || '').toLowerCase();
+        const nameVal = (map['Name'] || map['Nome'] || '');
+        const guidVal = (map['IfcGUID'] || map['IFC GUID'] || map['guid'] || map['globalid'] || '');
+        const looksLikeAsset = ifcTypePattern.test(typeVal) || /[:].+/.test(nameVal) || /\[\d+\]$/.test(nameVal);
+        if (looksLikeAsset || (guidVal && ifcTypePattern.test(typeVal))) semanticIds.push(r.dbId);
+      }
+      console.log(`[ViewerLeafExtractor][fallback-allNodes] Model semantic matches: ${semanticIds.length}/${entry.dbIds.length}`);
+      fallbackOut.push({ model: entry.model, dbIds: Array.from(new Set(semanticIds)) });
+    }
+    const fallbackTotal = fallbackOut.reduce((sum,e)=>sum+e.dbIds.length,0);
+    if (fallbackTotal) {
+      console.log(`[ViewerLeafExtractor][fallback-allNodes] ✅ Using all-node semantic fallback with ${fallbackTotal} assets.`);
+      return fallbackOut;
+    } else {
+      console.warn('[ViewerLeafExtractor][fallback-allNodes] ❌ Still zero assets after all-node semantic fallback.');
+    }
+    return out; // empty
   }
 
   private async getBulkPropertiesForAssetsPerModel(entries: Array<{ model: any; dbIds: number[] }>): Promise<ViewerAsset[]> {
@@ -236,6 +414,8 @@ export class ViewerLeafAssetExtractor {
     onProgress?: (progress: ExtractionProgress) => void
   ): Promise<ViewerAsset[]> {
     try {
+      console.log('🔍 [ViewerLeafExtractor] Starting extraction process...');
+      
       onProgress?.({
         stage: 'enumeration',
         progress: 10,
@@ -243,9 +423,32 @@ export class ViewerLeafAssetExtractor {
         total: 0,
         message: 'Enumerating leaf nodes (physical elements)...'
       });
+      
       const allLeafByModel = await this.getAllLeafNodesAllModels();
       const leafDbIds = allLeafByModel.reduce((acc: number[], e) => acc.concat(e.dbIds), [] as number[]);
-      console.log(`✅ Found ${leafDbIds.length} leaf nodes (physical elements)`);
+      
+      console.log(`✅ [ViewerLeafExtractor] Enumeration complete:`, {
+        totalLeafNodes: leafDbIds.length,
+        modelsProcessed: allLeafByModel.length,
+        breakdown: allLeafByModel.map((m, i) => ({ 
+          modelIndex: i, 
+          leafCount: m.dbIds.length,
+          hasModel: !!m.model
+        }))
+      });
+      
+      if (leafDbIds.length === 0) {
+        console.error('❌ [ViewerLeafExtractor] No leaf nodes found! Model may be empty or viewer is not properly initialized');
+        onProgress?.({
+          stage: 'complete',
+          progress: 100,
+          current: 0,
+          total: 0,
+          message: `No physical elements found in model`
+        });
+        return [];
+      }
+      
       onProgress?.({
         stage: 'filtering',
         progress: 40,
@@ -253,9 +456,28 @@ export class ViewerLeafAssetExtractor {
         total: leafDbIds.length,
         message: `Filtering ${leafDbIds.length} elements by asset categories...`
       });
+      
       const filteredByModel = await this.filterByAssetCategoriesMulti(allLeafByModel);
       const assetDbIds = filteredByModel.reduce((acc: number[], e) => acc.concat(e.dbIds), [] as number[]);
-      console.log(`✅ Filtered to ${assetDbIds.length} assets`);
+      
+      console.log(`✅ [ViewerLeafExtractor] Filtering complete:`, {
+        originalLeafNodes: leafDbIds.length,
+        assetNodesMatched: assetDbIds.length,
+        filterPassRate: `${((assetDbIds.length / leafDbIds.length) * 100).toFixed(1)}%`,
+        breakdown: filteredByModel.map((m, i) => ({ 
+          modelIndex: i, 
+          matched: m.dbIds.length 
+        }))
+      });
+      
+      if (assetDbIds.length === 0) {
+        console.warn('⚠️ [ViewerLeafExtractor] No assets matched filtering criteria! This may indicate:');
+        console.warn('  - IFC Building model with elements not matching Italian category names');
+        console.warn('  - Missing Category/Family/Type attributes in the model');
+        console.warn('  - Elements categorized differently than expected');
+        console.warn('  - Consider expanding filtering criteria or checking model properties');
+      }
+      
       onProgress?.({
         stage: 'properties',
         progress: 70,
@@ -263,7 +485,16 @@ export class ViewerLeafAssetExtractor {
         total: assetDbIds.length,
         message: `Fetching properties for ${assetDbIds.length} assets...`
       });
+      
       const assets = await this.getBulkPropertiesForAssetsPerModel(filteredByModel);
+      
+      console.log(`✅ [ViewerLeafExtractor] Properties fetch complete:`, {
+        totalAssetsProcessed: assets.length,
+        assetsWithNames: assets.filter(a => a.name).length,
+        assetsWithCategories: assets.filter(a => a.category).length,
+        assetsWithBrand: assets.filter(a => a.brand && a.brand !== 'Unknown').length
+      });
+      
       onProgress?.({
         stage: 'complete',
         progress: 100,
@@ -549,9 +780,9 @@ export class ViewerLeafAssetExtractor {
       return undefined;
     };
 
-    const category = pick('Category','Categoria') || 'Unknown';
+  let category = pick('Category','Categoria') || 'Unknown';
     const family = pick('Family','Family Name','Famiglia');
-    const type = pick('Type','Type Name','Tipo','Nome del tipo','Nome Tipo','Tipologia');
+  let type = pick('Type','Type Name','Tipo','Nome del tipo','Nome Tipo','Tipologia');
     // Level: try multiple Italian variants that contain full level names like "0 - Piano Terra"
     // Prioritize constraint/abaco fields which have full names, then fall back to generic level fields
     const level = pick(
@@ -593,6 +824,31 @@ export class ViewerLeafAssetExtractor {
       'PredefinedType', 
       'Tipo predefinito IFC'
     ) || 'Unknown';
+
+    // IFC semantic mapping fallback
+    const rawIfcType = (pick('type') || '').toString().toUpperCase();
+    const semantic = (rawIfcType || (ifcExportType || '').toString().toUpperCase() || (type || '').toString().toUpperCase());
+    const semanticMap: Record<string,string> = {
+      'IFCDOOR':'Door',
+      'IFCWINDOW':'Window',
+      'IFCWALL':'Wall',
+      'IFCSLAB':'Slab',
+      'IFCBEAM':'Beam',
+      'IFCCOLUMN':'Column',
+      'IFCSTAIR':'Stair',
+      'IFCSPACE':'Space',
+      'IFCFLOWTERMINAL':'Mechanical Terminal',
+      'IFCFURNITURE':'Furniture',
+      'IFCSANITARYTERMINAL':'Sanitary Terminal',
+      'IFCLIGHTFIXTURE':'Light Fixture',
+      'IFCBUILDINGELEMENTPROXY':'Building Element',
+      'IFCDISTRIBUTIONELEMENT':'Distribution Element'
+    };
+    if (category === 'Unknown') {
+      const mapped = semanticMap[semantic];
+      if (mapped) category = mapped;
+    }
+    if (!type && /^IFC/.test(semantic)) type = semantic;
     
     // Try to get instance name from properties (not family/type name)
     // Common instance name properties: 'Name', 'Nome', 'Mark', 'Contrassegno', 'Label', 'Etichetta'
