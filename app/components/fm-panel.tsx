@@ -7416,6 +7416,36 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
   const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
+  // Initialize form with draft (unsaved) values first, fallback to previously submitted values
+  useEffect(() => {
+    const draftKey = `fm-scheduled-maintenance-draft-${projectId || 'global'}`;
+    const previousKey = `fm-scheduled-maintenance-previous-${projectId || 'global'}`;
+    const savedDraft = load(draftKey, { discipline: '', revitCategory: '', ifcClass: '' });
+    const savedPrevious = load(previousKey, { discipline: '', revitCategory: '', ifcClass: '' });
+    // Prefer draft if any of the fields are non-empty, else use previous
+    const source = (savedDraft.discipline || savedDraft.revitCategory || savedDraft.ifcClass) ? savedDraft : savedPrevious;
+    setPreviousFormValues(savedPrevious); // keep previous stored separately
+    setF(prev => ({
+      ...prev,
+      discipline: source.discipline,
+      revitCategory: source.revitCategory,
+      ifcClass: source.ifcClass
+    }));
+  }, [projectId]);
+
+  // Autosave draft of inheritance fields on change (without needing submission)
+  useEffect(() => {
+    const draftKey = `fm-scheduled-maintenance-draft-${projectId || 'global'}`;
+    // Debounce save to avoid excessive writes
+    const handle = setTimeout(() => {
+      try {
+        const draft = { discipline: f.discipline, revitCategory: f.revitCategory, ifcClass: f.ifcClass };
+        save(draftKey, draft);
+      } catch {}
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [f.discipline, f.revitCategory, f.ifcClass, projectId]);
+
   // Load scheduled maintenance from API
   useEffect(() => {
     if (!projectId) {
@@ -8209,12 +8239,14 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       setLoading(false);
     }
 
-    // Store current values for inheritance
-    setPreviousFormValues({
+    // Store current values for inheritance (both in state and localStorage)
+    const previousValues = {
       discipline: f.discipline,
       revitCategory: f.revitCategory,
       ifcClass: f.ifcClass
-    });
+    };
+    setPreviousFormValues(previousValues);
+    save(`fm-scheduled-maintenance-previous-${projectId || 'global'}`, previousValues);
 
     // Reset form but inherit Discipline, Revit Category, and IFC Class
     setF({ 
@@ -8448,20 +8480,19 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
             });
             
             const next = picked.map(asset => {
-              // Build name from available fields: prefer type (Revit name), then assetCode, then assetName, then fallback
-              // type = Revit Family/Type name like "ACE-RIS-INT-UnitàInternaCondizionatore_850x300mm-01"
-              // assetName = often auto-generated like "Element 3312", so we de-prioritize it
-              const displayName = asset.type?.trim() 
-                ? asset.type 
-                : asset.assetCode?.trim() 
+              // Display Asset Code in the Assets section (as per client requirement)
+              // Priority: assetCode > type > assetName > category
+              const displayName = asset.assetCode?.trim() 
                 ? asset.assetCode 
+                : asset.type?.trim() 
+                ? asset.type 
                 : asset.assetName?.trim()
                 ? asset.assetName
                 : asset.category || `Asset ${asset.id}`;
               
-              console.log(`[ScheduledMaintenance] Mapping asset to displayName: "${displayName}"`, {
-                type: asset.type,
+              console.log(`[ScheduledMaintenance] Mapping asset to displayName (Asset Code): "${displayName}"`, {
                 assetCode: asset.assetCode,
+                type: asset.type,
                 assetName: asset.assetName,
                 category: asset.category
               });
