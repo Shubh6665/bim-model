@@ -7766,6 +7766,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
     const [ifcFilter, setIfcFilter] = useState(initialIfcClass || '');
     const [sortBy, setSortBy] = useState<'name' | 'category' | 'location'>('name');
     const [selected, setSelected] = useState<Set<string>>(new Set());
+    const tableRef = useRef<HTMLTableElement | null>(null);
 
     // Update filters when initial values change (when modal is opened with different form selections)
     useEffect(() => {
@@ -7775,15 +7776,23 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
     // Column widths state for resizable columns
     const [columnWidths, setColumnWidths] = useState({
-      checkbox: 50,
-      source: 90,
-      category: 150,
-      assetCode: 140,
-      assetName: 180,
-      type: 150,
-      brand: 120,
-      model: 120
+      checkbox: 56,
+      source: 100,
+      category: 160,
+      assetCode: 150,
+      assetName: 200,
+      type: 160,
+      brand: 130,
+      model: 130
     });
+
+    // Column order utilities to support left-edge resizing of previous column
+    const COL_KEYS: Array<keyof typeof columnWidths> = ['checkbox','source','category','assetCode','assetName','type','brand','model'];
+    const prevKey = (key: keyof typeof columnWidths): keyof typeof columnWidths | null => {
+      const idx = COL_KEYS.indexOf(key);
+      if (idx > 0) return COL_KEYS[idx - 1];
+      return null;
+    };
 
     // Persist widths so user sizing sticks while using the app
     const COL_WIDTHS_STORAGE_KEY = React.useMemo(() => `fm-sched-assetlist-colwidths-${projectId || 'global'}`, [projectId]);
@@ -7803,7 +7812,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       try { localStorage.setItem(COL_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths)); } catch {}
     }, [COL_WIDTHS_STORAGE_KEY, columnWidths]);
 
-    // Reusable column resize starter for headers
+    // Reusable column resize starter for headers (Windows-like)
     const startColumnResize = (key: keyof typeof columnWidths, minWidth = 60) => (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -7828,6 +7837,55 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       try {
         document.body.style.cursor = 'col-resize';
         document.body.classList.add('select-none');
+      } catch {}
+    };
+
+    // Auto-fit a column width based on header + sample cell content (Windows-like double-click)
+    const autoFitColumn = (key: keyof typeof columnWidths) => {
+      try {
+        const ctxCanvas = document.createElement('canvas');
+        const ctx = ctxCanvas.getContext('2d');
+        if (!ctx) return;
+        // Approximate font used in table
+        const computedFont = getComputedStyle(document.body).font || '12px Inter, ui-sans-serif, system-ui';
+        ctx.font = computedFont;
+
+        const headerTextMap: Record<keyof typeof columnWidths, string> = {
+          checkbox: '',
+          source: 'Source',
+          category: 'Category',
+          assetCode: 'Asset Code',
+          assetName: 'Asset Name',
+          type: 'Type',
+          brand: 'Brand',
+          model: 'Model'
+        };
+        const getCellText = (a: AssetRecord, k: keyof typeof columnWidths): string => {
+          switch (k) {
+            case 'source': return a.source === 'BIM_MODEL' ? 'BIM' : 'Manual';
+            case 'category': return stripRevitPrefix(a.category) || '-';
+            case 'assetCode': return a.assetCode || '-';
+            case 'assetName': return a.assetName || '-';
+            case 'type': return a.type || '-';
+            case 'brand': return a.brand || '-';
+            case 'model': return a.model || '-';
+            default: return '';
+          }
+        };
+
+        const sample = filtered.slice(0, 150); // sample up to 150 rows for performance
+        let maxPx = ctx.measureText(headerTextMap[key] || '').width;
+        for (const a of sample) {
+          const w = ctx.measureText(getCellText(a, key)).width;
+          if (w > maxPx) maxPx = w;
+        }
+        // Add padding and safety margins: cell padding left/right + truncation buffer
+        const paddingPx = 24; // ~12px left + 12px right
+        const minMap: Partial<Record<keyof typeof columnWidths, number>> = { checkbox: 44, source: 80, category: 120, assetCode: 120, assetName: 140, type: 120, brand: 100, model: 100 };
+        const maxMap: Partial<Record<keyof typeof columnWidths, number>> = { checkbox: 72, source: 220, category: 420, assetCode: 360, assetName: 480, type: 360, brand: 320, model: 320 };
+        const nextWidth = Math.round(maxPx + paddingPx);
+        const clamped = Math.max(minMap[key] ?? 60, Math.min(maxMap[key] ?? 600, nextWidth));
+        setColumnWidths(prev => ({ ...prev, [key]: clamped }));
       } catch {}
     };
 
@@ -8050,63 +8108,143 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 <div className="text-gray-400 text-sm">Loading assets...</div>
               </div>
             ) : (
-              <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+              <table ref={tableRef} className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: `${columnWidths.checkbox}px` }} />
+                  <col style={{ width: `${columnWidths.source}px` }} />
+                  <col style={{ width: `${columnWidths.category}px` }} />
+                  <col style={{ width: `${columnWidths.assetCode}px` }} />
+                  <col style={{ width: `${columnWidths.assetName}px` }} />
+                  <col style={{ width: `${columnWidths.type}px` }} />
+                  <col style={{ width: `${columnWidths.brand}px` }} />
+                  <col style={{ width: `${columnWidths.model}px` }} />
+                </colgroup>
                 <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
                   <tr>
-                    <th className="py-1.5 relative group" style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input type="checkbox" onChange={e => {
-                        const allIds = filtered.map(a => a.id);
-                        setSelected(prev => {
-                          const next = new Set<string>();
-                          if (e.target.checked) allIds.forEach(id => next.add(id));
-                          return next;
-                        });
-                      }} />
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('checkbox', 40)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="py-1.5 relative group" style={{ paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div className="w-full h-full flex items-center justify-center bg-transparent">
+                        <input type="checkbox" onChange={e => {
+                          const allIds = filtered.map(a => a.id);
+                          setSelected(prev => {
+                            const next = new Set<string>();
+                            if (e.target.checked) allIds.forEach(id => next.add(id));
+                            return next;
+                          });
+                        }} />
                       </div>
+                      {/* Right edge handle for current column */}
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('checkbox', 40)}
+                        onDoubleClick={() => autoFitColumn('checkbox')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Source
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('source', 60)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Source
                       </div>
+                      {/* Left edge handle resizes previous column */}
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('source'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('source'); if (k) autoFitColumn(k); }}
+                      />
+                      {/* Right edge handle for current column */}
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('source', 60)}
+                        onDoubleClick={() => autoFitColumn('source')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Category
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('category', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Category
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('category'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('category'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('category', 80)}
+                        onDoubleClick={() => autoFitColumn('category')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Asset Code
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('assetCode', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Asset Code
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('assetCode'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('assetCode'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('assetCode', 80)}
+                        onDoubleClick={() => autoFitColumn('assetCode')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Asset Name
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('assetName', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Asset Name
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('assetName'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('assetName'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('assetName', 80)}
+                        onDoubleClick={() => autoFitColumn('assetName')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Type
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('type', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Type
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('type'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('type'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('type', 80)}
+                        onDoubleClick={() => autoFitColumn('type')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Brand
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('brand', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Brand
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('brand'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('brand'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('brand', 80)}
+                        onDoubleClick={() => autoFitColumn('brand')}
+                      />
                     </th>
-                    <th className="text-left py-1.5 relative group" style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }}>
-                      Model
-                      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize" onMouseDown={startColumnResize('model', 80)}>
-                        <div className="h-full w-1 bg-transparent group-hover:bg-cyan-400/60" />
+                    <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                        Model
                       </div>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={(e) => { const k = prevKey('model'); if (k) startColumnResize(k, 60)(e as any); }}
+                        onDoubleClick={() => { const k = prevKey('model'); if (k) autoFitColumn(k); }}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-10"
+                        onMouseDown={startColumnResize('model', 80)}
+                        onDoubleClick={() => autoFitColumn('model')}
+                      />
                     </th>
                   </tr>
                 </thead>
@@ -8117,20 +8255,20 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                     </tr>
                   ) : filtered.map(a => (
                     <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/60">
-                      <td style={{ width: `${columnWidths.checkbox}px`, paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }} className="py-1.5">
+                      <td style={{ paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }} className="py-1.5">
                         <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
                       </td>
-                      <td style={{ width: `${columnWidths.source}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5">
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded ${a.source === 'BIM_MODEL' ? 'bg-green-900/40 text-green-300' : 'bg-blue-900/40 text-blue-300'}`}>
                           {a.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                         </span>
                       </td>
-                      <td style={{ width: `${columnWidths.category}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={stripRevitPrefix(a.category) || '-'}>{stripRevitPrefix(a.category) || '-'}</td>
-                      <td style={{ width: `${columnWidths.assetCode}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
-                      <td style={{ width: `${columnWidths.assetName}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
-                      <td style={{ width: `${columnWidths.type}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.type || '-'}>{a.type || '-'}</td>
-                      <td style={{ width: `${columnWidths.brand}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.brand || '-'}>{a.brand || '-'}</td>
-                      <td style={{ width: `${columnWidths.model}px`, paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.model || '-'}>{a.model || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={stripRevitPrefix(a.category) || '-'}>{stripRevitPrefix(a.category) || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.type || '-'}>{a.type || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.brand || '-'}>{a.brand || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.model || '-'}>{a.model || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
