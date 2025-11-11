@@ -4509,8 +4509,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         id: `asset-${Date.now()}`,
         dbId: null,
         source: 'MANUAL',
-        // Set default condition if not provided
-        condition: f.condition || 'Good'
+        // Condition must be explicitly selected - no default fallback
+        condition: f.condition || undefined
       };
 
       console.log('🔍 [CreateAsset] Form data being saved:', f);
@@ -4871,7 +4871,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
               </select>
             </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code <span className="text-yellow-400">(always empty)</span></label><input disabled placeholder="Leave empty - do not edit" value="" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs opacity-50 cursor-not-allowed" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled placeholder="Leave empty" value="" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs opacity-50 cursor-not-allowed" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
