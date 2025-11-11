@@ -8122,8 +8122,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
                   <tr>
                     <th className="py-1.5 relative group" style={{ paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div className="w-full h-full flex items-center justify-center bg-transparent">
-                        <input type="checkbox" onChange={e => {
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60">
+                        <input className="h-4 w-4" type="checkbox" onChange={e => {
                           const allIds = filtered.map(a => a.id);
                           setSelected(prev => {
                             const next = new Set<string>();
