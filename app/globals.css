@@ -76,20 +76,33 @@ select:focus {
   border-color: inherit;
 }
 
-/* Fix dropdown option visibility - ensure text is dark and readable */
-select option {
-  color: #171717; /* Dark text for visibility on white background */
-  background-color: #ffffff; /* White background for options dropdown */
+/* Dark theme defaults for selects */
+select {
+  background-color: #111827; /* gray-900 */
+  color: #e5e7eb; /* gray-200 */
+  border-color: #374151; /* gray-700 */
+  -webkit-text-fill-color: #e5e7eb; /* enforce in WebKit */
+  color-scheme: dark; /* hint UA to render popups in dark */
+  -webkit-appearance: none; /* reduce UA overrides */
+  -moz-appearance: none;
+  appearance: none;
 }
 
-/* Alternative styling for option hover state (supported in some browsers) */
+/* Ensure dropdown options use dark theme */
+select option,
+select optgroup {
+  color: #e5e7eb; /* white/gray text */
+  background-color: #111827; /* black/dark background */
+}
+
+/* Hover/active styling where supported */
 select option:hover {
-  background-color: #e5e7eb; /* Light gray hover state */
+  background-color: #1f2937; /* gray-800 */
 }
 
-/* WebKit specific fix for selected option in dropdown */
+/* Selected option styling */
 select option:checked {
   color: #ffffff;
-  background: linear-gradient(#3b82f6, #3b82f6); /* Blue background for selected */
+  background: #1f2937; /* gray-800 */
 }
 
