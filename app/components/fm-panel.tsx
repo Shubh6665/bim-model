@@ -1999,7 +1999,23 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         setBulkEditMode(true);
         setBulkEditIds(dominantIds);
         setBulkCategoryLabel(dominantCategory || '');
-        setEdit({}); // Empty form for bulk edit - user fills in what they want to apply to all
+        // Prefill bulk edit form with aggregated values
+        const bulkAssets = rows.filter(r => dominantIds.includes(r.id));
+        const uniq = (key: keyof AssetRecord) => Array.from(new Set(bulkAssets.map(a => (a as any)[key]).filter(v => v != null && v !== '')));
+        const allSame = (key: keyof AssetRecord): string => {
+          const u = uniq(key);
+          return u.length === 1 ? String(u[0]) : '';
+        };
+        const joined = (key: keyof AssetRecord): string => bulkAssets.map(a => (a as any)[key]).filter((v: any) => v != null && v !== '').map(String).join(';');
+        const init: Partial<AssetRecord> = {
+          category: stripRevitPrefix(dominantCategory) || dominantCategory || '',
+          type: allSame('type') || '',
+          ifcClass: allSame('ifcClass') || '',
+          assetName: joined('assetName') || '',
+          elementId: joined('elementId') || '',
+          ifcGuid: joined('ifcGuid') || ''
+        };
+        setEdit(init);
         setEditModal({ open: true, id: `bulk-${dominantIds[0]}` }); // Special ID to indicate bulk mode
       } else if (dominantIds.length === 1) {
         // Only one asset in the dominant category - use sequential edit
@@ -4257,8 +4273,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     
                     console.log('� [Bulk Edit Override] Filled fields to apply:', filledFields);
                     
-                    // Don't allow bulk edit of assetCode and assetName (these should be per-asset)
-                    const forbiddenFields = ['assetCode', 'assetName', 'id', 'dbId', 'source'];
+                    // Don't allow bulk edit of identifiers and per-asset fields
+                    const forbiddenFields = ['assetCode', 'assetName', 'id', 'dbId', 'source', 'elementId', 'ifcGuid'];
                     forbiddenFields.forEach(f => delete (filledFields as any)[f]);
                     
                     console.log('📋 [Bulk Edit Override] Final fields to apply (forbidden removed):', filledFields);
@@ -4527,8 +4543,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   useEffect(() => {
     if (mode === 'edit') {
       if (bulkEditMode) {
-        // Bulk edit must start with a clean form so no stale values are applied
-        setF({ ...EMPTY_FORM });
+        // Bulk edit should start from aggregated initial values passed by parent
+        setF({ ...EMPTY_FORM, ...(initial as Partial<AssetRecord> || {}) });
       } else if (initial) {
         // Single edit should reflect the asset being edited (hard reset rather than merge)
         setF({ ...EMPTY_FORM, ...(initial as Partial<AssetRecord>) });
@@ -4958,10 +4974,10 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400">(disabled)</span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled placeholder="Leave empty" value="" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs opacity-50 cursor-not-allowed" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
