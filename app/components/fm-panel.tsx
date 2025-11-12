@@ -1796,7 +1796,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     compliance: false,
     relationships: false
   });
-  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '', selectedOnly: false, selectedKeys: [] as string[] });
+  const [filter, setFilter] = useState({ category: '', type: '', location: '', condition: '', classification: '', ifcClass: '', search: '', selectedOnly: false, selectedKeys: [] as string[] });
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -3069,6 +3069,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Apply filters with smart category matching against master CATEGORY_MAPPING labels
   const filteredRows = rows.filter(r => {
     if (r.hidden) return false;
+    // Free-text search across multiple fields
+    const q = (filter.search || '').trim().toLowerCase();
+    if (q) {
+      const sourceText = r.source === 'BIM_MODEL' ? 'bim' : 'manual';
+      const cat = (stripRevitPrefix(r.category) || '').toString().toLowerCase();
+      const name = (r.assetName || '').toString().toLowerCase();
+      const code = (r.assetCode || '').toString().toLowerCase();
+      const brand = (r.brand || '').toString().toLowerCase();
+      const model = (r.model || '').toString().toLowerCase();
+      const cond = (r.condition || '').toString().toLowerCase();
+      const type = (r.type || '').toString().toLowerCase();
+      const ifcArr = (((r as any).ifcCandidates as string[] | undefined) || [ (r as any).ifcClass, (r as any).ifcType, (r as any).ifcPredefined ].filter(Boolean)) as string[];
+      const ifcText = ifcArr.map(x => String(x || '')).join(' ').toLowerCase();
+      const hay = `${cat} ${name} ${code} ${brand} ${model} ${cond} ${type} ${ifcText} ${sourceText}`;
+      if (!hay.includes(q)) return false;
+    }
     if (filter.category) {
       if (masterCategoryTokens.has(filter.category)) {
         const tokens = (masterCategoryTokens.get(filter.category) || []).map(t => String(t).toLowerCase());
@@ -3189,7 +3205,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   const sortIndicator = (key: string) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
 
   // Reset page when filters or page size change
-  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, filter.selectedOnly, filter.selectedKeys, pageSize]);
+  useEffect(() => { setPage(1); }, [filter.category, filter.type, filter.location, filter.condition, filter.classification, filter.ifcClass, filter.search, filter.selectedOnly, filter.selectedKeys, pageSize]);
 
   // Persist page number per project so minimize/maximize (or remount) keeps the same page
   useEffect(() => {
@@ -3961,12 +3977,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               </button>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 w-full">
-              <button
-                onClick={applyFilterToViewer}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded"
-              >
-                Apply to Model
-              </button>
+              <input
+                placeholder="Search by category, name, code, brand, model, condition, IFC class, type, source"
+                value={filter.search}
+                onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+              />
               <button
                 onClick={exportCSV}
                 className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
