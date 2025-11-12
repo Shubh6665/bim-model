@@ -7504,6 +7504,21 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
   const [errors, setErrors] = useState({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
+  const inferDiscipline = React.useCallback((rec?: AssetRecord): string => {
+    const c = `${rec?.category || ''} ${rec?.type || ''}`.toLowerCase();
+    const i = `${rec?.ifcClass || rec?.ifcType || rec?.ifcPredefined || ''}`.toLowerCase();
+    const has = (s: string) => c.includes(s) || i.includes(s);
+    if (has('fire') || has('antincend') || has('ifcfiresuppression') || has('ifcalarm')) return 'Fire Protection';
+    if (has('duct') || has('hvac') || has('air') || has('mechanical') || has('spaceheater') || has('ifcduct') || has('ifcairterminal')) return 'Mechanical System';
+    if (has('pipe') || has('plumb') || has('idr') || has('sanit') || has('valve') || has('ifcpipe') || has('ifcvalve') || has('flow terminal')) return 'Plumbing System';
+    if (has('electric') || has('light') || has('cable') || has('switch') || has('distribution control') || has('ifcelectrical') || has('ifclightfixture') || has('ifcswitching')) return 'Electrical System';
+    if (has('elevator') || has('lift') || has('ascensor') || has('ifctransport')) return 'Elevator System';
+    if (has('beam') || has('column') || has('slab') || has('reinf') || has('truss') || has('structur') || has('footing') || has('frame') || has('ifcbeam') || has('ifccolumn') || has('ifcslab') || has('ifcreinforc') || has('ifcfooting') || has('ifcmember')) return 'Structure';
+    if (has('door') || has('window') || has('wall') || has('roof') || has('furniture') || has('ceiling') || has('stair') || has('railing') || has('floor') || has('room') || has('space')) return 'Architecture';
+    if (has('audiovis') || has('communication') || has('dati') || has('data')) return 'IT/Technology';
+    return 'Other';
+  }, []);
+
   // Initialize form with draft (unsaved) values first, fallback to previously submitted values
   useEffect(() => {
     const draftKey = `fm-scheduled-maintenance-draft-${projectId || 'global'}`;
@@ -7660,39 +7675,54 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
   // Handle pre-selected assets from Asset List
   useEffect(() => {
     if (preSelectedAssets && preSelectedAssets.length > 0) {
-      // Convert pre-selected assets to the format expected by selectedAssets
       const formattedAssets = preSelectedAssets.map(asset => ({
-        label: asset.assetName || asset.assetCode || asset.id,
-        type: asset.category,
+        label: asset.assetCode?.trim() ? asset.assetCode : asset.type?.trim() ? asset.type : asset.assetName?.trim() ? asset.assetName : asset.category || asset.id,
+        type: asset.type || asset.category,
         id: asset.id,
         assetRecord: asset
       }));
-      
+
       setSelectedAssets(formattedAssets);
-      
-      // Set the category if all assets have the same category
-      const categories = preSelectedAssets.map(a => a.category).filter(Boolean);
+      if (formattedAssets[0]?.type) setAllowedAssetType(formattedAssets[0].type || null);
+
+      const categories = preSelectedAssets.map(a => a.category).filter(Boolean) as string[];
       if (categories.length > 0) {
         const firstCategory = categories[0];
         const allSame = categories.every(c => c === firstCategory);
         if (allSame && firstCategory) {
-          // Try to find matching master label
           for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
             const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
             const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
             if (tokens.some(t => String(firstCategory).toLowerCase().includes(String(t).toLowerCase()))) {
               setF(prev => ({ ...prev, revitCategory: label }));
-              setAllowedAssetType(label);
               break;
             }
           }
         }
       }
-      
-      // Clear pre-selected assets after processing
-      if (onClearPreSelected) {
-        onClearPreSelected();
+
+      const ifcCandidates = preSelectedAssets.map(a => (a.ifcClass || a.ifcType || a.ifcPredefined || (() => {
+        const cat = a.category || '';
+        for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+          const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
+          if (tokens.some(t => String(cat).toLowerCase().includes(String(t).toLowerCase()))) return mapping.ifc;
+        }
+        return '';
+      })())).filter(Boolean) as string[];
+      if (ifcCandidates.length > 0) {
+        const firstIfc = ifcCandidates[0];
+        const allSameIfc = ifcCandidates.every(ic => String(ic).toLowerCase() === String(firstIfc).toLowerCase());
+        if (allSameIfc) setF(prev => ({ ...prev, ifcClass: firstIfc }));
       }
+
+      const inferredDisciplines = preSelectedAssets.map(a => inferDiscipline(a)).filter(Boolean) as string[];
+      if (inferredDisciplines.length > 0) {
+        const d0 = inferredDisciplines[0];
+        const allSameD = inferredDisciplines.every(d => d === d0);
+        if (allSameD) setF(prev => ({ ...prev, discipline: d0 }));
+      }
+
+      if (onClearPreSelected) onClearPreSelected();
     }
   }, [preSelectedAssets, onClearPreSelected]);
 
@@ -8529,8 +8559,8 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
             className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
           >
             <option value="">Select Revit Category</option>
-            {REVIT_CATEGORIES.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+            {categoryOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
           {errors.category && <div className="text-[10px] text-red-400 mt-1">{errors.category}</div>}
@@ -8570,21 +8600,43 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
           <div className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}>
             <div className="flex gap-2 overflow-x-auto py-1">
               {selectedAssets.length === 0 && <div className="text-gray-400">No assets selected</div>}
-              {selectedAssets.map((a, idx) => (
-                <div key={(a.id || a.label) + '-' + idx} className="flex items-center bg-gray-900/60 px-3 py-1 rounded whitespace-nowrap mr-2">
-                  <span className="text-sm text-gray-200 mr-2 max-w-xs overflow-hidden text-ellipsis">{a.label}</span>
-                  <button onClick={() => {
-                    setSelectedAssets(prev => prev.filter(x => x.label !== a.label));
-                    // If removing last, clear allowed type
-                    setTimeout(() => {
-                      setSelectedAssets(curr => {
-                        if (curr.length === 0) setAllowedAssetType(null);
-                        return curr;
-                      });
-                    }, 0);
-                  }} className="text-red-400 hover:text-red-300 text-sm">×</button>
-                </div>
-              ))}
+              {selectedAssets.map((a, idx) => {
+                const rec = a.assetRecord as any as AssetRecord | undefined;
+                const revit = (() => {
+                  const raw = rec?.category || '';
+                  for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                    const tokens = [it, m.english, m.ifc].filter(Boolean) as string[];
+                    if (tokens.some(t => raw.toLowerCase().includes(String(t).toLowerCase()))) return `${it} / ${m.english} (${m.ifc})`;
+                  }
+                  return raw;
+                })();
+                const ifc = rec?.ifcClass || rec?.ifcType || rec?.ifcPredefined || (() => {
+                  const raw = rec?.category || '';
+                  for (const [it, m] of Object.entries(CATEGORY_MAPPING)) {
+                    const tokens = [it, m.english, m.ifc].filter(Boolean) as string[];
+                    if (tokens.some(t => raw.toLowerCase().includes(String(t).toLowerCase()))) return m.ifc;
+                  }
+                  return '';
+                })();
+                const disc = inferDiscipline(rec);
+                return (
+                  <div key={(a.id || a.label) + '-' + idx} className="flex items-center bg-gray-900/60 px-3 py-1 rounded whitespace-nowrap mr-2">
+                    <div className="flex flex-col mr-2">
+                      <span className="text-sm text-gray-200 max-w-xs overflow-hidden text-ellipsis">{a.label}</span>
+                     
+                    </div>
+                    <button onClick={() => {
+                      setSelectedAssets(prev => prev.filter(x => x.label !== a.label));
+                      setTimeout(() => {
+                        setSelectedAssets(curr => {
+                          if (curr.length === 0) setAllowedAssetType(null);
+                          return curr;
+                        });
+                      }, 0);
+                    }} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-2 flex gap-2">
               {projectId && (
