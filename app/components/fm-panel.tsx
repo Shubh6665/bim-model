@@ -3877,7 +3877,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               className="text-[11px] px-2 py-0.5 rounded bg-grey-900/40 border border-gray-700 text-gray-300 hover:bg-grey-900/60 transition"
               title="Clear cache and reload fresh data"
             >
-              Clear Cache
+              Clear List
             </button>
           </div>
         </div>
