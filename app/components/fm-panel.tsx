@@ -3128,18 +3128,40 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     if (filter.condition && !r.condition?.toLowerCase().includes(filter.condition.toLowerCase())) return false;
     // IFC class filter for table view
     if (filter.ifcClass) {
-      const sel = filter.ifcClass.toLowerCase();
-      const candidatesArr = (
-        ((r as any).ifcCandidates as string[] | undefined) ||
-        [
-          (r as any).ifcClass,
-          (r as any).ifcType,
-          (r as any).ifcPredefined
-        ].filter(Boolean)
-      ) as string[];
+      const sel = (filter.ifcClass || '').toString().trim().toLowerCase();
+      const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase();
+      const selNorm = norm(sel);
+      // Synonyms: map certain IFC classes to their common predefined type tokens
+      const synonymMap: Record<string, string[]> = {
+        'ifccovering': ['ceiling', 'flooring', 'cladding', 'roofing', 'sleeving', 'wrapping']
+      };
+      const synonyms = new Set<string>([sel, ...(synonymMap[sel] || [])]);
+      // Start from ifcCandidates (ignoring empty/Unknown), then ALWAYS add fallbacks
+      const rawCands = ((((r as any).ifcCandidates as any[] | undefined) || []).map(x => String(x)) ) as string[];
+      const base = rawCands.filter(c => {
+        const s = String(c || '').trim();
+        return s && s.toLowerCase() !== 'unknown';
+      });
+      const extras = [
+        String((r as any).ifcClass || ''),
+        String((r as any).ifcType || ''),
+        String((r as any).ifcPredefined || ''),
+        // Also consider asset type text as projects sometimes embed IFC token here
+        String(r.type || ''),
+        // Fallbacks: IFC often appears embedded in category label
+        String(r.category || ''),
+        String(stripRevitPrefix(r.category) || '')
+      ].filter(Boolean) as string[];
+      const candidatesArr = Array.from(new Set([...(base as string[]), ...extras]));
       const anyHit = candidatesArr.some(c => {
         const cand = String(c || '').toLowerCase();
-        return cand === sel || cand.includes(sel) || sel.includes(cand);
+        const candNorm = norm(cand);
+        // Check against selection and known synonyms
+        for (const s of synonyms) {
+          const sNorm = norm(s);
+          if (cand === s || cand.includes(s) || s.includes(cand) || candNorm === sNorm || candNorm.includes(sNorm) || sNorm.includes(candNorm)) return true;
+        }
+        return false;
       });
       if (!anyHit) return false;
     }
