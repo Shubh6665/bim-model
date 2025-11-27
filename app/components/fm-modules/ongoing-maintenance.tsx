@@ -1,41 +1,808 @@
 "use client";
 
-import React, { useState } from "react";
-import { load, save, K } from "../fm-panel-utils";
-import type { WorkOrderItem } from "../fm-panel-types";
+import React, { useState, useEffect } from "react";
+import { useUserRole } from "@/app/hooks/useUserRole";
+import { ActivityTimeline } from "./activity-timeline";
+import { EnhancedMaintenanceReport } from "./enhanced-maintenance-report";
+import type { WorkOrderItem, WorkOrderStatus, MaintenanceCycle } from "../fm-panel-types";
 
 interface OngoingMaintenanceProps {
   projectId?: string;
 }
 
 export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectId }) => {
-  // Fetch from DB only
-  const [workOrders] = useState<WorkOrderItem[]>([]);
-  const ongoingOrders = workOrders.filter((w: WorkOrderItem) => w.status === 'In Progress');
+  const { role, isTM, isMaintainer } = useUserRole(projectId || '');
+  const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<WorkOrderItem | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ 
+    show: false, 
+    message: '', 
+    type: 'success' 
+  });
+  
+  // Resolve modal
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [tmClosingNotes, setTmClosingNotes] = useState('');
+  const [orderToResolve, setOrderToResolve] = useState<WorkOrderItem | null>(null);
+  
+  // Operational notes for status transitions
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [operationalNote, setOperationalNote] = useState('');
+  const [pendingTransition, setPendingTransition] = useState<{ orderId: string; status: WorkOrderStatus } | null>(null);
+  
+  // Technician assignment
+  const [showTechModal, setShowTechModal] = useState(false);
+  const [techEmail, setTechEmail] = useState('');
+  const [techName, setTechName] = useState('');
+  const [selectedOrderForTech, setSelectedOrderForTech] = useState<WorkOrderItem | null>(null);
+  
+  // Enhanced Report Modal
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportWorkOrder, setReportWorkOrder] = useState<WorkOrderItem | null>(null);
+  
+  // Filters for Task 8
+  const [filterStatus, setFilterStatus] = useState<WorkOrderStatus | 'ALL'>('ALL');
+  const [filterPriority, setFilterPriority] = useState<string>('ALL');
+  const [searchTechnician, setSearchTechnician] = useState('');
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
+
+  useEffect(() => {
+    if (projectId) {
+      fetchWorkOrders();
+    }
+  }, [projectId]);
+
+  const fetchWorkOrders = async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders`);
+      if (!res.ok) throw new Error("Failed to fetch work orders");
+      const data = await res.json();
+      // Filter for non-RESOLVED orders
+      const activeOrders = data.filter((wo: WorkOrderItem) => 
+        ['OPEN', 'PLANNED', 'IN_PROGRESS', 'CLOSE'].includes(wo.status)
+      );
+      setWorkOrders(activeOrders);
+    } catch (error) {
+      console.error("Error fetching work orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusTransition = async (orderId: string, newStatus: WorkOrderStatus, note?: string) => {
+    if (!isTM && !isMaintainer) {
+      showToast("You don't have permission to update work order status", "error");
+      return;
+    }
+
+    setTransitioning(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newStatus, note: note || operationalNote }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update status");
+      }
+
+      await fetchWorkOrders();
+      setSelectedOrder(null);
+      setShowNotesModal(false);
+      setOperationalNote('');
+      setPendingTransition(null);
+      showToast(`Work order status updated to ${newStatus}`, "success");
+    } catch (error: any) {
+      showToast(error.message, "error");
+    } finally {
+      setTransitioning(false);
+    }
+  };
+  
+  const openNotesModal = (orderId: string, status: WorkOrderStatus) => {
+    setPendingTransition({ orderId, status });
+    setShowNotesModal(true);
+  };
+  
+  const submitWithNotes = () => {
+    if (!pendingTransition) return;
+    handleStatusTransition(pendingTransition.orderId, pendingTransition.status);
+  };
+  
+  const handleResolve = async () => {
+    if (!orderToResolve || !projectId) return;
+    
+    if (!tmClosingNotes.trim()) {
+      showToast('Please enter TM Closing Notes', 'error');
+      return;
+    }
+    
+    setTransitioning(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderToResolve._id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tmClosingNotes }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to resolve work order');
+      }
+      
+      await fetchWorkOrders();
+      setShowResolveModal(false);
+      setTmClosingNotes('');
+      setOrderToResolve(null);
+      showToast('Work order resolved successfully', 'success');
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+  
+  const addTechnician = async () => {
+    if (!selectedOrderForTech || !projectId) return;
+    if (!techEmail.trim() || !techName.trim()) {
+      showToast('Please enter technician email and name', 'error');
+      return;
+    }
+    
+    setTransitioning(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${selectedOrderForTech.id}/technicians`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ technicianEmail: techEmail, technicianName: techName }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to add technician');
+      }
+      
+      await fetchWorkOrders();
+      setShowTechModal(false);
+      setTechEmail('');
+      setTechName('');
+      setSelectedOrderForTech(null);
+      showToast('Technician assigned successfully', 'success');
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+  
+  const removeTechnician = async (orderId: string, techEmail: string) => {
+    if (!projectId) return;
+    
+    setTransitioning(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/technicians?email=${encodeURIComponent(techEmail)}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to remove technician');
+      }
+      
+      await fetchWorkOrders();
+      showToast('Technician removed successfully', 'success');
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const getAvailableTransitions = (currentStatus: WorkOrderStatus): WorkOrderStatus[] => {
+    switch (currentStatus) {
+      case 'OPEN':
+        return ['PLANNED'];
+      case 'PLANNED':
+        return ['IN_PROGRESS'];
+      case 'IN_PROGRESS':
+        return ['CLOSE'];
+      case 'CLOSE':
+        return []; // TM uses /resolve endpoint for CLOSE -> RESOLVED
+      default:
+        return [];
+    }
+  };
+
+  const getStatusColor = (status: WorkOrderStatus) => {
+    switch (status) {
+      case 'OPEN': return 'bg-yellow-900/40 text-yellow-300 border-yellow-700';
+      case 'PLANNED': return 'bg-blue-900/40 text-blue-300 border-blue-700';
+      case 'IN_PROGRESS': return 'bg-purple-900/40 text-purple-300 border-purple-700';
+      case 'CLOSE': return 'bg-orange-900/40 text-orange-300 border-orange-700';
+      case 'RESOLVED': return 'bg-green-900/40 text-green-300 border-green-700';
+      default: return 'bg-gray-900/40 text-gray-300 border-gray-700';
+    }
+  };
+
+  const getCurrentCycle = (cycles: MaintenanceCycle[]): MaintenanceCycle | undefined => {
+    return cycles.find(c => !c.endedAt);
+  };
+
+  const formatDuration = (startedAt: string, endedAt?: string) => {
+    const start = new Date(startedAt);
+    const end = endedAt ? new Date(endedAt) : new Date();
+    const diff = end.getTime() - start.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  if (loading) {
+    return <div className="p-4 text-gray-400">Loading work orders...</div>;
+  }
+
+  if (!isTM && !isMaintainer) {
+    return (
+      <div className="p-4 text-gray-400">
+        You don't have permission to view ongoing maintenance activities.
+      </div>
+    );
+  }
 
   return (
-    <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Ongoing Maintenance</div>
+    <div className="p-4 space-y-4">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300 ${
+          toast.type === 'success' 
+            ? 'bg-green-600' 
+            : 'bg-red-600'
+        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+          <div className="flex items-center gap-3">
+            {toast.type === 'success' ? (
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{toast.type === 'success' ? 'Success' : 'Error'}</p>
+              <p className="text-sm opacity-90">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ show: false, message: '', type: 'success' })}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
-      {ongoingOrders.length === 0 ? (
-        <div className="text-gray-400 text-sm">No ongoing maintenance activities.</div>
+      {/* Filters Section */}
+      <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-white">Filters</h3>
+          {(filterStatus !== 'ALL' || filterPriority !== 'ALL' || searchTechnician) && (
+            <button
+              onClick={() => {
+                setFilterStatus('ALL');
+                setFilterPriority('ALL');
+                setSearchTechnician('');
+              }}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-3 gap-3">
+          {/* Status Filter */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as WorkOrderStatus | 'ALL')}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="OPEN">OPEN</option>
+              <option value="PLANNED">PLANNED</option>
+              <option value="IN_PROGRESS">IN_PROGRESS</option>
+              <option value="CLOSE">CLOSE</option>
+            </select>
+          </div>
+          
+          {/* Priority Filter */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Priority</label>
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="ALL">All Priorities</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          
+          {/* Technician Search */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">Search Technician</label>
+            <input
+              type="text"
+              value={searchTechnician}
+              onChange={(e) => setSearchTechnician(e.target.value)}
+              placeholder="Name or email..."
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Results Counter */}
+      {(() => {
+        const filteredOrders = workOrders.filter(order => {
+          if (filterStatus !== 'ALL' && order.status !== filterStatus) return false;
+          if (filterPriority !== 'ALL' && order.priority !== filterPriority) return false;
+          if (searchTechnician) {
+            const search = searchTechnician.toLowerCase();
+            const primaryTech = (order.responsibleTechnician || '').toLowerCase();
+            const assignedTechs = (order.assignedTechnicians || []).map(t => 
+              `${t.name} ${t.email}`.toLowerCase()
+            );
+            const matchesPrimary = primaryTech.includes(search);
+            const matchesAssigned = assignedTechs.some(tech => tech.includes(search));
+            if (!matchesPrimary && !matchesAssigned) return false;
+          }
+          return true;
+        });
+
+        return (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">
+              Showing <span className="text-white font-semibold">{filteredOrders.length}</span> of{' '}
+              <span className="text-white font-semibold">{workOrders.length}</span> work orders
+            </span>
+          </div>
+        );
+      })()}
+
+      {workOrders.length === 0 ? (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center text-gray-400">
+          No active work orders. All maintenance activities are completed.
+        </div>
       ) : (
-        <ul className="space-y-2">
-          {ongoingOrders.map((w: WorkOrderItem) => (
-            <li key={w.id} className="bg-purple-900/20 rounded p-3">
-              <div className="flex justify-between items-start mb-2">
-                <span className="font-semibold text-purple-300">{w.requestId}</span>
-                <span className="text-xs bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded">{w.status}</span>
+        <div className="grid gap-4">
+          {workOrders
+            .filter(order => {
+              // Apply status filter
+              if (filterStatus !== 'ALL' && order.status !== filterStatus) return false;
+              
+              // Apply priority filter
+              if (filterPriority !== 'ALL' && order.priority !== filterPriority) return false;
+              
+              // Apply technician search
+              if (searchTechnician) {
+                const search = searchTechnician.toLowerCase();
+                const primaryTech = (order.responsibleTechnician || '').toLowerCase();
+                const assignedTechs = (order.assignedTechnicians || []).map(t => 
+                  `${t.name} ${t.email}`.toLowerCase()
+                );
+                
+                const matchesPrimary = primaryTech.includes(search);
+                const matchesAssigned = assignedTechs.some(tech => tech.includes(search));
+                
+                if (!matchesPrimary && !matchesAssigned) return false;
+              }
+              
+              return true;
+            })
+            .map((order) => {
+            const currentCycle = getCurrentCycle(order.maintenanceCycles || []);
+            const transitions = getAvailableTransitions(order.status);
+
+            return (
+              <div
+                key={order.id}
+                className="bg-gray-800/70 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-all"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{order.ticketId}</h3>
+                    <p className="text-sm text-gray-400 mt-1">{order.description}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
+                    {order.status}
+                  </span>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                  <div>
+                    <span className="text-gray-400">Priority:</span>
+                    <span className="ml-2 text-white font-medium">{order.priority}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Type:</span>
+                    <span className="ml-2 text-white font-medium">{order.maintenanceType}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Location:</span>
+                    <span className="ml-2 text-white">{order.location}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Cycles:</span>
+                    <span className="ml-2 text-white">{order.maintenanceCycles?.length || 0}</span>
+                  </div>
+                </div>
+                
+                {/* Assigned Technicians */}
+                {isTM && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-300">Assigned Technicians</span>
+                      <button
+                        onClick={() => {
+                          setSelectedOrderForTech(order);
+                          setShowTechModal(true);
+                        }}
+                        className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {order.assignedTechnicians && order.assignedTechnicians.length > 0 ? (
+                        order.assignedTechnicians.map((tech: any, idx: number) => (
+                          <div key={idx} className="bg-gray-900/50 border border-gray-700 rounded px-3 py-1 flex items-center gap-2">
+                            <span className="text-sm text-white">{tech.name}</span>
+                            <span className="text-xs text-gray-400">({tech.email})</span>
+                            <button
+                              onClick={() => removeTechnician(order.id, tech.email)}
+                              className="text-red-400 hover:text-red-300 ml-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-500 italic">No technicians assigned</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current Cycle Info */}
+                {currentCycle && (
+                  <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-3 mb-4">
+                    <div className="text-xs text-gray-400 mb-2">Current Cycle</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-400">Status:</span>
+                        <span className="ml-2 text-white font-medium">{currentCycle.status}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Duration:</span>
+                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt)}</span>
+                      </div>
+                      {currentCycle.performedBy && (
+                        <div className="col-span-2">
+                          <span className="text-gray-400">Performed by:</span>
+                          <span className="ml-2 text-white">{currentCycle.performedBy}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* State Machine Actions */}
+                {transitions.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {transitions.map((nextStatus) => (
+                      <button
+                        key={nextStatus}
+                        onClick={() => openNotesModal(order.id, nextStatus)}
+                        disabled={transitioning}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {transitioning ? 'Processing...' : `Move to ${nextStatus}`}
+                      </button>
+                    ))}
+                    
+                    {/* View Enhanced Report Button */}
+                    <button
+                      onClick={() => {
+                        setReportWorkOrder(order);
+                        setShowReportModal(true);
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      View Report
+                    </button>
+                  </div>
+                )}
+
+                {/* Close Status - TM can resolve */}
+                {order.status === 'CLOSE' && isTM && (
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => {
+                        setOrderToResolve(order);
+                        setShowResolveModal(true);
+                      }}
+                      disabled={transitioning}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      {transitioning ? 'Processing...' : 'Mark as RESOLVED'}
+                    </button>
+                    
+                    {/* View Enhanced Report Button */}
+                    <button
+                      onClick={() => {
+                        setReportWorkOrder(order);
+                        setShowReportModal(true);
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      View Report
+                    </button>
+                  </div>
+                )}
+
+                {/* Cycle History - Enhanced Display */}
+                {order.maintenanceCycles && order.maintenanceCycles.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <button
+                      onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
+                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={selectedOrder?.id === order.id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
+                      </svg>
+                      {selectedOrder?.id === order.id ? 'Hide' : 'View'} Cycle History ({order.maintenanceCycles.length} {order.maintenanceCycles.length === 1 ? 'cycle' : 'cycles'})
+                    </button>
+
+                    {selectedOrder?.id === order.id && (
+                      <div className="mt-3 space-y-3">
+                        {order.maintenanceCycles.map((cycle, idx) => {
+                          const duration = cycle.endedAt 
+                            ? formatDuration(cycle.startedAt, cycle.endedAt)
+                            : formatDuration(cycle.startedAt, new Date().toISOString()) + ' (ongoing)';
+                          
+                          return (
+                            <div key={idx} className="bg-gradient-to-r from-gray-900/50 to-gray-800/30 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors">
+                              {/* Cycle Header */}
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-white">Cycle {idx + 1}</span>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(cycle.status)}`}>
+                                    {cycle.status}
+                                  </span>
+                                </div>
+                                <div className="text-xs font-semibold text-blue-400">
+                                  Duration: {duration}
+                                </div>
+                              </div>
+                              
+                              {/* Cycle Details */}
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Started:</span>
+                                  <div className="text-gray-300 mt-0.5">
+                                    {new Date(cycle.startedAt).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                </div>
+                                {cycle.endedAt && (
+                                  <div>
+                                    <span className="text-gray-500">Ended:</span>
+                                    <div className="text-gray-300 mt-0.5">
+                                      {new Date(cycle.endedAt).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                {cycle.performedBy && (
+                                  <div className="col-span-2">
+                                    <span className="text-gray-500">Performed by:</span>
+                                    <div className="text-gray-300 mt-0.5">{cycle.performedBy}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Activity Timeline */}
+                {projectId && order.id && (
+                  <div className="mt-4">
+                    <ActivityTimeline projectId={projectId} workOrderId={order.id} />
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-gray-200">{w.description}</div>
-              <div className="text-xs text-gray-400 mt-2">
-                <div>Location: {w.location}</div>
-                <div>Technician: {w.responsibleTechnician || 'Unassigned'}</div>
-                <div>Company: {w.company || 'N/A'}</div>
+            );
+          })}
+        </div>
+      )}
+      
+      {/* Operational Notes Modal */}
+      {showNotesModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white mb-4">Add Operational Notes</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Transitioning to: <span className="text-blue-400 font-semibold">{pendingTransition?.status}</span>
+            </p>
+            <textarea
+              value={operationalNote}
+              onChange={(e) => setOperationalNote(e.target.value)}
+              placeholder="Enter operational notes (optional)"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none h-32 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowNotesModal(false);
+                  setOperationalNote('');
+                  setPendingTransition(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitWithNotes}
+                disabled={transitioning}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {transitioning ? 'Processing...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* TM Closing Notes Modal */}
+      {showResolveModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white mb-4">Resolve Work Order</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Work Order: <span className="text-white font-semibold">{orderToResolve?.requestId || orderToResolve?.ticketId}</span>
+            </p>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              TM Closing Notes <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={tmClosingNotes}
+              onChange={(e) => setTmClosingNotes(e.target.value)}
+              placeholder="Enter closing notes (required)"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 resize-none h-32 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowResolveModal(false);
+                  setTmClosingNotes('');
+                  setOrderToResolve(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolve}
+                disabled={transitioning || !tmClosingNotes.trim()}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {transitioning ? 'Resolving...' : 'Mark as RESOLVED'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Technician Assignment Modal */}
+      {showTechModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white mb-4">Assign Technician</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Work Order: <span className="text-white font-semibold">{selectedOrderForTech?.requestId || selectedOrderForTech?.ticketId}</span>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Name</label>
+                <input
+                  type="text"
+                  value={techName}
+                  onChange={(e) => setTechName(e.target.value)}
+                  placeholder="Enter technician name"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
               </div>
-            </li>
-          ))}
-        </ul>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Email</label>
+                <input
+                  type="email"
+                  value={techEmail}
+                  onChange={(e) => setTechEmail(e.target.value)}
+                  placeholder="technician@example.com"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowTechModal(false);
+                  setTechEmail('');
+                  setTechName('');
+                  setSelectedOrderForTech(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addTechnician}
+                disabled={transitioning || !techEmail.trim() || !techName.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {transitioning ? 'Adding...' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Enhanced Maintenance Report Modal */}
+      {showReportModal && reportWorkOrder && (
+        <div className="fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+          <EnhancedMaintenanceReport 
+            projectId={projectId}
+            workOrder={reportWorkOrder}
+            onClose={() => {
+              setShowReportModal(false);
+              setReportWorkOrder(null);
+              fetchWorkOrders(); // Refresh data after closing report
+            }}
+          />
+        </div>
       )}
     </div>
   );

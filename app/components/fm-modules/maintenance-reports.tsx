@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import MaintenanceReport from "../fm-maintenance-report";
+import { EnhancedMaintenanceReport } from "./enhanced-maintenance-report";
 import { load, save, K } from "../fm-panel-utils";
 import type { WorkOrderItem, ScheduledItem } from "../fm-panel-types";
 
@@ -73,9 +73,9 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
   const totalScheduled = scheduled.length;
   const totalWorkOrders = workOrders.length;
-  const openOrders = workOrders.filter(w => w.status === 'Open').length;
-  const inProgressOrders = workOrders.filter(w => w.status === 'In Progress').length;
-  const resolvedOrders = workOrders.filter(w => w.status === 'Resolved').length;
+  const openOrders = workOrders.filter(w => w.status === 'OPEN').length;
+  const inProgressOrders = workOrders.filter(w => w.status === 'IN_PROGRESS').length;
+  const resolvedOrders = workOrders.filter(w => w.status === 'RESOLVED').length;
 
   return (
     <div className="p-3 space-y-4">
@@ -127,36 +127,24 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
               {/* Inline expanded report */}
               {openWO && openWO.id === w.id && (
-                <div className="p-2 border-t border-gray-700">
-                  <MaintenanceReport
+                <div className="fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+                  <EnhancedMaintenanceReport
                     projectId={projectId}
                     workOrder={openWO}
-                    onSave={(updated) => {
-                      // Update local state with the updated work order
-                      setWorkOrders(prev => {
-                        const found = prev.find(p => p.id === updated.id);
-                        if (found) return prev.map(p => p.id === updated.id ? updated as WOType : p);
-                        return [ ...prev, updated as WOType ];
-                      });
-                      save(K.workOrders(projectId), (load(K.workOrders(projectId), [] as WOType[]).map(p => p.id === updated.id ? updated : p)));
-                      
-                      // If marked as resolved, reload from backend to confirm
-                      if (updated.status === 'Resolved') {
-                        setTimeout(async () => {
-                          try {
-                            const res = await fetch(`/api/projects/${projectId}/work-orders`);
-                            if (res.ok) {
-                              const data = await res.json();
-                              const list = Array.isArray(data) ? data : [];
-                              setWorkOrders(list);
-                              save(K.workOrders(projectId), list);
-                            }
-                          } catch (e) { console.error('Refresh failed', e); }
-                        }, 1000);
-                      }
+                    onClose={() => {
                       setOpenWO(null);
+                      // Reload work orders from backend after closing
+                      if (projectId) {
+                        fetch(`/api/projects/${projectId}/work-orders`)
+                          .then(res => res.json())
+                          .then(data => {
+                            const list = Array.isArray(data) ? data : [];
+                            setWorkOrders(list);
+                            save(K.workOrders(projectId), list);
+                          })
+                          .catch(e => console.error('Refresh failed', e));
+                      }
                     }}
-                    onClose={() => setOpenWO(null)}
                   />
                 </div>
               )}
@@ -174,7 +162,7 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
   const [workOrders] = useState<WorkOrderItem[]>(() => load(K.workOrders(projectId), [] as WorkOrderItem[]));
 
   const upcomingScheduled = scheduled.slice(0, 10); // Show next 10
-  const plannedOrders = workOrders.filter(w => w.status === 'Planned');
+  const plannedOrders = workOrders.filter(w => w.status === 'PLANNED');
 
   return (
     <div className="p-3 space-y-3">

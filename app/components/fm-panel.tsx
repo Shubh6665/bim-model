@@ -15,13 +15,19 @@ import { CreateSpace } from "./fm-modules/create-space";
 import { ScheduledMaintenance } from "./fm-modules/scheduled-maintenance";
 import { TicketForm } from "./fm-modules/ticket-form";
 import { ServiceRequests } from "./fm-modules/service-requests";
+import { ServiceRequestsView } from "./fm-modules/service-requests-view";
 import { MaintenanceReports } from "./fm-modules/maintenance-reports";
 import { WorkOrders } from "./fm-modules/work-orders";
 import { OngoingMaintenance } from "./fm-modules/ongoing-maintenance";
+import { PendingApprovals } from "./fm-modules/pending-approvals";
+import { FMFieldEditor } from "./fm-modules/fm-field-editor";
 import { PlannedMaintenance } from "./fm-modules/planned-maintenance";
+import { useUserRole } from "../hooks/useUserRole";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
 export default function FMPanel({ projectId, viewer, standalone, initialSection }: FMPanelProps) {
+  const { role, isTM, isFM } = useUserRole(projectId);
+  
   const defaultItemForGroup = (group: Section['group']): Section => {
     switch (group) {
       case 'assets': return { group: 'assets', item: 'asset-list' };
@@ -876,8 +882,10 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
   if (section.group === 'maintenance' && section.item === 'scheduled') return <ScheduledMaintenance projectId={projectId} viewer={viewer} preSelectedAssets={preSelectedAssets} onClearPreSelected={() => setPreSelectedAssets([])} />;
     if (section.group === 'maintenance' && section.item === 'ticket') return <TicketForm projectId={projectId} viewer={viewer} />;
+    if (section.group === 'work-orders' && section.item === 'pending-approvals') return <PendingApprovals projectId={projectId} />;
     if (section.group === 'work-orders' && section.item === 'service-requests') return <ServiceRequests projectId={projectId} />;
     if (section.group === 'work-orders' && section.item === 'reports') return <MaintenanceReports projectId={projectId} />;
+    if (section.group === 'work-orders' && section.item === 'fm-editor') return <FMFieldEditor projectId={projectId} />;
   if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
   if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} viewer={viewer} />;
 

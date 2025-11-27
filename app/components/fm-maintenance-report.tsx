@@ -73,7 +73,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
     if (!form.requestId || String(form.requestId).trim() === '') err.push('Request ID is required');
     if (!form.description || String(form.description).trim() === '') err.push('Description is required');
     // If marking resolved, require either an after-photo or technical notes
-    if (form.status === 'Resolved') {
+    if (String(form.status) === 'Resolved') {
       const hasAfter = (form.attachments || []).some(a => (a as any).type === 'after');
       if (!hasAfter && !(form.technicalNotes && form.technicalNotes.trim().length > 3)) err.push('To resolve, add an after-photo or technical notes');
     }

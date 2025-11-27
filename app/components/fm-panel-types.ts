@@ -104,6 +104,33 @@ export interface ScheduledItem {
   timeHours: number;
 }
 
+// Ticket Priority Levels
+export type TicketPriority = "Low" | "Medium" | "High" | "Critical";
+
+// Maintenance Types
+export type MaintenanceType = 
+  | "Preventive"
+  | "Corrective" 
+  | "Predictive"
+  | "Emergency"
+  | "Urgent" 
+  | "Safety" 
+  | "Regulatory" 
+  | "Inspection" 
+  | "Cleaning";
+
+// Approval Status for Tickets
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+// Ticket Status Flow
+export type TicketStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ARCHIVED";
+
+// Work Order Status Flow
+export type WorkOrderStatus = "OPEN" | "PLANNED" | "IN_PROGRESS" | "CLOSE" | "RESOLVED";
+
+// User Roles
+export type UserRole = "User" | "TM" | "Maintainer" | "FM";
+
 export interface TicketItem {
   id: string;
   ticketCode?: string;
@@ -127,12 +154,56 @@ export interface TicketItem {
     descriptionDetailed?: string;
     attachments?: string[];
   };
-  status?: "Open" | "Planned" | "In Progress" | "Resolved";
+  // Approval Flow Fields
+  approvalStatus?: ApprovalStatus;
+  approvedBy?: string;  // TM email
+  approvedAt?: string;  // ISO timestamp
+  rejectionReason?: string;
+  // Priority & Type (set by TM on approval)
+  priority?: TicketPriority;
+  type?: MaintenanceType;
+  // FM Fields (can be modified by FM at any time)
+  fmFields?: {
+    priority?: TicketPriority;
+    type?: MaintenanceType;
+    lastModifiedBy?: string;  // FM email
+    lastModifiedAt?: string;  // ISO timestamp
+  };
+  status?: TicketStatus;
   createdAt?: string;
+  updatedAt?: string;
+}
+
+// Maintenance Cycle (for tracking PLANNED → IN_PROGRESS → CLOSE)
+export interface MaintenanceCycle {
+  cycleNumber: number;
+  status: WorkOrderStatus;  // PLANNED, IN_PROGRESS, CLOSE
+  startedBy: string;  // email
+  startedByRole: UserRole;
+  startedAt: string;  // ISO timestamp
+  endedAt?: string;  // ISO timestamp when cycle ended
+  performedBy?: string;  // email of who performed/executed this cycle
+  plannedAt?: string;
+  plannedBy?: string;
+  inProgressAt?: string;
+  inProgressBy?: string;
+  closedAt?: string;
+  closedBy?: string;
+  notes: Array<{
+    id: string;
+    author: string;
+    authorRole: UserRole;
+    text: string;
+    timestamp: string;
+    attachments?: string[];
+  }>;
+  duration?: number;  // minutes (from PLANNED to CLOSE)
 }
 
 export interface WorkOrderItem {
+  _id?: string;  // MongoDB _id
   id: string;
+  ticketId?: string;  // Reference to original ticket
   requestId?: string;
   requester?: string;
   contact?: string;
@@ -145,24 +216,90 @@ export interface WorkOrderItem {
   asset?: string;
   responsibleTechnician?: string;
   company?: string;
-  status: 'Open' | 'Planned' | 'In Progress' | 'Resolved';
-  priority?: 'High' | 'Medium' | 'Low' | 'Critical';
+  status: WorkOrderStatus;
+  priority?: TicketPriority;
+  maintenanceType?: MaintenanceType;  // Added maintenance type
+  type?: MaintenanceType;
   sourceTicketId?: string;
   comments?: Array<{ id: string; author: string; text: string; timestamp: string }>;
+  
+  // Multiple Technician Assignment
+  assignedTechnicians?: Array<{
+    email: string;
+    name: string;
+    assignedBy: string;
+    assignedAt: string;
+  }>;
+  
+  // Maintenance Cycles Tracking
+  maintenanceCycles?: MaintenanceCycle[];
+  currentCycle?: number;  // Current cycle number
+  
+  // TM Closing Fields
+  tmClosingNotes?: string;
+  resolvedBy?: string;  // TM email
+  resolvedAt?: string;  // ISO timestamp
+  
+  // FM Integration Request
+  integrationRequested?: boolean;
+  integrationRequestedBy?: string;  // FM email
+  integrationRequestedAt?: string;  // ISO timestamp
+  integrationReason?: string;
+  
+  // Calculated Fields
+  totalTimeSpent?: number;  // minutes (sum of all cycle durations)
+  totalTimeToResolve?: number;  // minutes (from creation to RESOLVED)
+  
+  // Timestamps
   createdAt?: string;
   updatedAt?: string;
   assignedAt?: string;
-  resolvedAt?: string;
+  
+  // Report Fields
   diagnosis?: string;
   workPerformed?: string;
   technicalNotes?: string;
+}
+
+// Activity Log Action Types
+export type ActivityAction = 
+  | "TICKET_CREATED"
+  | "TICKET_APPROVED" 
+  | "TICKET_REJECTED"
+  | "STATUS_CHANGE"
+  | "PRIORITY_CHANGE"
+  | "TYPE_CHANGE"
+  | "TECHNICIAN_ASSIGNED"
+  | "NOTE_ADDED"
+  | "ATTACHMENT_ADDED"
+  | "TM_CLOSED"
+  | "TM_RESOLVED"
+  | "FM_INTEGRATION_REQUESTED"
+  | "FM_FIELD_UPDATED"
+  | "REPORT_UPDATED";
+
+// Activity Log Entry
+export interface ActivityLogEntry {
+  id: string;
+  ticketId?: string;
+  workOrderId?: string;
+  projectId: string;
+  author: string;  // email
+  authorRole: UserRole;
+  action: ActivityAction;
+  fieldChanged?: string;
+  oldValue?: string;
+  newValue?: string;
+  notes?: string;
+  timestamp: string;  // ISO timestamp
+  metadata?: Record<string, any>;
 }
 
 export type Section =
   | { group: "assets"; item: "asset-list" | "create-asset" | null }
   | { group: "spaces"; item: "space-list" | "create-space" | null }
   | { group: "maintenance"; item: "scheduled" | "ticket" | null }
-  | { group: "work-orders"; item: "service-requests" | "reports" | null }
+  | { group: "work-orders"; item: "pending-approvals" | "service-requests" | "reports" | "fm-editor" | null }
   | { group: "upcoming-activities"; item: "ongoing" | "planned" | null };
 
 export interface FMPanelProps { 

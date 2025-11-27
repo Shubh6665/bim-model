@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { load, save, K } from "../fm-panel-utils";
 import type { TicketItem, WorkOrderItem } from "../fm-panel-types";
+import { useUserRole } from "../../hooks/useUserRole";
 
 interface ServiceRequestsProps {
   projectId?: string;
@@ -10,12 +11,38 @@ interface ServiceRequestsProps {
 
 export 
 const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
+  const { role, isTM, isFM } = useUserRole(projectId);
+  
   // Fetch from DB only - no localStorage caching
   const [rows, setRows] = useState<WorkOrderItem[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<WorkOrderItem>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // TM Approval State
+  const [showTMApproval, setShowTMApproval] = useState(false);
+  const [showTMRejection, setShowTMRejection] = useState(false);
+  const [tmTicketId, setTmTicketId] = useState<string | null>(null);
+  const [tmPriority, setTmPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium');
+  const [tmType, setTmType] = useState<'Corrective' | 'Preventive' | 'Predictive'>('Corrective');
+  const [tmRejectionReason, setTmRejectionReason] = useState('');
+  
+  // FM Edit State
+  const [showFMEdit, setShowFMEdit] = useState(false);
+  const [fmOrderId, setFmOrderId] = useState<string | null>(null);
+  const [fmPriority, setFmPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium');
+  const [fmType, setFmType] = useState<'Corrective' | 'Preventive' | 'Predictive'>('Corrective');
+  
+  const [processing, setProcessing] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ 
+    show: false, 
+    message: '', 
+    type: 'success' 
+  });
+
+  const showToastMessage = (message: string, type: 'success' | 'error') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
 
   // Filters
   const [filters, setFilters] = useState({
@@ -48,63 +75,104 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     loadData();
   }, [projectId]);
 
-
-
-  const startEdit = (row: WorkOrderItem) => {
-    setEditingId(row.id);
-    setEditForm(row);
+  // TM Approval Handler
+  const handleTMApprove = async () => {
+    if (!tmTicketId || !projectId) return;
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tickets/${tmTicketId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: tmPriority, type: tmType }),
+      });
+      
+      if (res.ok) {
+        showToastMessage('Ticket approved and work order created successfully', 'success');
+        setShowTMApproval(false);
+        setTmTicketId(null);
+        // Reload work orders
+        const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          if (Array.isArray(data)) setRows(data);
+        }
+      } else {
+        const error = await res.json();
+        showToastMessage(error.error || 'Failed to approve ticket', 'error');
+      }
+    } catch (error) {
+      showToastMessage('Failed to approve ticket', 'error');
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  const saveEdit = async () => {
-    if (!editingId) return;
-
-    const oldRow = rows.find(r => r.id === editingId);
-    const updatedRow = { ...oldRow, ...editForm, updatedAt: new Date().toISOString() };
-
-    // Check if technician was assigned
-    const wasAssigned = !oldRow?.responsibleTechnician && editForm.responsibleTechnician;
-    if (wasAssigned) {
-      updatedRow.assignedAt = new Date().toISOString();
+  // TM Rejection Handler
+  const handleTMReject = async () => {
+    if (!tmTicketId || !projectId || !tmRejectionReason.trim()) {
+      showToastMessage('Please provide a rejection reason', 'error');
+      return;
     }
-
-    // Check if status changed to Resolved
-    const wasResolved = oldRow?.status !== 'Resolved' && editForm.status === 'Resolved';
-    if (wasResolved) {
-      updatedRow.resolvedAt = new Date().toISOString();
-    }
-
-    // Update backend if projectId available
-    if (projectId) {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/work-orders`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingId, ...editForm, wasAssigned, wasResolved })
-        });
-
-        if (res.ok) {
-          // Reload from backend
-          const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
-          if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            if (Array.isArray(data)) setRows(data);
-          }
-        } else {
-          // Fallback to local update
-          setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/tickets/${tmTicketId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: tmRejectionReason }),
+      });
+      
+      if (res.ok) {
+        showToastMessage('Ticket rejected. Notifications sent to user and FM.', 'success');
+        setShowTMRejection(false);
+        setTmTicketId(null);
+        setTmRejectionReason('');
+        // Reload work orders
+        const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          if (Array.isArray(data)) setRows(data);
         }
-      } catch (err) {
-        console.error('[ServiceRequests] Save error', err);
-        // Fallback to local update
-        setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+      } else {
+        const error = await res.json();
+        showToastMessage(error.error || 'Failed to reject ticket', 'error');
       }
-    } else {
-      // No projectId, local update only
-      setRows(prev => prev.map(r => r.id === editingId ? updatedRow as WorkOrderItem : r));
+    } catch (error) {
+      showToastMessage('Failed to reject ticket', 'error');
+    } finally {
+      setProcessing(false);
     }
+  };
 
-    setEditingId(null);
-    setEditForm({});
+  // FM Field Edit Handler
+  const handleFMSave = async () => {
+    if (!fmOrderId || !projectId) return;
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${fmOrderId}/fm-fields`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: fmPriority, type: fmType }),
+      });
+      
+      if (res.ok) {
+        showToastMessage('Priority and Type updated successfully', 'success');
+        setShowFMEdit(false);
+        setFmOrderId(null);
+        // Reload work orders
+        const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+          if (Array.isArray(data)) setRows(data);
+        }
+      } else {
+        const error = await res.json();
+        showToastMessage(error.error || 'Failed to update fields', 'error');
+      }
+    } catch (error) {
+      showToastMessage('Failed to update fields', 'error');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -251,13 +319,19 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
   return (
     <div className="p-4 space-y-4 h-full flex flex-col overflow-hidden">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+          toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        } text-white font-medium animate-in slide-in-from-top-2 duration-300`}>
+          {toast.message}
+        </div>
+      )}
+
       <div>
         <h3 className="text-white font-semibold text-lg mb-1">Service Requests</h3>
         <p className="text-xs text-gray-400">
-          <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span>
-          are from tickets.
-          <span className="inline-block bg-blue-900/40 px-1.5 py-0.5 rounded text-blue-300 ml-2">Blue fields</span>
-          are managed by Maintenance Team.
+          View and manage all service requests. Expand rows to access role-based actions.
         </p>
       </div>
 
@@ -383,7 +457,6 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
             </thead>
             <tbody>
               {filteredRows.map(row => {
-                const isEditing = editingId === row.id;
                 const isExpanded = expandedId === row.id;
                 const isSelected = selectedIds.has(row.id);
 
@@ -437,201 +510,269 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       <tr className="border-b border-gray-800 bg-gray-900/60">
                         <td colSpan={12} className="p-0">
                           <div className="p-4 space-y-4">
-                            {!isEditing ? (
-                              <>
-                                {/* Gray Fields - From Ticket */}
-                                <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
-                                  <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-                                    <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
-                                    Full Request Details
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Request ID</div>
-                                      <div className="text-sm text-white font-mono">{row.requestId || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Requester</div>
-                                      <div className="text-sm text-gray-200">{row.requester || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Contact</div>
-                                      <div className="text-sm text-gray-200">{row.contact || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Location</div>
-                                      <div className="text-sm text-gray-200">{row.location || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Discipline</div>
-                                      <div className="text-sm text-gray-200">{row.discipline || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Category</div>
-                                      <div className="text-sm text-gray-200">{row.category || 'N/A'}</div>
-                                    </div>
-                                    <div className="col-span-3">
-                                      <div className="text-xs text-gray-500 mb-1">Short Description</div>
-                                      <div className="text-sm text-gray-200">{row.description || 'N/A'}</div>
-                                    </div>
-                                    <div className="col-span-3">
-                                      <div className="text-xs text-gray-500 mb-1">Detailed Intervention Description</div>
-                                      <div className="text-sm text-gray-200 whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Asset</div>
-                                      <div className="text-sm text-gray-200">{row.asset || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Attachments</div>
-                                      <div className="text-sm text-gray-200">
-                                        {row.attachments && row.attachments.length > 0
-                                          ? `${row.attachments.length} file(s)`
-                                          : 'None'}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-gray-500 mb-1">Created At</div>
-                                      <div className="text-sm text-gray-400">
-                                        {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
-                                      </div>
-                                    </div>
+                            {/* Gray Fields - From Ticket */}
+                            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
+                              <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
+                                Full Request Details (READ-ONLY)
+                              </div>
+                              <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Request ID</div>
+                                  <div className="text-sm text-white font-mono">{row.requestId || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Requester</div>
+                                  <div className="text-sm text-gray-200">{row.requester || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Contact</div>
+                                  <div className="text-sm text-gray-200">{row.contact || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Location</div>
+                                  <div className="text-sm text-gray-200">{row.location || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Discipline</div>
+                                  <div className="text-sm text-gray-200">{row.discipline || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Category</div>
+                                  <div className="text-sm text-gray-200">{row.category || 'N/A'}</div>
+                                </div>
+                                <div className="col-span-3">
+                                  <div className="text-xs text-gray-500 mb-1">Short Description</div>
+                                  <div className="text-sm text-gray-200">{row.description || 'N/A'}</div>
+                                </div>
+                                <div className="col-span-3">
+                                  <div className="text-xs text-gray-500 mb-1">Detailed Intervention Description</div>
+                                  <div className="text-sm text-gray-200 whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Asset</div>
+                                  <div className="text-sm text-gray-200">{row.asset || 'N/A'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Attachments</div>
+                                  <div className="text-sm text-gray-200">
+                                    {row.attachments && row.attachments.length > 0
+                                      ? `${row.attachments.length} file(s)`
+                                      : 'None'}
                                   </div>
                                 </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Created At</div>
+                                  <div className="text-sm text-gray-400">
+                                    {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Status</div>
+                                  <div>
+                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(row.status)}`}>
+                                      {row.status}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Maintenance Team</div>
+                                  <div className="text-sm text-gray-200">{row.responsibleTechnician || 'Not Assigned'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500 mb-1">Company</div>
+                                  <div className="text-sm text-gray-200">{row.company || 'N/A'}</div>
+                                </div>
+                              </div>
+                            </div>
 
-                                {/* Blue Fields - Maintenance Team Managed */}
-                                <div className="bg-blue-900/10 rounded-lg p-4 border border-blue-900/30">
-                                  <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <span className="bg-blue-900/40 px-2 py-1 rounded text-xs">Maintenance Team</span>
-                                      Management Fields
-                                    </div>
+                            {/* TM Section - Approval Actions (Only for TM Role) */}
+                            {isTM && row.sourceTicketId && (
+                              <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700">
+                                <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
+                                  <span className="bg-blue-700/60 px-2 py-1 rounded text-xs">TM Actions</span>
+                                  Ticket Approval Management
+                                </div>
+                                
+                                {!showTMApproval && !showTMRejection ? (
+                                  <div className="flex gap-3">
                                     <button
-                                      onClick={() => startEdit(row)}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                                      onClick={() => {
+                                        setTmTicketId(row.sourceTicketId || null);
+                                        setTmPriority(row.priority || 'Medium');
+                                        setTmType((row.maintenanceType || row.type) as any || 'Corrective');
+                                        setShowTMApproval(true);
+                                      }}
+                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
                                     >
-                                      Edit Blue Fields
+                                      Approve Ticket
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setTmTicketId(row.sourceTicketId || null);
+                                        setShowTMRejection(true);
+                                      }}
+                                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                                    >
+                                      Reject Ticket
                                     </button>
                                   </div>
-                                  <div className="grid grid-cols-3 gap-4">
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Responsible Technician</div>
-                                      <div className="text-sm text-blue-200 font-semibold">
-                                        {row.responsibleTechnician || <span className="text-gray-500">Not Assigned</span>}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Company</div>
-                                      <div className="text-sm text-blue-200">{row.company || 'N/A'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Status</div>
+                                ) : showTMApproval ? (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
                                       <div>
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(row.status)}`}>
-                                          {row.status}
-                                        </span>
+                                        <label className="text-xs text-blue-400 block mb-1.5 font-semibold">Priority</label>
+                                        <select
+                                          value={tmPriority}
+                                          onChange={(e) => setTmPriority(e.target.value as any)}
+                                          className="w-full px-3 py-2 bg-gray-800/80 border border-blue-600 rounded text-sm text-white"
+                                        >
+                                          <option value="Low">Low</option>
+                                          <option value="Medium">Medium</option>
+                                          <option value="High">High</option>
+                                          <option value="Critical">Critical</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-xs text-blue-400 block mb-1.5 font-semibold">Type</label>
+                                        <select
+                                          value={tmType}
+                                          onChange={(e) => setTmType(e.target.value as any)}
+                                          className="w-full px-3 py-2 bg-gray-800/80 border border-blue-600 rounded text-sm text-white"
+                                        >
+                                          <option value="Corrective">Corrective</option>
+                                          <option value="Preventive">Preventive</option>
+                                          <option value="Predictive">Predictive</option>
+                                        </select>
                                       </div>
                                     </div>
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Priority</div>
-                                      <div className="text-sm text-blue-200">{row.priority || 'Not Set'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Assigned At</div>
-                                      <div className="text-sm text-blue-300">
-                                        {row.assignedAt ? new Date(row.assignedAt).toLocaleString() : 'Not yet assigned'}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs text-blue-400 mb-1">Resolved At</div>
-                                      <div className="text-sm text-blue-300">
-                                        {row.resolvedAt ? new Date(row.resolvedAt).toLocaleString() : 'Not yet resolved'}
-                                      </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={handleTMApprove}
+                                        disabled={processing}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                      >
+                                        {processing ? 'Processing...' : 'Confirm Approval'}
+                                      </button>
+                                      <button
+                                        onClick={() => setShowTMApproval(false)}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
                                     </div>
                                   </div>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                {/* Edit Mode - Blue Fields Only */}
-                                <div className="bg-blue-900/20 rounded-lg p-4 border-2 border-blue-600">
-                                  <div className="text-sm font-semibold text-blue-300 mb-4">
-                                    Edit Maintenance Team Fields
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4">
+                                ) : (
+                                  <div className="space-y-3">
                                     <div>
-                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
-                                        Responsible Technician *
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={editForm.responsibleTechnician || ''}
-                                        onChange={e => setEditForm(prev => ({ ...prev, responsibleTechnician: e.target.value }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
-                                        placeholder="Assign technician name"
+                                      <label className="text-xs text-red-400 block mb-1.5 font-semibold">Rejection Reason *</label>
+                                      <textarea
+                                        value={tmRejectionReason}
+                                        onChange={(e) => setTmRejectionReason(e.target.value)}
+                                        className="w-full px-3 py-2 bg-gray-800/80 border border-red-600 rounded text-sm text-white"
+                                        rows={3}
+                                        placeholder="Enter reason for rejection..."
                                       />
                                     </div>
-                                    <div>
-                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
-                                        Company
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={editForm.company || ''}
-                                        onChange={e => setEditForm(prev => ({ ...prev, company: e.target.value }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
-                                        placeholder="Company name"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
-                                        Status *
-                                      </label>
-                                      <select
-                                        value={editForm.status || row.status}
-                                        onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value as any }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={handleTMReject}
+                                        disabled={processing || !tmRejectionReason.trim()}
+                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
                                       >
-                                        <option value="Open">Open</option>
-                                        <option value="Planned">Planned</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Resolved">Resolved</option>
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-blue-400 block mb-1.5 font-semibold">
-                                        Priority
-                                      </label>
-                                      <select
-                                        value={editForm.priority || row.priority || 'Medium'}
-                                        onChange={e => setEditForm(prev => ({ ...prev, priority: e.target.value as any }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        {processing ? 'Processing...' : 'Confirm Rejection'}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setShowTMRejection(false);
+                                          setTmRejectionReason('');
+                                        }}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
                                       >
-                                        <option value="Low">Low</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="High">High</option>
-                                        <option value="Critical">Critical</option>
-                                      </select>
+                                        Cancel
+                                      </button>
                                     </div>
                                   </div>
+                                )}
+                              </div>
+                            )}
 
-                                  {/* Action Buttons */}
-                                  <div className="flex gap-3 mt-4 pt-4 border-t border-blue-800">
-                                    <button
-                                      onClick={saveEdit}
-                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors"
-                                    >
-                                      Save Changes
-                                    </button>
-                                    <button
-                                      onClick={() => { setEditingId(null); setEditForm({}); }}
-                                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
+                            {/* FM Section - Priority & Type Editor (Only for FM Role) */}
+                            {isFM && row.id && (
+                              <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-700">
+                                <div className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
+                                  <span className="bg-purple-700/60 px-2 py-1 rounded text-xs">FM Actions</span>
+                                  Priority & Type Management
+                                </div>
+                                <div className="grid grid-cols-4 gap-3 mb-3">
+                                  <div>
+                                    <div className="text-xs text-gray-500 mb-1">Current Priority</div>
+                                    <div className="text-sm text-purple-300 font-semibold">{row.priority || 'Medium'}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500 mb-1">Current Type</div>
+                                    <div className="text-sm text-purple-300 font-semibold">{row.maintenanceType || row.type || 'Corrective'}</div>
                                   </div>
                                 </div>
-                              </>
+                                {!showFMEdit ? (
+                                  <button
+                                    onClick={() => {
+                                      setFmOrderId(row.id);
+                                      setFmPriority(row.priority || 'Medium');
+                                      setFmType((row.maintenanceType || row.type) as any || 'Corrective');
+                                      setShowFMEdit(true);
+                                    }}
+                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                                  >
+                                    Edit Priority & Type
+                                  </button>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Priority</label>
+                                        <select
+                                          value={fmPriority}
+                                          onChange={(e) => setFmPriority(e.target.value as any)}
+                                          className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                        >
+                                          <option value="Low">Low</option>
+                                          <option value="Medium">Medium</option>
+                                          <option value="High">High</option>
+                                          <option value="Critical">Critical</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Maintenance Type</label>
+                                        <select
+                                          value={fmType}
+                                          onChange={(e) => setFmType(e.target.value as any)}
+                                          className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                        >
+                                          <option value="Corrective">Corrective</option>
+                                          <option value="Preventive">Preventive</option>
+                                          <option value="Predictive">Predictive</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={handleFMSave}
+                                        disabled={processing}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                      >
+                                        {processing ? 'Saving...' : 'Save Changes'}
+                                      </button>
+                                      <button
+                                        onClick={() => setShowFMEdit(false)}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>

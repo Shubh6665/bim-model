@@ -3,6 +3,7 @@ import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
 import { sendEmail } from "@/app/lib/email";
 import { generateTicketNotificationEmail } from "@/app/lib/email-templates";
+import { logTicketCreation } from "@/app/lib/activity-logger";
 
 // Ticket doc shape in DB
 // {
@@ -108,17 +109,40 @@ export async function POST(
         descriptionDetailed: payload.intervention?.descriptionDetailed || '',
         attachments: Array.isArray(payload.intervention?.attachments) ? payload.intervention.attachments : []
       },
-      status: payload.status || 'Open',
+      // New approval flow fields
+      approvalStatus: 'PENDING_APPROVAL',
+      status: 'PENDING_APPROVAL',
+      priority: undefined,
+      type: undefined,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      rejectionReason: undefined,
+      fmFields: undefined,
       assignedTo: payload.assignedTo || null,
       createdAt: now,
       updatedAt: now,
     };
 
     const result = await col.insertOne(doc);
+    const ticketId = result.insertedId.toString();
+    
+    // Log ticket creation activity
+    try {
+      await logTicketCreation(
+        db,
+        projectId,
+        ticketId,
+        payload.requester?.contact || 'unknown',
+        ticketCode
+      );
+    } catch (logError) {
+      console.error('[Tickets][POST] Activity log error (non-blocking):', logError);
+    }
     
     // Send notifications to Maintenance Team members
     try {
       await sendNotificationsToMaintenanceTeam(db, projectId, doc, payload.qrCodeDataUrl);
+      await sendNotificationsToFacilityManagers(db, projectId, doc);
     } catch (notifError) {
       console.error('[Tickets][POST] Notification error (non-blocking):', notifError);
       // Don't fail the ticket creation if notifications fail
@@ -126,7 +150,7 @@ export async function POST(
     
     return NextResponse.json({ 
       ok: true, 
-      ticket: { id: result.insertedId.toString(), ...doc } 
+      ticket: { id: ticketId, ...doc } 
     });
   } catch (err) {
     console.error('[Tickets][POST] error', err);
@@ -294,5 +318,64 @@ async function sendNotificationsToMaintenanceTeam(
   } catch (error) {
     console.error('[Tickets] Error in sendNotificationsToMaintenanceTeam:', error);
     throw error;
+  }
+}
+
+async function sendNotificationsToFacilityManagers(db: any, projectId: string, ticket: any) {
+  try {
+    console.log('[Tickets] Sending notifications to Facility Managers...');
+    
+    // Find all accepted invitations for Facility Manager role
+    const invitesCol = db.collection('invites');
+    const invites = await invitesCol.find({
+      projectId: new ObjectId(projectId),
+      status: 'accepted',
+      'invitee.role': { $regex: /facility|manager/i }
+    }).toArray();
+    
+    console.log(`[Tickets] Found ${invites.length} Facility Managers`);
+    
+    if (invites.length === 0) {
+      console.log('[Tickets] No Facility Managers found for project');
+      return;
+    }
+    
+    const emailSubject = `🔔 New Maintenance Ticket: ${ticket.ticketCode}`;
+    const emailHtml = `<div style="font-family: Arial; max-width:600px;">
+      <h3 style="color:#7c3aed;">New Maintenance Ticket Created</h3>
+      <p>A new maintenance ticket has been submitted and is pending approval.</p>
+      <div style="background:#f3f4f6; padding:15px; border-radius:8px; margin:15px 0;">
+        <p style="margin:5px 0;"><strong>Ticket Code:</strong> ${ticket.ticketCode}</p>
+        <p style="margin:5px 0;"><strong>Location:</strong> ${ticket.location?.building || ''} ${ticket.location?.level || ''} ${ticket.location?.room || ''}</p>
+        <p style="margin:5px 0;"><strong>Description:</strong> ${ticket.intervention?.descriptionShort || 'N/A'}</p>
+        <p style="margin:5px 0;"><strong>Requester:</strong> ${ticket.requester?.name || ''} ${ticket.requester?.surname || ''}</p>
+      </div>
+    </div>`;
+    
+    // Send emails and create in-app notifications
+    const promises = invites.map(async (invite: any) => {
+      const email = invite.invitee?.email;
+      if (!email) return;
+      
+      try {
+        await sendEmail(email, emailSubject, emailHtml);
+        await db.collection('notifications').insertOne({
+          userEmail: email,
+          type: 'maintenance_ticket',
+          title: 'New Maintenance Ticket',
+          message: `Ticket ${ticket.ticketCode} created - ${ticket.intervention?.descriptionShort || 'New maintenance request'}`,
+          read: false,
+          timestamp: Date.now(),
+          meta: { ticketCode: ticket.ticketCode, projectId, ticketId: ticket._id?.toString() },
+          createdAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error(`Failed to notify FM ${email}:`, error);
+      }
+    });
+    
+    await Promise.allSettled(promises);
+  } catch (error) {
+    console.error('[Tickets] Error notifying FMs:', error);
   }
 }
