@@ -36,6 +36,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
   const [showTechModal, setShowTechModal] = useState(false);
   const [techEmail, setTechEmail] = useState('');
   const [techName, setTechName] = useState('');
+  const [techCompany, setTechCompany] = useState('');
   const [selectedOrderForTech, setSelectedOrderForTech] = useState<WorkOrderItem | null>(null);
   
   // Enhanced Report Modal
@@ -702,7 +703,6 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
             <h3 className="text-xl font-semibold text-white mb-4">Resolve Work Order</h3>
             <p className="text-gray-400 text-sm mb-4">
-              Work Order: <span className="text-white font-semibold">{orderToResolve?.requestId || orderToResolve?.ticketId}</span>
             </p>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               TM Closing Notes <span className="text-red-400">*</span>

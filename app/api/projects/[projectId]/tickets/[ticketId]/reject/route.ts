@@ -38,12 +38,38 @@ export async function POST(
     const ticket = await ticketsCol.findOne({ _id: new ObjectId(ticketId), projectId });
     if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
 
+    const now = new Date().toISOString();
+
     const currentState = ticket.approvalStatus || 'PENDING_APPROVAL';
     const validation = isValidTicketTransition(currentState, 'REJECTED', 'TM');
     if (!validation.valid) return NextResponse.json({ error: validation.reason || 'Invalid transition' }, { status: 400 });
 
-    const now = new Date().toISOString();
-    await ticketsCol.updateOne({ _id: new ObjectId(ticketId) }, { $set: { approvalStatus: 'REJECTED', rejectionReason: reason, updatedAt: now } });
+    // Update ticket status
+    await ticketsCol.updateOne(
+      { _id: new ObjectId(ticketId) }, 
+      { 
+        $set: { 
+          approvalStatus: 'REJECTED',
+          status: 'REJECTED',
+          rejectionReason: reason,
+          rejectedBy: userEmail,
+          rejectedAt: now,
+          updatedAt: now 
+        } 
+      }
+    );
+
+    // Also update corresponding Work Order status to 'Rejected' if it exists
+    const workOrdersCol = db.collection('fm_work_orders');
+    await workOrdersCol.updateOne(
+      { sourceTicketId: ticketId, projectId },
+      { 
+        $set: { 
+          status: 'Rejected',
+          updatedAt: now 
+        } 
+      }
+    );
 
     // Log activity
     await logTicketRejection(db, projectId, ticketId, userEmail, reason);

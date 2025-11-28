@@ -126,7 +126,7 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type TicketStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ARCHIVED";
 
 // Work Order Status Flow
-export type WorkOrderStatus = "OPEN" | "PLANNED" | "IN_PROGRESS" | "CLOSE" | "RESOLVED";
+export type WorkOrderStatus = "Open" | "Planned" | "In Progress" | "Closed" | "Resolved" | "Rejected" | "OPEN" | "PLANNED" | "IN_PROGRESS" | "CLOSE" | "RESOLVED";
 
 // User Roles
 export type UserRole = "User" | "TM" | "Maintainer" | "FM";
@@ -216,22 +216,13 @@ export interface WorkOrderItem {
   asset?: string;
   responsibleTechnician?: string;
   company?: string;
-  status: WorkOrderStatus;
+  facilityManager?: string; // TM/FM who approved/manages this
+  status: WorkOrderStatus | string;
   priority?: TicketPriority;
   maintenanceType?: MaintenanceType;  // Added maintenance type
   type?: MaintenanceType;
   sourceTicketId?: string;
-  comments?: Array<{ id: string; author: string; text: string; timestamp: string }>;
-  
-  // Multiple Technician Assignment
-  assignedTechnicians?: Array<{
-    email: string;
-    name: string;
-    assignedBy: string;
-    assignedAt: string;
-  }>;
-  
-  // Maintenance Cycles Tracking
+  ticketStatus?: string; // Added to sync rejection status
   maintenanceCycles?: MaintenanceCycle[];
   currentCycle?: number;  // Current cycle number
   
@@ -259,6 +250,12 @@ export interface WorkOrderItem {
   diagnosis?: string;
   workPerformed?: string;
   technicalNotes?: string;
+
+  assignedTechnicians?: Array<{
+    name: string;
+    email: string;
+    assignedAt: string;
+  }>;
 }
 
 // Activity Log Action Types

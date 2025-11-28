@@ -36,7 +36,29 @@ export async function GET(
     const db = await getDb();
     const col = db.collection("fm_work_orders");
 
-    const items = await col.find({ projectId }).sort({ createdAt: -1 }).toArray();
+    // Use aggregation to join with tickets and get the real-time approval status
+    // This ensures that if a ticket is rejected, the work order reflects it even if the work order status wasn't updated
+    const items = await col.aggregate([
+      { $match: { projectId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'fm_tickets',
+          let: { tid: '$sourceTicketId' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, '$$tid'] } } },
+            { $project: { approvalStatus: 1 } }
+          ],
+          as: 'ticket_info'
+        }
+      },
+      {
+        $addFields: {
+          ticketStatus: { $arrayElemAt: ['$ticket_info.approvalStatus', 0] }
+        }
+      },
+      { $project: { ticket_info: 0 } }
+    ]).toArray();
     
     // Normalize id
     const normalized = items.map((item: any) => ({ 

@@ -141,9 +141,10 @@ export async function POST(
       );
     }
 
-    // 7. Create Work Order
+    // 7. Create Work Order (check for duplicates first)
     const workOrdersCol = db.collection('fm_work_orders');
     
+    // Prepare location string and work order data
     const locationStr = [
       ticket.location?.building,
       ticket.location?.level,
@@ -152,7 +153,7 @@ export async function POST(
       .filter(Boolean)
       .join(' - ');
 
-    const workOrder = {
+    const workOrderData = {
       projectId,
       requestId: ticket.ticketCode,
       requester: `${ticket.requester?.name || ''} ${ticket.requester?.surname || ''}`.trim(),
@@ -164,17 +165,42 @@ export async function POST(
       description: ticket.intervention?.descriptionShort || '',
       attachments: ticket.intervention?.attachments || [],
       asset: ticket.intervention?.item || '',
+      facilityManager: userEmail, // The TM who approved it
       priority,
       type,
-      status: 'OPEN',
+      status: 'Open',
       sourceTicketId: ticketId,
       maintenanceCycles: [],
       currentCycle: 0,
       createdAt: now,
       updatedAt: now,
     };
+    
+    // Check if work order already exists for this ticket
+    const existingWorkOrder = await workOrdersCol.findOne({
+      projectId,
+      sourceTicketId: ticketId,
+    });
 
-    const workOrderResult = await workOrdersCol.insertOne(workOrder);
+    let workOrderResult;
+    if (existingWorkOrder) {
+      console.log(`[Approve] Work order already exists for ticket ${ticketId}, updating fields`);
+      // Update existing work order with new priority/type if they changed
+      await workOrdersCol.updateOne(
+        { _id: existingWorkOrder._id },
+        { 
+          $set: { 
+            priority, 
+            type,
+            updatedAt: now 
+          } 
+        }
+      );
+      workOrderResult = { insertedId: existingWorkOrder._id };
+    } else {
+      workOrderResult = await workOrdersCol.insertOne(workOrderData);
+      console.log(`[Approve] Created new work order for ticket ${ticketId}`);
+    }
 
     // 8. Log activity
     await logTicketApproval(
@@ -254,7 +280,7 @@ export async function POST(
       },
       workOrder: {
         id: workOrderResult.insertedId.toString(),
-        ...workOrder,
+        ...workOrderData,
       },
     });
   } catch (error: any) {

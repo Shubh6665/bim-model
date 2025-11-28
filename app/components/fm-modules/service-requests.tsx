@@ -23,9 +23,16 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   const [showTMRejection, setShowTMRejection] = useState(false);
   const [tmTicketId, setTmTicketId] = useState<string | null>(null);
   const [tmPriority, setTmPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium');
-  const [tmType, setTmType] = useState<'Corrective' | 'Preventive' | 'Predictive'>('Corrective');
+  const [tmType, setTmType] = useState<'Corrective' | 'Urgent' | 'Preventive' | 'Safety' | 'Regulatory' | 'Inspection' | 'Cleaning'>('Corrective');
   const [tmRejectionReason, setTmRejectionReason] = useState('');
+  // Ticket approval status map (sourceTicketId -> approvalStatus)
+  const [ticketStatusMap, setTicketStatusMap] = useState<Record<string, string>>({});
+  // Ticket data cache (sourceTicketId -> ticket details including rejectionReason)
+  const [ticketDataMap, setTicketDataMap] = useState<Record<string, any>>({});
   
+  // Project Team Cache
+  const [projectTeam, setProjectTeam] = useState<{ name: string; email: string; role: string }[]>([]);
+
   // FM Edit State
   const [showFMEdit, setShowFMEdit] = useState(false);
   const [fmOrderId, setFmOrderId] = useState<string | null>(null);
@@ -70,10 +77,25 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           const data = await res.json();
           if (Array.isArray(data)) setRows(data);
         }
+        
+        // Load Project Team
+        const teamRes = await fetch(`/api/projects/${projectId}/team`);
+        if (teamRes.ok) {
+          const teamData = await teamRes.json();
+          if (Array.isArray(teamData.team)) setProjectTeam(teamData.team);
+        }
       } catch (err) { console.error('[ServiceRequests] Load error', err); }
     };
     loadData();
   }, [projectId]);
+
+  // Helper to get emails by role
+  const getEmailsByRole = (role: 'TM' | 'FM') => {
+    return projectTeam
+      .filter(m => m.role === role)
+      .map(m => m.email)
+      .join(', ') || '-';
+  };
 
   // TM Approval Handler
   const handleTMApprove = async () => {
@@ -89,7 +111,24 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       if (res.ok) {
         showToastMessage('Ticket approved and work order created successfully', 'success');
         setShowTMApproval(false);
+        
+        // Update local state immediately
+        setTicketStatusMap(prev => ({ ...prev, [tmTicketId]: 'APPROVED' }));
+        
+        // Update ticket data map with new values so TM Decision section reflects them
+        setTicketDataMap(prev => ({
+          ...prev,
+          [tmTicketId]: {
+            ...(prev[tmTicketId] || {}),
+            approvalStatus: 'APPROVED',
+            status: 'APPROVED',
+            priority: tmPriority,
+            type: tmType
+          }
+        }));
+
         setTmTicketId(null);
+        setExpandedId(null);
         // Reload work orders
         const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
         if (refreshRes.ok) {
@@ -124,8 +163,11 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       if (res.ok) {
         showToastMessage('Ticket rejected. Notifications sent to user and FM.', 'success');
         setShowTMRejection(false);
+        // mark ticket rejected locally so TM section hides
+        setTicketStatusMap(prev => ({ ...prev, [tmTicketId]: 'REJECTED' }));
         setTmTicketId(null);
         setTmRejectionReason('');
+        setExpandedId(null);
         // Reload work orders
         const refreshRes = await fetch(`/api/projects/${projectId}/work-orders?type=service-request`);
         if (refreshRes.ok) {
@@ -175,12 +217,26 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
     }
   };
 
+  const normalizeStatus = (status: string) => {
+    if (!status) return '';
+    if (status === 'OPEN') return 'Open';
+    if (status === 'PLANNED') return 'Planned';
+    if (status === 'IN_PROGRESS') return 'In Progress';
+    if (status === 'RESOLVED') return 'Resolved';
+    if (status === 'CLOSE') return 'Closed';
+    if (status === 'REJECTED') return 'Rejected';
+    return status;
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
+    // Normalize for color lookup
+    const normalized = normalizeStatus(status);
+    switch (normalized) {
       case 'Open': return 'bg-yellow-900/30 text-yellow-300';
       case 'Planned': return 'bg-blue-900/30 text-blue-300';
       case 'In Progress': return 'bg-purple-900/30 text-purple-300';
       case 'Resolved': return 'bg-green-900/30 text-green-300';
+      case 'Rejected': return 'bg-red-900/30 text-red-300';
       default: return 'bg-gray-800/60 text-gray-300';
     }
   };
@@ -441,11 +497,12 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                 </th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Contact</th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Location</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Discipline</th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Category</th>
                 <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Description</th>
+                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Maintenance Team</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Technician</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Company</th>
+                <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Facility Manager</th>
                 <th
                   className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-white whitespace-nowrap"
                   onClick={() => toggleSort('status')}
@@ -479,25 +536,58 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.location}>
                         {row.location || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-300">{row.discipline || '-'}</td>
                       <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.category}>
                         {row.category || '-'}
                       </td>
                       <td className="px-3 py-2 text-gray-400 text-xs max-w-[150px] truncate" title={row.description}>
                         {row.description || '-'}
                       </td>
+                      <td className="px-3 py-2 text-gray-300 text-xs">{getEmailsByRole('TM')}</td>
                       <td className="px-3 py-2 text-blue-300 text-xs">
                         {row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>}
                       </td>
                       <td className="px-3 py-2 text-blue-300 text-xs">{row.company || '-'}</td>
+                      <td className="px-3 py-2 text-blue-300 text-xs">{getEmailsByRole('FM')}</td>
                       <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap ${getStatusColor(row.status)}`}>
-                          {row.status}
-                        </span>
+                        {(() => {
+                          const isRejected = row.ticketStatus === 'REJECTED' || row.status === 'Rejected';
+                          const rawStatus = isRejected ? 'Rejected' : row.status;
+                          const displayStatus = normalizeStatus(rawStatus);
+                          return (
+                            <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap ${getStatusColor(displayStatus)}`}>
+                              {displayStatus}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2">
                         <button
-                          onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                          onClick={async () => {
+                            if (isExpanded) {
+                              setExpandedId(null);
+                              return;
+                            }
+                            setExpandedId(row.id);
+                            // If this row is linked to a ticket, fetch ticket details (if not already)
+                            const tid = row.sourceTicketId || row.ticketId;
+                            if (tid && projectId && !ticketStatusMap[tid]) {
+                              try {
+                                const res = await fetch(`/api/projects/${projectId}/tickets`);
+                                if (res.ok) {
+                                  const tickets = await res.json();
+                                  const found = Array.isArray(tickets) ? tickets.find((t: any) => (t.id === tid || t._id === tid)) : null;
+                                  if (found) {
+                                    const status = found.approvalStatus || found.status || 'PENDING_APPROVAL';
+                                    setTicketStatusMap(prev => ({ ...prev, [tid]: status }));
+                                    // Store full ticket data including rejectionReason
+                                    setTicketDataMap(prev => ({ ...prev, [tid]: found }));
+                                  }
+                                }
+                              } catch (e) {
+                                console.error('[ServiceRequests] Failed to load ticket data', e);
+                              }
+                            }
+                          }}
                           className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs whitespace-nowrap"
                         >
                           {isExpanded ? 'Hide ▲' : 'Expand ▼'}
@@ -508,13 +598,35 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                     {/* Expanded Row with Full Details */}
                     {isExpanded && (
                       <tr className="border-b border-gray-800 bg-gray-900/60">
-                        <td colSpan={12} className="p-0">
+                        <td colSpan={13} className="p-0">
                           <div className="p-4 space-y-4">
                             {/* Gray Fields - From Ticket */}
                             <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
-                              <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-                                <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
-                                Full Request Details (READ-ONLY)
+                              <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
+                                  Full Request Details (READ-ONLY)
+                                </div>
+                                {/* Approval Status Badge */}
+                                {(() => {
+                                  const tid = row.sourceTicketId || row.ticketId;
+                                  const ticketStatus = tid ? (ticketStatusMap[tid] || '').toUpperCase() : '';
+                                  if (ticketStatus === 'APPROVED') {
+                                    return (
+                                      <span className="px-3 py-1 rounded text-xs font-bold bg-green-700/80 text-white">
+                                        Approved
+                                      </span>
+                                    );
+                                  }
+                                  if (ticketStatus === 'REJECTED') {
+                                    return (
+                                      <span className="px-3 py-1 rounded text-xs font-bold bg-red-700/80 text-white">
+                                        Rejected
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                               <div className="grid grid-cols-3 gap-4">
                                 <div>
@@ -570,13 +682,20 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                 <div>
                                   <div className="text-xs text-gray-500 mb-1">Status</div>
                                   <div>
-                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(row.status)}`}>
-                                      {row.status}
-                                    </span>
+                                    {(() => {
+                                      const isRejected = row.ticketStatus === 'REJECTED' || row.status === 'Rejected';
+                                      const rawStatus = isRejected ? 'Rejected' : row.status;
+                                      const displayStatus = normalizeStatus(rawStatus);
+                                      return (
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(displayStatus)}`}>
+                                          {displayStatus}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Maintenance Team</div>
+                                  <div className="text-xs text-gray-500 mb-1">Technician</div>
                                   <div className="text-sm text-gray-200">{row.responsibleTechnician || 'Not Assigned'}</div>
                                 </div>
                                 <div>
@@ -586,38 +705,83 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                               </div>
                             </div>
 
-                            {/* TM Section - Approval Actions (Only for TM Role) */}
-                            {isTM && row.sourceTicketId && (
-                              <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700">
-                                <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
-                                  <span className="bg-blue-700/60 px-2 py-1 rounded text-xs">TM Actions</span>
-                                  Ticket Approval Management
-                                </div>
-                                
-                                {!showTMApproval && !showTMRejection ? (
-                                  <div className="flex gap-3">
-                                    <button
-                                      onClick={() => {
-                                        setTmTicketId(row.sourceTicketId || null);
-                                        setTmPriority(row.priority || 'Medium');
-                                        setTmType((row.maintenanceType || row.type) as any || 'Corrective');
-                                        setShowTMApproval(true);
-                                      }}
-                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                                    >
-                                      Approve Ticket
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setTmTicketId(row.sourceTicketId || null);
-                                        setShowTMRejection(true);
-                                      }}
-                                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                                    >
-                                      Reject Ticket
-                                    </button>
-                                  </div>
-                                ) : showTMApproval ? (
+                            {/* TM Section - Approval / Rejection (Only for TM Role) */}
+                            {isTM && (row.sourceTicketId || row.ticketId) && (
+                              (() => {
+                                const tid = row.sourceTicketId || row.ticketId!;
+                                const ticketStatus = (ticketStatusMap[tid] || 'PENDING_APPROVAL').toUpperCase();
+                                const ticketData = ticketDataMap[tid] || {};
+
+                                // If already approved or rejected, show static summary (no buttons)
+                                if (ticketStatus === 'APPROVED' || ticketStatus === 'REJECTED') {
+                                  return (
+                                    <div className="bg-blue-900/10 rounded-lg p-4 border border-blue-800">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+                                          <span className="bg-blue-800/80 px-2 py-1 rounded text-xs">TM Decision</span>
+                                          {ticketStatus === 'APPROVED' ? 'Approved Ticket' : 'Rejected Ticket'}
+                                        </div>
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                          ticketStatus === 'APPROVED'
+                                            ? 'bg-green-900/40 text-green-300'
+                                            : 'bg-red-900/40 text-red-300'
+                                        }`}>
+                                          {ticketStatus}
+                                        </span>
+                                      </div>
+
+                                      <div className="grid grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                          <div className="text-xs text-gray-500 mb-1">Priority (TM)</div>
+                                          <div className="text-gray-200">{row.priority || ticketData.priority || 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-xs text-gray-500 mb-1">Type (TM)</div>
+                                          <div className="text-gray-200">{row.type || row.maintenanceType || ticketData.type || 'N/A'}</div>
+                                        </div>
+                                        {ticketStatus === 'REJECTED' && (
+                                          <div className="col-span-3">
+                                            <div className="text-xs text-gray-500 mb-1">Rejection Reason</div>
+                                            <div className="text-gray-200 whitespace-pre-wrap">{ticketData.rejectionReason || 'Not provided'}</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                // Pending approval: show buttons / forms
+                                return (
+                                  <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700">
+                                    <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
+                                      <span className="bg-blue-700/60 px-2 py-1 rounded text-xs">TM Actions</span>
+                                      Ticket Approval Management
+                                    </div>
+                                    
+                                    {!showTMApproval && !showTMRejection ? (
+                                      <div className="flex gap-3">
+                                        <button
+                                          onClick={() => {
+                                            setTmTicketId(tid);
+                                            setTmPriority(row.priority || 'Medium');
+                                            setTmType((row.type || row.maintenanceType) as any || 'Corrective');
+                                            setShowTMApproval(true);
+                                          }}
+                                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                        >
+                                          Approve Ticket
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setTmTicketId(tid);
+                                            setShowTMRejection(true);
+                                          }}
+                                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                                        >
+                                          Reject Ticket
+                                        </button>
+                                      </div>
+                                    ) : showTMApproval ? (
                                   <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-3">
                                       <div>
@@ -641,8 +805,12 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                           className="w-full px-3 py-2 bg-gray-800/80 border border-blue-600 rounded text-sm text-white"
                                         >
                                           <option value="Corrective">Corrective</option>
+                                          <option value="Urgent">Urgent</option>
                                           <option value="Preventive">Preventive</option>
-                                          <option value="Predictive">Predictive</option>
+                                          <option value="Safety">Safety</option>
+                                          <option value="Regulatory">Regulatory</option>
+                                          <option value="Inspection">Inspection</option>
+                                          <option value="Cleaning">Cleaning</option>
                                         </select>
                                       </div>
                                     </div>
@@ -694,85 +862,126 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                     </div>
                                   </div>
                                 )}
-                              </div>
+                                  </div>
+                                );
+                              })()
                             )}
 
                             {/* FM Section - Priority & Type Editor (Only for FM Role) */}
                             {isFM && row.id && (
-                              <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-700">
-                                <div className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                                  <span className="bg-purple-700/60 px-2 py-1 rounded text-xs">FM Actions</span>
-                                  Priority & Type Management
-                                </div>
-                                <div className="grid grid-cols-4 gap-3 mb-3">
-                                  <div>
-                                    <div className="text-xs text-gray-500 mb-1">Current Priority</div>
-                                    <div className="text-sm text-purple-300 font-semibold">{row.priority || 'Medium'}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-xs text-gray-500 mb-1">Current Type</div>
-                                    <div className="text-sm text-purple-300 font-semibold">{row.maintenanceType || row.type || 'Corrective'}</div>
-                                  </div>
-                                </div>
-                                {!showFMEdit ? (
-                                  <button
-                                    onClick={() => {
-                                      setFmOrderId(row.id);
-                                      setFmPriority(row.priority || 'Medium');
-                                      setFmType((row.maintenanceType || row.type) as any || 'Corrective');
-                                      setShowFMEdit(true);
-                                    }}
-                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
-                                  >
-                                    Edit Priority & Type
-                                  </button>
-                                ) : (
-                                  <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Priority</label>
-                                        <select
-                                          value={fmPriority}
-                                          onChange={(e) => setFmPriority(e.target.value as any)}
-                                          className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
-                                        >
-                                          <option value="Low">Low</option>
-                                          <option value="Medium">Medium</option>
-                                          <option value="High">High</option>
-                                          <option value="Critical">Critical</option>
-                                        </select>
+                              (() => {
+                                const tid = row.sourceTicketId || row.ticketId;
+                                const ticketStatus = tid ? (ticketStatusMap[tid] || 'PENDING_APPROVAL').toUpperCase() : 'PENDING_APPROVAL';
+
+                                // If ticket is rejected, show read-only rejected state for FM as well
+                                if (ticketStatus === 'REJECTED') {
+                                  return (
+                                    <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-700">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-semibold text-purple-300 flex items-center gap-2">
+                                          <span className="bg-purple-700/60 px-2 py-1 rounded text-xs">FM View</span>
+                                          Ticket Rejected
+                                        </div>
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-red-900/40 text-red-300">
+                                          REJECTED
+                                        </span>
                                       </div>
-                                      <div>
-                                        <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Maintenance Type</label>
-                                        <select
-                                          value={fmType}
-                                          onChange={(e) => setFmType(e.target.value as any)}
-                                          className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
-                                        >
-                                          <option value="Corrective">Corrective</option>
-                                          <option value="Preventive">Preventive</option>
-                                          <option value="Predictive">Predictive</option>
-                                        </select>
+                                      <div className="grid grid-cols-4 gap-3 text-sm">
+                                        <div>
+                                          <div className="text-xs text-gray-500 mb-1">Priority</div>
+                                          <div className="text-sm text-purple-300 font-semibold">{row.priority || 'N/A'}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-xs text-gray-500 mb-1">Type</div>
+                                          <div className="text-sm text-purple-300 font-semibold">{row.type || row.maintenanceType || 'N/A'}</div>
+                                        </div>
                                       </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={handleFMSave}
-                                        disabled={processing}
-                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                                      >
-                                        {processing ? 'Saving...' : 'Save Changes'}
-                                      </button>
-                                      <button
-                                        onClick={() => setShowFMEdit(false)}
-                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
-                                      >
-                                        Cancel
-                                      </button>
+                                  );
+                                }
+
+                                // Otherwise normal FM edit section
+                                return (
+                                  <div className="bg-purple-900/20 rounded-lg p-4 border border-purple-700">
+                                    <div className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
+                                      <span className="bg-purple-700/60 px-2 py-1 rounded text-xs">FM Actions</span>
+                                      Priority & Type Management
                                     </div>
+                                    <div className="grid grid-cols-4 gap-3 mb-3">
+                                      <div>
+                                        <div className="text-xs text-gray-500 mb-1">Current Priority</div>
+                                        <div className="text-sm text-purple-300 font-semibold">{row.priority || 'N/A'}</div>
+                                      </div>
+                                      <div>
+                                        <div className="text-xs text-gray-500 mb-1">Current Type</div>
+                                        <div className="text-sm text-purple-300 font-semibold">{row.type || row.maintenanceType || 'N/A'}</div>
+                                      </div>
+                                    </div>
+                                    {!showFMEdit ? (
+                                      <button
+                                        onClick={() => {
+                                          setFmOrderId(row.id);
+                                          setFmPriority(row.priority || 'Medium');
+                                          setFmType((row.type || row.maintenanceType) as any || 'Corrective');
+                                          setShowFMEdit(true);
+                                        }}
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                                      >
+                                        Edit Priority & Type
+                                      </button>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-3">
+                                          <div>
+                                            <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Priority</label>
+                                            <select
+                                              value={fmPriority}
+                                              onChange={(e) => setFmPriority(e.target.value as any)}
+                                              className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                            >
+                                              <option value="Low">Low</option>
+                                              <option value="Medium">Medium</option>
+                                              <option value="High">High</option>
+                                              <option value="Critical">Critical</option>
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-purple-400 block mb-1.5 font-semibold">Maintenance Type</label>
+                                            <select
+                                              value={fmType}
+                                              onChange={(e) => setFmType(e.target.value as any)}
+                                              className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                            >
+                                              <option value="Corrective">Corrective</option>
+                                              <option value="Urgent">Urgent</option>
+                                              <option value="Preventive">Preventive</option>
+                                              <option value="Safety">Safety</option>
+                                              <option value="Regulatory">Regulatory</option>
+                                              <option value="Inspection">Inspection</option>
+                                              <option value="Cleaning">Cleaning</option>
+                                            </select>
+                                          </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={handleFMSave}
+                                            disabled={processing}
+                                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                          >
+                                            {processing ? 'Saving...' : 'Save Changes'}
+                                          </button>
+                                          <button
+                                            onClick={() => setShowFMEdit(false)}
+                                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
+                                );
+                              })()
                             )}
                           </div>
                         </td>
