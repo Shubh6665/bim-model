@@ -808,6 +808,12 @@ export class ViewerLeafAssetExtractor {
     // Extract ElementId and Mark explicitly for asset code priority
     const elementId = pick('ElementId', 'Element Id', 'elementId', 'element id');
     const mark = pick('Mark', 'Contrassegno');
+
+    // --- Asset Code related fields ---
+    // Asset Code parameter directly from model (if present)
+    const assetCodeParam = pick('Asset Code', 'Codice Asset', 'Codice Bene', 'Sigla');
+    // Project Code from element / project parameters
+    const projectCode = pick('Project Code', 'Codice Progetto', 'Project Number', 'Numero Progetto', 'Commessa');
     
     // Extract IFC Export Type / Ifc Class from IfcExportType attribute (primary source)
     // Default to 'Unknown' if attribute is not populated
@@ -864,6 +870,36 @@ export class ViewerLeafAssetExtractor {
     // NEVER use result.name as it's unreliable (often just "Element {dbId}")
     const displayName = nameFromProps || type || category || `Element ${result.dbId}`;
 
+    // ---------------------------------
+    // Asset Code computation (debug friendly)
+    // Priority 1: direct Asset Code parameter
+    let assetCode: string | undefined = assetCodeParam ? String(assetCodeParam) : undefined;
+
+    // Priority 2: compute from Project Code + Floor Level if no direct parameter
+    if (!assetCode) {
+      let levelCode = '';
+      if (level) {
+        const match = String(level).match(/^(-?\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num)) {
+            if (num >= 0) {
+              levelCode = num.toString().padStart(2, '0');
+            } else {
+              levelCode = `G${Math.abs(num)}`;
+            }
+          }
+        }
+      }
+
+      if (projectCode && levelCode) {
+        assetCode = `${projectCode}-${levelCode}`;
+      }
+    }
+
+    // Priority 3: if still missing, use '@'
+    if (!assetCode) assetCode = '@';
+
     // Log the name extraction for debugging - ALWAYS log to see what's happening
     try {
       const allProps = Object.keys(propsMap);
@@ -885,6 +921,11 @@ export class ViewerLeafAssetExtractor {
         'type (fallback)': type,
         'category (fallback)': category,
         'Final displayName': displayName,
+        '--- AssetCode debug ---': '---',
+        'AssetCode param': assetCodeParam,
+        'ProjectCode (element)': projectCode,
+        'Level (raw)': level,
+        'Final AssetCode': assetCode,
         '---properties sample': allProps.slice(0, 15).join(', ')
       };
       
@@ -907,6 +948,7 @@ export class ViewerLeafAssetExtractor {
       serialNumber,
       elementId,  // Add explicitly for asset code priority
       mark,       // Add explicitly for asset code fallback
+      assetCode,  // Computed Asset Code following project+level rules
       ifcExportType,  // IFC Export Type / Ifc Class
       properties: propsMap
     };

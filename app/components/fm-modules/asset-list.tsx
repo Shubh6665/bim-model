@@ -708,6 +708,96 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
       }
 
       console.log('🔄 [AssetList] Converting viewer assets to AssetRecord format...');
+      
+      // STEP 1: Determine Global Project Code (Backend first, then BIM model fallback)
+      let globalProjectCode: string | undefined;
+      try {
+        // 1A. Try to fetch project metadata from backend (authoritative source)
+        if (projectId) {
+          try {
+            console.log(`🔎 [AssetList] Fetching project metadata for projectId=${projectId} to obtain code...`);
+            const res = await fetch(`/api/projects/${projectId}`);
+            if (res.ok) {
+              const data = await res.json();
+              const backendCode = data?.project?.code;
+              if (backendCode) {
+                globalProjectCode = String(backendCode).trim();
+                console.log(`   ✅ [AssetList] Global Project Code obtained from backend: "${globalProjectCode}"`);
+              } else {
+                console.warn('   ⚠️ [AssetList] Backend project response has no code field');
+              }
+            } else {
+              console.warn(`   ⚠️ [AssetList] Backend project fetch failed (status ${res.status})`);
+            }
+          } catch (err) {
+            console.error('   ❌ [AssetList] Error fetching backend project metadata:', err);
+          }
+        } else {
+          console.warn('   ⚠️ [AssetList] No projectId provided; skipping backend project code fetch');
+        }
+
+        // 1B. If backend did not yield a code, search BIM models for Project Information element
+        if (!globalProjectCode) {
+          console.log('🔎 [AssetList] Searching for Project Information across ALL loaded BIM models (fallback)...');
+          const allModels = viewer.getAllModels();
+          console.log(`   [AssetList] Found ${allModels.length} models to search.`);
+
+          // Potential category/name variants for international/localized Revit setups
+          const projectInfoSearchTerms = [
+            'Project Information', // English
+            'Informazioni progetto', // Italian (possible)
+            'Informazioni Progetto',
+            'Dati Progetto'
+          ];
+          const projectCodeAliases = ['Project Code','Codice Progetto','Project Number','Numero Progetto','Commessa'];
+
+          for (const model of allModels) {
+            let found = false;
+            for (const term of projectInfoSearchTerms) {
+              const projectInfoIds = await new Promise<number[]>((resolve) => {
+                model.search(
+                  term,
+                  (ids: number[]) => resolve(ids),
+                  () => resolve([]),
+                  ['Category'],
+                  { searchHidden: true }
+                );
+              });
+              if (projectInfoIds.length > 0) {
+                console.log(`   ✅ Found Project Information term="${term}" in model ${model.id} (matches: ${projectInfoIds.length})`);
+                const pProps: any = await new Promise(resolve => model.getProperties(projectInfoIds[0], resolve));
+                if (pProps?.properties) {
+                  const pMap: Record<string, any> = {};
+                  pProps.properties.forEach((p: any) => { if (p.displayName) pMap[p.displayName] = p.displayValue; });
+                  for (const k of projectCodeAliases) {
+                    if (pMap[k]) {
+                      globalProjectCode = pMap[k];
+                      console.log(`   ✅ Successfully extracted Global Project Code from BIM: "${globalProjectCode}" (key: ${k})`);
+                      found = true;
+                      break;
+                    }
+                  }
+                  if (!found) {
+                    console.warn(`   ⚠️ Project Information element exists but none of the code aliases matched. Keys: ${Object.keys(pMap).join(', ')}`);
+                  }
+                }
+              }
+              if (found) break; // stop trying other terms for this model
+            }
+            if (globalProjectCode) break; // stop searching other models once found
+          }
+
+          if (!globalProjectCode) {
+            console.warn('   ⚠️ No Project Information element containing a recognizable Project Code was found in ANY BIM model.');
+          }
+        }
+      } catch (e) {
+        console.error('   ❌ A critical error occurred while determining Global Project Code:', e);
+      }
+      
+      console.log(`🔄 [AssetList] Global Project Code: ${globalProjectCode || '(not found)'}`);
+      console.log('🔄 [AssetList] Now converting ${viewerAssets.length} assets...\n');
+      
       const currentGuid = getCurrentModelGuid();
       const newAssets: AssetRecord[] = viewerAssets.map((asset: ViewerAsset) => {
         const props = asset.properties || {} as Record<string, any>;
@@ -820,10 +910,63 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           parsedAssetName = nameMatch[1].trim();
           parsedAssetCode = nameMatch[2];
         }
+
+        // --- Asset Code Logic ---
+        console.log(`🔍 [AssetList Extract] Processing asset dbId: ${asset.dbId}, name: ${asset.name}`);
         
-        // ASSET CODE: Leave empty (do NOT use ElementId, dbId, or any other fallback)
-        // ElementId should be stored separately in the elementId field
-        const finalAssetCode = '';
+        // Priority 1: explicit Asset Code parameter from BIM
+        const assetCodeFromParam = pick('Asset Code','Codice Asset','Codice Bene','Sigla');
+        console.log(`   ✅ Step 1 - Asset Code from parameter: ${assetCodeFromParam || '(not found)'}`);
+
+        // Priority 2: compute from Project Code + Level if parameter missing
+        let finalAssetCode = assetCodeFromParam || '';
+
+        if (!finalAssetCode) {
+          // Try to get project code from element properties first
+          let projectCode = pick('Project Code','Codice Progetto','Project Number','Numero Progetto','Commessa');
+          console.log(`   ✅ Step 2a - Project Code from element: ${projectCode || '(not found)'}`);
+
+          // If not found on element, use the globally fetched Project Code
+          if (!projectCode && globalProjectCode) {
+            projectCode = globalProjectCode;
+            console.log(`   ✅ Step 2b - Using global Project Code: ${projectCode}`);
+          }
+
+          console.log(`   ✅ Step 3 - Level string: ${levelForLocation || '(not found)'}`);
+
+          // Compute level code from levelForLocation (e.g. "0 - Piano Terra", "1 - Piano Primo", "-1 - Piano Interrato 1")
+          if (projectCode && levelForLocation) {
+            let levelCode = '';
+            const m = levelForLocation.match(/^(-?\d+)/);
+            if (m) {
+              const num = parseInt(m[1], 10);
+              console.log(`   ✅ Step 4 - Extracted level number: ${num}`);
+              if (num >= 0) {
+                levelCode = num.toString().padStart(2, '0');
+              } else {
+                levelCode = `G${Math.abs(num)}`;
+              }
+              console.log(`   ✅ Step 5 - Level code generated: ${levelCode}`);
+            } else {
+              console.log(`   ⚠️ Step 4 - Could not extract level number from: "${levelForLocation}"`);
+            }
+            if (levelCode) {
+              finalAssetCode = `${projectCode}-${levelCode}`;
+              console.log(`   ✅ Step 6 - Final Asset Code computed: ${finalAssetCode}`);
+            }
+          } else {
+            if (!projectCode) console.log(`   ⚠️ Cannot compute Asset Code - Project Code missing`);
+            if (!levelForLocation) console.log(`   ⚠️ Cannot compute Asset Code - Level missing`);
+          }
+        }
+
+        // Priority 3: if still empty, use '@'
+        if (!finalAssetCode) {
+          finalAssetCode = '@';
+          console.log(`   ⚠️ Step 7 - Fallback to '@' - no code could be determined`);
+        }
+
+        console.log(`   ✅ FINAL Asset Code: ${finalAssetCode}\n`);
         
         // Asset Name Priority: 1) Description from IFC metadata 2) Parsed asset.name 3) Type 4) Category 5) Default
         const finalAssetName = (descriptionFromMetadata && String(descriptionFromMetadata).trim()) 

@@ -340,7 +340,9 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           'Livello', 'Level', 'Piano', 'Piano Terra', 'Level 1'
         ],
         room: ['Room', 'Space', 'Stanza', 'Locale', 'Space Code'],
-        rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name']
+        rawCategory: ['Category', 'Categoria', 'Type', 'Tipo', 'Nome del tipo', 'Category Name'],
+        assetCode: ['Asset Code', 'Codice Asset', 'Codice Bene', 'Sigla'],
+        projectCode: ['Project Code', 'Codice Progetto', 'Project Number', 'Numero Progetto', 'Commessa']
       };
 
       const pickAlias = (key: keyof typeof PROP_ALIASES) => pick(...PROP_ALIASES[key]);
@@ -362,6 +364,91 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       // Level needs to fall back to raw pick directly (prefers descriptive fields)
       const level = pickAlias('level');
       const room = pickAlias('room');
+
+      // Asset Code Logic
+      console.log(`🔍 [CreateAsset Prefill] Processing selection - model available: ${!!model}`);
+      
+      let assetCode = pickAlias('assetCode');
+      console.log(`   ✅ Step 1 - Asset Code from parameter: ${assetCode || '(not found)'}`);
+
+      if (!assetCode) {
+        // Priority 2: Compute from Project Code + Floor Level
+        let projectCode = pickAlias('projectCode');
+        console.log(`   ✅ Step 2 - Project Code from element: ${projectCode || '(not found)'}`);
+
+        // If not found on element, try to find in Project Information
+        if (!projectCode) {
+          console.log(`   🔎 Step 3 - Searching for Project Information in model...`);
+          try {
+            const projectInfoIds = await new Promise<number[]>((resolve) => {
+              model.search('Project Information', resolve, () => resolve([]), ['Category']);
+            });
+            
+            console.log(`   🔎 Found ${projectInfoIds.length} Project Information element(s)`);
+            
+            if (projectInfoIds && projectInfoIds.length > 0) {
+              const pProps: any = await new Promise(resolve => model.getProperties(projectInfoIds[0], resolve));
+              if (pProps && pProps.properties) {
+                const pMap: any = {};
+                pProps.properties.forEach((p: any) => { if(p.displayName) pMap[p.displayName] = p.displayValue; });
+                
+                console.log(`   🔎 Project Information properties found:`, Object.keys(pMap).join(', '));
+                
+                for (const k of PROP_ALIASES.projectCode) {
+                  if (pMap[k]) {
+                    projectCode = pMap[k];
+                    console.log(`   ✅ Found Project Code in Project Information: ${projectCode} (key: ${k})`);
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (e) { 
+            console.error('   ❌ Error fetching Project Info', e); 
+          }
+        }
+
+        console.log(`   ✅ Step 4 - Final Project Code: ${projectCode || '(not found)'}`);
+        console.log(`   ✅ Step 5 - Level string: ${level || '(not found)'}`);
+
+        if (projectCode && level) {
+          // Parse level code
+          // 0 - Piano Terra -> 00
+          // 1 - Piano Primo -> 01
+          // -1 - Piano Interrato -> G1
+          let levelCode = '';
+          const match = level.match(/^(-?\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            console.log(`   ✅ Step 6 - Extracted level number: ${num}`);
+            if (num >= 0) {
+              levelCode = num.toString().padStart(2, '0');
+            } else {
+              levelCode = `G${Math.abs(num)}`;
+            }
+            console.log(`   ✅ Step 7 - Level code generated: ${levelCode}`);
+          } else {
+            console.log(`   ⚠️ Step 6 - Could not extract level number from: "${level}"`);
+          }
+
+          if (levelCode) {
+            assetCode = `${projectCode}-${levelCode}`;
+            console.log(`   ✅ Step 8 - Final Asset Code computed: ${assetCode}`);
+          }
+        } else {
+          if (!projectCode) console.log(`   ⚠️ Cannot compute Asset Code - Project Code missing`);
+          if (!level) console.log(`   ⚠️ Cannot compute Asset Code - Level missing`);
+        }
+      }
+
+      // Fallback
+      if (!assetCode) {
+        assetCode = '@';
+        console.log(`   ⚠️ Step 9 - Fallback to '@' - no code could be determined`);
+      }
+
+      console.log(`   ✅ FINAL Asset Code: ${assetCode}\n`);
+
       const rawCategory = pickAlias('rawCategory') || pick('Category', 'Categoria', 'OmniClass Title', 'OmniClass', 'Tipo');
       const category = mapToStandardCategory(rawCategory);
       const dimensions = (length || width || height) ? `${length || ''} x ${width || ''} x ${height || ''}`.replace(/\s+x\s+x\s+/, '').trim() : undefined;
@@ -371,6 +458,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         // Replace with new selection data (clear fields if not present in new selection)
         brand: brand,
         model: modelName,
+        assetCode: assetCode || '@',
         serialNumber: serial || '',
         elementId: elementId || '',
         ifcGuid: ifcGuid || '',
@@ -481,7 +569,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
               </select>
             </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled placeholder="Leave empty" value="" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs opacity-50 cursor-not-allowed" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
