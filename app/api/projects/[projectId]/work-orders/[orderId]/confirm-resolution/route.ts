@@ -57,25 +57,62 @@ export async function POST(
     } as any);
 
     // Notify Requester (User)
-    // Need to fetch the ticket to get requester email
-    if (workOrder.sourceTicketId) {
-      const ticketsCol = db.collection('fm_tickets');
-      const ticket = await ticketsCol.findOne({ _id: new ObjectId(workOrder.sourceTicketId) });
-      
-      if (ticket && ticket.requester && ticket.requester.contact) {
-        const requesterEmail = ticket.requester.contact;
-        try {
-          const html = `<div style="font-family: Arial, sans-serif; max-width:600px;">
-            <h3 style="color:#059669">Work Order Completed</h3>
-            <p>Your request <strong>${workOrder.requestId || workOrder.id}</strong> has been successfully resolved and confirmed by the Facility Manager.</p>
-            <p><strong>Description:</strong> ${workOrder.description}</p>
-            <p>Thank you for using our maintenance system.</p>
-          </div>`;
-          await sendEmail(requesterEmail, `Work Order ${workOrder.requestId || workOrder.id} Completed`, html);
-        } catch (e) {
-          console.error('Failed to notify requester', e);
+    // Try to get email from work order contact first, then fallback to ticket lookup
+    let requesterEmail = workOrder.contact;
+
+    if (!requesterEmail && workOrder.sourceTicketId) {
+      try {
+        const ticketsCol = db.collection('fm_tickets');
+        const ticket = await ticketsCol.findOne({ _id: new ObjectId(workOrder.sourceTicketId) });
+        if (ticket && ticket.requester && ticket.requester.contact) {
+          requesterEmail = ticket.requester.contact;
         }
+      } catch (err) {
+        console.error('Error looking up ticket for email:', err);
       }
+    }
+
+    if (requesterEmail) {
+      try {
+        const html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h2 style="color: #059669; margin: 0;">Resolution Confirmed</h2>
+            </div>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+              Hello,
+            </p>
+            
+            <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+              We are pleased to inform you that your maintenance request has been successfully resolved and verified by our Facility Management team.
+            </p>
+            
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 24px 0; border: 1px solid #f3f4f6;">
+              <p style="margin: 8px 0; color: #4b5563;"><strong>Request ID:</strong> <span style="color: #111827;">${workOrder.requestId || workOrder.id}</span></p>
+              <p style="margin: 8px 0; color: #4b5563;"><strong>Description:</strong> <span style="color: #111827;">${workOrder.description}</span></p>
+              <p style="margin: 8px 0; color: #4b5563;"><strong>Resolved Date:</strong> <span style="color: #111827;">${new Date().toLocaleDateString()}</span></p>
+            </div>
+
+            <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+              If you have any further questions or issues, please don't hesitate to submit a new request.
+            </p>
+            
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                This is an automated message from the BIM Maintenance Platform.
+              </p>
+            </div>
+          </div>
+        `;
+        
+        await sendEmail(requesterEmail, `Resolution Confirmed: Request ${workOrder.requestId || workOrder.id}`, html);
+        console.log(`Confirmation email sent to ${requesterEmail}`);
+      } catch (e) {
+        console.error('Failed to notify requester', e);
+      }
+    } else {
+      console.warn('No requester email found for work order', orderId);
     }
 
     return NextResponse.json({ success: true });
