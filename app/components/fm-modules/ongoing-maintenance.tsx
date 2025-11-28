@@ -47,6 +47,10 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [integrationReason, setIntegrationReason] = useState('');
   const [orderForIntegration, setOrderForIntegration] = useState<WorkOrderItem | null>(null);
+
+  // Confirm Resolution Modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [orderToConfirm, setOrderToConfirm] = useState<WorkOrderItem | null>(null);
   
   // Filters for Task 8
   const [filterStatus, setFilterStatus] = useState<WorkOrderStatus | 'ALL'>('ALL');
@@ -161,12 +165,17 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     }
   };
 
-  const handleConfirmResolution = async (order: WorkOrderItem) => {
-    if (!confirm('Are you sure you want to confirm this resolution? This will notify the requester that the work is complete.')) return;
+  const openConfirmModal = (order: WorkOrderItem) => {
+    setOrderToConfirm(order);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmResolution = async () => {
+    if (!orderToConfirm || !projectId) return;
     
     setTransitioning(true);
     try {
-      const orderId = order._id || order.id;
+      const orderId = orderToConfirm._id || orderToConfirm.id;
       const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/confirm-resolution`, {
         method: 'POST',
       });
@@ -177,6 +186,8 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       }
       
       await fetchWorkOrders();
+      setShowConfirmModal(false);
+      setOrderToConfirm(null);
       showToast('Resolution confirmed and user notified', 'success');
     } catch (error: any) {
       showToast(error.message, 'error');
@@ -668,7 +679,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                     {!order.resolutionConfirmed ? (
                       <>
                         <button
-                          onClick={() => handleConfirmResolution(order)}
+                          onClick={() => openConfirmModal(order)}
                           disabled={transitioning}
                           className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         >
@@ -987,6 +998,44 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
               fetchWorkOrders(); // Refresh data after closing report
             }}
           />
+        </div>
+      )}
+
+      {/* Confirm Resolution Modal */}
+      {showConfirmModal && orderToConfirm && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Confirm Resolution</h3>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to confirm this resolution? This will notify the requester that the work is complete and verify the fix.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setOrderToConfirm(null);
+                }}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                disabled={transitioning}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmResolution}
+                disabled={transitioning}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                {transitioning ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  'Confirm Resolution'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

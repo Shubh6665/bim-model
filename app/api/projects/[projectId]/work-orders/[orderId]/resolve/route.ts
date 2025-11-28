@@ -78,12 +78,28 @@ export async function POST(
     const fmEmails = await getFacilityManagers(db, projectId);
     for (const to of fmEmails) {
       try {
+        // Email Notification
         const html = `<div style="font-family: Arial, sans-serif; max-width:600px;">
           <h3 style="color:#064e3b">Work Order Resolved</h3>
           <p>Work order <strong>${workOrder.requestId || workOrder.id}</strong> was resolved by the TM.</p>
           <p><strong>TM Closing Notes:</strong> ${tmClosingNotes}</p>
         </div>`;
         await sendEmail(to, `Work Order ${workOrder.requestId || workOrder.id} Resolved`, html);
+
+        // Platform Notification
+        await db.collection('notifications').insertOne({
+          userEmail: to,
+          type: 'WORK_ORDER_RESOLVED',
+          title: 'Work Order Resolved',
+          message: `Work Order ${workOrder.requestId || workOrder.id} has been resolved by TM.`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          meta: {
+            projectId,
+            workOrderId: orderId,
+            requestId: workOrder.requestId || workOrder.id
+          }
+        });
       } catch (e) {
         console.error('Failed to notify on resolve', e);
       }
