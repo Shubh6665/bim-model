@@ -134,7 +134,17 @@ export function NotificationProvider({ children, userEmail }: { children: React.
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  const clear = useCallback(() => setNotifications([]), []);
+  const clear = useCallback(async () => {
+    try {
+      if (userEmail) {
+        await fetch('/api/notifications', { method: 'DELETE' });
+      }
+      setNotifications([]);
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+      setNotifications([]);
+    }
+  }, [userEmail]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 

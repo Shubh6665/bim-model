@@ -56,3 +56,20 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const db = await getDb();
+    await db.collection('notifications').deleteMany({ userEmail: session.user.email });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[Notifications][DELETE] Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

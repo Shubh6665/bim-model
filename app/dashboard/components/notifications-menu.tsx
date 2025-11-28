@@ -16,13 +16,22 @@ function timeAgo(ts: number): string {
 }
 
 export function NotificationsMenu({ onClose }: { onClose: () => void }) {
-  const { notifications, markRead, markAllRead, remove, unreadCount } = useNotifications();
+  const { notifications, markRead, markAllRead, remove, clear, unreadCount } = useNotifications();
 
   return (
     <div className="absolute right-0 top-full mt-2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-gray-800/80 backdrop-blur">
         <div className="text-sm text-gray-200 font-medium">Notifications</div>
         <div className="flex items-center gap-2">
+          {notifications.length > 0 && (
+            <button
+              onClick={() => clear()}
+              className="text-xs text-red-400 hover:text-red-300"
+              title="Clear all notifications"
+            >
+              Clear all
+            </button>
+          )}
           {unreadCount > 0 && (
             <button
               onClick={() => markAllRead()}
