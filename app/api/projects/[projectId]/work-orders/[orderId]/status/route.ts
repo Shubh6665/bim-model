@@ -103,7 +103,7 @@ export async function PATCH(
 
       await workOrdersCol.updateOne({ _id: new ObjectId(orderId) }, { $set: { maintenanceCycles: cycles, currentCycle: currentCycleNumber, status: newStatus, totalTimeSpent, updatedAt: now } });
 
-      await logStatusChange(db, projectId, orderId, userEmail, userRole as any, currentState, newStatus);
+      await logStatusChange(db, projectId, orderId, userEmail, userRole as any, currentState, newStatus, note);
 
       // Notify TM when maintainer marks as CLOSE
       try {
@@ -126,7 +126,7 @@ export async function PATCH(
     // For PLANNED and IN_PROGRESS updates (fallthrough)
     await workOrdersCol.updateOne({ _id: new ObjectId(orderId) }, { $set: { maintenanceCycles: cycles, currentCycle: currentCycleNumber, status: newStatus, updatedAt: now } });
 
-    await logStatusChange(db, projectId, orderId, userEmail, userRole as any, currentState, newStatus);
+    await logStatusChange(db, projectId, orderId, userEmail, userRole as any, currentState, newStatus, note);
 
     return NextResponse.json({ success: true, status: newStatus });
   } catch (error: any) {

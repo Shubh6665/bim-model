@@ -303,7 +303,8 @@ export async function logStatusChange(
   author: string,
   authorRole: MaintenanceRole,
   oldStatus: string,
-  newStatus: string
+  newStatus: string,
+  notes?: string
 ): Promise<boolean> {
   return await logActivity({
     db,
@@ -315,6 +316,7 @@ export async function logStatusChange(
     fieldChanged: 'status',
     oldValue: oldStatus,
     newValue: newStatus,
+    notes: notes,
   });
 }
 

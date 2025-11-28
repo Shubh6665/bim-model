@@ -237,6 +237,11 @@ export interface WorkOrderItem {
   integrationRequestedAt?: string;  // ISO timestamp
   integrationReason?: string;
   
+  // FM Resolution Confirmation
+  resolutionConfirmed?: boolean;
+  resolutionConfirmedBy?: string;
+  resolutionConfirmedAt?: string;
+
   // Calculated Fields
   totalTimeSpent?: number;  // minutes (sum of all cycle durations)
   totalTimeToResolve?: number;  // minutes (from creation to RESOLVED)

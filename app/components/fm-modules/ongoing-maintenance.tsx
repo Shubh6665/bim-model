@@ -43,6 +43,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportWorkOrder, setReportWorkOrder] = useState<WorkOrderItem | null>(null);
   
+  // Integration Request Modal
+  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
+  const [integrationReason, setIntegrationReason] = useState('');
+  const [orderForIntegration, setOrderForIntegration] = useState<WorkOrderItem | null>(null);
+  
   // Filters for Task 8
   const [filterStatus, setFilterStatus] = useState<WorkOrderStatus | 'ALL'>('ALL');
   const [filterPriority, setFilterPriority] = useState<string>('ALL');
@@ -65,9 +70,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       const res = await fetch(`/api/projects/${projectId}/work-orders`);
       if (!res.ok) throw new Error("Failed to fetch work orders");
       const data = await res.json();
-      // Filter for non-RESOLVED orders, but include REJECTED if ticket was rejected
+      // Include RESOLVED orders so FM can act on them
       const activeOrders = data.filter((wo: WorkOrderItem) => 
-        ['OPEN', 'PLANNED', 'IN_PROGRESS', 'CLOSE'].includes(wo.status) || 
+        ['OPEN', 'PLANNED', 'IN_PROGRESS', 'CLOSE', 'RESOLVED'].includes(wo.status) || 
         wo.ticketStatus === 'REJECTED' || 
         wo.status === 'Rejected'
       );
@@ -131,7 +136,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     
     setTransitioning(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderToResolve._id}/resolve`, {
+      // Use _id if available, otherwise fallback to id
+      const orderId = orderToResolve._id || orderToResolve.id;
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tmClosingNotes }),
@@ -147,6 +154,64 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       setTmClosingNotes('');
       setOrderToResolve(null);
       showToast('Work order resolved successfully', 'success');
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  const handleConfirmResolution = async (order: WorkOrderItem) => {
+    if (!confirm('Are you sure you want to confirm this resolution? This will notify the requester that the work is complete.')) return;
+    
+    setTransitioning(true);
+    try {
+      const orderId = order._id || order.id;
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/confirm-resolution`, {
+        method: 'POST',
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to confirm resolution');
+      }
+      
+      await fetchWorkOrders();
+      showToast('Resolution confirmed and user notified', 'success');
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setTransitioning(false);
+    }
+  };
+  
+  const handleRequestIntegration = async () => {
+    if (!orderForIntegration || !projectId) return;
+    
+    if (!integrationReason.trim()) {
+      showToast('Please enter a reason for integration', 'error');
+      return;
+    }
+    
+    setTransitioning(true);
+    try {
+      const orderId = orderForIntegration._id || orderForIntegration.id;
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/integration-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: integrationReason }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to request integration');
+      }
+      
+      await fetchWorkOrders();
+      setShowIntegrationModal(false);
+      setIntegrationReason('');
+      setOrderForIntegration(null);
+      showToast('Integration requested successfully', 'success');
     } catch (error: any) {
       showToast(error.message, 'error');
     } finally {
@@ -484,15 +549,17 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-300">Assigned Technicians</span>
-                      <button
-                        onClick={() => {
-                          setSelectedOrderForTech(order);
-                          setShowTechModal(true);
-                        }}
-                        className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                      >
-                        Add Technician
-                      </button>
+                      {!isRejected && (
+                        <button
+                          onClick={() => {
+                            setSelectedOrderForTech(order);
+                            setShowTechModal(true);
+                          }}
+                          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                        >
+                          Add Technician
+                        </button>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {order.assignedTechnicians && order.assignedTechnicians.length > 0 ? (
@@ -541,8 +608,8 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   </div>
                 )}
 
-                {/* State Machine Actions */}
-                {transitions.length > 0 && (
+                {/* State Machine Actions - Hidden for Users and FMs */}
+                {transitions.length > 0 && (isTM || isMaintainer) && (
                   <div className="flex gap-2 flex-wrap">
                     {transitions.map((nextStatus) => (
                       <button
@@ -583,6 +650,46 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                     </button>
                     
                     {/* View Enhanced Report Button */}
+                    <button
+                      onClick={() => {
+                        setReportWorkOrder(order);
+                        setShowReportModal(true);
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      View Report
+                    </button>
+                  </div>
+                )}
+
+                {/* Resolved Status - FM can request integration or confirm resolution */}
+                {order.status === 'RESOLVED' && isFM && (
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {!order.resolutionConfirmed ? (
+                      <>
+                        <button
+                          onClick={() => handleConfirmResolution(order)}
+                          disabled={transitioning}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          Confirm Resolution
+                        </button>
+                        <button
+                          onClick={() => {
+                            setOrderForIntegration(order);
+                            setShowIntegrationModal(true);
+                          }}
+                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Request Integration
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-green-400 text-sm font-medium flex items-center gap-1 mr-2">
+                        ✓ Resolution Confirmed
+                      </span>
+                    )}
+                    
                     <button
                       onClick={() => {
                         setReportWorkOrder(order);
@@ -754,6 +861,49 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
               >
                 {transitioning ? 'Resolving...' : 'Mark as RESOLVED'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* FM Integration Request Modal */}
+      {showIntegrationModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-white mb-4">Request Integration</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Work Order: <span className="text-white font-semibold">{orderForIntegration?.requestId || orderForIntegration?.ticketId}</span>
+            </p>
+            <p className="text-gray-400 text-xs mb-4">
+              This will reopen the work order for the maintenance team to address the integration request.
+            </p>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Reason for Integration <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={integrationReason}
+              onChange={(e) => setIntegrationReason(e.target.value)}
+              placeholder="Enter reason for integration request..."
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 resize-none h-32 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowIntegrationModal(false);
+                  setIntegrationReason('');
+                  setOrderForIntegration(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRequestIntegration}
+                disabled={transitioning || !integrationReason.trim()}
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                {transitioning ? 'Requesting...' : 'Submit Request'}
               </button>
             </div>
           </div>

@@ -720,7 +720,11 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                 </div>
                                 <div>
                                   <div className="text-xs text-gray-500 mb-1">Company</div>
-                                  <div className="text-sm text-gray-200">{row.company || 'N/A'}</div>
+                                  <div className="text-sm text-gray-200">
+                                    {row.assignedTechnicians && row.assignedTechnicians.length > 0 
+                                      ? row.assignedTechnicians.map(t => t.company).filter(Boolean).join(', ') || 'N/A'
+                                      : (row.company || 'N/A')}
+                                  </div>
                                 </div>
                               </div>
                             </div>

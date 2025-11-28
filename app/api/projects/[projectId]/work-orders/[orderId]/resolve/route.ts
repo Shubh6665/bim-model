@@ -9,7 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth-config';
 import { getDb } from '@/app/services/mongodb';
 import { ObjectId } from 'mongodb';
-import { canResolveTicket, getMaintenanceTeamMembers } from '@/app/lib/maintenance-roles';
+import { canResolveTicket, getMaintenanceTeamMembers, getFacilityManagers } from '@/app/lib/maintenance-roles';
 import { isValidWorkOrderTransition } from '@/app/lib/maintenance-state-machine';
 import { logActivity, logStatusChange } from '@/app/lib/activity-logger';
 import { sendEmail } from '@/app/lib/email';
@@ -72,15 +72,16 @@ export async function POST(
 
     // log activity
     await logStatusChange(db, projectId, orderId, userEmail, 'TM', currentState, 'RESOLVED');
-    await logActivity({ db, projectId, workOrderId: orderId, author: userEmail, authorRole: 'TM', action: 'TM_RESOLVED', notes: `Resolved by ${userEmail}` } as any);
+    await logActivity({ db, projectId, workOrderId: orderId, author: userEmail, authorRole: 'TM', action: 'TM_RESOLVED', notes: tmClosingNotes } as any);
 
     // notify facility managers
-    const fmEmails = await getMaintenanceTeamMembers(db, projectId); // notify TM members as well
+    const fmEmails = await getFacilityManagers(db, projectId);
     for (const to of fmEmails) {
       try {
         const html = `<div style="font-family: Arial, sans-serif; max-width:600px;">
           <h3 style="color:#064e3b">Work Order Resolved</h3>
           <p>Work order <strong>${workOrder.requestId || workOrder.id}</strong> was resolved by the TM.</p>
+          <p><strong>TM Closing Notes:</strong> ${tmClosingNotes}</p>
         </div>`;
         await sendEmail(to, `Work Order ${workOrder.requestId || workOrder.id} Resolved`, html);
       } catch (e) {
