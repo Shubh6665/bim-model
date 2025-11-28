@@ -262,6 +262,20 @@ export interface WorkOrderItem {
     company?: string;
     assignedAt: string;
   }>;
+
+  // Additional Report Fields
+  comments?: any[];
+  interventionOutcome?: string;
+  assetCondition?: string;
+  nextPlannedActions?: string;
+  materials?: string;
+  timeSpent?: string;
+  additionalTechnicians?: string;
+  complianceCompleted?: boolean;
+  ppe?: string;
+  techSignature?: string;
+  clientSignature?: string;
+  closureDate?: string;
 }
 
 // Activity Log Action Types
