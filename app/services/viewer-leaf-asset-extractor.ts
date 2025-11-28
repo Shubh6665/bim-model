@@ -28,6 +28,7 @@ export interface ViewerAsset {
   serialNumber?: string;
   elementId?: string;  // ElementId for unique asset identification
   mark?: string;       // Mark field as fallback identifier
+  assetCode?: string;  // Computed Asset Code (direct parameter or project+level rule)
   ifcExportType?: string;  // IFC Export Type / Ifc Class (from IfcExportType attribute)
   modelId?: number;
   properties: Record<string, any>;
