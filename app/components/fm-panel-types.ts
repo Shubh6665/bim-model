@@ -276,6 +276,7 @@ export interface WorkOrderItem {
   techSignature?: string;
   clientSignature?: string;
   closureDate?: string;
+  additionalComments?: string;
 }
 
 // Activity Log Action Types
