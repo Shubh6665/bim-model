@@ -932,12 +932,22 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             console.log(`   ✅ Step 2b - Using global Project Code: ${projectCode}`);
           }
 
-          console.log(`   ✅ Step 3 - Level string: ${levelForLocation || '(not found)'}`);
+          // Normalize level into a string safely (handle numbers or objects)
+          const levelRaw = (() => {
+            if (typeof levelForLocation === 'string') return levelForLocation.trim();
+            if (typeof levelForLocation === 'number') return String(levelForLocation);
+            if (levelForLocation && typeof levelForLocation === 'object') {
+              const dv = (levelForLocation as any).displayValue || (levelForLocation as any).value || (levelForLocation as any).name;
+              if (dv) return String(dv).trim();
+            }
+            return '';
+          })();
+          console.log(`   ✅ Step 3 - Level string (normalized): ${levelRaw || '(not found)'}`);
 
-          // Compute level code from levelForLocation (e.g. "0 - Piano Terra", "1 - Piano Primo", "-1 - Piano Interrato 1")
-          if (projectCode && levelForLocation) {
+          // Compute level code from levelRaw (e.g. "0 - Piano Terra", "1 - Piano Primo", "-1 - Piano Interrato 1")
+          if (projectCode && levelRaw) {
             let levelCode = '';
-            const m = levelForLocation.match(/^(-?\d+)/);
+            const m = String(levelRaw).match(/^(-?\d+)/);
             if (m) {
               const num = parseInt(m[1], 10);
               console.log(`   ✅ Step 4 - Extracted level number: ${num}`);
@@ -948,7 +958,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
               }
               console.log(`   ✅ Step 5 - Level code generated: ${levelCode}`);
             } else {
-              console.log(`   ⚠️ Step 4 - Could not extract level number from: "${levelForLocation}"`);
+              console.log(`   ⚠️ Step 4 - Could not extract level number from: "${levelRaw}"`);
             }
             if (levelCode) {
               finalAssetCode = `${projectCode}-${levelCode}`;
@@ -956,7 +966,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
             }
           } else {
             if (!projectCode) console.log(`   ⚠️ Cannot compute Asset Code - Project Code missing`);
-            if (!levelForLocation) console.log(`   ⚠️ Cannot compute Asset Code - Level missing`);
+            if (!levelRaw) console.log(`   ⚠️ Cannot compute Asset Code - Level missing`);
           }
         }
 
