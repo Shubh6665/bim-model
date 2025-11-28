@@ -220,19 +220,31 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-400">Company:</span>
-                <span className="ml-2 text-white">{workOrder.company || 'N/A'}</span>
+                <span className="ml-2 text-white">
+                  {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 
+                    ? workOrder.assignedTechnicians.map(t => t.company).filter(Boolean).join(', ') || 'N/A'
+                    : (workOrder.company || 'N/A')}
+                </span>
               </div>
               <div>
                 <span className="text-gray-400">Primary Technician:</span>
-                <span className="ml-2 text-white">{workOrder.responsibleTechnician || 'N/A'}</span>
+                <span className="ml-2 text-white">
+                  {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 
+                    ? workOrder.assignedTechnicians.map(t => t.name).join(', ')
+                    : (workOrder.responsibleTechnician || 'N/A')}
+                </span>
               </div>
               {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 && (
                 <div className="col-span-2">
                   <span className="text-gray-400">Assigned Technicians:</span>
                   <div className="mt-2 space-y-1">
                     {workOrder.assignedTechnicians.map((tech: any, idx: number) => (
-                      <div key={idx} className="text-sm text-white bg-gray-900/30 rounded px-3 py-1.5">
-                        {tech.name} ({tech.email}) - Assigned {new Date(tech.assignedAt).toLocaleDateString()}
+                      <div key={idx} className="text-sm text-white bg-gray-900/30 rounded px-3 py-1.5 flex justify-between items-center">
+                        <span>{tech.name} ({tech.email})</span>
+                        <div className="flex items-center gap-3">
+                          {tech.company && <span className="text-blue-300">{tech.company}</span>}
+                          <span className="text-gray-500 text-xs">Assigned {new Date(tech.assignedAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

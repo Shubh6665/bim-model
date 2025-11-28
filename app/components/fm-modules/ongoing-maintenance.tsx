@@ -11,7 +11,7 @@ interface OngoingMaintenanceProps {
 }
 
 export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectId }) => {
-  const { role, isTM, isMaintainer } = useUserRole(projectId || '');
+  const { role, isTM, isMaintainer, isFM } = useUserRole(projectId || '');
   const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrderItem | null>(null);
@@ -65,9 +65,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       const res = await fetch(`/api/projects/${projectId}/work-orders`);
       if (!res.ok) throw new Error("Failed to fetch work orders");
       const data = await res.json();
-      // Filter for non-RESOLVED orders
+      // Filter for non-RESOLVED orders, but include REJECTED if ticket was rejected
       const activeOrders = data.filter((wo: WorkOrderItem) => 
-        ['OPEN', 'PLANNED', 'IN_PROGRESS', 'CLOSE'].includes(wo.status)
+        ['OPEN', 'PLANNED', 'IN_PROGRESS', 'CLOSE'].includes(wo.status) || 
+        wo.ticketStatus === 'REJECTED' || 
+        wo.status === 'Rejected'
       );
       setWorkOrders(activeOrders);
     } catch (error) {
@@ -152,10 +154,10 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     }
   };
   
-  const addTechnician = async () => {
+  const assignTechnician = async () => {
     if (!selectedOrderForTech || !projectId) return;
-    if (!techEmail.trim() || !techName.trim()) {
-      showToast('Please enter technician email and name', 'error');
+    if (!techEmail.trim() || !techName.trim() || !techCompany.trim()) {
+      showToast('Please enter technician email, name and company', 'error');
       return;
     }
     
@@ -164,7 +166,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       const res = await fetch(`/api/projects/${projectId}/work-orders/${selectedOrderForTech.id}/technicians`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ technicianEmail: techEmail, technicianName: techName }),
+        body: JSON.stringify({ 
+          technicianEmail: techEmail, 
+          technicianName: techName,
+          company: techCompany 
+        }),
       });
       
       if (!res.ok) {
@@ -176,6 +182,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       setShowTechModal(false);
       setTechEmail('');
       setTechName('');
+      setTechCompany('');
       setSelectedOrderForTech(null);
       showToast('Technician assigned successfully', 'success');
     } catch (error: any) {
@@ -251,7 +258,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     return <div className="p-4 text-gray-400">Loading work orders...</div>;
   }
 
-  if (!isTM && !isMaintainer) {
+  // Allow User (Requester) and FM to view, but restrict actions
+  const canView = isTM || isMaintainer || isFM || role === 'User';
+  if (!canView) {
     return (
       <div className="p-4 text-gray-400">
         You don't have permission to view ongoing maintenance activities.
@@ -268,27 +277,16 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
             ? 'bg-green-600' 
             : 'bg-red-600'
         } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
-          <div className="flex items-center gap-3">
-            {toast.type === 'success' ? (
-              <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
+          <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <p className="font-semibold text-sm">{toast.type === 'success' ? 'Success' : 'Error'}</p>
               <p className="text-sm opacity-90">{toast.message}</p>
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-white/80 hover:text-white transition-colors text-xl font-bold leading-none"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              &times;
             </button>
           </div>
         </div>
@@ -322,10 +320,12 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
               className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
             >
               <option value="ALL">All Statuses</option>
-              <option value="OPEN">OPEN</option>
-              <option value="PLANNED">PLANNED</option>
-              <option value="IN_PROGRESS">IN_PROGRESS</option>
-              <option value="CLOSE">CLOSE</option>
+              <option value="Open">Open</option>
+              <option value="Planned">Planned</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Closed">Closed</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
           
@@ -418,21 +418,26 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
             })
             .map((order) => {
             const currentCycle = getCurrentCycle(order.maintenanceCycles || []);
-            const transitions = getAvailableTransitions(order.status);
+            
+            // Determine effective status (override if ticket is rejected)
+            const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
+            const effectiveStatus = isRejected ? 'Rejected' : order.status;
+            
+            const transitions = getAvailableTransitions(effectiveStatus as WorkOrderStatus);
 
             return (
               <div
                 key={order.id}
-                className="bg-gray-800/70 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-all"
+                className={`bg-gray-800/70 border ${isRejected ? 'border-red-900/50' : 'border-gray-700'} rounded-lg p-4 hover:border-gray-600 transition-all`}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{order.ticketId}</h3>
+                    <h3 className="text-lg font-semibold text-white">{order.requestId || order.ticketId || 'No ID'}</h3>
                     <p className="text-sm text-gray-400 mt-1">{order.description}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-                    {order.status}
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(effectiveStatus as WorkOrderStatus)}`}>
+                    {effectiveStatus}
                   </span>
                 </div>
 
@@ -456,7 +461,25 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   </div>
                 </div>
                 
-                {/* Assigned Technicians */}
+                {/* Assigned Technicians - View Only for non-TM */}
+                {!isTM && order.assignedTechnicians && order.assignedTechnicians.length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-sm font-medium text-gray-300 mb-2">Assigned Technicians</div>
+                    <div className="flex flex-wrap gap-2">
+                      {order.assignedTechnicians.map((tech: any, idx: number) => (
+                        <div key={idx} className="bg-gray-900/50 border border-gray-700 rounded px-3 py-1 flex items-center gap-2">
+                          <div className="flex flex-col">
+                            <span className="text-sm text-white">{tech.name}</span>
+                            <span className="text-xs text-gray-400">{tech.email}</span>
+                            {tech.company && <span className="text-xs text-blue-300">{tech.company}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Assigned Technicians - Editable for TM */}
                 {isTM && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
@@ -468,18 +491,21 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         }}
                         className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                       >
-                        + Add
+                        Add Technician
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {order.assignedTechnicians && order.assignedTechnicians.length > 0 ? (
                         order.assignedTechnicians.map((tech: any, idx: number) => (
                           <div key={idx} className="bg-gray-900/50 border border-gray-700 rounded px-3 py-1 flex items-center gap-2">
-                            <span className="text-sm text-white">{tech.name}</span>
-                            <span className="text-xs text-gray-400">({tech.email})</span>
+                            <div className="flex flex-col">
+                              <span className="text-sm text-white">{tech.name}</span>
+                              <span className="text-xs text-gray-400">{tech.email}</span>
+                              {tech.company && <span className="text-xs text-blue-300">{tech.company}</span>}
+                            </div>
                             <button
                               onClick={() => removeTechnician(order.id, tech.email)}
-                              className="text-red-400 hover:text-red-300 ml-1"
+                              className="text-red-400 hover:text-red-300 ml-2 p-1"
                             >
                               ×
                             </button>
@@ -574,12 +600,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   <div className="mt-4 pt-4 border-t border-gray-700">
                     <button
                       onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
-                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                      className="text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={selectedOrder?.id === order.id ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"} />
-                      </svg>
-                      {selectedOrder?.id === order.id ? 'Hide' : 'View'} Cycle History ({order.maintenanceCycles.length} {order.maintenanceCycles.length === 1 ? 'cycle' : 'cycles'})
+                      {selectedOrder?.id === order.id ? 'Hide' : 'View'} Cycle History ({order.maintenanceCycles.length})
                     </button>
 
                     {selectedOrder?.id === order.id && (
@@ -703,6 +726,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
             <h3 className="text-xl font-semibold text-white mb-4">Resolve Work Order</h3>
             <p className="text-gray-400 text-sm mb-4">
+              Work Order: <span className="text-white font-semibold">{orderToResolve?.requestId || orderToResolve?.ticketId}</span>
             </p>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               TM Closing Notes <span className="text-red-400">*</span>
@@ -765,6 +789,16 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Company</label>
+                <input
+                  type="text"
+                  value={techCompany}
+                  onChange={(e) => setTechCompany(e.target.value)}
+                  placeholder="Enter technician company"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -772,6 +806,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setShowTechModal(false);
                   setTechEmail('');
                   setTechName('');
+                  setTechCompany('');
                   setSelectedOrderForTech(null);
                 }}
                 className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
@@ -779,7 +814,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 Cancel
               </button>
               <button
-                onClick={addTechnician}
+                onClick={assignTechnician}
                 disabled={transitioning || !techEmail.trim() || !techName.trim()}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
               >

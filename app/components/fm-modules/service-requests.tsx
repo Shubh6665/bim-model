@@ -544,9 +544,15 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       </td>
                       <td className="px-3 py-2 text-gray-300 text-xs">{getEmailsByRole('TM')}</td>
                       <td className="px-3 py-2 text-blue-300 text-xs">
-                        {row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>}
+                        {row.assignedTechnicians && row.assignedTechnicians.length > 0 
+                          ? row.assignedTechnicians.map(t => t.name).join(', ') 
+                          : (row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>)}
                       </td>
-                      <td className="px-3 py-2 text-blue-300 text-xs">{row.company || '-'}</td>
+                      <td className="px-3 py-2 text-blue-300 text-xs">
+                        {row.assignedTechnicians && row.assignedTechnicians.length > 0 
+                          ? row.assignedTechnicians.map(t => t.company).filter(Boolean).join(', ') || '-'
+                          : (row.company || '-')}
+                      </td>
                       <td className="px-3 py-2 text-blue-300 text-xs">{getEmailsByRole('FM')}</td>
                       <td className="px-3 py-2">
                         {(() => {
@@ -696,7 +702,21 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                 </div>
                                 <div>
                                   <div className="text-xs text-gray-500 mb-1">Technician</div>
-                                  <div className="text-sm text-gray-200">{row.responsibleTechnician || 'Not Assigned'}</div>
+                                  <div className="text-sm text-gray-200">
+                                    {row.assignedTechnicians && row.assignedTechnicians.length > 0 ? (
+                                      <div className="flex flex-col gap-1">
+                                        {row.assignedTechnicians.map((tech: any, idx: number) => (
+                                          <div key={idx} className="flex flex-col text-xs bg-gray-700/50 p-1.5 rounded">
+                                            <span className="font-medium text-white">{tech.name}</span>
+                                            <span className="text-gray-400">{tech.email}</span>
+                                            {tech.company && <span className="text-blue-300">{tech.company}</span>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      row.responsibleTechnician || 'Not Assigned'
+                                    )}
+                                  </div>
                                 </div>
                                 <div>
                                   <div className="text-xs text-gray-500 mb-1">Company</div>

@@ -254,6 +254,7 @@ export interface WorkOrderItem {
   assignedTechnicians?: Array<{
     name: string;
     email: string;
+    company?: string;
     assignedAt: string;
   }>;
 }

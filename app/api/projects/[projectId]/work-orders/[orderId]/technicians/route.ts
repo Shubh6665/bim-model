@@ -34,7 +34,7 @@ export async function POST(
     if (!isTM) return NextResponse.json({ error: 'Only TM can assign technicians' }, { status: 403 });
 
     const body = await req.json();
-    const { technicianEmail, technicianName } = body;
+    const { technicianEmail, technicianName, company } = body;
 
     if (!technicianEmail || !technicianName) {
       return NextResponse.json({ error: 'Technician email and name are required' }, { status: 400 });
@@ -48,6 +48,7 @@ export async function POST(
     const newTechnician = {
       email: technicianEmail,
       name: technicianName,
+      company: company || '',
       assignedBy: userEmail,
       assignedAt: now,
     };
