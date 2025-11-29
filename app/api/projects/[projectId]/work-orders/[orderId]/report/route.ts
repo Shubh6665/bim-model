@@ -41,17 +41,38 @@ export async function PATCH(
     const invitesCol = db.collection('invites');
 
     // Check user role
-    const userInvite = await invitesCol.findOne({ 
-      email: session.user.email 
-    });
+    // First check if user is project owner
+    const project = await db.collection('projects').findOne({ _id: new ObjectId(projectId) });
+    const user = await db.collection('users').findOne({ email: session.user.email });
+    const isOwner = project && user && String(project.userId) === String(user._id);
 
-    if (!userInvite) {
-      return NextResponse.json({ error: 'User not found in project' }, { status: 403 });
+    let isTM = false;
+    let isFM = false;
+    let userRoleForLog = '';
+
+    if (isOwner) {
+      // Owner has full access (acts as FM)
+      isFM = true;
+      isTM = true; // Owner can also edit TM fields if needed
+      userRoleForLog = 'OWNER';
+    } else {
+      // Check invite role
+      const userInvite = await invitesCol.findOne({ 
+        projectId: new ObjectId(projectId),
+        'invitee.email': { $regex: new RegExp(`^${session.user.email}$`, 'i') },
+        status: 'accepted'
+      });
+
+      if (!userInvite) {
+        return NextResponse.json({ error: 'User not found in project' }, { status: 403 });
+      }
+
+      const userRole = String(userInvite.invitee?.role || '').toLowerCase();
+      userRoleForLog = userRole;
+      // Check for various role strings
+      isTM = /maintenance|team|tm/i.test(userRole);
+      isFM = /facility|manager|fm/i.test(userRole);
     }
-
-    const userRole = String(userInvite.role || '').toLowerCase();
-    const isTM = /maintenance|team/i.test(userRole);
-    const isFM = /facility|manager/i.test(userRole);
 
     if (!isTM && !isFM) {
       return NextResponse.json({ 
@@ -119,7 +140,7 @@ export async function PATCH(
       notes: `Updated report fields: ${updatedFields}`,
       metadata: {
         updatedFields: Object.keys(updateFields),
-        role: userRole
+        role: userRoleForLog
       }
     });
 

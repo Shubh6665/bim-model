@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useUserRole } from "@/app/hooks/useUserRole";
 import type { WorkOrderItem } from "../fm-panel-types";
 import { X, Printer, Save } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface EnhancedMaintenanceReportProps {
   projectId?: string;
@@ -108,7 +109,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
     
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/work-orders/${workOrder._id}/report`, {
+      // Use workOrder.id if _id is missing (normalized data)
+      const orderId = workOrder._id || workOrder.id;
+      const res = await fetch(`/api/projects/${projectId}/work-orders/${orderId}/report`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editableData)
@@ -116,17 +119,19 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
       
       if (!res.ok) throw new Error('Failed to save report');
       
-      alert('Report saved successfully!');
+      toast.success('Report saved successfully!');
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const generatePDF = () => {
-    // Simple print for now, can be enhanced with html2canvas/jspdf if needed
+    // Add a class to body to trigger print styles
+    document.body.classList.add('printing');
     window.print();
+    document.body.classList.remove('printing');
   };
 
   if (!workOrder) {
@@ -144,6 +149,18 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
     <div className="bg-gray-900 text-white min-h-screen p-6 overflow-y-auto print:bg-white print:text-black print:p-0">
       <style jsx global>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 20mm;
+          }
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body * {
             visibility: hidden;
           }
@@ -151,13 +168,13 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             visibility: visible;
           }
           .print-content {
-            position: absolute;
-            left: 0;
-            top: 0;
+            position: static;
             width: 100%;
             background: white;
             color: black;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
+            overflow: visible !important;
           }
           .no-print {
             display: none !important;
@@ -167,12 +184,29 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             background-color: white !important;
             border: 1px solid #ccc !important;
             color: black !important;
+            box-shadow: none !important;
           }
           .text-gray-400, .text-gray-300, .text-gray-200 {
             color: #333 !important;
           }
           .text-white {
             color: black !important;
+          }
+          /* Hide inputs/textareas in print and show their values instead */
+          input, textarea {
+            display: none !important;
+          }
+          .print-value {
+            display: block !important;
+            white-space: pre-wrap;
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-height: 1.5em;
+          }
+          /* Hide scrollbars */
+          ::-webkit-scrollbar {
+            display: none;
           }
         }
       `}</style>
@@ -191,17 +225,6 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
               <Printer size={16} />
               Generate PDF
             </button>
-            
-            {(isTM || isFM) && (
-              <button
-                onClick={saveReport}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-green-900/20"
-              >
-                <Save size={16} />
-                {saving ? 'Saving...' : 'Save Report'}
-              </button>
-            )}
             
             <button
               onClick={onClose}
@@ -355,9 +378,10 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.diagnosis}
                   onChange={(e) => setEditableData({...editableData, diagnosis: e.target.value})}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
+                <div className="hidden print-value">{editableData.diagnosis}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Work Performed</label>
@@ -365,9 +389,10 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.workPerformed}
                   onChange={(e) => setEditableData({...editableData, workPerformed: e.target.value})}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
+                <div className="hidden print-value">{editableData.workPerformed}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Materials / Spare Parts Used</label>
@@ -375,9 +400,10 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.materialsUsed}
                   onChange={(e) => setEditableData({...editableData, materialsUsed: e.target.value})}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
                 />
+                <div className="hidden print-value">{editableData.materialsUsed}</div>
               </div>
               <div>
                 <span className="text-sm text-gray-400">Total Time Spent:</span>
@@ -398,8 +424,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   checked={editableData.complianceCompleted}
                   onChange={(e) => setEditableData({...editableData, complianceCompleted: e.target.checked})}
                   disabled={!isTM}
-                  className="rounded"
+                  className="rounded print:hidden"
                 />
+                <span className="hidden print:inline font-bold mr-2">{editableData.complianceCompleted ? '☑' : '☐'}</span>
                 <label className="text-sm font-medium text-gray-300">Compliance Check Completed</label>
               </div>
               <div>
@@ -410,8 +437,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   onChange={(e) => setEditableData({...editableData, ppeUsed: e.target.value})}
                   disabled={!isTM}
                   placeholder="e.g., Hard hat, Safety goggles, Gloves"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
+                <div className="hidden print-value">{editableData.ppeUsed}</div>
               </div>
             </div>
           </div>
@@ -465,9 +493,10 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.assetCondition}
                   onChange={(e) => setEditableData({...editableData, assetCondition: e.target.value})}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
                 />
+                <div className="hidden print-value">{editableData.assetCondition}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Technical Notes / Recommendations</label>
@@ -475,9 +504,10 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.technicalNotes}
                   onChange={(e) => setEditableData({...editableData, technicalNotes: e.target.value})}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
+                <div className="hidden print-value">{editableData.technicalNotes}</div>
               </div>
             </div>
           </div>
@@ -498,8 +528,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   onChange={(e) => setEditableData({...editableData, tmSignature: e.target.value})}
                   disabled={!isTM}
                   placeholder="Digital signature or name"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
+                <div className="hidden print-value font-serif italic text-lg">{editableData.tmSignature}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -511,8 +542,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   onChange={(e) => setEditableData({...editableData, fmSignature: e.target.value})}
                   disabled={!isFM}
                   placeholder="Digital signature or name"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
+                <div className="hidden print-value font-serif italic text-lg">{editableData.fmSignature}</div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Signature Date</label>
@@ -521,8 +553,9 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   value={editableData.signatureDate}
                   onChange={(e) => setEditableData({...editableData, signatureDate: e.target.value})}
                   disabled={!isTM && !isFM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
+                <div className="hidden print-value">{editableData.signatureDate}</div>
               </div>
             </div>
           </div>
@@ -537,9 +570,24 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
               onChange={(e) => setEditableData({...editableData, additionalComments: e.target.value})}
               disabled={!isTM && !isFM}
               placeholder="Any additional notes or comments..."
-              className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
               rows={4}
             />
+            <div className="hidden print-value">{editableData.additionalComments}</div>
+          </div>
+        )}
+
+        {/* Save Button (Bottom) */}
+        {(isTM || isFM) && (
+          <div className="flex justify-end mt-6 mb-8 no-print">
+            <button
+              onClick={saveReport}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-green-900/20"
+            >
+              <Save size={16} />
+              {saving ? 'Saving...' : 'Save Report'}
+            </button>
           </div>
         )}
       </div>
