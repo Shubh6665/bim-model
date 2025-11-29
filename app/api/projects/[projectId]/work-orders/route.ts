@@ -105,9 +105,23 @@ export async function POST(
       company: payload.company || '',
       status: payload.status || 'Open',
       sourceTicketId: payload.sourceTicketId || null,
+      // Maintenance Team Assignment extra fields (optional)
+      maintenanceTeamName: payload.maintenanceTeamName || undefined,
+      maintenanceTeamSurname: payload.maintenanceTeamSurname || undefined,
+      responsibleTechnicianSurname: payload.responsibleTechnicianSurname || undefined,
+      manutentor2Name: payload.manutentor2Name || undefined,
+      manutentor2Surname: payload.manutentor2Surname || undefined,
       createdAt: now,
       updatedAt: now,
     };
+
+    console.log('[WorkOrders][POST] Creating work order with team fields:', {
+      maintenanceTeamName: doc.maintenanceTeamName,
+      maintenanceTeamSurname: doc.maintenanceTeamSurname,
+      responsibleTechnicianSurname: doc.responsibleTechnicianSurname,
+      manutentor2Name: doc.manutentor2Name,
+      manutentor2Surname: doc.manutentor2Surname,
+    });
 
     const result = await col.insertOne(doc);
     

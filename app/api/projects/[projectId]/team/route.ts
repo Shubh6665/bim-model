@@ -64,6 +64,8 @@ export async function GET(
 
       return {
         name: `${inv.invitee.name} ${inv.invitee.surname}`.trim(),
+        firstName: inv.invitee.name,
+        surname: inv.invitee.surname,
         email: inv.invitee.email,
         role
       };

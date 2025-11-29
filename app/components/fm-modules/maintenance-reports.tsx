@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Eye } from "lucide-react";
 import { EnhancedMaintenanceReport } from "./enhanced-maintenance-report";
 import { load, save, K } from "../fm-panel-utils";
 import type { WorkOrderItem, ScheduledItem } from "../fm-panel-types";
@@ -110,7 +111,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
       </div>
 
       <div className="mt-3">
-        <div className="text-sm text-gray-200 mb-2">Work Orders</div>
+        <div className="text-sm text-gray-200 mb-2">Work orders</div>
         <div className="space-y-2">
           {workOrders.map(w => (
             <div key={w.id} className="bg-gray-800/40 rounded">
@@ -120,8 +121,17 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
                   <div className="text-xs text-gray-300">{w.description?.slice(0, 80) || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="text-xs text-gray-300">{w.status}</div>
-                  <button onClick={() => setOpenWO(openWO && openWO.id === w.id ? null : w)} className="px-2 py-1 bg-blue-600 rounded text-sm">{openWO && openWO.id === w.id ? 'Close' : 'Open'}</button>
+                  <div className="text-xs text-gray-300">
+                    {String(w.ticketStatus)?.toUpperCase() === 'REJECTED' ? 'Rejected' : (String(w.status || '').toLowerCase().replace(/(^|\s)[a-z]/g, s => s.toUpperCase()))}
+                  </div>
+                  <button
+                    onClick={() => setOpenWO(openWO && openWO.id === w.id ? null : w)}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-1"
+                    title={openWO && openWO.id === w.id ? 'Close report' : 'View report'}
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span className="sr-only">{openWO && openWO.id === w.id ? 'Close' : 'Open'}</span>
+                  </button>
                 </div>
               </div>
 

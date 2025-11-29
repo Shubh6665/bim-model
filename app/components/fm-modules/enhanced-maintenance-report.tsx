@@ -51,6 +51,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   });
 
   const [saving, setSaving] = useState(false);
+  const [maintenanceTeamInfo, setMaintenanceTeamInfo] = useState<{name: string, surname: string} | null>(null);
 
   useEffect(() => {
     if (workOrder) {
@@ -69,6 +70,33 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
       });
     }
   }, [workOrder]);
+
+  // Fetch project team to get Maintenance Team info
+  useEffect(() => {
+    if (!projectId) return;
+    
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/team`);
+        if (res.ok) {
+          const data = await res.json();
+          const team = data.team || [];
+          const maintenanceTeamMember = team.find((m: any) => m.role === 'TM');
+          
+          if (maintenanceTeamMember) {
+            setMaintenanceTeamInfo({
+              name: maintenanceTeamMember.firstName || maintenanceTeamMember.name.split(' ')[0],
+              surname: maintenanceTeamMember.surname || maintenanceTeamMember.name.split(' ').slice(1).join(' ')
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch team:', e);
+      }
+    };
+    
+    fetchTeam();
+  }, [projectId]);
 
   const toggleSection = (section: keyof typeof sectionVisibility) => {
     setSectionVisibility(prev => ({ ...prev, [section]: !prev[section] }));
@@ -227,12 +255,32 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 </span>
               </div>
               <div>
+                <span className="text-gray-400">Name of Maintenance Team:</span>
+                <span className="ml-2 text-white">{maintenanceTeamInfo?.name || (workOrder as any).maintenanceTeamName || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Surname of Maintenance Team:</span>
+                <span className="ml-2 text-white">{maintenanceTeamInfo?.surname || (workOrder as any).maintenanceTeamSurname || 'N/A'}</span>
+              </div>
+              <div>
                 <span className="text-gray-400">Primary Technician:</span>
                 <span className="ml-2 text-white">
                   {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 
                     ? workOrder.assignedTechnicians.map(t => t.name).join(', ')
                     : (workOrder.responsibleTechnician || 'N/A')}
                 </span>
+              </div>
+              <div>
+                <span className="text-gray-400">Surname of Manutentor (1):</span>
+                <span className="ml-2 text-white">{(workOrder as any).responsibleTechnicianSurname || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Name of Manutentor (2):</span>
+                <span className="ml-2 text-white">{(workOrder as any).manutentor2Name || (workOrder.assignedTechnicians && workOrder.assignedTechnicians[0]?.name) || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Surname of Manutentor (2):</span>
+                <span className="ml-2 text-white">{(workOrder as any).manutentor2Surname || (workOrder.assignedTechnicians && (workOrder.assignedTechnicians as any)[0]?.surname) || 'N/A'}</span>
               </div>
               {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 && (
                 <div className="col-span-2">

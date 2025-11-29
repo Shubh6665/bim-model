@@ -66,6 +66,35 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
     }
   }, [workOrder]);
 
+  // Fetch project team to auto-populate Maintenance Team fields
+  useEffect(() => {
+    if (!projectId) return;
+    
+    const fetchTeam = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/team`);
+        if (res.ok) {
+          const data = await res.json();
+          const team = data.team || [];
+          // Find the user with role 'TM' (Maintenance Team)
+          const maintenanceTeamMember = team.find((m: any) => m.role === 'TM');
+          
+          if (maintenanceTeamMember) {
+            setForm(prev => ({
+              ...prev,
+              maintenanceTeamName: maintenanceTeamMember.firstName || maintenanceTeamMember.name.split(' ')[0],
+              maintenanceTeamSurname: maintenanceTeamMember.surname || maintenanceTeamMember.name.split(' ').slice(1).join(' ')
+            } as any));
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch team:', e);
+      }
+    };
+    
+    fetchTeam();
+  }, [projectId]);
+
   const setField = (k: keyof WorkOrderItem, v: any) => setForm(f => ({ ...f, [k]: v }));
 
   const validate = () => {
@@ -282,10 +311,10 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
       </div>
 
-      {/* 2. Requester & Contractor Details */}
+      {/* 2. Maintenance Team Assignment */}
       <div className="mt-3 bg-gray-800/40 p-3 rounded">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">2. Requester & Contractor Details</div>
+          <div className="text-sm font-medium">2. Maintenance Team Assignment</div>
           <div>
             {editingSection === 'requester' ? (
               <>
@@ -299,24 +328,38 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-300">Requester</label>
-            <input disabled={editingSection !== 'requester'} value={form.requester || ''} onChange={e => setField('requester', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-300">Contact</label>
-            <input disabled={editingSection !== 'requester'} value={form.contact || ''} onChange={e => setField('contact', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
-          </div>
-          <div>
             <label className="text-xs text-gray-300">Contractor / Company</label>
             <input disabled={editingSection !== 'requester'} value={form.company || ''} onChange={e => setField('company', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Responsible Technician</label>
+            <label className="text-xs text-gray-300">Name of Maintenance Team</label>
+            <input disabled={true} value={(form as any).maintenanceTeamName || ''} className="mt-1 w-full bg-gray-800/50 p-2 rounded text-sm text-gray-400 cursor-not-allowed" placeholder="Auto-filled from Role" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Surname of Maintenance Team</label>
+            <input disabled={true} value={(form as any).maintenanceTeamSurname || ''} className="mt-1 w-full bg-gray-800/50 p-2 rounded text-sm text-gray-400 cursor-not-allowed" placeholder="Auto-filled from Role" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Name of Manutentor (1)</label>
             <input disabled={editingSection !== 'requester'} value={form.responsibleTechnician || ''} onChange={e => setField('responsibleTechnician', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
           </div>
+          <div>
+            <label className="text-xs text-gray-300">Surname of Manutentor (1)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).responsibleTechnicianSurname || ''} onChange={e => setField('responsibleTechnicianSurname' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Name of Manutentor (2)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Name || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.name) || ''} onChange={e => setField('manutentor2Name' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-300">Surname of Manutentor (2)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Surname || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.surname) || ''} onChange={e => setField('manutentor2Surname' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+          </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-gray-300">Additional Technicians (if any)</label>
-            <input disabled={editingSection !== 'requester'} value={(form as any).additionalTechnicians || ''} onChange={e => setField('additionalTechnicians' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Other staff involved" />
+            <label className="text-xs text-gray-300">Assigned Technicians</label>
+            <div className="mt-1 text-xs text-gray-300">
+              {(form.assignedTechnicians || []).length === 0 ? '—' : (form.assignedTechnicians || []).map((t, i) => (<div key={i}>{t.name} {t.email ? `(${t.email})` : ''} {t.company ? `— ${t.company}` : ''}</div>))}
+            </div>
           </div>
         </div>
       </div>
