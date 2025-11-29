@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+// html2pdf.js is loaded dynamically to avoid SSR issues
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let html2pdfLib: any = null;
 import { useUserRole } from "@/app/hooks/useUserRole";
 import type { WorkOrderItem } from "../fm-panel-types";
 import { X, Printer, Save } from "lucide-react";
@@ -17,6 +20,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   workOrder, 
   onClose 
 }) => {
+    const contentRef = useRef<HTMLDivElement | null>(null);
   const { role, isTM, isFM } = useUserRole(projectId || '');
   const [editableData, setEditableData] = useState<any>({
     // Section 3: Work Description (Maintainer/TM editable)
@@ -53,7 +57,13 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   });
 
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [maintenanceTeamInfo, setMaintenanceTeamInfo] = useState<{name: string, surname: string} | null>(null);
+
+  const updateData = (field: string, value: any) => {
+    setEditableData((prev: any) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+  };
 
   useEffect(() => {
     if (workOrder) {
@@ -70,6 +80,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
         signatureDate: (workOrder as any).signatureDate || '',
         additionalComments: (workOrder as any).additionalComments || ''
       });
+      setIsDirty(false);
     }
   }, [workOrder]);
 
@@ -120,6 +131,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
       if (!res.ok) throw new Error('Failed to save report');
       
       toast.success('Report saved successfully!');
+      setIsDirty(false);
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);
     } finally {
@@ -128,10 +140,227 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   };
 
   const generatePDF = () => {
-    // Add a class to body to trigger print styles
+    // Fallback to print if html2pdf is not available
     document.body.classList.add('printing');
     window.print();
     document.body.classList.remove('printing');
+  };
+
+  const downloadPDF = async () => {
+    try {
+      if (!contentRef.current) return;
+      // Dynamically import to avoid SSR issues
+      if (!html2pdfLib) {
+        const mod = await import('html2pdf.js');
+        html2pdfLib = mod.default || mod;
+      }
+
+      const fileName = `Maintenance_Report_${workOrder?.requestId || workOrder?.id || 'N_A'}.pdf`;
+
+      // Clone node to avoid hidden styles interfering
+      const node = contentRef.current.cloneNode(true) as HTMLElement;
+      // Wrap clone in a minimal container with reset styles
+      const wrapper = document.createElement('div');
+      wrapper.style.background = '#ffffff';
+      wrapper.style.color = '#000000';
+      wrapper.style.width = '100%';
+      wrapper.style.maxWidth = '100%';
+      wrapper.style.padding = '0';
+      wrapper.style.margin = '0';
+      // Append clone into wrapper
+      wrapper.appendChild(node);
+      // Remove UI-only elements (toggles, buttons) from the clone
+      // Remove anything marked as no-print
+      wrapper.querySelectorAll('.no-print').forEach((el) => el.parentNode?.removeChild(el));
+      
+      // Remove all form elements (inputs, textareas, selects, buttons)
+      wrapper.querySelectorAll('input, textarea, select, button').forEach((el) => el.parentNode?.removeChild(el));
+
+      // Remove "(Editable)" text from the clone
+      wrapper.querySelectorAll('span').forEach((span) => {
+        if (span.textContent && (span.textContent.includes('(Editable)') || span.textContent.includes('Editable'))) {
+          span.remove();
+        }
+      });
+
+      // Remove existing headers to avoid duplication
+      wrapper.querySelectorAll('h1').forEach((el) => el.remove());
+
+      // Try to remove the Section Visibility block by heading text match
+      wrapper.querySelectorAll('h3').forEach((h) => {
+        if (h.textContent && h.textContent.toLowerCase().includes('section visibility')) {
+          const parent = h.closest('div');
+          parent?.parentNode?.removeChild(parent);
+        }
+      });
+
+      // Add a clean, professional header
+      const header = document.createElement('div');
+      header.style.borderBottom = '1px solid #333';
+      header.style.paddingBottom = '15px';
+      header.style.marginBottom = '20px';
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'flex-end';
+      
+      const leftHeader = document.createElement('div');
+      const h1 = document.createElement('h1');
+      h1.textContent = 'Maintenance Report';
+      h1.style.fontSize = '22pt';
+      h1.style.fontWeight = '600';
+      h1.style.margin = '0';
+      h1.style.color = '#000';
+      h1.style.fontFamily = 'Georgia, serif';
+      
+      leftHeader.appendChild(h1);
+      
+      const rightHeader = document.createElement('div');
+      rightHeader.style.textAlign = 'right';
+      rightHeader.style.fontSize = '10pt';
+      rightHeader.style.color = '#333';
+      rightHeader.style.fontFamily = 'Arial, sans-serif';
+      rightHeader.innerHTML = `
+        <div><strong>Work Order:</strong> ${workOrder?.requestId || workOrder?.ticketId || workOrder?.id || 'N/A'}</div>
+        <div><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
+      `;
+      
+      header.appendChild(leftHeader);
+      header.appendChild(rightHeader);
+      
+      wrapper.insertBefore(header, wrapper.firstChild);
+      
+      // Intelligent Styling & Class Stripping
+      wrapper.querySelectorAll('*').forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        
+        // Capture state before stripping classes
+        const isGrid = htmlEl.classList.contains('grid');
+        const isColSpan2 = htmlEl.classList.contains('col-span-2');
+        const isLabel = htmlEl.classList.contains('text-gray-400') || htmlEl.tagName === 'LABEL';
+        const isValue = htmlEl.classList.contains('text-white') || htmlEl.classList.contains('print-value');
+        const isSectionHeader = htmlEl.tagName === 'H2';
+        
+        // Identify section containers: Divs that have an H2 as a direct child
+        const isSectionContainer = htmlEl.tagName === 'DIV' && htmlEl.querySelector(':scope > h2') !== null;
+
+        // Strip classes
+        if (el instanceof SVGElement) {
+          el.setAttribute('class', '');
+        } else {
+          htmlEl.className = '';
+        }
+        
+        const s = htmlEl.style;
+        
+        // Global Reset
+        s.boxShadow = 'none';
+        s.filter = 'none';
+        s.backdropFilter = 'none';
+        s.backgroundColor = 'transparent';
+        s.color = '#222';
+        s.fontFamily = 'Arial, Helvetica, sans-serif';
+        
+        // Section Container Styling (Clean, Simple)
+        if (isSectionContainer) {
+            s.border = '1px solid #ccc';
+            s.borderRadius = '0';
+            s.padding = '12px 15px';
+            s.marginBottom = '15px';
+            s.backgroundColor = '#fff';
+            s.pageBreakInside = 'avoid';
+        }
+
+        // Layout: Grid Simulation
+        if (isGrid) {
+          s.display = 'flex';
+          s.flexWrap = 'wrap';
+          s.gap = '10px 20px';
+          s.width = '100%';
+        }
+        
+        // Layout: Grid Items
+        if (htmlEl.parentElement?.style.display === 'flex') {
+          if (isColSpan2) {
+            s.width = '100%';
+            s.flex = '1 1 100%';
+          } else {
+            s.width = 'calc(50% - 10px)';
+            s.flex = '1 1 calc(50% - 10px)';
+          }
+          s.marginBottom = '6px';
+        }
+        
+        // Typography: Section Headers
+        if (isSectionHeader) {
+          s.fontSize = '11pt';
+          s.fontWeight = '700';
+          s.backgroundColor = '#f5f5f5';
+          s.padding = '6px 10px';
+          s.marginBottom = '10px';
+          s.marginTop = '0';
+          s.color = '#333';
+          s.borderBottom = '1px solid #ddd';
+        }
+        
+        // Typography: Labels
+        if (isLabel) {
+          s.color = '#555';
+          s.fontSize = '8pt';
+          s.fontWeight = '600';
+          s.textTransform = 'uppercase';
+          s.display = 'inline';
+          s.marginRight = '5px';
+        }
+        
+        // Typography: Values
+        if (isValue) {
+          s.color = '#000';
+          s.fontSize = '9.5pt';
+          s.fontWeight = '400';
+          s.lineHeight = '1.4';
+          s.display = 'inline';
+        }
+        
+        // Fix for checkboxes
+        if (htmlEl.tagName === 'INPUT' && (htmlEl as HTMLInputElement).type === 'checkbox') {
+           s.display = 'none';
+        }
+      });
+      
+      // Add footer spacer
+      const footer = document.createElement('div');
+      footer.style.height = '30px';
+      wrapper.appendChild(footer);
+
+      const opt = {
+        margin: [15, 15, 15, 15], // mm equivalent handled by html2pdf
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: document.documentElement.scrollWidth,
+          onclone: (clonedDoc: Document) => {
+            // Remove global stylesheets that may inject oklab/colors
+            clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach((n) => n.parentNode?.removeChild(n));
+            const root = clonedDoc.body; // Use body of cloned doc containing wrapper
+            if (!root) return;
+            // Ensure body is white/black
+            (root as HTMLElement).style.backgroundColor = '#ffffff';
+            (root as HTMLElement).style.color = '#000000';
+          },
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.no-break'] },
+      } as any;
+
+      await html2pdfLib().set(opt).from(wrapper).save();
+      toast.success('PDF downloaded successfully');
+    } catch (e: any) {
+      console.error('PDF generation failed:', e);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   if (!workOrder) {
@@ -151,7 +380,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
         @media print {
           @page {
             size: A4;
-            margin: 20mm;
+            margin: 15mm;
           }
           html, body {
             height: auto !important;
@@ -160,6 +389,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             color: black !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            font-size: 12pt !important;
           }
           body * {
             visibility: hidden;
@@ -169,7 +399,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
           }
           .print-content {
             position: static;
-            width: 100%;
+            width: 100% !important;
+            max-width: none !important;
             background: white;
             color: black;
             padding: 0;
@@ -203,6 +434,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             padding: 4px 8px;
             border-radius: 4px;
             min-height: 1.5em;
+            font-size: 12pt !important;
+            color: black !important;
           }
           /* Hide scrollbars */
           ::-webkit-scrollbar {
@@ -210,7 +443,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
           }
         }
       `}</style>
-      <div className="max-w-6xl mx-auto print-content">
+      <div ref={contentRef} className="max-w-6xl mx-auto print-content print:max-w-none print:w-full">
         {/* Header */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between no-print">
           <div>
@@ -219,11 +452,11 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
           </div>
           <div className="flex gap-3 items-center">
             <button
-              onClick={generatePDF}
+              onClick={downloadPDF}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
             >
               <Printer size={16} />
-              Generate PDF
+              Download PDF
             </button>
             
             <button
@@ -376,7 +609,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Diagnosis / Root Cause</label>
                 <textarea
                   value={editableData.diagnosis}
-                  onChange={(e) => setEditableData({...editableData, diagnosis: e.target.value})}
+                  onChange={(e) => updateData('diagnosis', e.target.value)}
                   disabled={!isTM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
@@ -387,7 +620,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Work Performed</label>
                 <textarea
                   value={editableData.workPerformed}
-                  onChange={(e) => setEditableData({...editableData, workPerformed: e.target.value})}
+                  onChange={(e) => updateData('workPerformed', e.target.value)}
                   disabled={!isTM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
@@ -398,7 +631,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Materials / Spare Parts Used</label>
                 <textarea
                   value={editableData.materialsUsed}
-                  onChange={(e) => setEditableData({...editableData, materialsUsed: e.target.value})}
+                  onChange={(e) => updateData('materialsUsed', e.target.value)}
                   disabled={!isTM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
@@ -422,7 +655,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <input
                   type="checkbox"
                   checked={editableData.complianceCompleted}
-                  onChange={(e) => setEditableData({...editableData, complianceCompleted: e.target.checked})}
+                  onChange={(e) => updateData('complianceCompleted', e.target.checked)}
                   disabled={!isTM}
                   className="rounded print:hidden"
                 />
@@ -434,7 +667,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <input
                   type="text"
                   value={editableData.ppeUsed}
-                  onChange={(e) => setEditableData({...editableData, ppeUsed: e.target.value})}
+                  onChange={(e) => updateData('ppeUsed', e.target.value)}
                   disabled={!isTM}
                   placeholder="e.g., Hard hat, Safety goggles, Gloves"
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
@@ -491,7 +724,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Asset Condition After Work</label>
                 <textarea
                   value={editableData.assetCondition}
-                  onChange={(e) => setEditableData({...editableData, assetCondition: e.target.value})}
+                  onChange={(e) => updateData('assetCondition', e.target.value)}
                   disabled={!isTM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
@@ -502,7 +735,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Technical Notes / Recommendations</label>
                 <textarea
                   value={editableData.technicalNotes}
-                  onChange={(e) => setEditableData({...editableData, technicalNotes: e.target.value})}
+                  onChange={(e) => updateData('technicalNotes', e.target.value)}
                   disabled={!isTM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
@@ -525,7 +758,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <input
                   type="text"
                   value={editableData.tmSignature}
-                  onChange={(e) => setEditableData({...editableData, tmSignature: e.target.value})}
+                  onChange={(e) => updateData('tmSignature', e.target.value)}
                   disabled={!isTM}
                   placeholder="Digital signature or name"
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
@@ -539,7 +772,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <input
                   type="text"
                   value={editableData.fmSignature}
-                  onChange={(e) => setEditableData({...editableData, fmSignature: e.target.value})}
+                  onChange={(e) => updateData('fmSignature', e.target.value)}
                   disabled={!isFM}
                   placeholder="Digital signature or name"
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
@@ -551,7 +784,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                 <input
                   type="date"
                   value={editableData.signatureDate}
-                  onChange={(e) => setEditableData({...editableData, signatureDate: e.target.value})}
+                  onChange={(e) => updateData('signatureDate', e.target.value)}
                   disabled={!isTM && !isFM}
                   className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
@@ -567,7 +800,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">8. Additional Comments {(isTM || isFM) && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
             <textarea
               value={editableData.additionalComments}
-              onChange={(e) => setEditableData({...editableData, additionalComments: e.target.value})}
+              onChange={(e) => updateData('additionalComments', e.target.value)}
               disabled={!isTM && !isFM}
               placeholder="Any additional notes or comments..."
               className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
@@ -582,11 +815,15 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
           <div className="flex justify-end mt-6 mb-8 no-print">
             <button
               onClick={saveReport}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-green-900/20"
+              disabled={saving || !isDirty}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg ${
+                saving || !isDirty 
+                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 text-white shadow-green-900/20'
+              }`}
             >
               <Save size={16} />
-              {saving ? 'Saving...' : 'Save Report'}
+              {saving ? 'Saving...' : (!isDirty ? 'Saved' : 'Save Report')}
             </button>
           </div>
         )}
