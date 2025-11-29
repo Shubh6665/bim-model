@@ -167,7 +167,9 @@ export const EDITABLE_FIELDS: (keyof AssetRecord)[] = [
   'material','dimensions','weight','capacity','powerRating','location','description',
   'condition','serviceDate','expectedLife','maintenanceSchedule','lastService','nextService',
   'purchaseCost','maintenanceCost','manuals','warranties','certifications','regulations','safetyNotes',
-  'ifcGuid','ifcClass','ifcType','ifcPredefined'
+  'ifcGuid','ifcClass','ifcType','ifcPredefined',
+  // QR fields: added so QR can be persisted when generated from the edit UI
+  'qrCode','qrGeneratedAt'
 ];
 
 // Fields that can be explicitly cleared (null) when an asset is converted to MANUAL

@@ -53,10 +53,12 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     setToast({ type, text });
     window.setTimeout(() => setToast(null), 3500);
   };
+  // Expose for inline handlers if needed
+  (window as any).showToast = showToast;
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; label?: string }>({ open: false });
   // Edit Asset modal
   const [editModal, setEditModal] = useState<{ open: boolean; id?: string }>({ open: false });
-  const [editSection, setEditSection] = useState<'basic'|'identification'|'technical'|'documentation'|'lifecycle'|'maintenance'|'economic'|'compliance'|'relationships'>('basic');
+  const [editSection, setEditSection] = useState<'basic'|'identification'|'technical'|'documentation'|'lifecycle'|'maintenance'|'economic'|'compliance'|'relationships'|'qr'>('basic');
   const [edit, setEdit] = useState<Partial<AssetRecord>>({});
   // Sequential Edit queue for "Edit Selected"
   const [editQueue, setEditQueue] = useState<string[]>([]);
@@ -2910,7 +2912,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     dbId: undefined as any,
   };
   const [rows, setRows] = useState<AssetRecord[]>(() => load(K.assets(projectId), [] as AssetRecord[]));
-  const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships'>('identification');
+  const [activeSection, setActiveSection] = useState<'identification' | 'technical' | 'documentation' | 'lifecycle' | 'maintenance' | 'economic' | 'compliance' | 'relationships' | 'qr'>('identification');
   const [f, setF] = useState<Partial<AssetRecord>>(() => {
     // Load from localStorage on init
     const saved = load(`fm-create-asset-draft-${projectId || 'global'}`, {});
@@ -3117,7 +3119,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     { key: 'lifecycle' as const, label: 'Status & Lifecycle' },
     { key: 'economic' as const, label: 'Economic Aspects' },
     { key: 'compliance' as const, label: 'Compliance & Safety' },
-    { key: 'relationships' as const, label: 'Links & Relationships' }
+    { key: 'relationships' as const, label: 'Links & Relationships' },
+    { key: 'qr' as const, label: 'Create - View QR Code' }
   ];
 
   const updateField = (key: keyof AssetRecord, value: string) => {
@@ -3143,6 +3146,41 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     // Try partial match
     const partialMatch = REVIT_CATEGORIES.find(rc => rc.toLowerCase().includes(cat) || cat.includes(rc.toLowerCase()));
     return partialMatch || category;
+  };
+
+  const qrImageUrl = (code?: string, size = 400) => {
+    if (!code) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(code)}`;
+  };
+
+  const generateQr = async () => {
+    if ((f as any).qrCode) return; // already generated
+    try {
+      const code = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `qr-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+      const generatedAt = new Date().toISOString();
+      setF(v => ({ ...v, qrCode: code as any, qrGeneratedAt: generatedAt as any }));
+      // In edit mode inside AssetList, persistence happens via onSaveOverride in the modal Save button.
+    } catch (e) {
+      console.error('❌ [AssetList] generateQr error', e);
+    }
+  };
+
+  const exportQrPdf = () => {
+    const code = (f as any).qrCode as string | undefined;
+    if (!code) return;
+    const url = qrImageUrl(code, 800);
+    const title = (f.assetName || 'asset-qr');
+    const w = window.open('', '_blank') as Window | null;
+    if (!w) return;
+    const html = `<!doctype html><html><head><title>${title}</title><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;">` +
+      `<h3 style="margin-bottom:8px;">${title}</h3>` +
+      `<img src="${url}" style="width:360px;height:360px;object-fit:contain;border:1px solid #ddd;padding:8px;background:#fff;"/>` +
+      `<div style="margin-top:12px;font-size:12px;color:#444;">QR: ${code}</div>` +
+      `</body></html>`;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { try { w.print(); } catch {} }, 500);
   };
 
   // Prefill from current model selection
@@ -3489,6 +3527,33 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           <div className="grid grid-cols-1 gap-2">
             <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+          </div>
+        )}
+        {activeSection === 'qr' && (
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="text-[11px] text-gray-300 block mb-1">Create / View QR Code</label>
+              <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col items-center gap-3">
+                {(f as any).qrCode ? (
+                  <>
+                    <img src={qrImageUrl((f as any).qrCode, 400)} alt="QR Code" className="w-40 h-40 bg-white p-2" />
+                    <div className="text-xs text-gray-300">Generated: {(f as any).qrGeneratedAt ? new Date((f as any).qrGeneratedAt).toLocaleString() : '—'}</div>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
+                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { const u = qrImageUrl((f as any).qrCode, 800); window.open(u, '_blank'); }}>Open Image</button>
+                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { navigator.clipboard?.writeText(String((f as any).qrCode)); try { (window as any).showToast?.('success', 'Code copied!'); } catch {} }}>Copy Code</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-gray-300 mb-2">No QR code generated yet. Click the button below to generate a unique, permanent QR for this asset. Once created it cannot be modified.</div>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1.5 rounded text-sm font-semibold bg-green-600 hover:bg-green-700 text-white" onClick={generateQr}>Generate QR Code</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

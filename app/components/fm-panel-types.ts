@@ -57,6 +57,9 @@ export interface AssetRecord {
   // Linkage and visibility helpers
   linkedAssetId?: string;
   hidden?: boolean;
+  // QR Code fields (created once, viewable/printable)
+  qrCode?: string; // Unique QR payload or identifier
+  qrGeneratedAt?: string; // ISO timestamp when QR was created
   // Model identity for BIM assets (used to filter to current model)
   modelGuid?: string;
   // Internal viewer model id to aid selection in federated models
