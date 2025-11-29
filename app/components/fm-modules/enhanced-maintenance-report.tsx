@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useUserRole } from "@/app/hooks/useUserRole";
 import type { WorkOrderItem } from "../fm-panel-types";
+import { X, Printer, Save } from "lucide-react";
 
 interface EnhancedMaintenanceReportProps {
   projectId?: string;
@@ -124,13 +125,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   };
 
   const generatePDF = () => {
-    // Filter sections based on visibility
-    const visibleSections = Object.entries(sectionVisibility)
-      .filter(([_, visible]) => visible)
-      .map(([section]) => section);
-    
-    alert(`Generating PDF with sections: ${visibleSections.join(', ')}`);
-    // TODO: Implement PDF generation
+    // Simple print for now, can be enhanced with html2canvas/jspdf if needed
+    window.print();
   };
 
   if (!workOrder) {
@@ -145,41 +141,87 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   const totalTimeToResolve = workOrder.totalTimeToResolve || 0;
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen p-6 overflow-y-auto">
-      <div className="max-w-6xl mx-auto">
+    <div className="bg-gray-900 text-white min-h-screen p-6 overflow-y-auto print:bg-white print:text-black print:p-0">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-content, .print-content * {
+            visibility: visible;
+          }
+          .print-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+            color: black;
+            padding: 20px;
+          }
+          .no-print {
+            display: none !important;
+          }
+          /* Force dark backgrounds to white for print */
+          .bg-gray-800\\/50, .bg-gray-900 {
+            background-color: white !important;
+            border: 1px solid #ccc !important;
+            color: black !important;
+          }
+          .text-gray-400, .text-gray-300, .text-gray-200 {
+            color: #333 !important;
+          }
+          .text-white {
+            color: black !important;
+          }
+        }
+      `}</style>
+      <div className="max-w-6xl mx-auto print-content">
         {/* Header */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-white">Maintenance Report</h1>
-              <p className="text-sm text-gray-400 mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={generatePDF}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
-              >
-                Generate PDF
-              </button>
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between no-print">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Maintenance Report</h1>
+            <p className="text-sm text-gray-400 mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
+          </div>
+          <div className="flex gap-3 items-center">
+            <button
+              onClick={generatePDF}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
+            >
+              <Printer size={16} />
+              Generate PDF
+            </button>
+            
+            {(isTM || isFM) && (
               <button
                 onClick={saveReport}
                 disabled={saving}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-green-900/20"
               >
+                <Save size={16} />
                 {saving ? 'Saving...' : 'Save Report'}
               </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium transition-colors"
-              >
-                Close
-              </button>
-            </div>
+            )}
+            
+            <button
+              onClick={onClose}
+              className="ml-2 p-2 bg-gray-700 hover:bg-red-600 text-white rounded-full transition-all duration-200 hover:rotate-90 shadow-lg"
+              title="Close"
+            >
+              <X size={20} />
+            </button>
           </div>
         </div>
 
+        {/* Print Header (Only visible in print) */}
+        <div className="hidden print:block mb-6 border-b pb-4">
+          <h1 className="text-2xl font-bold">Maintenance Report</h1>
+          <p className="text-sm text-gray-600">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
+          <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
+        </div>
+
         {/* Section Visibility Toggles */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4">
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 no-print">
           <h3 className="text-sm font-semibold text-gray-300 mb-3">Section Visibility (for PDF)</h3>
           <div className="grid grid-cols-4 gap-3">
             {Object.entries(sectionVisibility).map(([key, visible]) => (
@@ -276,11 +318,11 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
               </div>
               <div>
                 <span className="text-gray-400">Name of Manutentor (2):</span>
-                <span className="ml-2 text-white">{(workOrder as any).manutentor2Name || (workOrder.assignedTechnicians && workOrder.assignedTechnicians[0]?.name) || 'N/A'}</span>
+                <span className="ml-2 text-white">{(workOrder as any).manutentor2Name || (workOrder.assignedTechnicians && workOrder.assignedTechnicians[0]?.name) || ''}</span>
               </div>
               <div>
                 <span className="text-gray-400">Surname of Manutentor (2):</span>
-                <span className="ml-2 text-white">{(workOrder as any).manutentor2Surname || (workOrder.assignedTechnicians && (workOrder.assignedTechnicians as any)[0]?.surname) || 'N/A'}</span>
+                <span className="ml-2 text-white">{(workOrder as any).manutentor2Surname || (workOrder.assignedTechnicians && (workOrder.assignedTechnicians as any)[0]?.surname) || ''}</span>
               </div>
               {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 && (
                 <div className="col-span-2">
@@ -394,7 +436,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
               </div>
               <div>
                 <span className="text-gray-400">Last FM Modification:</span>
-                <span className="ml-2 text-white">N/A</span>
+                <span className="ml-2 text-white">{(workOrder as any).fmModificationDate ? new Date((workOrder as any).fmModificationDate).toLocaleString() : 'N/A'}</span>
               </div>
             </div>
           </div>

@@ -55,6 +55,11 @@ export async function PATCH(
 
     const now = new Date().toISOString();
     const updates: any = { updatedAt: now };
+    
+    // Track FM modification time
+    if (priority || type) {
+      updates.fmModificationDate = now;
+    }
 
     // Track old values for email
     const oldPriority = workOrder.priority || 'Not Set';
