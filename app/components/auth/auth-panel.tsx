@@ -8,13 +8,13 @@ function AuthPanelContent() {
   const sp = useSearchParams();
   const router = useRouter();
 
-  const initialMode = (sp.get('mode') || 'login') as 'login' | 'signup';
+  const initialMode = (sp.get('mode') || 'login') as 'login' | 'signup' | 'forgot-password' | 'reset-password';
   const invitedEmail = sp.get('email') || '';
   const inviteToken = sp.get('token') || '';
   const wrongSel = sp.get('wrong') === '1';
   const projectId = sp.get('projectId') || '';
 
-  const [mode, setMode] = useState<'login'|'signup'>(initialMode);
+  const [mode, setMode] = useState<'login'|'signup'|'forgot-password'|'reset-password'>(initialMode);
 
   // Shared fields
   const [email, setEmail] = useState(invitedEmail);
@@ -55,7 +55,7 @@ function AuthPanelContent() {
     if (invitedEmail) setEmail(invitedEmail);
   }, [invitedEmail]);
 
-  const switchMode = (next: 'login'|'signup') => {
+  const switchMode = (next: 'login'|'signup'|'forgot-password'|'reset-password') => {
     setMode(next);
     const params = new URLSearchParams(window.location.search);
     params.set('mode', next);
@@ -120,6 +120,44 @@ function AuthPanelContent() {
     }
   };
 
+  const onForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (!email) return setError('Email required');
+    setLoading(true);
+    try {
+      const r = await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error || 'Failed to send reset link');
+      setInfo(d.message || 'If an account exists, a reset link has been sent.');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to send reset link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setInfo(null);
+    if (password.length < 6) return setError('Password must be at least 6 characters');
+    if (password !== confirm) return setError('Passwords do not match');
+    setLoading(true);
+    try {
+      const r = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: inviteToken, password }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error || 'Failed to reset password');
+      setInfo('Password updated successfully. You can now sign in.');
+      setTimeout(() => switchMode('login'), 2000);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -169,13 +207,50 @@ function AuthPanelContent() {
       <div className="mb-6 flex flex-col items-center">
         <span className="text-3xl font-bold text-black mb-2">Logo</span>
       </div>
-      {/* Tab switch (kept subtle to preserve layout) */}
-      <div className="w-full grid grid-cols-2 gap-2 mb-4">
-        <button onClick={() => switchMode('login')} className={`h-10 rounded-md text-sm font-semibold border ${mode==='login' ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-300 hover:bg-gray-50'}`}>Sign in</button>
-        <button onClick={() => switchMode('signup')} className={`h-10 rounded-md text-sm font-semibold border ${mode==='signup' ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-300 hover:bg-gray-50'}`}>Sign up</button>
-      </div>
 
-      {mode === 'login' ? (
+      {/* Tab switch - only for login/signup */}
+      {(mode === 'login' || mode === 'signup') && (
+        <div className="w-full grid grid-cols-2 gap-2 mb-4">
+          <button onClick={() => switchMode('login')} className={`h-10 rounded-md text-sm font-semibold border ${mode==='login' ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-300 hover:bg-gray-50'}`}>Sign in</button>
+          <button onClick={() => switchMode('signup')} className={`h-10 rounded-md text-sm font-semibold border ${mode==='signup' ? 'bg-black text-white border-black' : 'bg-white text-black border-gray-300 hover:bg-gray-50'}`}>Sign up</button>
+        </div>
+      )}
+
+      {mode === 'forgot-password' && (
+        <div className="w-full">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Reset your password</h2>
+          <p className="text-sm text-gray-600 mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+          
+          <form onSubmit={onForgotPassword} className="w-full">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="mt-1 mb-4 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
+            <button type="submit" disabled={loading} className={`w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+          </form>
+          
+          <div className="mt-4 text-center">
+            <button onClick={() => switchMode('login')} className="text-sm font-medium text-gray-600 hover:text-black">Back to Sign in</button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'reset-password' && (
+        <div className="w-full">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Set new password</h2>
+          <p className="text-sm text-gray-600 mb-6">Please enter your new password below.</p>
+          
+          <form onSubmit={onResetPassword} className="w-full">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="mt-1 mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
+            
+            <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+            <input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" className="mt-1 mb-4 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
+            
+            <button type="submit" disabled={loading} className={`w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Resetting...' : 'Reset Password'}</button>
+          </form>
+        </div>
+      )}
+
+      {mode === 'login' && (
         <div className="w-full">
           {/* Heading */}
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Sign into your account</h2>
@@ -237,14 +312,16 @@ function AuthPanelContent() {
           <form onSubmit={onCredentialsSignIn} className="w-full">
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="mt-1 mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+            
+            <div className="flex justify-between items-center mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+              <button type="button" onClick={() => switchMode('forgot-password')} className="text-xs font-medium text-gray-600 hover:text-black">Forgot password?</button>
+            </div>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="mt-1 mb-4 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
+            
             <button type="submit" disabled={loading} className={`w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Signing in…' : 'Sign in'}</button>
           </form>
-          {error && (
-            <div className="text-sm text-red-600 mt-3" role="alert">{error}</div>
-          )}
-
+          
           {/* Terms and Privacy (kept from original) */}
           <div className="mt-8 text-xs text-gray-600 text-center max-w-xs">
             <span>
@@ -258,7 +335,9 @@ function AuthPanelContent() {
             </div>
           </div>
         </div>
-      ) : (
+      )}
+      
+      {mode === 'signup' && (
         <div className="w-full">
           {/* Heading */}
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Create your account</h2>
@@ -305,13 +384,14 @@ function AuthPanelContent() {
               </div>
             </div>
 
-            {error && (<div className="text-sm text-red-600 mt-1" role="alert">{error}</div>)}
-            {info && (<div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2 mt-2" role="status">{info}</div>)}
-
             <button type="submit" disabled={loading} className={`mt-4 w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Creating account…' : 'Create account'}</button>
           </form>
         </div>
       )}
+
+      {/* Global Error/Info Messages */}
+      {error && (<div className="text-sm text-red-600 mt-4 w-full text-center" role="alert">{error}</div>)}
+      {info && (<div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2 mt-4 w-full text-center" role="status">{info}</div>)}
     </div>
   );
 }
