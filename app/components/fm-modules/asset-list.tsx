@@ -90,8 +90,30 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     setEditModal({ open: true, id: row.id });
     // Prefill form with asset data, normalizing category to remove Revit prefix
     const editData = { ...pickEditable(row) };
-    if (editData.category) {
-      editData.category = stripRevitPrefix(editData.category) || editData.category;
+    // Debug: log picked vs raw assetCode to help troubleshoot missing values
+    try { console.log('📝 [openEditAsset] row.assetCode:', (row as any).assetCode, 'picked.assetCode:', (editData as any).assetCode); } catch {}
+
+    // If assetCode is missing from the picked editable fields, attempt a safe fallback
+    // This mirrors the Asset Code computation used during extraction (projectCode + level)
+    if (!((editData as any).assetCode) || String((editData as any).assetCode).trim() === '') {
+      let finalCode = (row as any).assetCode;
+      if (!finalCode) {
+        // Try to compute from project code + level found on the row
+        const projectCode = (row as any).projectCode;
+        const loc = (row as any).location || '';
+        const levelRaw = String(loc).split(' - ')[0] || '';
+        if (projectCode && levelRaw) {
+          const m = String(levelRaw).match(/^(-?\d+)/);
+          if (m) {
+            const num = parseInt(m[1], 10);
+            const levelCode = num >= 0 ? num.toString().padStart(2, '0') : `G${Math.abs(num)}`;
+            finalCode = `${projectCode}-${levelCode}`;
+            console.log('🧩 [openEditAsset] Fallback computed assetCode:', finalCode);
+          }
+        }
+      }
+      if (!finalCode) finalCode = '@';
+      (editData as any).assetCode = finalCode;
     }
     setEdit(editData);
     setEditSection('basic');
@@ -3395,7 +3417,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
               </select>
             </div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled placeholder="Leave empty" value="" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs opacity-50 cursor-not-allowed" /></div>
+            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
             <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
