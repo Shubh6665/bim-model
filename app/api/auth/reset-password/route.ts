@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
       { $set: { password: hash } }
     );
 
-    // Delete token
-    await db.collection('passwordResetTokens').deleteOne({ _id: resetDoc._id });
+    // Delete all reset tokens for this user to ensure single-use and invalidate others
+    await db.collection('passwordResetTokens').deleteMany({ email: resetDoc.email });
 
     return NextResponse.json({ message: 'Password updated successfully' });
   } catch (error) {
