@@ -319,9 +319,20 @@ function AuthPanelContent() {
             </div>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="mt-1 mb-4 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black h-11 px-3 bg-white text-gray-900 placeholder:text-gray-400 caret-black" required />
             
-            <button type="submit" disabled={loading} className={`w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Signing in…' : 'Sign in'}</button>
+                        <button type="submit" disabled={loading} className={`w-full flex items-center justify-center gap-2 h-11 ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-900 cursor-pointer'} text-white rounded-md font-semibold shadow-sm`}>{loading ? 'Signing in…' : 'Sign in'}</button>
           </form>
           
+          {error && (
+            <div className="mt-3 p-3 rounded-md bg-red-50 border border-red-200 flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="text-sm text-red-800">
+                {error === 'CredentialsSignin' ? 'Incorrect email or password. Please try again.' : error}
+              </div>
+            </div>
+          )}
+
           {/* Terms and Privacy (kept from original) */}
           <div className="mt-8 text-xs text-gray-600 text-center max-w-xs">
             <span>
@@ -390,7 +401,7 @@ function AuthPanelContent() {
       )}
 
       {/* Global Error/Info Messages */}
-      {error && (<div className="text-sm text-red-600 mt-4 w-full text-center" role="alert">{error}</div>)}
+      {mode !== 'login' && error && (<div className="text-sm text-red-600 mt-4 w-full text-center" role="alert">{error}</div>)}
       {info && (<div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2 mt-4 w-full text-center" role="status">{info}</div>)}
     </div>
   );
