@@ -322,9 +322,19 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     return cycles.find(c => !c.endedAt);
   };
 
-  const formatDuration = (startedAt: string, endedAt?: string) => {
+  const formatDuration = (startedAt: string, endedAt?: string, status?: string, updatedAt?: string) => {
     const start = new Date(startedAt);
-    const end = endedAt ? new Date(endedAt) : new Date();
+    let end = endedAt ? new Date(endedAt) : new Date();
+
+    // Fix: If the ticket is resolved/rejected but the cycle wasn't closed properly, 
+    // stop the counter at the last update time (or now if no update time, but don't update live).
+    // Better: use updatedAt if available and status is final.
+    const isFinal = ['RESOLVED', 'CLOSE', 'REJECTED', 'Resolved', 'Rejected'].includes(status || '');
+    
+    if (!endedAt && isFinal && updatedAt) {
+        end = new Date(updatedAt);
+    }
+
     const diff = end.getTime() - start.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -651,7 +661,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                       </div>
                       <div>
                         <span className="text-gray-400">Duration:</span>
-                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt)}</span>
+                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt, effectiveStatus, order.updatedAt)}</span>
                       </div>
                       {currentCycle.performedBy && (
                         <div className="col-span-2">
@@ -772,7 +782,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         {order.maintenanceCycles.map((cycle, idx) => {
                           const duration = cycle.endedAt 
                             ? formatDuration(cycle.startedAt, cycle.endedAt)
-                            : formatDuration(cycle.startedAt, new Date().toISOString()) + ' (ongoing)';
+                            : formatDuration(cycle.startedAt, undefined, effectiveStatus, order.updatedAt) + ' (ongoing)';
                           
                           return (
                             <div key={idx} className="bg-gradient-to-r from-gray-900/50 to-gray-800/30 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors">

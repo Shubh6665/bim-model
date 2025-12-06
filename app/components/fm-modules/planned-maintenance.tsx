@@ -388,9 +388,6 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
-      <div className="text-white font-semibold text-sm">Planned Maintenance</div>
-      {/* Subtitle intentionally omitted to avoid hydration flicker differences */}
-
       {loading ? (
         <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
       ) : scheduled.length === 0 ? (
@@ -400,8 +397,47 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
       ) : (
         <div className="flex-1 overflow-auto pr-2">
           {/* Table Header */}
-          <div className="sticky top-0 bg-gray-900/90 border border-gray-700 rounded-t-lg mb-0 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
-            <div className="grid grid-cols-12 gap-2 px-3 py-2.5 text-xs font-semibold text-gray-300 border-b border-gray-700">
+          <div className="sticky top-0 bg-gray-900/90 border border-gray-700 rounded-t-lg mb-0 backdrop-blur supports-[backdrop-filter]:backdrop-blur z-10">
+            {/* Top Row: Actions and Filters combined in a cleaner layout */}
+            <div className="p-3 border-b border-gray-700 space-y-3">
+              <div className="flex items-center justify-between">
+                 <h3 className="text-sm font-semibold text-white">Planned Maintenance</h3>
+                 <div className="flex gap-2">
+                    <input 
+                      value={filters.search} 
+                      onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))} 
+                      placeholder="Search..." 
+                      className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none w-48" 
+                    />
+                 </div>
+              </div>
+              
+              <div className="grid grid-cols-5 gap-3">
+                <select value={filters.discipline} onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                  <option value="all">All Disciplines</option>
+                  {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                  <option value="all">All Categories</option>
+                  {uniqueRevitCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                  <option value="all">All IFC Classes</option>
+                  {uniqueIfcClasses.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                </select>
+                <select value={filters.level} onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                  <option value="all">All Levels</option>
+                  {uniqueLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <select value={filters.room} onChange={e => setFilters(prev => ({ ...prev, room: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                  <option value="all">All Rooms</option>
+                  {uniqueRooms.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Column Headers */}
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-gray-400 bg-gray-800/50">
               <div className="col-span-1 whitespace-nowrap">Actions</div>
               <div className="col-span-2 whitespace-nowrap">Discipline</div>
               <div className="col-span-2 whitespace-nowrap">Category</div>
@@ -412,46 +448,6 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
               <div className="col-span-1 whitespace-nowrap">Room</div>
               <div className="col-span-1 whitespace-nowrap">Frequency</div>
               <div className="col-span-1 whitespace-nowrap">Time</div>
-            </div>
-            {/* Filters Row - column aligned */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-gray-900/60 border-b border-gray-700 text-xs">
-              <div className="col-span-1"></div>
-              <div className="col-span-2">
-                <select value={filters.discipline} onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">All</option>
-                  {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              {/* Category cell now holds Revit Category + IFC Class side-by-side */}
-              <div className="col-span-2 flex gap-2">
-                <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">All</option>
-                  {uniqueRevitCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">All</option>
-                  {uniqueIfcClasses.map(ic => <option key={ic} value={ic}>{ic}</option>)}
-                </select>
-              </div>
-              <div className="col-span-1"></div>
-              <div className="col-span-1"></div>
-              <div className="col-span-1">
-                <input value={filters.search} onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))} placeholder="Search asset/code..." className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-400" />
-              </div>
-              <div className="col-span-1">
-                <select value={filters.level} onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">All</option>
-                  {uniqueLevels.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div className="col-span-1">
-                <select value={filters.room} onChange={e => setFilters(prev => ({ ...prev, room: e.target.value }))} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                  <option value="all">All</option>
-                  {uniqueRooms.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="col-span-1"></div>
-              <div className="col-span-1"></div>
             </div>
           </div>
 
