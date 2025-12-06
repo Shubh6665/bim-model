@@ -8,9 +8,10 @@ import type { WorkOrderItem, WorkOrderStatus, MaintenanceCycle } from "../fm-pan
 
 interface OngoingMaintenanceProps {
   projectId?: string;
+  archived?: boolean;
 }
 
-export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectId }) => {
+export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectId, archived = false }) => {
   const { role, isTM, isMaintainer, isFM } = useUserRole(projectId || '');
   const [workOrders, setWorkOrders] = useState<WorkOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -440,6 +441,16 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           // Determine effective status
           const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
           const effectiveStatus = isRejected ? 'Rejected' : order.status;
+          const isResolved = effectiveStatus === 'RESOLVED' || effectiveStatus === 'Resolved';
+
+          // Archive filtering logic
+          if (archived) {
+            // In archived view, ONLY show Resolved or Rejected
+            if (!isResolved && !isRejected) return false;
+          } else {
+            // In ongoing view, HIDE Resolved and Rejected
+            if (isResolved || isRejected) return false;
+          }
 
           if (filterStatus !== 'ALL') {
             const s = (effectiveStatus || '').toUpperCase();
@@ -484,6 +495,16 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
               // Determine effective status
               const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
               const effectiveStatus = isRejected ? 'Rejected' : order.status;
+              const isResolved = effectiveStatus === 'RESOLVED' || effectiveStatus === 'Resolved';
+
+              // Archive filtering logic
+              if (archived) {
+                // In archived view, ONLY show Resolved or Rejected
+                if (!isResolved && !isRejected) return false;
+              } else {
+                // In ongoing view, HIDE Resolved and Rejected
+                if (isResolved || isRejected) return false;
+              }
 
               // Apply status filter
               if (filterStatus !== 'ALL') {

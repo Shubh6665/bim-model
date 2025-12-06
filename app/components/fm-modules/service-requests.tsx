@@ -778,7 +778,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                 return (
                                   <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700">
                                     <div className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
-                                      <span className="bg-blue-700/60 px-2 py-1 rounded text-xs">TM Actions</span>
+                                      <span className="bg-blue-700/60 px-2 py-1 rounded text-xs">Maintenance Team</span>
                                       Ticket Approval Management
                                     </div>
                                     

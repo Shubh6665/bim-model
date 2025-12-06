@@ -883,45 +883,7 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
         </div>
       )}
 
-      {/* Recent Tickets */}
-      {tickets.length > 0 && (
-        <div className="border-t border-gray-700 pt-3">
-          <div className="text-xs text-gray-400 font-semibold mb-2">Recent Tickets</div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {tickets.slice(0, 5).map(t => {
-              const status = t.status || (t as any).approvalStatus;
-              const isRejected = status === 'REJECTED' || (t as any).approvalStatus === 'REJECTED';
-              const isApproved = status === 'APPROVED' || (t as any).approvalStatus === 'APPROVED';
-              
-              let label = 'Pending';
-              if (isRejected) label = 'Rejected';
-              else if (isApproved) label = 'Approved';
-              else if (status && status !== 'PENDING_APPROVAL') {
-                // Convert ALL CAPS to Title Case
-                label = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace('_', ' ');
-              }
-
-              const badgeClass =
-                label === 'Rejected'
-                  ? 'bg-red-900/40 text-red-300'
-                  : label === 'Pending'
-                    ? 'bg-yellow-900/40 text-yellow-300'
-                    : 'bg-green-900/40 text-green-300';
-
-              return (
-                <div key={t.id} className="text-xs bg-gray-900/40 rounded px-2 py-1.5 flex justify-between items-center">
-                  <span className="text-gray-300">
-                    <span className="font-mono text-blue-400">{t.ticketCode}</span> - {t.requester.name} {t.requester.surname}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-xs ${badgeClass}`}>
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 };

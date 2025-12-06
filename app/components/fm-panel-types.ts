@@ -322,7 +322,7 @@ export type Section =
   | { group: "spaces"; item: "space-list" | "create-space" | null }
   | { group: "maintenance"; item: "scheduled" | "ticket" | null }
   | { group: "work-orders"; item: "pending-approvals" | "service-requests" | "reports" | "fm-editor" | null }
-  | { group: "upcoming-activities"; item: "ongoing" | "planned" | null };
+  | { group: "upcoming-activities"; item: "ongoing" | "planned" | "archived" | null };
 
 export interface FMPanelProps { 
   projectId?: string; 

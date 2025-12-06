@@ -517,7 +517,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       return section.item === 'service-requests' ? 'Work Orders' : 'Work Orders';
     }
     if (section.group === 'upcoming-activities') {
-      return section.item === 'ongoing' ? 'Upcoming Maintenance Activities' : 'Upcoming Maintenance Activities';
+      return section.item === 'ongoing' ? 'Maintenance activities' : 
+             section.item === 'archived' ? 'Maintenance Archived' : 'Maintenance activities';
     }
     return 'FM';
   }, [section]);
@@ -860,7 +861,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
         section?.group === 'spaces' ? 'Spaces' :
           section?.group === 'maintenance' ? 'Maintenance' :
             section?.group === 'work-orders' ? 'Work Orders' :
-              section?.group === 'upcoming-activities' ? 'Upcoming Maintenance Activities' :
+              section?.group === 'upcoming-activities' ? 'Maintenance activities' :
                 'FM Tools';
 
       return (
@@ -888,6 +889,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
     if (section.group === 'work-orders' && section.item === 'fm-editor') return <FMFieldEditor projectId={projectId} />;
   if (section.group === 'upcoming-activities' && section.item === 'ongoing') return <OngoingMaintenance projectId={projectId} />;
   if (section.group === 'upcoming-activities' && section.item === 'planned') return <PlannedMaintenance projectId={projectId} viewer={viewer} />;
+  if (section.group === 'upcoming-activities' && section.item === 'archived') return <OngoingMaintenance projectId={projectId} archived={true} />;
 
     return null;
   };
@@ -953,7 +955,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
         >
           <CalendarClock className="h-4 w-4" />
-          <span className="font-medium">Upcoming maintenance activities</span>
+          <span className="font-medium">Maintenance activities</span>
         </button>
       </div>
 
@@ -1081,6 +1083,15 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
                       }`}
                   >
                     Planned maintenance
+                  </button>
+                  <button
+                    onClick={() => { setSection({ group: 'upcoming-activities', item: 'archived' }); if (!isStandalone) setShowModal(true); }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'archived'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      }`}
+                  >
+                    Maintenance Archived
                   </button>
                 </>
               )}
