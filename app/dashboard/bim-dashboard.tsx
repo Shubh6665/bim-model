@@ -18,7 +18,7 @@ interface ProjectFile {
 export default function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
   const { logout } = useAuth();
-  const [activePanel, setActivePanel] = useState<'bim' | 'iot' | 'database' | 'ai' | 'fm'>('bim');
+  const [activePanel, setActivePanel] = useState<'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt'>('bim');
 
   const handleSignOut = async () => {
     try {

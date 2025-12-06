@@ -21,7 +21,7 @@ interface ForgeViewerProps {
     onExitInsertMode?: () => void;
     onSensorClick?: (sensorId: string) => void;
     onEmptyClick?: () => void;
-    activePanel?: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | null;
+    activePanel?: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt' | null;
     wireframeMode?: boolean;
     onWireframeModeChange?: (wireframe: boolean) => void;
     onViewerReady?: (viewer: any, iotExtension: any) => void;

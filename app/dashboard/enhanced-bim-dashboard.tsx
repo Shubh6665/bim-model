@@ -533,6 +533,7 @@ function BIMDashboard() {
     database: 'Database',
     ai: 'AI',
     fm: 'FM',
+    vt: 'VT',
   } as const;
 
   const canAccessPanel = (panel: NonNullable<typeof activePanel>) => {
@@ -561,7 +562,7 @@ function BIMDashboard() {
   };
 
   // Header expects non-null panels; wrap with a typed adapter
-  const handleHeaderPanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
+  const handleHeaderPanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
     handlePanelChange(panel);
   };
 
