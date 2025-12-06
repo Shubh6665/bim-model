@@ -322,17 +322,22 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
     return cycles.find(c => !c.endedAt);
   };
 
-  const formatDuration = (startedAt: string, endedAt?: string, status?: string, updatedAt?: string) => {
+  const formatDuration = (startedAt: string, endedAt?: string, status?: string, updatedAt?: string, resolvedAt?: string) => {
     const start = new Date(startedAt);
     let end = endedAt ? new Date(endedAt) : new Date();
 
     // Fix: If the ticket is resolved/rejected but the cycle wasn't closed properly, 
     // stop the counter at the last update time (or now if no update time, but don't update live).
     // Better: use updatedAt if available and status is final.
-    const isFinal = ['RESOLVED', 'CLOSE', 'REJECTED', 'Resolved', 'Rejected'].includes(status || '');
+    const s = (status || '').toUpperCase();
+    const isFinal = ['RESOLVED', 'CLOSE', 'CLOSED', 'REJECTED'].includes(s);
     
-    if (!endedAt && isFinal && updatedAt) {
-        end = new Date(updatedAt);
+    if (!endedAt && isFinal) {
+        if (resolvedAt) {
+             end = new Date(resolvedAt);
+        } else if (updatedAt) {
+             end = new Date(updatedAt);
+        }
     }
 
     const diff = end.getTime() - start.getTime();
@@ -661,7 +666,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                       </div>
                       <div>
                         <span className="text-gray-400">Duration:</span>
-                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt, effectiveStatus, order.updatedAt)}</span>
+                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt, effectiveStatus, order.updatedAt, order.resolvedAt)}</span>
                       </div>
                       {currentCycle.performedBy && (
                         <div className="col-span-2">
@@ -780,9 +785,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                     {selectedOrder?.id === order.id && (
                       <div className="mt-3 space-y-3">
                         {order.maintenanceCycles.map((cycle, idx) => {
+                          const s = (effectiveStatus || '').toUpperCase();
+                          const isFinal = ['RESOLVED', 'CLOSE', 'CLOSED', 'REJECTED'].includes(s);
                           const duration = cycle.endedAt 
                             ? formatDuration(cycle.startedAt, cycle.endedAt)
-                            : formatDuration(cycle.startedAt, undefined, effectiveStatus, order.updatedAt) + ' (ongoing)';
+                            : formatDuration(cycle.startedAt, undefined, effectiveStatus, order.updatedAt, order.resolvedAt) + (isFinal ? '' : ' (ongoing)');
                           
                           return (
                             <div key={idx} className="bg-gradient-to-r from-gray-900/50 to-gray-800/30 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors">
