@@ -1057,19 +1057,20 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
     setPreviousFormValues(previousValues);
     save(`fm-scheduled-maintenance-previous-${projectId || 'global'}`, previousValues);
 
-    // Reset form but inherit Discipline, Revit Category, and IFC Class
+    // Reset form but inherit Discipline, Revit Category, IFC Class AND Selected Assets
     setF({ 
       discipline: f.discipline, 
       revitCategory: f.revitCategory, 
       ifcClass: f.ifcClass, 
       code: '', 
-      asset: '', 
+      asset: f.asset, 
       frequency: '', 
       timeHours: '' 
     });
     setTasks([]);
     setCurrentTask('');
-    setSelectedAssets([]);
+    // Keep selected assets for multiple insertions
+    // setSelectedAssets([]); 
     setErrors({ discipline: '', category: '', code: '', asset: '', frequency: '', timeHours: '', tasks: '' });
   };
 

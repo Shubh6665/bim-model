@@ -38,7 +38,7 @@ export default function BIMDashboard() {
     console.log("Selected file:", file);
   };
 
-  const handlePanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
+  const handlePanelChange = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
     setActivePanel(panel);
   };
 
