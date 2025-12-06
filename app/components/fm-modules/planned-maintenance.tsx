@@ -632,29 +632,6 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                       </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Frequency (per year)</label>
-                      <input
-                        type="number"
-                        value={edit.frequency}
-                        onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Time per Intervention (hours)</label>
-                      <input
-                        type="number"
-                        value={edit.timeHours}
-                        onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
                 </>
               ) : (
                 <>
@@ -662,6 +639,8 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                   <div>
                     <label className="text-sm text-gray-300 block mb-2 font-medium">Asset Code: {edit.code}</label>
                   </div>
+
+
 
                   <div>
                     <label className="text-sm text-gray-300 block mb-2 font-medium">Maintenance Tasks</label>
@@ -718,7 +697,30 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                   </div>
                 </>
               )}
+                                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Frequency (per year)</label>
+                      <input
+                        type="number"
+                        value={edit.frequency}
+                        onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-300 block mb-2 font-medium">Time per Intervention (hours)</label>
+                      <input
+                        type="number"
+                        value={edit.timeHours}
+                        onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
             </div>
+            
 
             {/* Modal Footer */}
             <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 px-6 py-4 flex gap-2 justify-end">

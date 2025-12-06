@@ -437,25 +437,29 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
 
       {/* Results Counter */}
       {(() => {
-        const filteredOrders = workOrders.filter(order => {
-          // Determine effective status
+        // First, filter by view (Ongoing vs Archived)
+        const viewOrders = workOrders.filter(order => {
           const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
           const effectiveStatus = isRejected ? 'Rejected' : order.status;
           const isResolved = effectiveStatus === 'RESOLVED' || effectiveStatus === 'Resolved';
 
-          // Archive filtering logic
           if (archived) {
             // In archived view, ONLY show Resolved or Rejected
-            if (!isResolved && !isRejected) return false;
+            return isResolved || isRejected;
           } else {
             // In ongoing view, HIDE Resolved and Rejected
-            if (isResolved || isRejected) return false;
+            return !isResolved && !isRejected;
           }
+        });
+
+        // Then apply user filters to the view-specific orders
+        const filteredOrders = viewOrders.filter(order => {
+          const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
+          const effectiveStatus = isRejected ? 'Rejected' : order.status;
 
           if (filterStatus !== 'ALL') {
             const s = (effectiveStatus || '').toUpperCase();
             const f = filterStatus.toUpperCase();
-            // Handle "Closed" vs "CLOSE" and "In Progress" vs "IN_PROGRESS"
             if (f === 'CLOSED' && s === 'CLOSE') { /* match */ }
             else if (f === 'IN PROGRESS' && s === 'IN_PROGRESS') { /* match */ }
             else if (s !== f && s !== f.replace(' ', '_')) return false;
@@ -478,7 +482,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-400">
               Showing <span className="text-white font-semibold">{filteredOrders.length}</span> of{' '}
-              <span className="text-white font-semibold">{workOrders.length}</span> work orders
+              <span className="text-white font-semibold">{viewOrders.length}</span> work orders
             </span>
           </div>
         );
@@ -582,16 +586,13 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 
                 {/* Assigned Technicians - View Only for non-TM */}
                 {!isTM && order.assignedTechnicians && order.assignedTechnicians.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-sm font-medium text-gray-300 mb-2">Assigned Technicians</div>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mb-4 text-sm">
+                    <span className="text-gray-400">Assigned Technicians:</span>
+                    <div className="ml-2 mt-1 space-y-1">
                       {order.assignedTechnicians.map((tech: any, idx: number) => (
-                        <div key={idx} className="bg-gray-900/50 border border-gray-700 rounded px-3 py-1 flex items-center gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-sm text-white">{tech.name}</span>
-                            <span className="text-xs text-gray-400">{tech.email}</span>
-                            {tech.company && <span className="text-xs text-blue-300">{tech.company}</span>}
-                          </div>
+                        <div key={idx} className="text-white">
+                          {tech.name} <span className="text-gray-200">({tech.email})</span>
+                          {tech.company && <span className="text-gray-200"> - {tech.company}</span>}
                         </div>
                       ))}
                     </div>
@@ -601,32 +602,32 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 {/* Assigned Technicians - Editable for TM */}
                 {isTM && (
                   <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-300">Assigned Technicians</span>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-400">Assigned Technicians:</span>
                       {!isRejected && (
                         <button
                           onClick={() => {
                             setSelectedOrderForTech(order);
                             setShowTechModal(true);
                           }}
-                          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                          className="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                         >
-                          Add Technician
+                          + Add
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="ml-2 space-y-1">
                       {order.assignedTechnicians && order.assignedTechnicians.length > 0 ? (
                         order.assignedTechnicians.map((tech: any, idx: number) => (
-                          <div key={idx} className="bg-gray-900/50 border border-gray-700 rounded px-3 py-1 flex items-center gap-2">
-                            <div className="flex flex-col">
-                              <span className="text-sm text-white">{tech.name}</span>
-                              <span className="text-xs text-gray-400">{tech.email}</span>
-                              {tech.company && <span className="text-xs text-blue-300">{tech.company}</span>}
-                            </div>
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="text-white">
+                              {tech.name} <span className="text-gray-500">({tech.email})</span>
+                              {tech.company && <span className="text-gray-500"> - {tech.company}</span>}
+                            </span>
                             <button
                               onClick={() => removeTechnician(order.id, tech.email)}
-                              className="text-red-400 hover:text-red-300 ml-2 p-1"
+                              className="text-red-400 hover:text-red-300 p-0.5"
+                              title="Remove"
                             >
                               ×
                             </button>
