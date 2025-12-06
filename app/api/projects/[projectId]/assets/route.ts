@@ -247,6 +247,8 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     conflictWithId: raw?.conflictWithId || undefined,
     linkedAssetId: raw?.linkedAssetId || undefined,
     hidden: raw?.hidden || false,
+    qrCode: raw?.qrCode || undefined,
+    qrGeneratedAt: raw?.qrGeneratedAt || undefined,
     updatedAt: now,
   } as any;
 

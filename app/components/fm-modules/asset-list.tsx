@@ -2229,24 +2229,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           <div className="text-white font-semibold text-sm">Asset List</div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
-            <button
-              onClick={() => {
-                clearAssetCache(projectId);
-                // Reload assets after cache clear
-                setRows([] as AssetRecord[]);
-                setTimeout(() => {
-                  const cached = load(K.assets(projectId), [] as AssetRecord[]);
-                  const filtered = filterAssetsForCurrentModel(cached);
-                  const deduped = dedupeAssets(filtered);
-                  setRows(deduped);
-                  showToast('success', 'Cache cleared and reloaded');
-                }, 100);
-              }}
-              className="text-[11px] px-2 py-0.5 rounded bg-grey-900/40 border border-gray-700 text-gray-300 hover:bg-grey-900/60 transition"
-              title="Clear cache and reload fresh data"
-            >
-              Clear List
-            </button>
           </div>
         </div>
 
@@ -3142,7 +3124,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     { key: 'economic' as const, label: 'Economic Aspects' },
     { key: 'compliance' as const, label: 'Compliance & Safety' },
     { key: 'relationships' as const, label: 'Links & Relationships' },
-    { key: 'qr' as const, label: 'Create - View QR Code' }
+    { key: 'qr' as const, label: f.qrCode ? 'View QR Code' : 'Create QR Code' }
   ];
 
   const updateField = (key: keyof AssetRecord, value: string) => {
@@ -3554,7 +3536,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         {activeSection === 'qr' && (
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-[11px] text-gray-300 block mb-1">Create / View QR Code</label>
+              <label className="text-[11px] text-gray-300 block mb-1">{(f as any).qrCode ? 'View QR Code' : 'Create QR Code'}</label>
               <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col items-center gap-3">
                 {(f as any).qrCode ? (
                   <>

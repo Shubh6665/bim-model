@@ -14,9 +14,9 @@ function GoogleMapPicker({ apiKey, lat, lng, onChange }: { apiKey: string, lat: 
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Default to New Delhi, India if no location is provided
-  const defaultLat = 28.6139;
-  const defaultLng = 77.2090;
+  // Default to Rome, Italy if no location is provided
+  const defaultLat = 41.9028;
+  const defaultLng = 12.4964;
 
   useEffect(() => {
     let loader: any;
@@ -161,9 +161,9 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
     { label: "HVAC", value: "hvac" },
     { label: "Other", value: "other" },
   ];
-  // Default location (New Delhi, India)
-  const [lat, setLat] = useState<number | null>(28.6139);
-  const [lng, setLng] = useState<number | null>(77.2090);
+  // Default location (Rome, Italy)
+  const [lat, setLat] = useState<number | null>(41.9028);
+  const [lng, setLng] = useState<number | null>(12.4964);
   // Error
   const [error, setError] = useState<string | null>(null);
   // Processing state

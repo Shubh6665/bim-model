@@ -437,7 +437,18 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       {/* Results Counter */}
       {(() => {
         const filteredOrders = workOrders.filter(order => {
-          if (filterStatus !== 'ALL' && order.status !== filterStatus) return false;
+          // Determine effective status
+          const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
+          const effectiveStatus = isRejected ? 'Rejected' : order.status;
+
+          if (filterStatus !== 'ALL') {
+            const s = (effectiveStatus || '').toUpperCase();
+            const f = filterStatus.toUpperCase();
+            // Handle "Closed" vs "CLOSE" and "In Progress" vs "IN_PROGRESS"
+            if (f === 'CLOSED' && s === 'CLOSE') { /* match */ }
+            else if (f === 'IN PROGRESS' && s === 'IN_PROGRESS') { /* match */ }
+            else if (s !== f && s !== f.replace(' ', '_')) return false;
+          }
           if (filterPriority !== 'ALL' && order.priority !== filterPriority) return false;
           if (searchTechnician) {
             const search = searchTechnician.toLowerCase();
@@ -470,8 +481,19 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
         <div className="grid gap-4">
           {workOrders
             .filter(order => {
+              // Determine effective status
+              const isRejected = order.ticketStatus === 'REJECTED' || order.status === 'Rejected';
+              const effectiveStatus = isRejected ? 'Rejected' : order.status;
+
               // Apply status filter
-              if (filterStatus !== 'ALL' && order.status !== filterStatus) return false;
+              if (filterStatus !== 'ALL') {
+                const s = (effectiveStatus || '').toUpperCase();
+                const f = filterStatus.toUpperCase();
+                // Handle "Closed" vs "CLOSE" and "In Progress" vs "IN_PROGRESS"
+                if (f === 'CLOSED' && s === 'CLOSE') { /* match */ }
+                else if (f === 'IN PROGRESS' && s === 'IN_PROGRESS') { /* match */ }
+                else if (s !== f && s !== f.replace(' ', '_')) return false;
+              }
               
               // Apply priority filter
               if (filterPriority !== 'ALL' && order.priority !== filterPriority) return false;

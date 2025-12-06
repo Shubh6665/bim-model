@@ -11,8 +11,8 @@ import { ManageAdministratorsModal } from "./manage-administrators-modal";
 interface DashboardHeaderProps {
   onSignOut: () => void;
   user?: any;
-  activePanel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | null; // Added FM
-  onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => void; // Added FM
+  activePanel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt' | null; // Added FM and VT
+  onPanelChange: (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => void; // Added FM and VT
   onCreateProject: () => void;
   selectedProject?: any;
   onShowProjectInfo?: () => void;
@@ -129,7 +129,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   }, [user?.email, platformOwner]);
 
   // Helper function for button styles
-  const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm') => {
+  const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
     return `px-2.5 py-1 text-sm rounded transition-colors ${
       activePanel === panel
         ? "text-white bg-gray-700/50" // Style for active button
@@ -155,20 +155,23 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">BIM</span>
+              <span className="text-white font-bold text-xs">AP</span>
             </div>
-            <h1 className="text-lg font-bold text-white">BIM Viewer Pro</h1>
+            <h1 className="text-lg font-bold text-white">Adaptivity Platform</h1>
           </div>
+        </div>
+
+        {/* Center Section - Navigation */}
+        <div className="absolute left-1/2 transform -translate-x-1/2">
           <nav className="hidden md:flex items-center gap-0.5">
             <button className={getButtonClass('bim')} onClick={() => onPanelChange('bim')}>BIM</button>
             <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
             <button className={getButtonClass('database')} onClick={() => onPanelChange('database')}>Database</button>
             <button className={getButtonClass('ai')} onClick={() => onPanelChange('ai')}>AI</button>
+            <button className={getButtonClass('vt')} onClick={() => onPanelChange('vt')}>VT</button>
             <button className={getButtonClass('fm')} onClick={() => onPanelChange('fm')}>FM</button>
           </nav>
         </div>
-
-        {/* Center Section removed: search is now only in 'My Projects' sidebar */}
 
         {/* Right Section */}
         <div className="flex items-center gap-2">

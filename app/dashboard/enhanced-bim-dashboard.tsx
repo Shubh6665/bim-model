@@ -8,6 +8,7 @@ import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
 import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
 import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
 import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
+import { VTPanel } from "./components/vt-panel"; // Import the new VTPanel
 import FileViewer from "../components/file-viewer";
 import dynamic from "next/dynamic";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
@@ -72,8 +73,8 @@ function BIMDashboard() {
   const [viewer, setViewer] = useState<any>(null);
   const [iotExt, setIotExt] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<
-    "bim" | "iot" | "database" | "ai" | "fm" | null
-  >(null); // Added 'fm'
+    "bim" | "iot" | "database" | "ai" | "fm" | "vt" | null
+  >(null); // Added 'fm' and 'vt'
   const [insertMode, setInsertMode] = useState<null | string>(null); // sensor type or null
   const [mockSensors, setMockSensors] = useState<any[]>([]); // for demo placement
   const [wireframeMode, setWireframeMode] = useState<boolean>(false); // Default to solid; IoT panel will switch to wireframe on activation
@@ -773,6 +774,10 @@ function BIMDashboard() {
               <FMPanel
                 projectId={selectedProject?.id}
                 viewer={viewer}
+              />
+            ) : activePanel === "vt" ? (
+              <VTPanel
+                onBack={() => setActivePanel(null)}
               />
             ) : activePanel === "ai" ? (
               // Placeholder for AI panel
