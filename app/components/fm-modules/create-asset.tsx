@@ -210,7 +210,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         window.dispatchEvent(new CustomEvent('asset-created'));
       }
 
-      // Clear draft after successful save
+      // Clear draft after successful save - DISABLED per user request to retain values for next asset
+      /*
       const emptyForm = {
         category: '', type: '', brand: '', model: '', description: '', location: '',
         assetCode: '', assetName: '', serialNumber: '', installationDate: '',
@@ -224,6 +225,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       };
       setF(emptyForm);
       save(`fm-create-asset-draft-${projectId || 'global'}`, emptyForm);
+      */
 
     } catch (error) {
       console.error('❌ [CreateAsset] Save error:', error);

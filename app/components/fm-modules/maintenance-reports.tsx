@@ -117,7 +117,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
             <div key={w.id} className="bg-gray-800/40 rounded">
               <div className="flex items-center justify-between p-2">
                 <div>
-                  <div className="text-sm font-medium">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
+                  <div className="text-sm font-medium text-white">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
                   <div className="text-xs text-gray-300">{w.description?.slice(0, 80) || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
