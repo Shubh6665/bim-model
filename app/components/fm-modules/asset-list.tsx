@@ -15,6 +15,44 @@ interface AssetListProps {
   onScheduleMaintenance?: (assets: AssetRecord[]) => void;
 }
 
+const AssetSizeInput = ({ value, onChange }: { value: number | undefined | null, onChange: (n: number | undefined) => void }) => {
+  const [text, setText] = useState(value == null ? '' : String(value));
+  
+  useEffect(() => {
+    const currentNum = parseFloat(text);
+    if (value == null) {
+        if (text !== '' && !isNaN(currentNum)) setText('');
+    } else if (currentNum !== value) {
+        setText(String(value));
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setText(val);
+    if (val === '') {
+        onChange(undefined);
+    } else {
+        const n = parseFloat(val);
+        if (!isNaN(n)) {
+            onChange(n);
+        }
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      step="0.1"
+      onClick={e => e.stopPropagation()}
+      value={text}
+      onChange={handleChange}
+      className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+      placeholder="0.3"
+    />
+  );
+};
+
 export 
 const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintenance?: (assets: AssetRecord[]) => void; }> = ({ projectId, viewer, onScheduleMaintenance }) => {
   // No localStorage initialization - fetch from DB directly
@@ -2254,7 +2292,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           )}
         </div>
 
-  {/* In-memory Edit Asset modal trigger is per-row in Actions column below */}
+        {/* In-memory Edit Asset modal trigger is per-row in Actions column below */}
 
         {/* Controls: Show/Hide & Filters toggles */}
         <div className="grid grid-cols-2 gap-2">
@@ -2292,6 +2330,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                 ['Technical', 'technical'],
                 ['Documentation', 'documentation'],
                 ['Lifecycle', 'lifecycle'],
+                ['Maintenance', 'maintenance'],
                 ['Economic', 'economic'],
                 ['Compliance', 'compliance'],
                 ['Relationships', 'relationships']
@@ -2560,12 +2599,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                         <option value="cube">Cube</option>
                         <option value="sphere">Sphere</option>
                       </select>
-                      <input
-                        onClick={e => e.stopPropagation()}
-                        value={r.placeholderSize ?? 0.3}
-                        onChange={e => { const n = Number(e.target.value) || 0.3; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
-                        className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
-                        placeholder="m"
+                      <AssetSizeInput
+                        value={r.placeholderSize}
+                        onChange={n => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
                       />
                       <button
                         onClick={(e) => { e.stopPropagation(); placeManual(r); }}
@@ -2704,84 +2740,61 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     setSelectedIds(new Set());
                   } else {
                     // SINGLE EDIT (original sequential logic)
-                    console.log('�🔧 [Edit Override] Starting edit save for asset:', editModal.id);
+                    console.log('�🔧 [Edit Override] Starting save for asset:', editModal.id);
                     console.log('🔧 [Edit Override] Received form data:', rec);
                     
                     const id = editModal.id;
-                    if (!id) throw new Error('Missing edit id');
-                    
-                    const current = rows.find(r => r.id === id);
-                    console.log('🔧 [Edit Override] Current asset being edited:', current);
-                    
-                    const oldConflict = current?.conflictWithId;
-                    const fields = pickEditable(rec);
-                    
-                    console.log('🔧 [Edit Override] Picked editable fields:', fields);
-                    
-                    // Don't convert source - keep BIM as BIM, Manual as Manual
-                    const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
-                    
-                    console.log('🔧 [Edit Override] Merged fields to apply:', mergedFields);
-                    console.log('🔧 [Edit Override] Current source:', current?.source);
-                    
-                    // Capture the updated rows for localStorage save
-                    let updatedRows: AssetRecord[] = [];
-                    
-                    setRows(prev => {
-                      console.log('🔧 [Edit Override] setRows - updating asset with ID:', id);
-                      let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
-                      next = next.map(r => {
-                        if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
-                          return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
-                        }
-                        return r;
-                      });
-                      console.log('🔧 [Edit Override] setRows - Updated rows count:', next.length);
-                      console.log('🔧 [Edit Override] setRows - Updated asset:', next.find(r => r.id === id));
-                      updatedRows = next; // Capture for localStorage save
-                      return next;
-                    });
-                    
-                    // IMPORTANT: Save updated rows to localStorage immediately to preserve userEdited flag
+                    if (!id) { setEditModal({ open: false }); return; }
                     try {
-                      const key = K.assets(projectId);
-                      save(key, updatedRows);
-                      console.log('💾 [Edit Override] Saved to localStorage with userEdited flag');
-                    } catch {}
-                    
-                    // persist to backend if possible
-                    await persistEditToBackend(id, mergedFields);
-                    // Persist any BIM counterparts we modified locally
-                    try {
-                      const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
-                      await Promise.allSettled(counterparts.map(c => {
-                        const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
-                        return persistEditToBackend(c.id, upd);
-                      }));
-                    } catch {}
-                    try { window.dispatchEvent(new CustomEvent('asset-updated', { detail: { projectId, id } })); } catch {}
-                    showToast('success', 'Asset updated');
-                    
-                    // If editing a sequence, move to next; else close
-                    setTimeout(() => {
-                      setEditModal(prev => {
-                        if (editQueue.length > 0 && editIndex < editQueue.length - 1) {
-                          const nextIndex = editIndex + 1;
-                          const nextId = editQueue[nextIndex];
-                          const next = rows.find(r => r.id === nextId);
-                          if (next) {
-                            setEditIndex(nextIndex);
-                            setEdit({ ...pickEditable(next) });
-                            setEditSection('basic');
-                            return { open: true, id: nextId };
+                      const fields = pickEditable(edit);
+                      // Keep the asset source as-is (BIM stays BIM, Manual stays Manual)
+                      // userEdited flag ensures changes persist across merges
+                      const current = rows.find(r => r.id === id);
+                      const oldConflict = current?.conflictWithId;
+                      // Clear conflicts but don't convert source
+                      const mergedFields = { ...fields, conflictWithId: undefined } as Partial<AssetRecord>;
+
+                      setRows(prev => {
+                        // First update this record
+                        let next = prev.map(r => r.id === id ? { ...r, ...mergedFields, userEdited: true } : r);
+                        // Clear conflicts on any counterpart that pointed to this id; hide and link counterparts to this edited record
+                        next = next.map(r => {
+                          if (r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict))) {
+                            return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id };
                           }
-                        }
-                        // Done with sequence
-                        setEditQueue([]);
-                        setEditIndex(0);
-                        return { open: false };
+                          return r;
+                        });
+                        return next;
                       });
-                    }, 50);
+                      showToast('success', 'Asset updated');
+                      // Persist to local immediately (handled by rows effect) and try backend
+                      await persistEditToBackend(id, mergedFields);
+                      // Persist any BIM counterparts we modified locally (hidden/link + clear conflict)
+                      try {
+                        const counterparts = rows.filter(r => r.id !== id && (r.conflictWithId === id || (oldConflict && r.id === oldConflict)));
+                        await Promise.allSettled(counterparts.map(c => {
+                          const upd: Partial<AssetRecord> = { conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+                          return persistEditToBackend(c.id, upd);
+                        }));
+                      } catch {}
+                      // Also persist counterpart conflict cleanup to localStorage
+                      try {
+                        const key = K.assets(projectId);
+                        const currentLs = load(key, [] as AssetRecord[]);
+                        const updated = currentLs.map(r => {
+                          if (r.id === id) return { ...r, ...mergedFields, userEdited: true };
+                          if (r.conflictWithId === id || (oldConflict && r.id === oldConflict)) {
+                            return { ...r, conflictWithId: undefined, hidden: true, linkedAssetId: id } as any;
+                          }
+                          return r;
+                        });
+                        save(key, updated);
+                      } catch {}
+                    } catch (e) {
+                      showToast('error', 'Failed to update asset');
+                    } finally {
+                      setEditModal({ open: false });
+                    }
                   }
                 } catch (err) {
                   console.error('[EditModal] onSaveOverride error', err);
@@ -3650,10 +3663,7 @@ const EditSpaceFormInline: React.FC<{
           });
           const getProp = (names: string[]) => {
             const lower = names.map(n => n.toLowerCase());
-            const p = props?.properties?.find((p: any) => {
-              const dn = p.displayName?.toLowerCase?.();
-              return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
-            });
+            const p = props?.properties?.find((p: any) => { const dn = p.displayName?.toLowerCase?.(); return dn && (lower.includes(dn) || lower.some(n => dn.includes(n))); });
             return p?.displayValue?.toString();
           };
           const b = getProp(['Building', 'Edificio', 'Building Name', 'BuildingName', 'Nome edificio', 'Nome edificio']);
