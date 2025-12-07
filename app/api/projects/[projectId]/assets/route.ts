@@ -255,7 +255,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
   // Compute a stable key for BIM assets to prevent duplication across re-extractions
   // If we have a valid Mongo ID, use it first (most reliable for updates)
   const oid = raw?.id ? safeObjectId(raw.id) : undefined;
-  let filter = oid ? { projectId, _id: oid } : null;
+  let filter: any = oid ? { projectId, _id: oid } : null;
 
   // Fallback to business keys if no ID provided
   if (!filter) {
