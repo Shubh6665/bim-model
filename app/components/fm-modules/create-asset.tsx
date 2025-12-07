@@ -142,7 +142,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           const res = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upsert', asset: rec })
+            body: JSON.stringify(rec)
           });
 
           if (res.ok) {

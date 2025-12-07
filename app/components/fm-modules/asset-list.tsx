@@ -114,7 +114,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
       await fetch(`/api/projects/${projectId}/assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert', asset })
+        body: JSON.stringify(asset)
       });
     } catch (e) {
       console.error('Failed to save asset', e);
@@ -197,23 +197,18 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         payload.source = 'BIM_MODEL';
         payload.modelGuid = asset.modelGuid;
         payload.dbId = asset.dbId;
-        // Ensure we don't force manual _id path for BIM upsert
-        delete payload.id;
+        // We now preserve payload.id if it exists, so backend can use it for reliable lookup
       } else {
         payload.source = 'MANUAL';
         payload.id = id; // manual path uses _id filter
       }
 
-      const resPost = await fetch(`/api/projects/${projectId}/assets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      console.log('📤 [persistEditToBackend] POST response status:', resPost.status);
-      if (resPost.ok) {
-        console.log('✅ [persistEditToBackend] POST succeeded');
-      } else {
-        console.warn('⚠️ [persistEditToBackend] POST failed');
+      // Delegate to central save helper to ensure consistent upsert semantics
+      try {
+        await saveAssetToBackend(payload as AssetRecord);
+        console.log('✅ [persistEditToBackend] Delegated saveAssetToBackend succeeded');
+      } catch (e) {
+        console.warn('⚠️ [persistEditToBackend] Delegated saveAssetToBackend failed', e);
       }
     } catch (err) {
       console.error('❌ [persistEditToBackend] Error:', err);
@@ -2771,7 +2766,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                     const id = editModal.id;
                     if (!id) { setEditModal({ open: false }); return; }
                     try {
-                      const fields = pickEditable(edit);
+                      // Use 'rec' (the form data passed from CreateAsset) instead of 'edit' (stale state)
+                      const fields = pickEditable(rec);
                       // Keep the asset source as-is (BIM stays BIM, Manual stays Manual)
                       // userEdited flag ensures changes persist across merges
                       const current = rows.find(r => r.id === id);
@@ -3063,7 +3059,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
           const res = await fetch(`/api/projects/${projectId}/assets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upsert', asset: rec })
+            body: JSON.stringify(rec)
           });
 
           if (res.ok) {
