@@ -72,7 +72,13 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const onSave = async () => {
+  const onSave = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isSaving) return;
+
     console.log('💾 [CreateAsset onSave] Starting save...');
     console.log('💾 [CreateAsset onSave] mode:', mode);
     console.log('💾 [CreateAsset onSave] onSaveOverride exists:', !!onSaveOverride);
@@ -562,7 +568,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
 
 
   return (
-    <div className="p-3 space-y-3 h-full flex flex-col">
+    <div className="p-3 space-y-3 h-full flex flex-col relative">
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
         <div className="flex items-center gap-2">
@@ -829,7 +835,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
             ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
             : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
-          onClick={onSave}
+          onClick={(e) => onSave(e)}
           disabled={isSaving}
         >
           {isSaving ? (
