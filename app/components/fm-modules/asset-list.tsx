@@ -108,6 +108,19 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // PDF Viewer modal state
   const [pdfModal, setPdfModal] = useState<{ open: boolean; fileId?: string; fileName?: string }>({ open: false });
 
+  const saveAssetToBackend = async (asset: AssetRecord) => {
+    if (!projectId) return;
+    try {
+      await fetch(`/api/projects/${projectId}/assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upsert', asset })
+      });
+    } catch (e) {
+      console.error('Failed to save asset', e);
+    }
+  };
+
   const pickEditable = (r: Partial<AssetRecord>): Partial<AssetRecord> => {
     const out: Partial<AssetRecord> = {};
     for (const k of EDITABLE_FIELDS) {
@@ -1773,10 +1786,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           if (!d || typeof d !== 'object') return;
           if (d.type === 'FM_PLACE_DONE' && d.assetId === r.id && d.point) {
             try {
-              setRows(prev => prev.map(a => a.id === r.id
-                ? { ...a, placeholderX: d.point.x, placeholderY: d.point.y, placeholderZ: d.point.z, location: d.location ?? a.location }
-                : a
-              ));
+              const updated = { ...r, placeholderX: d.point.x, placeholderY: d.point.y, placeholderZ: d.point.z, location: d.location ?? r.location };
+              setRows(prev => prev.map(a => a.id === r.id ? updated : a));
+              saveAssetToBackend(updated);
             } finally {
               window.removeEventListener('message', onMsg);
               // restore window
@@ -1939,7 +1951,10 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
         }
 
         // store coordinates (and location if found)
-        setRows(prev => prev.map(a => a.id === r.id ? { ...a, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? a.location } : a));
+        const currentAsset = rows.find(a => a.id === r.id) || r;
+        const updated = { ...currentAsset, placeholderX: pt.x, placeholderY: pt.y, placeholderZ: pt.z, location: newLocation ?? currentAsset.location };
+        setRows(prev => prev.map(a => a.id === r.id ? updated : a));
+        saveAssetToBackend(updated);
         finish();
       } catch { }
     };
@@ -2593,7 +2608,13 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                       <select
                         value={r.placeholderShape || 'cube'}
                         onClick={e => e.stopPropagation()}
-                        onChange={e => { e.stopPropagation(); const val = e.target.value as 'cube' | 'sphere'; setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderShape: val } : x)); }}
+                        onChange={e => { 
+                          e.stopPropagation(); 
+                          const val = e.target.value as 'cube' | 'sphere'; 
+                          const updated = { ...r, placeholderShape: val };
+                          setRows(prev => prev.map(x => x.id === r.id ? updated : x)); 
+                          saveAssetToBackend(updated);
+                        }}
                         className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
                       >
                         <option value="cube">Cube</option>
@@ -2601,7 +2622,11 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
                       </select>
                       <AssetSizeInput
                         value={r.placeholderSize}
-                        onChange={n => { setRows(prev => prev.map(x => x.id === r.id ? { ...x, placeholderSize: n } : x)); }}
+                        onChange={n => { 
+                          const updated = { ...r, placeholderSize: n };
+                          setRows(prev => prev.map(x => x.id === r.id ? updated : x)); 
+                          saveAssetToBackend(updated);
+                        }}
                       />
                       <button
                         onClick={(e) => { e.stopPropagation(); placeManual(r); }}
@@ -2885,6 +2910,7 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={pageClamped >= totalPages}
+           
             className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Next page"
           >
@@ -3108,7 +3134,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       // Clear draft after successful save
       const emptyForm = {
         category: '', type: '', brand: '', model: '', description: '', location: '',
-        assetCode: '', assetName: '', serialNumber: '', installationDate: '',
+        assetCode: '', assetName: '', serialNumber: '', installationDate: '', elementId: '', ifcGuid: '', ifcClass: '',
         material: '', dimensions: '', weight: '', capacity: '', powerRating: '',
         manuals: '', warranties: '', certifications: '',
         condition: '', serviceDate: '', expectedLife: '',
@@ -3773,7 +3799,7 @@ const EditSpaceFormInline: React.FC<{
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Description</label>
+        <label className="text-xs text-gray-400 block mb-1">Description</label>
         <textarea 
           value={formData.description}
           onChange={e => setFormData(d => ({ ...d, description: e.target.value }))}
