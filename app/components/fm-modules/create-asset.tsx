@@ -286,7 +286,23 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   const generateQr = async () => {
     if (f.qrCode) return; // already generated
     try {
-      const code = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `qr-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+      // Generate deep link URL for the QR code
+      const baseUrl = window.location.origin;
+      const assetId = (f as any).id;
+      
+      let code: string;
+      if (assetId) {
+        const sectionParam = JSON.stringify({
+          group: 'assets', 
+          item: 'asset-list', 
+          assetId: assetId
+        });
+        code = `${baseUrl}/fm-standalone?projectId=${projectId}&section=${encodeURIComponent(sectionParam)}`;
+      } else {
+        // Fallback for new assets
+        code = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `qr-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+      }
+
       const generatedAt = new Date().toISOString();
       setF(v => ({ ...v, qrCode: code, qrGeneratedAt: generatedAt }));
 

@@ -329,6 +329,7 @@ export interface FMPanelProps {
   viewer?: any; 
   standalone?: boolean; 
   initialSection?: Section | null;
+  initialAssetId?: string;
 }
 
 export type Maybe<T> = T | null | undefined;

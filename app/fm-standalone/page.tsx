@@ -10,6 +10,7 @@ function FMStandaloneContent() {
   const params = useSearchParams();
   const sectionParam = params.get('section');
   const projectId = params.get('projectId') || undefined;
+  const assetId = params.get('assetId') || undefined;
 
   let parsedSection = undefined;
   try { if (sectionParam) parsedSection = JSON.parse(sectionParam); } catch { parsedSection = undefined; }
@@ -19,7 +20,7 @@ function FMStandaloneContent() {
   return (
     <div style={{ height: '100vh', width: '100vw' }}>
       {/* Standalone debug overlay removed for production */}
-      <FMPanel projectId={projectId} viewer={undefined} standalone={true} initialSection={parsedSection} />
+      <FMPanel projectId={projectId} viewer={undefined} standalone={true} initialSection={parsedSection} initialAssetId={assetId} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface AssetListProps {
   projectId?: string;
   viewer?: any;
   onScheduleMaintenance?: (assets: AssetRecord[]) => void;
+  initialAssetId?: string;
 }
 
 const AssetSizeInput = ({ value, onChange }: { value: number | undefined | null, onChange: (n: number | undefined) => void }) => {
@@ -54,7 +55,7 @@ const AssetSizeInput = ({ value, onChange }: { value: number | undefined | null,
 };
 
 export 
-const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintenance?: (assets: AssetRecord[]) => void; }> = ({ projectId, viewer, onScheduleMaintenance }) => {
+const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMaintenance, initialAssetId }) => {
   // No localStorage initialization - fetch from DB directly
   const [rows, setRows] = useState<AssetRecord[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -97,6 +98,9 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
   // Edit Asset modal
   const [editModal, setEditModal] = useState<{ open: boolean; id?: string }>({ open: false });
   const [editSection, setEditSection] = useState<'basic'|'identification'|'technical'|'documentation'|'lifecycle'|'maintenance'|'economic'|'compliance'|'relationships'|'qr'>('basic');
+
+
+
   const [edit, setEdit] = useState<Partial<AssetRecord>>({});
   // Sequential Edit queue for "Edit Selected"
   const [editQueue, setEditQueue] = useState<string[]>([]);
@@ -140,7 +144,8 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     setEditIndex(0);
     setEditModal({ open: true, id: row.id });
     // Prefill form with asset data, normalizing category to remove Revit prefix
-    const editData = { ...pickEditable(row) };
+    // Explicitly include 'id' so that CreateAsset knows which asset is being edited (needed for QR generation)
+    const editData = { ...pickEditable(row), id: row.id };
     // Debug: log picked vs raw assetCode to help troubleshoot missing values
     try { console.log('📝 [openEditAsset] row.assetCode:', (row as any).assetCode, 'picked.assetCode:', (editData as any).assetCode); } catch {}
 
@@ -169,6 +174,41 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
     setEdit(editData);
     setEditSection('basic');
   };
+
+  // Handle initialAssetId prop to open edit modal
+  useEffect(() => {
+    if (initialAssetId && rows.length > 0) {
+      const asset = rows.find(a => a.id === initialAssetId);
+      if (asset) {
+        openEditAsset(asset);
+      }
+    }
+  }, [initialAssetId, rows]);
+
+  // If asset is not in the current page, try fetching it directly by id and open edit
+  useEffect(() => {
+    const run = async () => {
+      if (!initialAssetId || !projectId) return;
+      const exists = rows.some(r => r.id === initialAssetId);
+      if (exists) return;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/assets?id=${encodeURIComponent(initialAssetId)}`);
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        const asset: AssetRecord | undefined = Array.isArray(data)
+          ? (data[0] as AssetRecord | undefined)
+          : (data?.asset || data);
+        if (asset && asset.id) {
+          setRows(prev => (prev.some(r => r.id === asset.id) ? prev : [asset, ...prev]));
+          // Give React a tick to render the new row before opening modal
+          setTimeout(() => openEditAsset(asset), 0);
+        }
+      } catch (err) {
+        console.warn('[AssetList] fetch by id failed', err);
+      }
+    };
+    run();
+  }, [initialAssetId, projectId, rows]);
 
   const persistEditToBackend = async (id: string, fields: Partial<AssetRecord>) => {
     if (!projectId) return;
@@ -2906,7 +2946,6 @@ const AssetList: React.FC<{ projectId?: string; viewer?: any; onScheduleMaintena
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={pageClamped >= totalPages}
-           
             className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
             aria-label="Next page"
           >
@@ -3192,13 +3231,36 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(code)}`;
   };
 
+  // Helper to get the full QR payload (URL) for display/export
+  const getQrPayload = () => {
+    const code = (f as any).qrCode as string | undefined;
+    if (!code) return undefined;
+    
+    const baseUrl = window.location.origin;
+    const sectionParam = encodeURIComponent(JSON.stringify({ group: 'assets', item: 'asset-list' }));
+    const assetId = (f as any).id;
+    
+    // If we have an asset ID, generate the full URL. Otherwise fallback to just the code.
+    // Note: f.id is now explicitly passed from openEditAsset
+    return assetId 
+      ? `${baseUrl}/fm-standalone?projectId=${projectId || ''}&section=${sectionParam}&assetId=${assetId}`
+      : code;
+  };
+
   const generateQr = async () => {
     if ((f as any).qrCode) return; // already generated
     try {
       const code = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `qr-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
       const generatedAt = new Date().toISOString();
       setF(v => ({ ...v, qrCode: code as any, qrGeneratedAt: generatedAt as any }));
-      // In edit mode inside AssetList, persistence happens via onSaveOverride in the modal Save button.
+      // Persist immediately in edit mode so QR is permanent without requiring manual Save
+      try {
+        if (mode === 'edit' && onSaveOverride) {
+          await onSaveOverride({ qrCode: code as any, qrGeneratedAt: generatedAt as any } as AssetRecord);
+        }
+      } catch (persistErr) {
+        console.warn('⚠️ [CreateAsset] Failed to persist QR immediately', persistErr);
+      }
     } catch (e) {
       console.error('❌ [AssetList] generateQr error', e);
     }
@@ -3207,7 +3269,10 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   const exportQrPdf = () => {
     const code = (f as any).qrCode as string | undefined;
     if (!code) return;
-    const url = qrImageUrl(code, 800);
+    
+    const qrData = getQrPayload() || code;
+
+    const url = qrImageUrl(qrData, 800);
     const title = (f.assetName || 'asset-qr');
     const w = window.open('', '_blank') as Window | null;
     if (!w) return;
@@ -3215,6 +3280,7 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       `<h3 style="margin-bottom:8px;">${title}</h3>` +
       `<img src="${url}" style="width:360px;height:360px;object-fit:contain;border:1px solid #ddd;padding:8px;background:#fff;"/>` +
       `<div style="margin-top:12px;font-size:12px;color:#444;">QR: ${code}</div>` +
+      `<div style="margin-top:4px;font-size:10px;color:#888;">Scan to edit asset</div>` +
       `</body></html>`;
     w.document.open();
     w.document.write(html);
@@ -3229,11 +3295,9 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         // Fallback: prefill from stored context when viewer is not available (standalone window)
         try {
           const raw = projectId ? localStorage.getItem(`fm-prefill-${projectId}`) : null;
-          if (raw) {
-            const snap = JSON.parse(raw || '{}') as Partial<AssetRecord>;
-            setF(v => ({ ...v, ...snap }));
-            return;
-          }
+          const snap = JSON.parse(raw || '{}') as Partial<AssetRecord>;
+          setF(v => ({ ...v, ...snap }));
+          return;
         } catch {}
         return;
       }
@@ -3366,8 +3430,6 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-
 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
@@ -3575,12 +3637,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
               <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col items-center gap-3">
                 {(f as any).qrCode ? (
                   <>
-                    <img src={qrImageUrl((f as any).qrCode, 400)} alt="QR Code" className="w-40 h-40 bg-white p-2" />
+                    <img src={qrImageUrl(getQrPayload(), 400)} alt="QR Code" className="w-40 h-40 bg-white p-2" />
                     <div className="text-xs text-gray-300">Generated: {(f as any).qrGeneratedAt ? new Date((f as any).qrGeneratedAt).toLocaleString() : '—'}</div>
                     <div className="flex gap-2">
                       <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { const u = qrImageUrl((f as any).qrCode, 800); window.open(u, '_blank'); }}>Open Image</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { navigator.clipboard?.writeText(String((f as any).qrCode)); try { (window as any).showToast?.('success', 'Code copied!'); } catch {} }}>Copy Code</button>
+                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { const u = qrImageUrl(getQrPayload(), 800); window.open(u, '_blank'); }}>Open Image</button>
+                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { navigator.clipboard?.writeText(String(getQrPayload())); try { (window as any).showToast?.('success', 'Link copied!'); } catch {} }}>Copy Link</button>
                     </div>
                   </>
                 ) : (

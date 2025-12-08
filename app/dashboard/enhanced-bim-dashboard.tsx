@@ -566,6 +566,46 @@ function BIMDashboard() {
     handlePanelChange(panel);
   };
 
+  // Handle deep linking for asset editing
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const assetId = params.get('assetId');
+    const action = params.get('action');
+    const projectIdParam = params.get('projectId');
+    
+    if (assetId && action === 'edit' && projects.length > 0) {
+      if (projectIdParam) {
+        const project = projects.find(p => p.id === projectIdParam);
+        if (project) {
+          if (selectedProject?.id !== project.id) {
+            console.log('🔗 [Dashboard] Deep link: Switching to project', project.name);
+            setSelectedProject(project);
+            // If the project has a default file/model, we might want to select it to enable the viewer
+            // But for now, just selecting the project should trigger the project panel
+          }
+          
+          if (activePanel !== 'fm') {
+            console.log('🔗 [Dashboard] Deep link: Opening FM panel');
+            setActivePanel('fm');
+          }
+        }
+      } else {
+        // Legacy support or missing projectId:
+        // If a project is already selected, assume the asset is in it
+        if (selectedProject) {
+           if (activePanel !== 'fm') {
+             setActivePanel('fm');
+           }
+        } else {
+           console.warn('🔗 [Dashboard] Deep link missing projectId and no project selected.');
+           // Optionally show a toast here
+        }
+      }
+    }
+  }, [projects, selectedProject, activePanel]);
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}

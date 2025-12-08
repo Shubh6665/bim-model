@@ -25,7 +25,7 @@ import { PlannedMaintenance } from "./fm-modules/planned-maintenance";
 import { useUserRole } from "../hooks/useUserRole";
 import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
 
-export default function FMPanel({ projectId, viewer, standalone, initialSection }: FMPanelProps) {
+export default function FMPanel({ projectId, viewer, standalone, initialSection, initialAssetId }: FMPanelProps) {
   const { role, isTM, isFM } = useUserRole(projectId);
   
   const defaultItemForGroup = (group: Section['group']): Section => {
@@ -873,11 +873,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection 
       );
     }
 
-    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} onScheduleMaintenance={(assets) => {
-      setPreSelectedAssets(assets);
-      setSection({ group: 'maintenance', item: 'scheduled' });
-      if (!isStandalone) setShowModal(true);
-    }} />;
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} initialAssetId={initialAssetId} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
