@@ -162,7 +162,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         </div>
 
         {/* Center Section - Navigation */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
+        <div className="absolute left-[calc((100%-20rem)/2)] transform -translate-x-1/2">
           <nav className="hidden md:flex items-center gap-0.5">
             <button className={getButtonClass('bim')} onClick={() => onPanelChange('bim')}>BIM</button>
             <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
