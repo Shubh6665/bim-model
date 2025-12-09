@@ -873,7 +873,11 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
       );
     }
 
-    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} initialAssetId={initialAssetId} />;
+    if (section.group === 'assets' && section.item === 'asset-list') return <AssetList projectId={projectId} viewer={viewer} initialAssetId={initialAssetId} onScheduleMaintenance={(assets) => {
+      setPreSelectedAssets(assets);
+      setSection({ group: 'maintenance', item: 'scheduled' });
+      if (!isStandalone) setShowModal(true);
+    }} />;
     if (section.group === 'assets' && section.item === 'create-asset') return <CreateAsset projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'space-list') return <SpaceList projectId={projectId} viewer={viewer} />;
     if (section.group === 'spaces' && section.item === 'create-space') return <CreateSpace projectId={projectId} viewer={viewer} standalone={isStandalone} />;
