@@ -226,11 +226,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
       setSelectedAssets(formattedAssets);
       if (formattedAssets[0]?.type) setAllowedAssetType(formattedAssets[0].type || null);
 
+      // 1. Infer Revit Category
       const categories = preSelectedAssets.map(a => a.category).filter(Boolean) as string[];
       if (categories.length > 0) {
         const firstCategory = categories[0];
         const allSame = categories.every(c => c === firstCategory);
-        if (allSame && firstCategory) {
+        if (allSame && firstCategory && firstCategory !== 'Unknown') {
           for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
             const label = `${italian} / ${mapping.english} (${mapping.ifc})`;
             const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
@@ -242,14 +243,26 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
         }
       }
 
-      const ifcCandidates = preSelectedAssets.map(a => (a.ifcClass || a.ifcType || a.ifcPredefined || (() => {
+      // 2. Infer IFC Class (handling 'Unknown' values)
+      const ifcCandidates = preSelectedAssets.map(a => {
+        // Try explicit IFC fields first, ignoring 'Unknown'
+        let candidate = (a.ifcClass && a.ifcClass !== 'Unknown') ? a.ifcClass : 
+                        (a.ifcType && a.ifcType !== 'Unknown') ? a.ifcType : 
+                        (a.ifcPredefined && a.ifcPredefined !== 'Unknown') ? a.ifcPredefined : null;
+        
+        if (candidate) return candidate;
+
+        // Fallback: infer from Category
         const cat = a.category || '';
-        for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
-          const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
-          if (tokens.some(t => String(cat).toLowerCase().includes(String(t).toLowerCase()))) return mapping.ifc;
+        if (cat && cat !== 'Unknown') {
+          for (const [italian, mapping] of Object.entries(CATEGORY_MAPPING)) {
+            const tokens = [italian, mapping.english, mapping.ifc].filter(Boolean);
+            if (tokens.some(t => String(cat).toLowerCase().includes(String(t).toLowerCase()))) return mapping.ifc;
+          }
         }
         return '';
-      })())).filter(Boolean) as string[];
+      }).filter(Boolean) as string[];
+
       if (ifcCandidates.length > 0) {
         const firstIfc = ifcCandidates[0];
         const allSameIfc = ifcCandidates.every(ic => String(ic).toLowerCase() === String(firstIfc).toLowerCase());
