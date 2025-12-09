@@ -59,9 +59,16 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
         let level = '—';
         let room = '—';
         if (a?.location) {
-          const parts = String(a.location).split(' - ').map(p => p.trim()).filter(Boolean);
-          if (parts.length >= 1) level = parts[0];
-          if (parts.length >= 2) room = parts[1];
+          const loc = String(a.location);
+          // Special handling for Italian "Piano Terra" which is often part of the level name but split by " - "
+          if (loc.toLowerCase().includes('piano terra')) {
+             level = loc; // The whole string is the level
+             room = '—';  // No room info in this string
+          } else {
+             const parts = loc.split(' - ').map(p => p.trim()).filter(Boolean);
+             if (parts.length >= 1) level = parts[0];
+             if (parts.length >= 2) room = parts[1];
+          }
         }
         // Use cached viewer-derived level/room when not available from location
         const cacheKey = a ? (a.id || `db-${a.dbId}`) : lab;
@@ -224,9 +231,15 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
         // Pick assets lacking level or room in location string
         const todo = relevantAssetsArray.filter(a => {
           const loc = String(a.location || '') || '';
-          const hasLevel = !!loc && loc.includes(' - ') ? true : !!loc; // if any location, assume maybe level
+          
+          // Special check: if location is "0 - Piano Terra", we have level but we are missing room
+          const isPianoTerra = loc.toLowerCase().includes('piano terra');
+          
+          const hasLevel = !!loc && loc.includes(' - ') ? true : !!loc; 
           const needLevel = !hasLevel;
-          const needRoom = !loc.includes(' - ');
+          // If it's Piano Terra, we definitely need to look up the room
+          const needRoom = !loc.includes(' - ') || isPianoTerra;
+          
           const cacheKey = a.id || `db-${a.dbId}`;
           const cached = cacheKey && assetLocCache[cacheKey];
           return (needLevel || needRoom) && !cached && a.dbId != null;
@@ -242,16 +255,17 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
             if (!m || typeof m.getProperties !== 'function' || a.dbId == null) continue;
             const props: any = await new Promise(resolve => m.getProperties(a.dbId as number, resolve));
             const getProp = (names: string[]): string | undefined => {
-              const lower = names.map(n => n.toLowerCase());
-              const p = props?.properties?.find((p: any) => {
-                const dn = p.displayName?.toLowerCase?.();
-                // Strict check: exact match to avoid false positives (e.g. "Headroom" matching "Room")
-                return dn && lower.includes(dn);
-              });
-              return p?.displayValue?.toString();
+              // Check names in order of priority to get the most descriptive value
+              for (const name of names) {
+                 const p = props?.properties?.find((p: any) => p.displayName?.toLowerCase() === name.toLowerCase());
+                 if (p?.displayValue) return p.displayValue.toString();
+              }
+              return undefined;
             };
 
-            let level = getProp(['Schedule Level','Livello abaco','Base Level','Reference Level','Livello','Level','Piano']);
+            // Prioritize descriptive level names for Italian models (Livello abaco often has full name)
+            let level = getProp(['Livello abaco', 'Schedule Level', 'Livello', 'Base Level', 'Reference Level', 'Level', 'Piano']);
+            
             // Prefer descriptive level: if numeric only, try alternative occurrences
             if (!level || /^\d+(\.\d+)?$/.test(level)) {
               try {
@@ -263,6 +277,12 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
             }
 
             let room = getProp(['Room','Space','Locale','Stanza']);
+            
+            // Fix: "Piano Terra" is a level, not a room. If room detects as a level name, ignore it.
+            if (room && (/piano\s+terra/i.test(room) || (level && room === level))) {
+                room = undefined;
+            }
+
             if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
               try {
                 const roomData = await (window as any).sensorContext.findRoomForObject(a.dbId);
