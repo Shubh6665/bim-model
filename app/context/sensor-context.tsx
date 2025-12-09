@@ -718,6 +718,21 @@ export function SensorProvider({ children }: SensorProviderProps) {
 
   // (moved room detection helpers above)
 
+  // Expose sensorContext to window for non-React components (like AssetList)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).sensorContext = {
+        findRoomForObject: findRoomForDbId,
+        findRoomAt: getRoomForPosition
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).sensorContext;
+      }
+    };
+  }, [findRoomForDbId, getRoomForPosition]);
+
   const contextValue: SensorContextType = {
     sensors,
     selectedSensor,

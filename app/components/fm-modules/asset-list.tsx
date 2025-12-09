@@ -1113,7 +1113,25 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
           weight,
           dimensions,
           material: asset.material,
-          location: [levelForLocation, asset.room].filter(Boolean).join(' - ') || 'Unknown Location',
+          location: [levelForLocation, (() => {
+            // Try to resolve Room via sensorContext if missing from properties
+            let resolvedRoom = asset.room;
+            if ((!resolvedRoom || resolvedRoom === '—') && (window as any).sensorContext?.findRoomForObject) {
+              try {
+                // Note: findRoomForObject is async, but we are in a sync map callback.
+                // We can't await here easily without refactoring extraction to be fully async per-item.
+                // However, if the room mapper is fast/cached, we might get lucky or we rely on PlannedMaintenance to fill it in later.
+                // For now, we'll skip the async call here to avoid Promise objects in the location string.
+                // The PlannedMaintenance module has its own async enrichment logic which will catch this.
+                
+                // If we really needed it here, we'd have to make the map callback async and use Promise.all.
+                // Given the complexity, we'll let PlannedMaintenance handle the spatial lookup.
+              } catch (e) {
+                // console.warn(`   ⚠️ Failed to resolve room via sensorContext for dbId ${asset.dbId}`, e);
+              }
+            }
+            return resolvedRoom;
+          })()].filter(Boolean).join(' - ') || 'Unknown Location',
           description: `Asset extracted from BIM model`,
           condition: 'Good',
           source: 'BIM_MODEL',

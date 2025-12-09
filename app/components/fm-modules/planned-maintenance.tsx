@@ -195,6 +195,24 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
     const run = async () => {
       try {
         if (!viewer || !assets || assets.length === 0) return;
+
+        // Optimization: Only process assets that are actually used in the scheduled maintenance list
+        const relevantAssets = new Set<AssetRecord>();
+        scheduled.forEach(s => {
+            const labels = Array.isArray(s.asset) ? s.asset : [s.asset].filter(Boolean) as string[];
+            labels.forEach(lab => {
+                const key = String(lab).trim().toLowerCase();
+                // Exact match
+                let found = assets.find(a => (a.assetName || '').toLowerCase() === key || (a.assetCode || '').toLowerCase() === key);
+                // Containment match fallback
+                if (!found) {
+                    found = assets.find(a => (a.assetName || '').toLowerCase().includes(key) || (a.assetCode || '').toLowerCase().includes(key));
+                }
+                if (found) relevantAssets.add(found);
+            });
+        });
+        const relevantAssetsArray = Array.from(relevantAssets);
+
         const allModels: any[] = typeof (viewer as any).getAllModels === 'function'
           ? ((viewer as any).getAllModels() || [])
           : [viewer.model].filter(Boolean);
@@ -204,7 +222,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
         };
 
         // Pick assets lacking level or room in location string
-        const todo = assets.filter(a => {
+        const todo = relevantAssetsArray.filter(a => {
           const loc = String(a.location || '') || '';
           const hasLevel = !!loc && loc.includes(' - ') ? true : !!loc; // if any location, assume maybe level
           const needLevel = !hasLevel;
@@ -212,7 +230,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
           const cacheKey = a.id || `db-${a.dbId}`;
           const cached = cacheKey && assetLocCache[cacheKey];
           return (needLevel || needRoom) && !cached && a.dbId != null;
-        }).slice(0, 200); // Safety cap
+        }).slice(0, 50); // Reduced batch size for responsiveness
 
         if (!todo.length) return;
 
@@ -227,7 +245,8 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
               const lower = names.map(n => n.toLowerCase());
               const p = props?.properties?.find((p: any) => {
                 const dn = p.displayName?.toLowerCase?.();
-                return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
+                // Strict check: exact match to avoid false positives (e.g. "Headroom" matching "Room")
+                return dn && lower.includes(dn);
               });
               return p?.displayValue?.toString();
             };
@@ -246,8 +265,9 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
             let room = getProp(['Room','Space','Locale','Stanza']);
             if ((!room || room.trim() === '') && (window as any).sensorContext?.findRoomForObject) {
               try {
-                const roomData = (window as any).sensorContext.findRoomForObject(a.dbId);
-                if (roomData?.name) room = roomData.name;
+                const roomData = await (window as any).sensorContext.findRoomForObject(a.dbId);
+                if (roomData?.roomName) room = roomData.roomName;
+                else if (roomData?.name) room = roomData.name;
               } catch {}
             }
 
@@ -265,7 +285,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
     };
     run();
     return () => { aborted = true; };
-  }, [viewer, assets, assetLocCache]);
+  }, [viewer, assets, assetLocCache, scheduled]);
 
   // Open and load maintenance history for an item (within PlannedMaintenance)
   const openHistory = async (item: ScheduledItem) => {
