@@ -55,13 +55,11 @@ export async function GET(
     // Normalize id
     const normalized = spaces.map((s: any) => ({ id: s._id?.toString?.() || s.id, ...s, _id: undefined }));
     
-    // If modelGuid was provided but we got spaces without modelGuid, filter them out client-side as fallback
-    const filtered = modelGuid 
-      ? normalized.filter((s: any) => s.source !== 'BIM_MODEL' || s.modelGuid === modelGuid)
-      : normalized;
+    // We rely on the DB query to filter by modelGuid correctly (including equivalence checks).
+    // No need for strict equality check here which would break guid vs guid|urn matching.
     
-    console.log(`[Spaces][GET] Returning ${filtered.length} spaces after filtering`);
-    return NextResponse.json(filtered);
+    console.log(`[Spaces][GET] Returning ${normalized.length} spaces`);
+    return NextResponse.json(normalized);
   } catch (err) {
     console.error('[Spaces][GET] error', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

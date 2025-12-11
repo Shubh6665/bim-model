@@ -194,10 +194,77 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id?: string; name?: string }>({ open: false });
   // Edit modal
   const [editModal, setEditModal] = useState<{ open: boolean; space?: SpaceRecord }>({ open: false });
+  
+  // Track levels extension availability
+  const [levelsExtension, setLevelsExtension] = useState<any>(null);
+
+  // Effect to load/detect levels extension
+  useEffect(() => {
+    if (!viewer) return;
+    let attempts = 0;
+    const checkExt = () => {
+      const ext = viewer.getExtension('Autodesk.AEC.LevelsExtension');
+      if (ext && ext.floorSelector && Array.isArray(ext.floorSelector.floorData) && ext.floorSelector.floorData.length > 0) {
+        console.log('[Spaces] Levels extension detected with floors:', ext.floorSelector.floorData);
+        setLevelsExtension(ext);
+        return true;
+      }
+      return false;
+    };
+
+    if (checkExt()) return;
+
+    const interval = setInterval(() => {
+      attempts++;
+      if (checkExt() || attempts > 20) clearInterval(interval); // Try for 10 seconds
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [viewer]);
+
+  // Re-normalize levels when extension becomes available
+  useEffect(() => {
+    if (!levelsExtension || rows.length === 0) return;
+    
+    const floors = levelsExtension.floorSelector.floorData;
+    if (!floors || floors.length === 0) return;
+
+    const normalizeLevel = (lv: any) => {
+      try {
+        const s = lv != null ? String(lv) : '';
+        if (!s) return undefined;
+        // If it already looks like a name (contains letters), keep it
+        if (/[a-zA-Z]/.test(s) && !/^\d+$/.test(s)) return s;
+        
+        const n = Number(s);
+        if (!isNaN(n) && floors[n]?.name) return String(floors[n].name);
+        const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+        if (m && floors[Number(m[2])]?.name) return String(floors[Number(m[2])].name);
+        return s;
+      } catch { return lv; }
+    };
+
+    setRows(prevRows => {
+      let changed = false;
+      const newRows = prevRows.map(r => {
+        const newLevel = normalizeLevel(r.level);
+        if (newLevel !== r.level) {
+          changed = true;
+          return { ...r, level: newLevel };
+        }
+        return r;
+      });
+      return changed ? newRows : prevRows;
+    });
+  }, [levelsExtension, rows.length]); // Depend on rows.length to trigger when rows are loaded
 
   // Persist spaces to local storage to avoid flicker on minimize/restore and enable instant load
   useEffect(() => {
-    try { save(K.spaces(projectId), rows); } catch {}
+    try {
+      save(K.spaces(projectId), rows);
+    } catch (e) {
+      // ignore
+    }
   }, [rows, projectId]);
 
   // Hydrate from localStorage on client after mount. This avoids SSR/CSR mismatch.
@@ -217,11 +284,13 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             const ctxRaw = localStorage.getItem(`fm-context-${projectId}`);
             if (ctxRaw) { const ctx = JSON.parse(ctxRaw || '{}'); if (ctx?.modelGuid) mg = String(ctx.modelGuid); }
           }
-        } catch {}
+        } catch (e) {
+          // ignore
+        }
         const filtered = mg ? persisted.filter(r => r.source !== 'BIM_MODEL' || r.modelGuid === mg) : persisted;
         setRows(filtered);
       }
-    } catch {
+    } catch (e) {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1863,17 +1932,21 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       let p = null as any;
       try {
         if (snapperRef.current && typeof snapperRef.current.getSnapResult === 'function') {
-          const sr = snapperRef.current.getSnapResult();
-          if (sr) {
-            const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
-            if (gp && gp.x != null && gp.y != null && gp.z != null) {
-              p = gp;
-              console.log('[CreateSpace][onViewerClick] Snapped point:', p);
+          try {
+            const sr = snapperRef.current.getSnapResult();
+            if (sr) {
+              const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
+              if (gp && gp.x != null && gp.y != null && gp.z != null) {
+                p = gp;
+                console.log('[CreateSpace][onViewerClick] Snapped point:', p);
+              }
             }
+          } catch (e) {
+            console.warn('[CreateSpace][onViewerClick] Snap failed:', e);
           }
         }
       } catch (e) {
-        console.warn('[CreateSpace][onViewerClick] Snap failed:', e);
+        console.error('[CreateSpace][onViewerClick] Snapping error:', e);
       }
       if (!p) {
         p = worldOnZ(ev.clientX, ev.clientY, z);
@@ -1908,13 +1981,19 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       let p = null as any;
       try {
         if (snapperRef.current && typeof snapperRef.current.getSnapResult === 'function') {
-          const sr = snapperRef.current.getSnapResult();
-          if (sr) {
-            const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
-            if (gp && gp.x != null && gp.y != null && gp.z != null) p = gp;
+          try {
+            const sr = snapperRef.current.getSnapResult();
+            if (sr) {
+              const gp = (sr.getPoint && sr.getPoint()) || (sr.intersectPoint) || (sr.point) || null;
+              if (gp && gp.x != null && gp.y != null && gp.z != null) p = gp;
+            }
+          } catch (e) {
+            // ignore snap error
           }
         }
-      } catch {}
+      } catch (e) {
+        // ignore outer error
+      }
       if (!p) p = worldOnZ(ev.clientX, ev.clientY, z);
       if (!p) return;
       // snap-to-start preview
