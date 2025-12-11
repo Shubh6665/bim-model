@@ -214,7 +214,9 @@ const CACHEABLE_KEYS = [
   'fm-ui-section',        // Current section selection
   'fm-context',           // Viewer context (modelGuid, urn)
   'fm-prefill',           // Pre-fill data for forms
-  'fm-assets-page'        // Pagination state only
+  'fm-assets-page',       // Pagination state only
+  'fm-create-space-draft', // Draft form data for space creation
+  'fm-footprint-draft'     // Draft footprint points
 ];
 
 // Check if a key should be cached

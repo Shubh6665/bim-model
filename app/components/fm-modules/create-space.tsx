@@ -16,14 +16,19 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   const [rows, setRows] = useState<SpaceRecord[]>([]);
   // Don't read localStorage during SSR - hydrate draft on client after mount
   const [f, setF] = useState({ building: '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' });
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // First, hydrate from localStorage on mount or when projectId changes
   useEffect(() => {
     try {
-      const saved = load(`fm-create-space-draft-${projectId || 'global'}`, {});
-      if (saved) {
+      const draftKey = `fm-create-space-draft-${projectId || 'global'}`;
+      const saved = load(draftKey, {});
+      if (saved && Object.keys(saved).length > 0) {
         console.log('[CreateSpace][draft] Loaded create-space draft from LS:', saved);
         setF(prev => ({ ...prev, ...saved }));
       }
     } catch { }
+    setIsLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -60,8 +65,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
 
   // Auto-save draft to localStorage on every field change
   useEffect(() => {
-    save(`fm-create-space-draft-${projectId || 'global'}`, f);
-  }, [f, projectId]);
+    if (!isLoaded) return;
+    const draftKey = `fm-create-space-draft-${projectId || 'global'}`;
+    save(draftKey, f);
+    console.log('[CreateSpace][autoSave] Saved draft to LS:', f);
+  }, [f, projectId, isLoaded]);
   // Footprint drawing state
   const [drawing, setDrawing] = useState(false);
   const [pointCount, setPointCount] = useState(0);
@@ -80,6 +88,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   useEffect(() => { logFormState('state changed'); // trace every form update
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f]);
+
+  // Keep a ref to the current form state to avoid stale closures in event listeners without re-binding
+  const formRef = useRef(f);
+  useEffect(() => { formRef.current = f; }, [f]);
 
   // Restore footprint from localStorage when panel opens again (after minimize/restore)
   useEffect(() => {
@@ -735,20 +747,32 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         setPointCount(d.points.length);
         const fp = { points: [...d.points], z: d.points[0]?.z, levelIndex: undefined };
         setFootprint(fp);
+        
         // compute area/perimeter and prefill area
+        let aStr = formRef.current.area;
+        let pStr = (formRef.current as any).perimeter;
+        
         try {
           const pts2d = fp.points.map(p => ({ x: p.x, y: p.y }));
           const a = Math.abs(signedArea(pts2d));
           const per = polygonPerimeter2D(pts2d);
           computedPerimeterRef.current = per;
+          aStr = a.toFixed(2);
+          pStr = per.toFixed(2);
           console.log('[CreateSpace][remoteDone] Computed area/perimeter:', a, per);
-          setF(prev => { const next = { ...prev, area: a.toFixed(2), perimeter: per.toFixed(2) } as any; console.log('[CreateSpace][remoteDone] Form after area/perimeter set', next); return next; });
+          setF(prev => { const next = { ...prev, area: aStr, perimeter: pStr } as any; console.log('[CreateSpace][remoteDone] Form after area/perimeter set', next); return next; });
         } catch {}
+        
         // Prefill building and level and restore modal
         prefillBuildingAndLevel(fp?.z ?? null);
         setConfirmOpen(true);
         try { window.dispatchEvent(new Event('fm-modal-restore')); } catch {}
         try { save(footprintDraftKey, fp.points); } catch {}
+        
+        // Re-save form to ensure it's persisted with updated area/perimeter AND existing fields
+        const draftKey = `fm-create-space-draft-${projectId || 'global'}`;
+        const updatedForm = { ...formRef.current, area: aStr, perimeter: pStr };
+        try { save(draftKey, updatedForm); } catch {}
         console.log('[CreateSpace][onMsg] Footprint set from remote:', fp);
       } else if (d.type === 'FM_DRAW_CANCELLED') {
         console.log('[CreateSpace][onMsg] Drawing cancelled remotely');
@@ -763,7 +787,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       console.log('[CreateSpace][useEffect] Removing remote message listener');
       window.removeEventListener('message', onMsg);
     };
-  }, [isRemote]);
+  }, [isRemote, projectId]); // Removed f from dependencies, using formRef
   const onSave = async () => {
     const rec: SpaceRecord = {
       id: `space-${Date.now()}`,

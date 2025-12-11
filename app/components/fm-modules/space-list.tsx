@@ -905,53 +905,53 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               
               console.log(`[Spaces] Server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length} for modelGuid=${mg}`);
               
-              // CRITICAL FIX: After extraction, ONLY keep:
-              // 1. Freshly extracted BIM spaces (from newRows - these are the current 5 rooms)
-              // 2. Manual spaces (not from BIM)
-              // Do NOT include old BIM spaces from previous extractions!
+              // CRITICAL FIX: We must NOT filter out spaces just because they weren't in the current extraction.
+              // The user might be extracting floor by floor, or room by room.
+              // We should keep everything returned by the server (clientFiltered), and just update the metrics
+              // for the spaces that were part of this specific extraction (newRows).
               
-              const keyOf = (r: SpaceRecord) => (
-                r.source === 'BIM_MODEL' && r.dbId != null
-                  ? `BIM|${r.modelGuid || 'g'}|${r.dbId}`
-                  : `ID|${r.id}`
-              );
-              
-              // Build set of freshly extracted dbIds
-              const extractedDbIds = new Set(newRows.map(r => r.dbId).filter(Boolean));
-              console.log(`[Spaces] Freshly extracted dbIds:`, Array.from(extractedDbIds));
-              
-              // Filter: keep ONLY freshly extracted BIM spaces + manual spaces
-              const freshOnly = clientFiltered.filter(r => {
-                if (r.source === 'BIM_MODEL') {
-                  const isFresh = r.dbId != null && extractedDbIds.has(r.dbId);
-                  if (!isFresh) {
-                    console.log(`[Spaces] FILTERING OUT old BIM space: dbId=${r.dbId}, name=${r.name} (not in fresh extraction)`);
-                  }
-                  return isFresh;
+              const enriched = clientFiltered.map(r => {
+                // If it's a BIM space, check if we have fresh data for it in newRows
+                if (r.source === 'BIM_MODEL' && r.dbId != null) {
+                   const fresh = newRows.find(nr => nr.dbId === r.dbId && nr.modelGuid === r.modelGuid);
+                   if (fresh) {
+                     return {
+                       ...r,
+                       // Update metrics if they are better/newer in the fresh extraction
+                       area: fresh.area ?? r.area,
+                       perimeter: fresh.perimeter ?? r.perimeter,
+                       volume: fresh.volume ?? r.volume,
+                       occupancy: fresh.occupancy ?? r.occupancy,
+                       level: fresh.level ?? r.level,
+                       name: fresh.name ?? r.name
+                     };
+                   }
                 }
-                // Keep all manual spaces
-                return true;
+                return r;
               });
               
-              console.log(`[Spaces] After filtering to fresh extraction: ${freshOnly.length} spaces (${newRows.length} BIM + manual)`);
+              console.log(`[Spaces] Final list has ${enriched.length} spaces (merged DB + fresh extraction updates)`);
               
-              // Enrich with freshly extracted metrics
-              const extractedMap = new Map<string, SpaceRecord>();
-              for (const r of newRows) extractedMap.set(keyOf(r), r);
-              const enriched = freshOnly.map(r => {
-                const ex = extractedMap.get(keyOf(r));
-                if (!ex) return r;
-                const out: SpaceRecord = { ...r };
-                // Only fill when missing/zero on the server response
-                if ((out.area == null || Number(out.area) === 0) && ex.area != null) out.area = ex.area;
-                if ((out.perimeter == null || Number(out.perimeter) === 0) && ex.perimeter != null) out.perimeter = ex.perimeter;
-                if ((out.volume == null || Number(out.volume) === 0) && ex.volume != null) out.volume = ex.volume;
-                if ((out.occupancy == null || Number(out.occupancy) === 0) && ex.occupancy != null) out.occupancy = ex.occupancy;
-                // Prefer building from extraction if server empty
-                if ((!out.building || out.building === '') && ex.building) out.building = ex.building;
-                return out;
-              });
-              const mergedEnriched = mergeWithPersisted(enriched);
+              // Re-normalize levels using the extension if available
+              let finalRows = enriched;
+              if (levelsExtension && levelsExtension.floorSelector && Array.isArray(levelsExtension.floorSelector.floorData)) {
+                 const floors = levelsExtension.floorSelector.floorData;
+                 const normalizeLevel = (lv: any) => {
+                    try {
+                      const s = lv != null ? String(lv) : '';
+                      if (!s) return undefined;
+                      if (/[a-zA-Z]/.test(s) && !/^\d+$/.test(s)) return s;
+                      const n = Number(s);
+                      if (!isNaN(n) && floors[n]?.name) return String(floors[n].name);
+                      const m = s.match(/(^|\D)(\d{1,2})(\D|$)/);
+                      if (m && floors[Number(m[2])]?.name) return String(floors[Number(m[2])].name);
+                      return s;
+                    } catch { return lv; }
+                 };
+                 finalRows = enriched.map(r => ({ ...r, level: normalizeLevel(r.level) }));
+              }
+
+              const mergedEnriched = mergeWithPersisted(finalRows);
               setRows(mergedEnriched);
               try {
                 const mgSave2 = getCurrentModelGuid();
