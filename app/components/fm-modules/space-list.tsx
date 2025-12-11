@@ -885,21 +885,32 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 conflictWithId: d.conflictWithId
               }));
               
-              // STRICT client-side filter: ONLY keep spaces matching current model
-              // BIM spaces MUST have matching modelGuid; manual spaces are kept only if no modelGuid context
+              // STRICT client-side filter: use equivalence-aware modelGuid match (same as Initial Load)
+              const parseModelGuid = (s?: string) => {
+                if (!s) return { raw: '', left: '', right: '' };
+                const i = s.indexOf('|');
+                return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+              };
+              const isSameModelGuid = (a?: string, b?: string) => {
+                if (!a || !b) return false; if (a === b) return true;
+                const A = parseModelGuid(a), B = parseModelGuid(b);
+                if (A.left && B.left && A.left === B.left) return true;
+                if (A.right && B.right && A.right === B.right) return true;
+                if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+                if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+                return false;
+              };
+
               const clientFiltered = mg 
                 ? normalized.filter(r => {
-                    if (r.source === 'BIM_MODEL') {
-                      // BIM space: MUST match current modelGuid exactly
-                      const match = r.modelGuid === mg;
-                      if (!match) {
-                        console.log(`[Spaces] FILTERING OUT BIM space: dbId=${r.dbId}, modelGuid=${r.modelGuid} (current=${mg})`);
-                      }
-                      return match;
-                    } else {
-                      // Manual space: include only if it has no modelGuid or matches current
-                      return !r.modelGuid || r.modelGuid === mg;
+                    const match = r.source === 'BIM_MODEL' 
+                      ? isSameModelGuid(r.modelGuid as any, mg) 
+                      : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg));
+                    
+                    if (!match && r.source === 'BIM_MODEL') {
+                       console.log(`[Spaces] FILTERING OUT BIM space: dbId=${r.dbId}, modelGuid=${r.modelGuid} (current=${mg})`);
                     }
+                    return match;
                   })
                 : normalized;
               
