@@ -56,12 +56,10 @@ const AssetSizeInput = ({ value, onChange }: { value: number | undefined | null,
 
 export 
 const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMaintenance, initialAssetId }) => {
-  // No localStorage initialization - fetch from DB directly
   const [rows, setRows] = useState<AssetRecord[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [placingAssetId, setPlacingAssetId] = useState<string | null>(null);
-  // Pagination - only page number is cached for UX
   const pageStorageKey = `fm-assets-page-${projectId || 'global'}`;
   const [page, setPage] = useState<number>(() => {
     try {
@@ -351,35 +349,45 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
         showToast('info', `Found assets from ${categoryMap.size} categories. Editing ${dominantIds.length} assets from "${dominantCategory}" category.`);
       }
       
-      // Enable bulk edit mode for the dominant category assets
-      if (dominantIds.length > 1) {
-        console.log(`📋 [Bulk Edit] Starting bulk edit for ${dominantIds.length} assets with category: ${dominantCategory}`);
+      // Enable bulk edit mode for ALL selected assets if > 1
+      if (ids.length > 1) {
+        // Determine if we have mixed categories
+        const categories = Array.from(new Set(selectedAssets.map(a => a.category).filter(Boolean)));
+        const mixedCategories = categories.length > 1;
+        const displayCategory = mixedCategories ? 'Mixed Categories' : (categories[0] || 'Uncategorized');
+        
+        console.log(`📋 [Bulk Edit] Starting bulk edit for ${ids.length} assets. Categories: ${categories.join(', ')}`);
+        
         setBulkEditMode(true);
-        setBulkEditIds(dominantIds);
-        setBulkCategoryLabel(dominantCategory || '');
+        setBulkEditIds(ids);
+        setBulkCategoryLabel(displayCategory);
+        
         // Prefill bulk edit form with aggregated values
-        const bulkAssets = rows.filter(r => dominantIds.includes(r.id));
+        const bulkAssets = rows.filter(r => ids.includes(r.id));
         const uniq = (key: keyof AssetRecord) => Array.from(new Set(bulkAssets.map(a => (a as any)[key]).filter(v => v != null && v !== '')));
         const allSame = (key: keyof AssetRecord): string => {
           const u = uniq(key);
           return u.length === 1 ? String(u[0]) : '';
         };
-        const joined = (key: keyof AssetRecord): string => bulkAssets.map(a => (a as any)[key]).filter((v: any) => v != null && v !== '').map(String).join(';');
+        // For mixed categories, we don't prefill category unless they are all same
+        const initCategory = mixedCategories ? '' : (stripRevitPrefix(categories[0]) || categories[0] || '');
+        
         const init: Partial<AssetRecord> = {
-          category: stripRevitPrefix(dominantCategory) || dominantCategory || '',
+          category: initCategory,
           type: allSame('type') || '',
           ifcClass: allSame('ifcClass') || '',
-          assetName: joined('assetName') || '',
-          elementId: joined('elementId') || '',
-          ifcGuid: joined('ifcGuid') || ''
+          // Don't join names/ids for bulk edit prefill as it looks messy in input
+          assetName: '', 
+          elementId: '',
+          ifcGuid: ''
         };
         setEdit(init);
-        setEditModal({ open: true, id: `bulk-${dominantIds[0]}` }); // Special ID to indicate bulk mode
-      } else if (dominantIds.length === 1) {
-        // Only one asset in the dominant category - use sequential edit
-        setEditQueue(dominantIds);
+        setEditModal({ open: true, id: `bulk-${ids[0]}` }); // Special ID to indicate bulk mode
+      } else if (ids.length === 1) {
+        // Only one asset selected - use standard single edit
+        setEditQueue(ids);
         setEditIndex(0);
-        const first = rows.find(r => r.id === dominantIds[0]);
+        const first = rows.find(r => r.id === ids[0]);
         if (!first) return;
         openEditAsset(first);
       }
@@ -2768,20 +2776,32 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                     console.log('📋 [Bulk Edit Override] Starting bulk edit for', bulkEditIds.length, 'assets');
                     console.log('📋 [Bulk Edit Override] Received form data:', rec);
                     
-                    // Get only the non-empty fields (user only fills in what they want to apply)
-                    const filledFields = Object.entries(rec)
-                      .filter(([_key, value]) => value !== '' && value !== undefined && value !== null)
-                      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as Partial<AssetRecord>);
-                    
-                    console.log('� [Bulk Edit Override] Filled fields to apply:', filledFields);
-                    
-                    // Don't allow bulk edit of identifiers and per-asset fields
+                    // Determine which fields the user actually intended to change.
+                    // CreateAsset now passes a `__touched` array when called via onSaveOverride.
+                    const touchedKeys = (rec as any).__touched as string[] | undefined;
                     const forbiddenFields = ['assetCode', 'assetName', 'id', 'dbId', 'source', 'elementId', 'ifcGuid'];
-                    forbiddenFields.forEach(f => delete (filledFields as any)[f]);
+
+                    let filledFields: Partial<AssetRecord> = {};
+                    if (Array.isArray(touchedKeys) && touchedKeys.length > 0) {
+                      // Respect explicit user interaction even if field value is empty string (clearing a value)
+                      touchedKeys.forEach(k => {
+                        if (forbiddenFields.includes(k)) return;
+                        if ((rec as any).hasOwnProperty(k)) (filledFields as any)[k] = (rec as any)[k];
+                      });
+                    } else {
+                      // Fallback: use non-empty values (legacy behavior)
+                      filledFields = Object.entries(rec)
+                        .filter(([_key, value]) => value !== '' && value !== undefined && value !== null)
+                        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as Partial<AssetRecord>);
+                      forbiddenFields.forEach(f => delete (filledFields as any)[f]);
+                    }
+                    // Defensive: ensure __touched not included
+                    delete (filledFields as any)['__touched'];
+                    
+                    console.log('📋 [Bulk Edit Override] Filled fields to apply:', filledFields);
                     
                     console.log('📋 [Bulk Edit Override] Final fields to apply (forbidden removed):', filledFields);
-                    
-                    let updatedRows: AssetRecord[] = [];
+                    console.log('📋 [Bulk Edit Override] Target IDs:', bulkEditIds);
                     
                     setRows(prev => {
                       let next = prev.map(r => 
@@ -2789,17 +2809,17 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                           ? { ...r, ...filledFields, userEdited: true } 
                           : r
                       );
-                      console.log('📋 [Bulk Edit Override] Updated', bulkEditIds.length, 'assets');
-                      updatedRows = next;
+                      console.log('📋 [Bulk Edit Override] Updated rows in state');
+                      
+                      // Save to localStorage immediately to ensure we don't save empty array
+                      try {
+                        const key = K.assets(projectId);
+                        save(key, next);
+                        console.log('💾 [Bulk Edit Override] Saved to localStorage');
+                      } catch {}
+                      
                       return next;
                     });
-                    
-                    // Save to localStorage
-                    try {
-                      const key = K.assets(projectId);
-                      save(key, updatedRows);
-                      console.log('💾 [Bulk Edit Override] Saved to localStorage');
-                    } catch {}
                     
                     // Persist to backend for each asset
                     try {
@@ -3019,15 +3039,22 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     };
   });
 
+  // Track which fields the user actually touched/modified in the form.
+  // This is important for bulk-edit: an empty string can mean "user cleared this field",
+  // whereas absence of touch means "don't change this field".
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
+
   // If `mode`/`bulkEditMode`/`initial` change, keep form in correct state
   useEffect(() => {
     if (mode === 'edit') {
       if (bulkEditMode) {
         // Bulk edit should start from aggregated initial values passed by parent
         setF({ ...EMPTY_FORM, ...(initial as Partial<AssetRecord> || {}) });
+        setTouched(new Set());
       } else if (initial) {
         // Single edit should reflect the asset being edited (hard reset rather than merge)
         setF({ ...EMPTY_FORM, ...(initial as Partial<AssetRecord>) });
+        setTouched(new Set());
       }
     }
   }, [mode, bulkEditMode, initial]);
@@ -3070,12 +3097,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         console.log('✅ [CreateAsset onSave] EDIT MODE - calling onSaveOverride');
         console.log('✅ [CreateAsset onSave] Passing form fields:', f);
         try {
-          // Pass just the form fields - the override handler will merge with existing asset
-          await onSaveOverride(f as AssetRecord);
+          // Pass just the form fields along with touched metadata - the override handler will merge with existing asset
+          const payload = { ...(f as AssetRecord), __touched: Array.from(touched) } as any;
+          await onSaveOverride(payload);
           console.log('✅ [CreateAsset onSave] onSaveOverride completed successfully');
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 1800);
           setIsSaving(false);
+          // Clear touched after a successful save so subsequent bulk edits start fresh
+          setTouched(new Set());
           return;
         } catch (err) {
           console.error('[CreateAsset] onSaveOverride failed', err);
@@ -3219,8 +3249,13 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
     { key: 'qr' as const, label: f.qrCode ? 'View QR Code' : 'Create QR Code' }
   ];
 
-  const updateField = (key: keyof AssetRecord, value: string) => {
+  const updateField = (key: keyof AssetRecord, value: any) => {
     setF(v => ({ ...v, [key]: value }));
+    setTouched(s => {
+      const next = new Set(Array.from(s));
+      next.add(String(key));
+      return next;
+    });
   };
 
   // Use Revit categories from REVIT_CATEGORIES (same as Asset List filter dropdown)
