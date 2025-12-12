@@ -370,7 +370,16 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
     // Update filters when initial values change (when modal is opened with different form selections)
     useEffect(() => {
-      setCategoryFilter(initialCategory || '');
+      let cat = initialCategory || '';
+      // If initialCategory is in the format "Italian / English (IFC)", extract the Italian part
+      // This matches the format constructed in ScheduledMaintenance: \`\${italian} / \${mapping.english} (\${mapping.ifc})\`
+      if (cat && cat.includes(' / ') && cat.includes('(')) {
+        const parts = cat.split(' / ');
+        if (parts.length > 0) {
+           cat = parts[0].trim();
+        }
+      }
+      setCategoryFilter(cat);
       setIfcFilter(initialIfcClass || '');
     }, [initialCategory, initialIfcClass]);
 
@@ -604,6 +613,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
         // Find English equivalent from CATEGORY_MAPPING if Italian category is selected
         const mapping = Object.entries(CATEGORY_MAPPING).find(([italian]) => italian === categoryFilter);
         const englishEquivalent = mapping ? mapping[1].english : null;
+        const ifcEquivalent = mapping ? mapping[1].ifc : null;
         
         result = result.filter(a => {
           const assetCategory = (a.category || '').toLowerCase();
@@ -613,10 +623,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
           // 1. Exact match with selected category (Italian)
           // 2. Contains selected category name
           // 3. Matches English equivalent (e.g., "Porte" matches "Door", "Doors")
+          // 4. Matches IFC equivalent
           const matchesItalian = (a.category || '') === categoryFilter || assetCategory.includes(filterLower);
           const matchesEnglish = englishEquivalent && assetCategory.includes(englishEquivalent.toLowerCase());
+          const matchesIfc = ifcEquivalent && assetCategory.includes(ifcEquivalent.toLowerCase());
           
-          return matchesItalian || matchesEnglish;
+          return matchesItalian || matchesEnglish || matchesIfc;
         });
       }
       if (ifcFilter) {
