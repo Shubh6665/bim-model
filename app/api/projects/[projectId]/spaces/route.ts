@@ -139,6 +139,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     description: raw?.description || undefined,
     area: typeof raw?.area === 'number' ? raw.area : (raw?.area ? Number(raw.area) : undefined),
     perimeter: typeof raw?.perimeter === 'number' ? raw.perimeter : (raw?.perimeter ? Number(raw.perimeter) : undefined),
+    volume: typeof raw?.volume === 'number' ? raw.volume : (raw?.volume ? Number(raw.volume) : undefined),
     dbId: raw?.dbId ?? null,
     footprint: raw?.footprint ? {
       points: Array.isArray(raw.footprint.points) ? raw.footprint.points.map((p: any) => ({ x: Number(p.x), y: Number(p.y), z: Number(p.z) })) : [],
@@ -170,6 +171,7 @@ async function upsertOne(col: any, projectId: string, raw: any) {
     spaceCode: doc.spaceCode,
     area: doc.area,
     perimeter: doc.perimeter,
+    volume: doc.volume,
     dbId: doc.dbId,
     footprint: doc.footprint,
     conflictWithId: doc.conflictWithId,

@@ -412,12 +412,20 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
               className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
             >
               <option value="ALL">All Statuses</option>
-              <option value="Open">Open</option>
-              <option value="Planned">Planned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Closed">Closed</option>
-              <option value="Resolved">Resolved</option>
-              <option value="Rejected">Rejected</option>
+              {!archived && (
+                <>
+                  <option value="Open">Open</option>
+                  <option value="Planned">Planned</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Closed">Closed</option>
+                </>
+              )}
+              {archived && (
+                <>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Rejected">Rejected</option>
+                </>
+              )}
             </select>
           </div>
           

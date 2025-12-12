@@ -425,7 +425,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             return best?.name || undefined;
           } catch { return undefined; }
         };
-        const url = mg ? `/api/projects/${projectId}/spaces?modelGuid=${encodeURIComponent(mg)}` : `/api/projects/${projectId}/spaces`;
+        const url = `/api/projects/${projectId}/spaces`; // Fetch ALL spaces, filter client-side
         const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
@@ -473,7 +473,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             return false;
           };
           const clientFiltered = mg 
-            ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
+            ? normalized.filter(r => {
+                // Always include MANUAL spaces regardless of modelGuid mismatch (unless explicitly tied to another model, but we'll be lenient)
+                if (r.source === 'MANUAL') return true;
+                // For BIM spaces, enforce strict modelGuid match
+                return isSameModelGuid(r.modelGuid as any, mg);
+              })
             : normalized;
           
           console.log(`[Spaces] Initial load: server returned ${normalized.length}, STRICT client-filtered to ${clientFiltered.length}`);
@@ -717,8 +722,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       };
       const candidates: SpaceRecord[] = propsList.map((p: any) => {
         const get = (names: string[]): string | undefined => {
+          if (!p) return undefined;
+          // Check direct properties first (for flattened objects)
+          for (const n of names) {
+            const k = n.toLowerCase();
+            if ((p as any)[n] !== undefined) return (p as any)[n];
+            if ((p as any)[k] !== undefined) return (p as any)[k];
+            const foundKey = Object.keys(p).find(key => key.toLowerCase() === k);
+            if (foundKey) return (p as any)[foundKey];
+          }
+
+          if (!Array.isArray(p.properties)) return undefined;
           const lower = names.map(n => n.toLowerCase());
-          const prop = p?.properties?.find((x: any) => {
+          const prop = p.properties.find((x: any) => {
             const dn = x.displayName?.toLowerCase?.();
             return dn && (lower.includes(dn) || lower.some(n => dn.includes(n)));
           });
@@ -856,14 +872,20 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       // Prefer server upsert + refresh when a projectId is available
       if (projectId && newRows.length) {
         try {
+          // Ensure volume is preserved in the payload
+          const payload = newRows.map(r => ({
+            ...r,
+            volume: r.volume // Explicitly include volume
+          }));
+
           await fetch(`/api/projects/${projectId}/spaces`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upsertMany', spaces: newRows })
+            body: JSON.stringify({ action: 'upsertMany', spaces: payload })
           });
           const mg = getCurrentModelGuid();
           console.log(`[Spaces] Fetching from server with modelGuid=${mg}`);
-          const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
+          const res = await fetch(`/api/projects/${projectId}/spaces`); // Fetch ALL spaces, filter client-side
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {
@@ -903,14 +925,10 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
               const clientFiltered = mg 
                 ? normalized.filter(r => {
-                    const match = r.source === 'BIM_MODEL' 
-                      ? isSameModelGuid(r.modelGuid as any, mg) 
-                      : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg));
-                    
-                    if (!match && r.source === 'BIM_MODEL') {
-                       console.log(`[Spaces] FILTERING OUT BIM space: dbId=${r.dbId}, modelGuid=${r.modelGuid} (current=${mg})`);
-                    }
-                    return match;
+                    // Always include MANUAL spaces regardless of modelGuid mismatch
+                    if (r.source === 'MANUAL') return true;
+                    // For BIM spaces, enforce strict modelGuid match
+                    return isSameModelGuid(r.modelGuid as any, mg);
                   })
                 : normalized;
               
@@ -945,8 +963,20 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               
               // Re-normalize levels using the extension if available
               let finalRows = enriched;
-              if (levelsExtension && levelsExtension.floorSelector && Array.isArray(levelsExtension.floorSelector.floorData)) {
-                 const floors = levelsExtension.floorSelector.floorData;
+              
+              // Try to get levels extension again if not available
+              if (!levelsExtension && viewer) {
+                 try {
+                   const ext = viewer.getExtension('Autodesk.AEC.LevelsExtension');
+                   if (ext) setLevelsExtension(ext);
+                 } catch {}
+              }
+              
+              // Use either the state extension or try to get it directly
+              const activeExt = levelsExtension || (viewer && viewer.getExtension ? viewer.getExtension('Autodesk.AEC.LevelsExtension') : null);
+              
+              if (activeExt && activeExt.floorSelector && Array.isArray(activeExt.floorSelector.floorData)) {
+                 const floors = activeExt.floorSelector.floorData;
                  const normalizeLevel = (lv: any) => {
                     try {
                       const s = lv != null ? String(lv) : '';
@@ -1014,7 +1044,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         try {
           const mg = getCurrentModelGuid();
           console.log(`[Spaces] No new rows - reloading from server with modelGuid=${mg}`);
-          const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
+          const res = await fetch(`/api/projects/${projectId}/spaces`); // Fetch ALL spaces, filter client-side
           if (res.ok) {
             const data = await res.json();
             const normalized: SpaceRecord[] = Array.isArray(data) ? data.map((d: any) => ({
@@ -1036,15 +1066,26 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
             })) : [];
             
             // STRICT client-side filter for safety - ONLY spaces from current model
+            const parseModelGuid = (s?: string) => {
+              if (!s) return { raw: '', left: '', right: '' };
+              const i = s.indexOf('|');
+              return i === -1 ? { raw: s, left: s, right: '' } : { raw: s, left: s.slice(0, i), right: s.slice(i + 1) };
+            };
+            const isSameModelGuid = (a?: string, b?: string) => {
+              if (!a || !b) return false; if (a === b) return true;
+              const A = parseModelGuid(a), B = parseModelGuid(b);
+              if (A.left && B.left && A.left === B.left) return true;
+              if (A.right && B.right && A.right === B.right) return true;
+              if (A.left && B.raw && B.raw.startsWith(A.left + '|')) return true;
+              if (B.left && A.raw && A.raw.startsWith(B.left + '|')) return true;
+              return false;
+            };
             const clientFiltered = mg 
               ? normalized.filter(r => {
-                  if (r.source === 'BIM_MODEL') {
-                    // BIM space: MUST match current modelGuid exactly
-                    return r.modelGuid === mg;
-                  } else {
-                    // Manual space: include only if it has no modelGuid or matches current
-                    return !r.modelGuid || r.modelGuid === mg;
-                  }
+                  // Always include MANUAL spaces regardless of modelGuid mismatch
+                  if (r.source === 'MANUAL') return true;
+                  // For BIM spaces, enforce strict modelGuid match
+                  return isSameModelGuid(r.modelGuid as any, mg);
                 })
               : normalized;
             
@@ -1103,7 +1144,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
         }
       }
       console.log('[SpaceList] Space created event received, reloading from DB');
-      fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`)
+      fetch(`/api/projects/${projectId}/spaces`)
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -1192,7 +1233,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 return false;
               };
               const clientFiltered = mg 
-                ? normalized.filter(r => r.source === 'BIM_MODEL' ? isSameModelGuid(r.modelGuid as any, mg) : (!r.modelGuid || isSameModelGuid(r.modelGuid as any, mg)))
+                ? normalized.filter(r => {
+                    // Always include MANUAL spaces regardless of modelGuid mismatch
+                    if (r.source === 'MANUAL') return true;
+                    // For BIM spaces, enforce strict modelGuid match
+                    return isSameModelGuid(r.modelGuid as any, mg);
+                  })
                 : normalized;
               console.log(`[SpaceList] Reloaded after space-created: ${clientFiltered.length} spaces`);
               setRows(mergeWithPersisted(clientFiltered));
@@ -1452,7 +1498,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                   try {
                     console.log('[SpaceList] Reloading spaces after edit...');
                     const mg = getCurrentModelGuid();
-                    const res = await fetch(`/api/projects/${projectId}/spaces${mg ? `?modelGuid=${encodeURIComponent(mg)}` : ''}`);
+                    const res = await fetch(`/api/projects/${projectId}/spaces`); // Fetch ALL spaces, filter client-side
                     if (res.ok) {
                       const data = await res.json();
                       console.log('[SpaceList] Reloaded spaces:', data.length, 'items');

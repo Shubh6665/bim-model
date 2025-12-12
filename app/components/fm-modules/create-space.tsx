@@ -17,6 +17,12 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   // Don't read localStorage during SSR - hydrate draft on client after mount
   const [f, setF] = useState({ building: '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+  };
   
   // First, hydrate from localStorage on mount or when projectId changes
   useEffect(() => {
@@ -832,8 +838,10 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         const savedSpace = saved?.space || saved || rec;
         window.dispatchEvent(new CustomEvent('space-created', { detail: { projectId, space: savedSpace } }));
         
-        // Clear form
-        const emptyForm = { building: '', level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' };
+        showToast('New room/space saved', 'success');
+
+        // Clear form but keep building
+        const emptyForm = { building: f.building, level: '', name: '', spaceCode: '', area: '', perimeter: '', description: '' };
         setF(emptyForm);
         save(`fm-create-space-draft-${projectId || 'global'}`, emptyForm);
         try { save(footprintDraftKey, []); } catch {}
@@ -843,9 +851,11 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         cancelDrawing();
       } else {
         console.error('[CreateSpace] Failed to save space to DB');
+        showToast('Failed to save space', 'error');
       }
     } catch (e) {
       console.error('[CreateSpace] Error saving space:', e);
+      showToast('Error saving space', 'error');
     }
   };
   const clearForm = () => {
@@ -861,6 +871,28 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
 
   return (
     <div className="p-3 space-y-3">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300 ${
+          toast.type === 'success' 
+            ? 'bg-green-600' 
+            : 'bg-red-600'
+        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{toast.type === 'success' ? 'Success' : 'Error'}</p>
+              <p className="text-sm opacity-90">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ show: false, message: '', type: 'success' })}
+              className="text-white/80 hover:text-white transition-colors text-xl font-bold leading-none"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-white font-semibold text-sm">Create New Space</div>
         <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Clear</button>
