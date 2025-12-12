@@ -448,7 +448,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between no-print">
           <div>
             <h1 className="text-2xl font-semibold text-white">Maintenance Report</h1>
-            <p className="text-sm text-gray-400 mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
+            <p className="text-sm text-gray-200 mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
           </div>
           <div className="flex gap-3 items-center">
             <button

@@ -271,19 +271,19 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-gray-300">Work Order ID</label>
-            <input value={form.id} readOnly className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <input value={form.id} readOnly className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
           </div>
           <div>
             <label className="text-xs text-gray-300">Date & Time of Service</label>
-            <input value={form.updatedAt ? new Date(form.updatedAt).toLocaleString() : new Date().toLocaleString()} readOnly className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <input value={form.updatedAt ? new Date(form.updatedAt).toLocaleString() : new Date().toLocaleString()} readOnly className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
           </div>
           <div>
             <label className="text-xs text-gray-300">Related Request / Ticket</label>
-            <input disabled={editingSection !== 'general'} value={form.requestId || ''} onChange={e => setField('requestId', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <input disabled={editingSection !== 'general'} value={form.requestId || ''} onChange={e => setField('requestId', e.target.value)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
           </div>
           <div>
             <label className="text-xs text-gray-300">Type of Maintenance</label>
-            <select disabled={editingSection !== 'general'} value={form.category || ''} onChange={e => setField('category', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+            <select disabled={editingSection !== 'general'} value={form.category || ''} onChange={e => setField('category', e.target.value)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm">
               <option value="Corrective">Corrective</option>
               <option value="Preventive">Preventive</option>
               <option value="Improvement">Improvement</option>
@@ -293,7 +293,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
           </div>
           <div>
             <label className="text-xs text-gray-300">Priority Level</label>
-            <select disabled={editingSection !== 'general'} value={form.priority || 'Medium'} onChange={e => setField('priority', e.target.value as any)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+            <select disabled={editingSection !== 'general'} value={form.priority || 'Medium'} onChange={e => setField('priority', e.target.value as any)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm">
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
               <option value="High">High</option>
