@@ -731,9 +731,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                       </div>
                     </div>
                   </div>
-                </>
-              )}
-                                <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm text-gray-300 block mb-2 font-medium">Frequency (per year)</label>
                       <input
@@ -755,6 +753,9 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                       />
                     </div>
                   </div>
+                </>
+              )}
+                              
             </div>
             
 
