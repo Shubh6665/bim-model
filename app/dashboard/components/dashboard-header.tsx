@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { User, Home, LogOut, Bell, Menu, ChevronDown, Info, Folder, UserPlus, Users } from "lucide-react";
+import { User, Home, LogOut, Bell, Menu, ChevronDown, Info, Folder, UserPlus, Users, BookOpen } from "lucide-react";
 import { useNotifications } from "@/app/context/notification-context";
 import { NotificationsMenu } from "./notifications-menu";
 import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
@@ -298,6 +298,17 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                     <Info className="w-4 h-4" />
                     <span>Project Info</span>
                   </button>
+
+                  <a
+                    href="/manual"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                    onClick={() => setShowProfileMenu(false)}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>User Manual</span>
+                  </a>
                   
                   {/* Request Administrator Access - show for non-Platform Owner and non-Administrator users */}
                   {user && !platformOwner && !canCreate && (
