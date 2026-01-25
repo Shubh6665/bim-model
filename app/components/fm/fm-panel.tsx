@@ -22,8 +22,8 @@ import { OngoingMaintenance } from "./fm-modules/ongoing-maintenance";
 import { PendingApprovals } from "./fm-modules/pending-approvals";
 import { FMFieldEditor } from "./fm-modules/fm-field-editor";
 import { PlannedMaintenance } from "./fm-modules/planned-maintenance";
-import { useUserRole } from "../hooks/useUserRole";
-import { CATEGORY_MAPPING } from "../services/asset-extraction-service";
+import { useUserRole } from "../../hooks/useUserRole";
+import { CATEGORY_MAPPING } from "../../services/asset-extraction-service";
 
 export default function FMPanel({ projectId, viewer, standalone, initialSection, initialAssetId }: FMPanelProps) {
   const { role, isTM, isFM } = useUserRole(projectId);

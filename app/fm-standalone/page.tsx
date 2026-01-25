@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 
-const FMPanel = dynamic(() => import('../components/fm-panel'), { ssr: false });
+const FMPanel = dynamic(() => import('../components/fm/fm-panel'), { ssr: false });
 
 function FMStandaloneContent() {
   const params = useSearchParams();

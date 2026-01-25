@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, Upload, Download, Plus, Edit2, Trash2, Eye, EyeOff, Search, Filter, Columns, RefreshCw, Save, Check } from "lucide-react";
-import PdfViewer from "../pdf-viewer";
+import PdfViewer from "../../shared/pdf-viewer";
 import { load, save, K, stripRevitPrefix, pickEditable, clearAssetCache, EDITABLE_FIELDS, CLEARABLE_FIELDS, REVIT_CATEGORIES, IFCCLASSES_UNIQUE } from "../fm-panel-utils";
-import { APSAssetExtractor, type APSAsset } from '../../services/aps-asset-extractor';
-import { ViewerLeafAssetExtractor, type ViewerAsset } from '../../services/viewer-leaf-asset-extractor';
-import { CATEGORY_MAPPING } from "../../services/asset-extraction-service";
+import { APSAssetExtractor, type APSAsset } from '../../../services/aps-asset-extractor';
+import { ViewerLeafAssetExtractor, type ViewerAsset } from '../../../services/viewer-leaf-asset-extractor';
+import { CATEGORY_MAPPING } from "../../../services/asset-extraction-service";
 import type { AssetRecord, SpaceRecord } from "../fm-panel-types";
 
 interface AssetListProps {

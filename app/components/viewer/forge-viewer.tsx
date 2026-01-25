@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useSensorContext } from "../context/sensor-context";
-import { DataVizService, SensorSprite } from "../services/dataviz-service";
-import { HeatmapService } from "../services/heatmap-service";
-import EnergyDashboardOverlay from "./energy-dashboard-overlay";
-import SensorGraphsDashboard from "./sensor-graphs-dashboard";
-import PVSensorDashboard from "./pv-sensor-dashboard";
-import SeismicSensorDashboard from "./seismic-sensor-dashboard";
+import { useSensorContext } from "../../context/sensor-context";
+import { DataVizService, SensorSprite } from "../../services/dataviz-service";
+import { HeatmapService } from "../../services/heatmap-service";
+import EnergyDashboardOverlay from "../sensors/energy-dashboard-overlay";
+import SensorGraphsDashboard from "../sensors/sensor-graphs-dashboard";
+import PVSensorDashboard from "../sensors/pv-sensor-dashboard";
+import SeismicSensorDashboard from "../sensors/seismic-sensor-dashboard";
 import "./forge-viewer.css";
 import type { ProjectModel } from "@/app/types/projects";
 

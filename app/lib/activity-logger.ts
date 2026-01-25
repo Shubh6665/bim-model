@@ -7,7 +7,7 @@
 
 import { ObjectId } from 'mongodb';
 import type { MaintenanceRole } from './maintenance-roles';
-import type { ActivityAction } from '@/app/components/fm-panel-types';
+import type { ActivityAction } from '@/app/components/fm/fm-panel-types';
 
 export interface LogActivityParams {
   db: any;

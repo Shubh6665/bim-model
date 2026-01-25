@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSensorContext, SENSOR_TYPES } from "../context/sensor-context";
+import { useSensorContext, SENSOR_TYPES } from "../../context/sensor-context";
 
 const SENSOR_TYPE_COLORS = {
   "Temp & Hum": "bg-red-500",

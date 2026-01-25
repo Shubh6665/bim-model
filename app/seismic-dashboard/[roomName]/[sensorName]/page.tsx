@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
-import SeismicSensorDashboard from '../../../components/seismic-sensor-dashboard';
+import SeismicSensorDashboard from '../../../components/sensors/seismic-sensor-dashboard';
 import { Sensor } from '../../../context/sensor-context';
 
 function SeismicDashboardContent() {

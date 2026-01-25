@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
-import SensorGraphsDashboard from '../../../components/sensor-graphs-dashboard';
+import SensorGraphsDashboard from '../../../components/sensors/sensor-graphs-dashboard';
 import { Sensor } from '../../../context/sensor-context';
 
 function SensorDashboardContent() {

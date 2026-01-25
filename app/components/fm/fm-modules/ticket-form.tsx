@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { load, save, K, stripRevitPrefix } from "../fm-panel-utils";
-import { CATEGORY_MAPPING } from "../../services/asset-extraction-service";
+import { CATEGORY_MAPPING } from "../../../services/asset-extraction-service";
 import type { TicketItem, WorkOrderItem } from "../fm-panel-types";
 
 interface TicketFormProps {

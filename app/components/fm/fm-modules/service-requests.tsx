@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { load, save, K } from "../fm-panel-utils";
 import type { TicketItem, WorkOrderItem } from "../fm-panel-types";
-import { useUserRole } from "../../hooks/useUserRole";
+import { useUserRole } from "@/app/hooks/useUserRole";
 
 interface ServiceRequestsProps {
   projectId?: string;

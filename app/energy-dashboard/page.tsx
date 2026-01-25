@@ -1,7 +1,7 @@
 "use client";
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
-import EnergyDashboardOverlay from '../components/energy-dashboard-overlay';
+import EnergyDashboardOverlay from '../components/sensors/energy-dashboard-overlay';
 import { Sensor } from '../context/sensor-context';
 
 function EnergyDashboardContent() {

@@ -4,15 +4,15 @@ import { useState, useEffect } from "react";
 import { DashboardHeader } from "./components/dashboard-header";
 import { ThreeDViewer } from "./components/3d-viewer";
 import { EnhancedProjectPanel } from "./components/enhanced-project-panel";
-import IoTPanel from "../components/iot-panel"; // Import the new IoTPanel
-import ModelHierarchyPanel from "../components/model-hierarchy-panel"; // Import the new HierarchyPanel
-import { BIMPanel } from "../components/bim-panel"; // Import the new BIMPanel
-import { DatabasePanel } from "../components/database-panel"; // Import the new DatabasePanel
+import IoTPanel from "../components/sensors/iot-panel"; // Import the new IoTPanel
+import ModelHierarchyPanel from "../components/viewer/model-hierarchy-panel"; // Import the new HierarchyPanel
+import { BIMPanel } from "../components/dashboard/bim-panel"; // Import the new BIMPanel
+import { DatabasePanel } from "../components/dashboard/database-panel"; // Import the new DatabasePanel
 import { VTPanel } from "./components/vt-panel"; // Import the new VTPanel
-import FileViewer from "../components/file-viewer";
+import FileViewer from "../components/viewer/file-viewer";
 import dynamic from "next/dynamic";
 import { SensorProvider, useSensorContext } from "../context/sensor-context";
-import { SensorInsertionForm, SensorFormData } from "../components/sensor-insertion-form";
+import { SensorInsertionForm, SensorFormData } from "../components/sensors/sensor-insertion-form";
 import { GoogleEarthMap } from "./components/google-earth-map";
 import { useAuth } from "@/app/hooks/use-auth";
 import { useRef } from "react";
@@ -57,9 +57,9 @@ interface Project {
 }
 
 // PdfViewer is heavy and uses pdfjs; disable SSR to avoid server-side canvas issues
-const PdfViewer = dynamic(() => import("../components/pdf-viewer"), { ssr: false });
+const PdfViewer = dynamic(() => import("../components/shared/pdf-viewer"), { ssr: false });
 
-const FMPanel = dynamic(() => import("../components/fm-panel"), { ssr: false });
+const FMPanel = dynamic(() => import("../components/fm/fm-panel"), { ssr: false });
 
 function BIMDashboard() {
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import SessionWrapper from "@/app/components/session-wrapper";
-import AutoLogoutGuard from "@/app/components/auto-logout-guard";
+import SessionWrapper from "@/app/components/shared/session-wrapper";
+import AutoLogoutGuard from "@/app/components/shared/auto-logout-guard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { RVTForgeInterface } from "./rvt-forge-interface";
-import ForgeViewer from "../../components/forge-viewer";
+import ForgeViewer from "../../components/viewer/forge-viewer";
 import type { ProjectModel } from "@/app/types/projects";
 import { forgeAuthService } from "@/app/services/forge-service";
 

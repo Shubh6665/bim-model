@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X } from "lucide-react";
 import { load, save, K, REVIT_CATEGORIES, IFCCLASSES_UNIQUE, stripRevitPrefix } from "../fm-panel-utils";
-import { CATEGORY_MAPPING } from "../../services/asset-extraction-service";
+import { CATEGORY_MAPPING } from "../../../services/asset-extraction-service";
 import type { AssetRecord, ScheduledItem, WorkOrderItem } from "../fm-panel-types";
 
 interface ScheduledMaintenanceProps {

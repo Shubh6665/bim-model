@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
-import PVSensorDashboard from '../../../components/pv-sensor-dashboard';
+import PVSensorDashboard from '../../../components/sensors/pv-sensor-dashboard';
 import { Sensor } from '../../../context/sensor-context';
 
 function PVDashboardContent() {

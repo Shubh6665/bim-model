@@ -22,8 +22,8 @@ import {
   Trash2,
   AlertTriangle,
 } from "lucide-react";
-import { Floor2DView } from "./floor-2d-view";
-import { FloorData } from "./floor-data-view";
+import { Floor2DView } from "../floor/floor-2d-view";
+import { FloorData } from "../floor/floor-data-view";
 import type { ProjectModel } from "@/app/types/projects";
 
 // Predefined categories based on the Excel file
