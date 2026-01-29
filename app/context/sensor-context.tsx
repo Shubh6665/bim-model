@@ -30,6 +30,11 @@ export interface Sensor {
   mark?: string;
   model?: string;
   link?: string;
+  externalId?: string;
+  devsn?: string;
+  ubibotChannelId?: string;
+  ubibotDeviceSerial?: string;
+  readings?: Record<string, number>;
 }
 
 export const SENSOR_TYPES = [
@@ -80,6 +85,8 @@ interface SensorContextType {
     type: string;
     externalId: string;
     devsn: string;
+    ubibotChannelId: string;
+    ubibotDeviceSerial: string;
   }) => Promise<Sensor | null>;
   removeSensor: (sensorId: string) => Promise<boolean>;
   updateSensor: (sensorId: string, updates: Partial<Sensor>) => Promise<boolean>;
@@ -551,6 +558,10 @@ export function SensorProvider({ children }: SensorProviderProps) {
     room: string;
     link: string;
     type: string;
+    externalId: string;
+    devsn: string;
+    ubibotChannelId: string;
+    ubibotDeviceSerial: string;
   }): Promise<Sensor | null> => {
     if (!pendingPosition) {
       console.error('No pending position for sensor placement');
@@ -624,6 +635,10 @@ export function SensorProvider({ children }: SensorProviderProps) {
         mark: formData.mark,
         model: formData.model,
         link: formData.link || undefined,
+        externalId: formData.externalId || undefined,
+        devsn: formData.devsn || undefined,
+        ubibotChannelId: (formData.ubibotChannelId || '').trim() || undefined,
+        ubibotDeviceSerial: (formData.ubibotDeviceSerial || '').trim() || undefined,
         // Add room metadata if detected
         ...(roomInfo && {
           roomId: roomInfo.roomId,
@@ -675,7 +690,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
   }, [pendingPosition, pendingDbId, currentProjectId, hideSensorForm, exitPlacementMode, roomMapper, getRoomForPosition, findRoomForDbId]);
 
   // Update sensor values in real-time
-  const updateSensorValues = useCallback((updates: Array<{ id: string; value: string; status: string; lastUpdate: string }>) => {
+  const updateSensorValues = useCallback((updates: Array<{ id: string; value: string; status: string; lastUpdate: string; batteryLevel?: number; readings?: Record<string, number> }>) => {
     console.log(`[SensorContext] Updating ${updates.length} sensor values`);
     setSensors(prev => {
       const updated = [...prev];
@@ -687,6 +702,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
             value: update.value,
             status: update.status as "Online" | "Offline" | "Warning",
             lastUpdate: update.lastUpdate,
+            ...(update.batteryLevel !== undefined ? { batteryLevel: update.batteryLevel } : {}),
+            ...(update.readings ? { readings: update.readings } : {}),
           };
           console.log(`[SensorContext] Updated sensor ${update.id}: ${update.value} (${update.status})`);
         }
@@ -708,6 +725,8 @@ export function SensorProvider({ children }: SensorProviderProps) {
             value: sensorUpdate.value,
             status: sensorUpdate.status as "Online" | "Offline" | "Warning",
             lastUpdate: sensorUpdate.lastUpdate,
+            ...(sensorUpdate.batteryLevel !== undefined ? { batteryLevel: sensorUpdate.batteryLevel } : {}),
+            ...(sensorUpdate.readings ? { readings: sensorUpdate.readings } : {}),
           }
         };
       }

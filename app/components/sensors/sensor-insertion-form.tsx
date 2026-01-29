@@ -13,6 +13,8 @@ export interface SensorFormData {
   type: string;
   externalId: string;
   devsn: string;
+  ubibotChannelId: string;
+  ubibotDeviceSerial: string;
 }
 
 interface SensorInsertionFormProps {
@@ -43,6 +45,8 @@ export function SensorInsertionForm({
     type: sensorType,
     externalId: "",
     devsn: "",
+    ubibotChannelId: "",
+    ubibotDeviceSerial: "",
   });
 
   const [errors, setErrors] = useState<Partial<SensorFormData>>({});
@@ -60,6 +64,8 @@ export function SensorInsertionForm({
         type: sensorType,
         externalId: "",
         devsn: "",
+        ubibotChannelId: "",
+        ubibotDeviceSerial: "",
       });
       setErrors({});
     }
@@ -134,6 +140,8 @@ export function SensorInsertionForm({
       type: sensorType,
       externalId: "",
       devsn: "",
+      ubibotChannelId: "",
+      ubibotDeviceSerial: "",
     });
     setErrors({});
     onCancel();
@@ -324,6 +332,45 @@ export function SensorInsertionForm({
               placeholder="e.g., DEV001 (fallback if no External ID)"
               disabled={loading}
             />
+          </div>
+
+          {/* UbiBot Link (optional) */}
+          <div className="pt-2 border-t border-gray-700">
+            <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Link (optional)</div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Channel ID
+                  <span className="text-xs text-gray-400 ml-1">(e.g., 121744)</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formData.ubibotChannelId}
+                  onChange={(e) => handleInputChange("ubibotChannelId", e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter UbiBot Channel ID"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Device Serial Number
+                  <span className="text-xs text-gray-400 ml-1">(e.g., M5AM11KTWS1P)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.ubibotDeviceSerial}
+                  onChange={(e) => handleInputChange("ubibotDeviceSerial", e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter UbiBot device serial"
+                  disabled={loading}
+                />
+              </div>
+              <p className="text-xs text-gray-400">
+                If you fill Channel ID, the sensor will pull real values from UbiBot and store real history.
+              </p>
+            </div>
           </div>
 
           {/* Action Buttons */}

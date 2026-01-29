@@ -117,7 +117,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
       const json = await resp.json();
       const map = json.data || {};
       const rec = map[target.id] || map[String((target as any)._id)] || map[Object.keys(map).find(k=>k.includes(target.id)) || ''];
-      if (!rec) throw new Error('No data for sensor');
+      if (!rec) {
+        // No real history stored yet for this sensor.
+        setter(null);
+        if (which === 'primary') setError('No historical data yet');
+        return;
+      }
       const timestamps: Date[] = (json.timestamps||[]).map((t: string) => new Date(t));
       setter({ timestamps, temp: rec.temp, rh: rec.rh });
       if (which==='primary') setError(null);
@@ -155,6 +160,10 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         const json = await resp.json();
         const map = json.data || {};
         const rec = map[sensor.id] || map[String((sensor as any)._id)] || map[Object.keys(map).find(k=>k.includes(sensor.id)) || ''];
+        if (!rec) {
+          setGaugeStats(prev => prev || { tCur: 0, hCur: 0, tMin: 0, tMax: 0, hMin: 0, hMax: 0, tMinTime: '00:00', tMaxTime: '00:00', hMinTime: '00:00', hMaxTime: '00:00' });
+          return;
+        }
         const tArr: number[] = rec?.temp || [];
         const hArr: number[] = rec?.rh || [];
         const timestamps: Date[] = (json.timestamps||[]).map((t: string) => new Date(t));
@@ -258,13 +267,28 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         // Primary sensor
         const upd = (json.updates || []).find((u: any) => u.id === sensor.id);
         if (upd) {
-          const num = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+          // Use detailed readings if available, otherwise parse primary value string
+          let tVal = undefined;
+          let hVal = undefined;
+
+          if (upd.readings) {
+            tVal = upd.readings.temp;
+            hVal = upd.readings.rh;
+          }
+          
+          if (tVal === undefined) {
+             tVal = parseFloat(String(upd.value).replace(/[^0-9.+-]/g, ''));
+          }
+
           setSeries(prev => {
             if (!prev) return prev;
+            // Fallback for humidity if not in readings: keep last value
+            const lastH = prev.rh && prev.rh.length > 0 ? prev.rh[prev.rh.length - 1] : 0;
+            
             const next: DailySeries = { 
               timestamps: [...prev.timestamps, ts],
-              temp: prev.temp ? [...prev.temp, num] : prev.temp,
-              rh: prev.rh ? [...prev.rh, prev.rh[prev.rh.length-1]] : prev.rh,
+              temp: prev.temp ? [...prev.temp, Number.isFinite(tVal) ? tVal! : (prev.temp[prev.temp.length-1] || 0)] : prev.temp,
+              rh: prev.rh ? [...prev.rh, Number.isFinite(hVal) ? hVal! : lastH] : prev.rh,
             };
             // keep last 200 points for performance
             if (next.timestamps.length > 200) {
@@ -873,7 +897,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
-                    {data.temp![hoverIndex].toFixed(1)}°C
+                    {data.temp?.[hoverIndex]?.toFixed(1) ?? "—"}°C
                   </text>
                 </>
               )}
@@ -893,7 +917,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     fill="#f3f4f6" 
                     fontWeight="600"
                   >
-                    {data.rh![hoverIndex].toFixed(1)}%
+                    {data.rh?.[hoverIndex]?.toFixed(1) ?? "—"}%
                   </text>
                 </>
               )}
@@ -1432,24 +1456,42 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1">
             <div className="text-sm md:text-base font-semibold text-white mb-2">Active Alerts</div>
             <div className="space-y-1.5 md:space-y-2">
-              <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-700 rounded-lg p-2">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
-                <div className="flex-1">
-                  <div className="text-xs md:text-sm font-medium text-blue-400">System Normal</div>
+              {/* Dynamic Alerts Logic */}
+              {(sensor.status === 'Offline' || sensor.status === 'Warning') && (
+                 <div className="flex items-center gap-2 bg-red-900/30 border border-red-700 rounded-lg p-2">
+                  <div className="w-1.5 h-1.5 bg-red-400 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <div className="text-xs md:text-sm font-medium text-red-400">Sensor {sensor.status}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 bg-red-900/30 border border-red-700 rounded-lg p-2">
-                <div className="w-1.5 h-1.5 bg-red-400 rounded-full flex-shrink-0"></div>
-                <div className="flex-1">
-                  <div className="text-xs md:text-sm font-medium text-red-400">Sensor Offline</div>
+              )}
+              
+              {gaugeStats && gaugeStats.tCur > 30 && (
+                <div className="flex items-center gap-2 bg-yellow-900/30 border border-yellow-700 rounded-lg p-2">
+                  <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <div className="text-xs md:text-sm font-medium text-yellow-400">Temperature High ({gaugeStats.tCur.toFixed(1)}°C)</div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 bg-yellow-900/30 border border-yellow-700 rounded-lg p-2">
-                <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full flex-shrink-0"></div>
-                <div className="flex-1">
-                  <div className="text-xs md:text-sm font-medium text-yellow-400">Temperature High</div>
+              )}
+
+              {gaugeStats && gaugeStats.tCur < 10 && (
+                <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-700 rounded-lg p-2">
+                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <div className="text-xs md:text-sm font-medium text-blue-400">Temperature Low ({gaugeStats.tCur.toFixed(1)}°C)</div>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+               {sensor.status === 'Online' && (!gaugeStats || (gaugeStats.tCur <= 30 && gaugeStats.tCur >= 10)) && (
+                <div className="flex items-center gap-2 bg-green-900/30 border border-green-700 rounded-lg p-2">
+                  <div className="w-1.5 h-1.5 bg-green-400 rounded-full flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <div className="text-xs md:text-sm font-medium text-green-400">System Normal</div>
+                  </div>
+                </div>
+               )}
             </div>
           </div>
         </div>

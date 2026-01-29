@@ -25,62 +25,10 @@ interface SensorData {
   mark?: string;
   model?: string;
   link?: string;
-}
-
-// ---------- Helpers to align displayed values with /api/iot/samples and /api/iot/realtime ----------
-function seededRandom(seedStr: string) {
-  let seed = 0;
-  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
-  return () => {
-    seed ^= seed << 13; seed >>>= 0;
-    seed ^= seed >> 17; seed >>>= 0;
-    seed ^= seed << 5;  seed >>>= 0;
-    return (seed & 0xfffffff) / 0xfffffff;
-  };
-}
-
-function generateTempSeries(count: number, rnd: () => number): number[] {
-  const out: number[] = [];
-  let val = 24 + (rnd() - 0.5) * 4;
-  let spikeLeft = 0; let spikeAmp = 0;
-  const clamp = (x: number) => Math.max(18, Math.min(42, x));
-  for (let i = 0; i < count; i++) {
-    const phase = count > 1 ? i / (count - 1) : 0.5;
-    const wave = Math.sin(Math.PI * phase);
-    const baseline = 22 + 10 * wave;
-    const walk = (rnd() - 0.5) * 1.2;
-    val += walk; val += (baseline - val) * 0.12;
-    if (spikeLeft <= 0 && rnd() < 0.04) { spikeLeft = 2 + Math.floor(rnd() * 4); const up = rnd() < 0.7; spikeAmp = (up ? 4 : -3) + (rnd() * (up ? 6 : 3)); }
-    if (spikeLeft > 0) { const factor = spikeLeft / (spikeLeft + 2); val += spikeAmp * factor * 0.6; spikeLeft--; }
-    out.push(parseFloat(clamp(val).toFixed(1)));
-  }
-  return out;
-}
-
-function currentTempForGroup(groupKey: string, at: Date): number {
-  const rnd = seededRandom(groupKey);
-  const count = 96;
-  const start = new Date(at); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setHours(23,59,59,999);
-  const series = generateTempSeries(count, rnd);
-  const frac = Math.min(1, Math.max(0, (at.getTime() - start.getTime()) / (end.getTime() - start.getTime())));
-  const idx = Math.min(count - 1, Math.max(0, Math.floor(frac * (count - 1))));
-  return series[idx];
-}
-
-function currentHumidityForGroup(groupKey: string, at: Date): number {
-  const rnd = seededRandom(groupKey + "-hum");
-  // Simple smooth series around 48±12 with mild day swing
-  const count = 96;
-  const start = new Date(at); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setHours(23,59,59,999);
-  const phase = (at.getTime() - start.getTime()) / (end.getTime() - start.getTime());
-  const wave = Math.cos(Math.PI * 2 * phase) * 6; // mild daily swing
-  const base = 48 + wave;
-  // jitter via seeded rnd
-  const jitter = (rnd() - 0.5) * 8;
-  const val = Math.max(25, Math.min(80, base + jitter));
-  return Math.round(val);
+  externalId?: string;
+  devsn?: string;
+  ubibotChannelId?: string;
+  ubibotDeviceSerial?: string;
 }
 
 async function getUserEmail() {
@@ -143,25 +91,14 @@ export async function GET(request: Request) {
 
     const sensors = await db.collection("iot_sensors").find(query).toArray();
 
-    // Transform MongoDB documents to our sensor format
-    const now = new Date();
+    // Transform MongoDB documents to our sensor format (use stored values only)
     const transformedSensors = sensors.map((sensor) => {
-      const groupKey = sensor.externalId || sensor.devsn || String(sensor._id);
-      let valueStr: string = sensor.value;
-      const t = (sensor.type || '').toLowerCase();
-      if (t.includes('temperature')) {
-        const v = currentTempForGroup(String(groupKey), now);
-        valueStr = `${v.toFixed(1)}°C`;
-      } else if (t.includes('humidity')) {
-        const v = currentHumidityForGroup(String(groupKey), now);
-        valueStr = `${Math.round(v)}%`;
-      }
       return {
         id: sensor._id.toString(),
         name: sensor.name,
         type: sensor.type,
         status: sensor.status || "Online",
-        value: valueStr,
+        value: sensor.value,
         position: sensor.position,
         batteryLevel: sensor.batteryLevel || 100,
         lastUpdate: sensor.lastUpdate || new Date().toISOString(),
@@ -176,6 +113,10 @@ export async function GET(request: Request) {
         mark: sensor.mark,
         model: sensor.model,
         link: sensor.link,
+        externalId: sensor.externalId,
+        devsn: sensor.devsn,
+        ubibotChannelId: sensor.ubibotChannelId,
+        ubibotDeviceSerial: sensor.ubibotDeviceSerial,
       };
     });
 
@@ -216,17 +157,7 @@ export async function POST(request: Request) {
     const db = await getDb();
 
     // Create sensor document
-    const groupKey = (sensorData as any).externalId || (sensorData as any).devsn || sensorData.name || String(Date.now());
-    // compute initial aligned value
-    let initialValue = sensorData.value || "0";
-    const typeLower = (sensorData.type || '').toLowerCase();
-    if (typeLower.includes('temperature')) {
-      const v = currentTempForGroup(String(groupKey), new Date());
-      initialValue = `${v.toFixed(1)}°C`;
-    } else if (typeLower.includes('humidity')) {
-      const v = currentHumidityForGroup(String(groupKey), new Date());
-      initialValue = `${Math.round(v)}%`;
-    }
+    const initialValue = sensorData.value || "—";
 
     const newSensor = {
       name: sensorData.name,
@@ -247,6 +178,10 @@ export async function POST(request: Request) {
       mark: sensorData.mark,
       model: sensorData.model,
       link: sensorData.link,
+      externalId: sensorData.externalId,
+      devsn: sensorData.devsn,
+      ubibotChannelId: sensorData.ubibotChannelId,
+      ubibotDeviceSerial: sensorData.ubibotDeviceSerial,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

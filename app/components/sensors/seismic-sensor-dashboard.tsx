@@ -175,7 +175,11 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
       const json = await resp.json();
       const map = json.data || {};
       const rec = map[target.id] || map[String((target as any)._id)] || map[Object.keys(map).find(k=>k.includes(target.id)) || ''];
-      if (!rec) throw new Error('No data for sensor');
+      if (!rec) {
+        setter(null);
+        if (which === 'primary') setError('No historical data yet');
+        return;
+      }
       const timestamps: Date[] = (json.timestamps||[]).map((t: string) => new Date(t));
       
       // Set seismic data (magnitude, acceleration, frequency, displacement)

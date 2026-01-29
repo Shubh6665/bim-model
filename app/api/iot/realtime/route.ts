@@ -1,183 +1,51 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/app/services/mongodb";
 import { ObjectId } from "mongodb";
+import {
+  buildUbibotSnapshot,
+  estimateBatteryPercentage,
+  estimateSignalStrength,
+  formatMetricValue,
+  pickPrimaryMetricForSensorType,
+  ubibotViewChannel,
+} from "@/app/services/ubibot";
 
-// Generate current sensor values based on the latest time-series data
-function hashString(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
-  }
-  return h >>> 0;
-}
+type SensorDoc = {
+  _id: any;
+  projectId?: string;
+  name?: string;
+  type?: string;
+  value?: string;
+  status?: string;
+  lastUpdate?: string;
+  ubibotChannelId?: string;
+  ubibotDeviceSerial?: string;
+  ubibotFieldMap?: any;
+};
 
-// PRNG compatible with /api/iot/samples for alignment
-function seededRandom(seedStr: string) {
-  let seed = 0;
-  for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
-  return () => {
-    seed ^= seed << 13; seed >>>= 0;
-    seed ^= seed >> 17; seed >>>= 0;
-    seed ^= seed << 5;  seed >>>= 0;
-    return (seed & 0xfffffff) / 0xfffffff;
-  };
-}
+// Return type for updates
+type SensorUpdate = {
+  id: string;
+  value: string;
+  status: string;
+  lastUpdate: string;
+  batteryLevel?: number;
+  readings?: Record<string, number>;
+};
 
-function generateSeries(base: number, amp: number, count: number, rnd: () => number, integer = false): number[] {
-  const out: number[] = [];
-  let val = base + (rnd() - 0.5) * amp * 0.2;
-  for (let i = 0; i < count; i++) {
-    const delta = (rnd() - 0.5) * amp * 0.05;
-    val += delta;
-    val = Math.min(base + amp, Math.max(base - amp, val));
-    out.push(integer ? Math.round(val) : parseFloat(val.toFixed(1)));
-  }
-  return out;
-}
-
-function generateTempSeries(count: number, rnd: () => number): number[] {
-  const out: number[] = [];
-  let val = 24 + (rnd() - 0.5) * 4;
-  let spikeLeft = 0; let spikeAmp = 0;
-  const clamp = (x: number) => Math.max(18, Math.min(42, x));
-  for (let i = 0; i < count; i++) {
-    const phase = count > 1 ? i / (count - 1) : 0.5;
-    const wave = Math.sin(Math.PI * phase);
-    const baseline = 22 + 10 * wave;
-    const walk = (rnd() - 0.5) * 1.2;
-    val += walk;
-    val += (baseline - val) * 0.12;
-    if (spikeLeft <= 0 && rnd() < 0.04) {
-      spikeLeft = 2 + Math.floor(rnd() * 4);
-      const up = rnd() < 0.7;
-      spikeAmp = (up ? 4 : -3) + (rnd() * (up ? 6 : 3));
-    }
-    if (spikeLeft > 0) {
-      const factor = spikeLeft / (spikeLeft + 2);
-      val += spikeAmp * factor * 0.6;
-      spikeLeft--;
-    }
-    val = clamp(val);
-    out.push(parseFloat(val.toFixed(1)));
-  }
-  return out;
-}
-
-function generateCurrentValue(sensorType: string, baseValue: number, groupKey: string, timestamp: Date): { value: string; status: "Online" | "Warning" | "Offline"; seismicData?: { x_acc: number; y_acc: number; z_acc: number } } {
-  // Add random variation to base value
-  const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
-  let currentVal = baseValue * (1 + variation);
-  let status: "Online" | "Warning" | "Offline" = "Online";
-
-  switch (sensorType.toLowerCase()) {
-    case "temperature":
-      currentVal = Math.max(18, Math.min(42, currentVal));
-      status = currentVal >= 35 ? "Warning" : "Online";
-      return { value: `${currentVal.toFixed(1)}°C`, status };
-    
-    case "co2":
-      currentVal = Math.max(400, Math.min(1600, currentVal));
-      status = currentVal >= 1200 ? "Warning" : "Online";
-      return { value: `${Math.round(currentVal)} ppm`, status };
-    
-    case "light":
-      currentVal = Math.max(100, Math.min(1000, currentVal));
-      return { value: `${Math.round(currentVal)} lux`, status };
-    
-    case "humidity":
-      currentVal = Math.max(20, Math.min(80, currentVal));
-      status = currentVal <= 30 || currentVal >= 70 ? "Warning" : "Online";
-      return { value: `${Math.round(currentVal)}%`, status };
-    
-    case "seismic and accelerometric":
-      // Generate realistic seismic sensor data - ONLY raw acceleration values (x, y, z)
-      // Dashboard will calculate magnitude, frequency, displacement from these values
-      const isEvent = Math.random() < 0.05; // 5% chance of seismic event
-      
-      let x_acc: number, y_acc: number, z_acc: number;
-      
-      if (isEvent) {
-        // During seismic event - higher acceleration values
-        const eventIntensity = Math.random() * 0.5 + 0.5; // 0.5 to 1.0
-        
-        x_acc = (Math.random() - 0.5) * eventIntensity * 2; // -1 to 1 m/s²
-        y_acc = (Math.random() - 0.5) * eventIntensity * 2;
-        z_acc = 9.8 + (Math.random() - 0.5) * eventIntensity; // 9.8 ± variation
-        
-        status = "Warning";
-      } else {
-        // Background noise - very low values
-        x_acc = (Math.random() - 0.5) * 0.002; // Very small
-        y_acc = (Math.random() - 0.5) * 0.002;
-        z_acc = 9.8 + (Math.random() - 0.5) * 0.01;
-        
-        status = "Online";
-      }
-      
-      // Calculate resultant acceleration for display value
-      const resultant = Math.sqrt(x_acc * x_acc + y_acc * y_acc);
-      
-      return { 
-        value: `${resultant.toFixed(4)} m/s²`, 
-        status,
-        seismicData: {
-          x_acc: parseFloat(x_acc.toFixed(4)),
-          y_acc: parseFloat(y_acc.toFixed(4)),
-          z_acc: parseFloat(z_acc.toFixed(4))
-        }
-      };
-    
-    case "energy consumption":
-      currentVal = Math.max(0.5, Math.min(5, currentVal));
-      return { value: `${currentVal.toFixed(1)} kW`, status };
-    
-    case "photovoltaic":
-    case "fv sensor":
-    case "pv sensor":
-      // Generate daily production data (kWh) as per client specification
-      // Client requires: Daily production data only, not instantaneous power/voltage/current
-      const hour = timestamp.getHours();
-      const minute = timestamp.getMinutes();
-      const timeInHours = hour + minute / 60;
-      
-      console.log(`[IoT Realtime API] FV Sensor time check: hour=${hour}, minute=${minute}, timeInHours=${timeInHours}`);
-      
-      // Generate cumulative daily production (kWh) based on time of day
-      // Typical solar panel generates 15-40 kWh per day
-      // Production accumulates throughout the day (5 AM - 7 PM)
-      if (timeInHours >= 5 && timeInHours <= 19) {
-        // Calculate progress through the day (0 to 1)
-        const dayProgress = (timeInHours - 5) / 14; // 0 at 5 AM, 1 at 7 PM
-        
-        // Total daily capacity: 25-35 kWh (realistic for residential solar)
-        const dailyCapacity = 28 + (Math.random() - 0.5) * 6;
-        
-        // Use sigmoid curve for cumulative production (slow start, rapid midday, slow end)
-        const cumulativeProduction = dailyCapacity * (1 / (1 + Math.exp(-8 * (dayProgress - 0.5))));
-        
-        console.log(`[IoT Realtime API] FV Daily Production: ${cumulativeProduction.toFixed(2)} kWh (${(dayProgress * 100).toFixed(1)}% through day)`);
-        
-        // Return only daily production in kWh as per client spec
-        return { 
-          value: `${cumulativeProduction.toFixed(2)} kWh`, 
-          status 
-        };
-      } else {
-        // At night, production is 0 kWh
-        console.log(`[IoT Realtime API] FV Night mode - no generation`);
-        return { value: `0.00 kWh`, status };
-      }
-    
-    default:
-      return { value: `${currentVal.toFixed(1)}`, status };
-  }
+function computeStatusFromChannel(channel: any, sampledAt?: Date): "Online" | "Warning" | "Offline" {
+  const net = String(channel?.net ?? "");
+  if (net === "0") return "Offline";
+  const last = sampledAt?.getTime() || (channel?.last_entry_date ? new Date(channel.last_entry_date).getTime() : NaN);
+  if (!Number.isFinite(last)) return "Warning";
+  const ageMs = Date.now() - last;
+  if (ageMs <= 15 * 60 * 1000) return "Online"; // 15 mins
+  if (ageMs <= 60 * 60 * 1000) return "Warning"; // 1 hour
+  return "Offline";
 }
 
 export async function GET(request: Request) {
   try {
-    console.log('[IoT Realtime API] Request received at', new Date().toISOString());
-    
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
     
@@ -186,101 +54,116 @@ export async function GET(request: Request) {
     }
 
     const db = await getDb();
-    const sensors = await db.collection("iot_sensors").find({ projectId }).toArray();
-    console.log(`[IoT Realtime API] Found ${sensors.length} sensors for project ${projectId}`);
+    const sensors = (await db.collection("iot_sensors").find({ projectId }).toArray()) as SensorDoc[];
 
     const now = new Date();
-    const updates: Array<{ id: string; value: string; status: string; lastUpdate: string; seismicData?: { x_acc: number; y_acc: number; z_acc: number } }> = [];
+    const updates: Array<SensorUpdate> = [];
 
-    // Process each sensor individually for unique values
-    
-    // Generate unique values for each sensor instead of grouping
+    // Fetch all needed Ubibot channels once (per project request)
+    const channelIds = Array.from(
+      new Set(
+        sensors
+          .map((s) => (s.ubibotChannelId || "").trim())
+          .filter((v) => v.length > 0),
+      ),
+    );
+
+    const channelMap = new Map<string, any>();
+    await Promise.all(
+      channelIds.map(async (cid) => {
+        try {
+          const ch = await ubibotViewChannel(cid);
+          channelMap.set(cid, ch);
+        } catch (e) {
+          console.error(`[IoT Realtime] Error fetching channel ${cid}:`, e);
+          // If a channel fails, do not break the whole endpoint.
+          channelMap.set(cid, { __error: (e as any)?.message || "Ubibot error" });
+        }
+      }),
+    );
+
     for (const sensor of sensors) {
-      const type = sensor.type || "Temperature";
       const sensorId = String(sensor._id);
-      const sensorName = sensor.name || "";
-      
-      console.log(`[IoT Realtime API] Processing sensor ${sensorId}: type="${type}", name="${sensorName}"`);
-      
-      // Check if this is FV/Photovoltaic sensor by type or name
-      const isFVSensor = type.toLowerCase().includes("photovoltaic") || 
-                        type.toLowerCase().includes("fv") || 
-                        type.toLowerCase().includes("pv") ||
-                        sensorName.toLowerCase().includes("fv") ||
-                        sensorName.toLowerCase().includes("photovoltaic") ||
-                        sensorName.toLowerCase().includes("pv sensor");
-      
-      // Base value from sensor type with random variation
-      let baseValue = 23.5; // Default temperature
-      
-      if (isFVSensor) {
-        // Special handling for FV sensors - use timestamp directly
-        const { value, status } = generateCurrentValue("photovoltaic", 8.5, sensorId, now);
-        updates.push({
-          id: sensorId,
-          value,
-          status,
-          lastUpdate: now.toISOString()
+      const cid = (sensor.ubibotChannelId || "").trim();
+
+      // Linked to Ubibot
+      if (cid) {
+        const ch = channelMap.get(cid);
+        if (!ch || ch.__error) {
+          const status = "Offline";
+          updates.push({ id: sensorId, value: sensor.value || "—", status, lastUpdate: sensor.lastUpdate || now.toISOString() });
+          continue;
+        }
+
+        const snapshot = buildUbibotSnapshot(cid, ch, sensor.ubibotFieldMap);
+        const primaryKey = pickPrimaryMetricForSensorType(sensor.type);
+        const valueStr = formatMetricValue(snapshot.values[primaryKey], snapshot.units[primaryKey]);
+        const status = computeStatusFromChannel(ch, snapshot.sampledAt);
+        const lastUpdate = (snapshot.sampledAt || now).toISOString();
+        const batteryLevel = estimateBatteryPercentage(snapshot.values.voltage);
+        // We do not have signal bars in context yet but we can store it in sensor doc?
+        // Actually context Sensor interface has batteryLevel.
+
+        updates.push({ 
+          id: sensorId, 
+          value: valueStr, 
+          status, 
+          lastUpdate, 
+          batteryLevel,
+          readings: snapshot.values as Record<string, number>
         });
-        console.log(`[IoT Realtime API] Generated FV value for sensor ${sensor._id}: ${value} (${status})`);
-        continue; // Skip to next sensor
-      }
-      
-      // Check if this is a seismic sensor
-      const isSeismicSensor = type.toLowerCase().includes("seismic") || 
-                              type.toLowerCase().includes("accelerometric");
-      
-      if (isSeismicSensor) {
-        // Special handling for seismic sensors - return raw acceleration data
-        const result = generateCurrentValue("seismic and accelerometric", 0, sensorId, now);
-        updates.push({
-          id: sensorId,
-          value: result.value,
-          status: result.status,
-          lastUpdate: now.toISOString(),
-          seismicData: result.seismicData // Add seismic data to response
-        });
-        console.log(`[IoT Realtime API] Generated seismic value for sensor ${sensor._id}: ${result.value} (${result.status}), x=${result.seismicData?.x_acc}, y=${result.seismicData?.y_acc}, z=${result.seismicData?.z_acc}`);
-        continue; // Skip to next sensor
-      }
-      
-      switch (type.toLowerCase()) {
-        case "temperature": 
-          baseValue = 22 + Math.random() * 6; // 22-28°C range
-          break;
-        case "co2": 
-          baseValue = 600 + Math.random() * 200; // 600-800 ppm range
-          break;
-        case "light": 
-          baseValue = 400 + Math.random() * 300; // 400-700 lux range
-          break;
-        case "humidity": 
-          baseValue = 40 + Math.random() * 20; // 40-60% range
-          break;
-        case "energy consumption": 
-          baseValue = 1.8 + Math.random() * 1.4; // 1.8-3.2 kW range
-          break;
-        case "photovoltaic":
-        case "fv sensor":
-        case "pv sensor":
-          baseValue = 8.5; // Will be calculated based on time in generateCurrentValue
-          break;
-        default:
-          baseValue = baseValue + (Math.random() - 0.5) * 2; // ±1 variation
+
+        // Persist current reading on sensor doc
+        await db.collection("iot_sensors").updateOne(
+          { _id: new ObjectId(sensorId) },
+          {
+            $set: {
+              value: valueStr,
+              status,
+              lastUpdate,
+              batteryLevel,
+              ubibotChannelId: cid,
+              ubibotDeviceSerial: sensor.ubibotDeviceSerial,
+              ubibotFieldMap: snapshot.fieldMap,
+            },
+          },
+        );
+
+        // Append history (real only). De-dup using deterministic _id.
+        const ts = snapshot.sampledAt || now;
+        const historyId = `${sensorId}:${ts.toISOString()}`;
+        const historyDoc = {
+          _id: historyId,
+          sensorId,
+          projectId,
+          channelId: cid,
+          deviceSerial: sensor.ubibotDeviceSerial,
+          ts,
+          temp: snapshot.values.temp,
+          rh: snapshot.values.rh,
+          light: snapshot.values.light,
+          voltage: snapshot.values.voltage,
+          rssi: snapshot.values.rssi,
+          createdAt: new Date(),
+        };
+        try {
+          await db.collection("iot_sensor_readings").insertOne(historyDoc as any);
+        } catch (err: any) {
+          // ignore duplicates
+          if (err?.code !== 11000) {
+            console.warn("[IoT Realtime API] history insert failed", err?.message || err);
+          }
+        }
+        continue;
       }
 
-      // Add time-based variation for more realistic fluctuation
-      const timeVariation = Math.sin(Date.now() / 30000 + parseInt(sensorId.slice(-4), 16)) * 0.1;
-      baseValue += baseValue * timeVariation;
-
-      // Use individual sensor ID for unique randomness
-      const { value, status } = generateCurrentValue(type, baseValue, sensorId, now);      updates.push({
+      // Not linked: return stored value (no fake generation)
+      updates.push({
         id: sensorId,
-        value,
-        status,
-        lastUpdate: now.toISOString()
+        value: sensor.value || "—",
+        status: (sensor.status as any) || "Warning",
+        lastUpdate: sensor.lastUpdate || now.toISOString(),
       });
-      console.log(`[IoT Realtime API] Generated value for sensor ${sensor._id}: ${value} (${status})`);
     }
 
     return NextResponse.json({ updates, timestamp: now.toISOString() }, { status: 200 });

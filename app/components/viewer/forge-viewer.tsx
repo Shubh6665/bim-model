@@ -285,7 +285,10 @@ const ForgeViewer: React.FC<ForgeViewerProps> = ({
                 const sdata = data[sensorId];
                 if (!sdata) {
                     console.warn(`[ForgeViewer] No data found for sensor ${sensorId}. Available sensors:`, Object.keys(data));
-                    throw new Error('No data for selected sensor');
+                    setGraphTimestamps([]);
+                    setGraphSeries({ temp: [], rh: [], co2: [], pressure: [] });
+                    setGraphError('No historical data yet');
+                    return;
                 }
                 const primary = getPrimaryChannel(viewerOverlay.sensor?.type);
                 setPrimaryKey(primary.key);

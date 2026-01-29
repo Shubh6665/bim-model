@@ -292,7 +292,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                       </div>
                       <div className="text-xs text-gray-400 space-y-1">
                         <div>Type: {sensor.type}</div>
-                        <div>Value: {sensor.value} {sensorTypeData?.unit || ""}</div>
+                        <div>Value: {sensor.value}</div>
                         <div>Room: {sensor.room}</div>
                         <div>Battery: {sensor.batteryLevel}%</div>
                       </div>
