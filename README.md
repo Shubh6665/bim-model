@@ -40,7 +40,7 @@ A comprehensive Building Information Modeling (BIM) project management dashboard
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone <https://github.com/Shubh6665/bim-model>
    cd bim-project-client
    ```
 
@@ -208,13 +208,6 @@ Ensure all environment variables are configured in your deployment platform:
 - Use map clustering for many project markers
 - Optimize Forge viewer loading for better user experience
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📄 License
 
