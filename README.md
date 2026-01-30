@@ -40,7 +40,7 @@ A comprehensive Building Information Modeling (BIM) project management dashboard
 
 1. **Clone the repository**
    ```bash
-   git clone <https://github.com/Shubh6665/bim-model>
+   git clone https://github.com/Shubh6665/bim-model
    cd bim-project-client
    ```
 
