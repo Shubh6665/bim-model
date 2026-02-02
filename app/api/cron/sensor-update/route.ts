@@ -68,13 +68,22 @@ async function updateSensors() {
 
 export async function GET(request: Request) {
   try {
-    // Optional: Check for Secret Header to secure this endpoint
+    // Secure with CRON_SECRET - required for production
     const authHeader = request.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      console.warn("[Cron] WARNING: CRON_SECRET is not set! Endpoint is exposed.");
+      return NextResponse.json({ message: 'CRON_SECRET not configured' }, { status: 500 });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      console.warn("[Cron] Unauthorized access attempt. Invalid or missing auth header.");
+      return NextResponse.json({ message: 'Unauthorized - Invalid credentials' }, { status: 401 });
     }
 
     const results = await updateSensors();
+    console.log(`[Cron] Successfully updated ${results.length} sensors.`);
     return NextResponse.json({ success: true, updated: results.length });
   } catch (error) {
     console.error("[Cron] Global error:", error);
