@@ -15,6 +15,9 @@ export interface SensorFormData {
   devsn: string;
   ubibotChannelId: string;
   ubibotDeviceSerial: string;
+  sensorProvider: "ubibot" | "shelly";
+  shellyDeviceId: string;
+  shellyAuthKey: string;
 }
 
 interface SensorInsertionFormProps {
@@ -47,6 +50,9 @@ export function SensorInsertionForm({
     devsn: "",
     ubibotChannelId: "",
     ubibotDeviceSerial: "",
+    sensorProvider: "ubibot",
+    shellyDeviceId: "",
+    shellyAuthKey: "",
   });
 
   const [errors, setErrors] = useState<Partial<SensorFormData>>({});
@@ -66,6 +72,9 @@ export function SensorInsertionForm({
         devsn: "",
         ubibotChannelId: "",
         ubibotDeviceSerial: "",
+        sensorProvider: "ubibot",
+        shellyDeviceId: "",
+        shellyAuthKey: "",
       });
       setErrors({});
     }
@@ -142,6 +151,9 @@ export function SensorInsertionForm({
       devsn: "",
       ubibotChannelId: "",
       ubibotDeviceSerial: "",
+      sensorProvider: "ubibot",
+      shellyDeviceId: "",
+      shellyAuthKey: "",
     });
     setErrors({});
     onCancel();
@@ -187,6 +199,22 @@ export function SensorInsertionForm({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Sensor Provider Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Sensor Provider *
+            </label>
+            <select
+              value={formData.sensorProvider}
+              onChange={(e) => handleInputChange("sensorProvider", e.target.value as "ubibot" | "shelly")}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            >
+              <option value="ubibot">UbiBot</option>
+              <option value="shelly">Shelly</option>
+            </select>
+          </div>
+
           {/* Name Field */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -335,43 +363,85 @@ export function SensorInsertionForm({
           </div>
 
           {/* UbiBot Link (optional) */}
-          <div className="pt-2 border-t border-gray-700">
-            <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Link (optional)</div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Channel ID
-                  <span className="text-xs text-gray-400 ml-1">(e.g., 121744)</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={formData.ubibotChannelId}
-                  onChange={(e) => handleInputChange("ubibotChannelId", e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter UbiBot Channel ID"
-                  disabled={loading}
-                />
+          {formData.sensorProvider === "ubibot" && (
+            <div className="pt-2 border-t border-gray-700">
+              <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Link (optional)</div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Channel ID
+                    <span className="text-xs text-gray-400 ml-1">(e.g., 121744)</span>
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.ubibotChannelId}
+                    onChange={(e) => handleInputChange("ubibotChannelId", e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter UbiBot Channel ID"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Device Serial Number
+                    <span className="text-xs text-gray-400 ml-1">(e.g., M5AM11KTWS1P)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ubibotDeviceSerial}
+                    onChange={(e) => handleInputChange("ubibotDeviceSerial", e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter UbiBot device serial"
+                    disabled={loading}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  If you fill Channel ID, the sensor will pull real values from UbiBot and store real history.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Device Serial Number
-                  <span className="text-xs text-gray-400 ml-1">(e.g., M5AM11KTWS1P)</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.ubibotDeviceSerial}
-                  onChange={(e) => handleInputChange("ubibotDeviceSerial", e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter UbiBot device serial"
-                  disabled={loading}
-                />
-              </div>
-              <p className="text-xs text-gray-400">
-                If you fill Channel ID, the sensor will pull real values from UbiBot and store real history.
-              </p>
             </div>
-          </div>
+          )}
+
+          {/* Shelly Link (optional) */}
+          {formData.sensorProvider === "shelly" && (
+            <div className="pt-2 border-t border-gray-700">
+              <div className="text-sm font-medium text-gray-200 mb-2">Shelly Device Configuration</div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Device ID *
+                    <span className="text-xs text-gray-400 ml-1">(e.g., 80b54e33e164)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.shellyDeviceId}
+                    onChange={(e) => handleInputChange("shellyDeviceId", e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Shelly Device ID"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Authorization Cloud Key *
+                    <span className="text-xs text-gray-400 ml-1">(from Shelly Cloud app)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.shellyAuthKey}
+                    onChange={(e) => handleInputChange("shellyAuthKey", e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Authorization Cloud Key"
+                    disabled={loading}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  Device ID and Authorization Key are required to fetch real-time data from Shelly Cloud.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">

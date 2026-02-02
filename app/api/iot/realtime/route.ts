@@ -9,6 +9,7 @@ import {
   pickPrimaryMetricForSensorType,
   ubibotViewChannel,
 } from "@/app/services/ubibot";
+import { getShellyDeviceStatus, buildShellySensorSnapshot } from "@/app/services/shelly";
 
 type SensorDoc = {
   _id: any;
@@ -18,9 +19,14 @@ type SensorDoc = {
   value?: string;
   status?: string;
   lastUpdate?: string;
+  // UbiBot
   ubibotChannelId?: string;
   ubibotDeviceSerial?: string;
   ubibotFieldMap?: any;
+  // Shelly
+  sensorProvider?: "ubibot" | "shelly";
+  shellyDeviceId?: string;
+  shellyAuthKey?: string;
 };
 
 // Return type for updates
@@ -84,6 +90,83 @@ export async function GET(request: Request) {
 
     for (const sensor of sensors) {
       const sensorId = String(sensor._id);
+      
+      // Handle Shelly Sensors
+      if (sensor.sensorProvider === "shelly" && sensor.shellyDeviceId && sensor.shellyAuthKey) {
+        try {
+          const shellyData = await getShellyDeviceStatus(sensor.shellyDeviceId, sensor.shellyAuthKey);
+          
+          if (shellyData) {
+            // Determine primary value based on sensor type
+            let valueStr = "—";
+            if (sensor.type?.toLowerCase().includes("temp")) {
+              valueStr = shellyData.temperature ? `${shellyData.temperature.toFixed(1)}°C` : "—";
+            } else if (sensor.type?.toLowerCase().includes("humid")) {
+              valueStr = shellyData.humidity ? `${shellyData.humidity.toFixed(0)}%` : "—";
+            }
+            
+            const status = "Online";
+            const lastUpdate = shellyData.timestamp || now.toISOString();
+
+            updates.push({
+              id: sensorId,
+              value: valueStr,
+              status,
+              lastUpdate,
+              batteryLevel: shellyData.battery,
+              readings: {
+                temp: shellyData.temperature || 0,
+                rh: shellyData.humidity || 0,
+              }
+            });
+
+            // Update sensor document
+            await db.collection("iot_sensors").updateOne(
+              { _id: new ObjectId(sensorId) },
+              {
+                $set: {
+                  value: valueStr,
+                  status,
+                  lastUpdate: now.toISOString(), // Set local time as last check
+                  batteryLevel: shellyData.battery,
+                },
+              }
+            );
+
+            // Store history
+            const historyId = `${sensorId}:${lastUpdate}`;
+            try {
+              await db.collection("iot_sensor_readings").insertOne({
+                _id: historyId,
+                sensorId,
+                projectId,
+                deviceId: sensor.shellyDeviceId,
+                provider: "shelly",
+                ts: new Date(lastUpdate),
+                temp: shellyData.temperature,
+                rh: shellyData.humidity,
+                battery: shellyData.battery,
+                createdAt: new Date(),
+              } as any);
+            } catch (err: any) {
+              if (err?.code !== 11000) {
+                console.warn("[IoT Realtime] Shelly history insert failed", err?.message || err);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing Shelly sensor ${sensorId}:`, error);
+          updates.push({ 
+            id: sensorId, 
+            value: sensor.value || "—", 
+            status: "Offline", // Assuming failure means offline or error
+            lastUpdate: sensor.lastUpdate || now.toISOString() 
+          });
+        }
+        continue;
+      }
+
+      // Handle UbiBot Sensors (legacy check)
       const cid = (sensor.ubibotChannelId || "").trim();
 
       // Linked to Ubibot

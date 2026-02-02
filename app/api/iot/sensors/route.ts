@@ -29,6 +29,10 @@ interface SensorData {
   devsn?: string;
   ubibotChannelId?: string;
   ubibotDeviceSerial?: string;
+  // Shelly sensor fields
+  sensorProvider?: "ubibot" | "shelly";
+  shellyDeviceId?: string;
+  shellyAuthKey?: string;
 }
 
 async function getUserEmail() {
@@ -117,6 +121,10 @@ export async function GET(request: Request) {
         devsn: sensor.devsn,
         ubibotChannelId: sensor.ubibotChannelId,
         ubibotDeviceSerial: sensor.ubibotDeviceSerial,
+        // Shelly fields
+        sensorProvider: sensor.sensorProvider,
+        shellyDeviceId: sensor.shellyDeviceId,
+        shellyAuthKey: sensor.shellyAuthKey,
       };
     });
 
@@ -182,6 +190,10 @@ export async function POST(request: Request) {
       devsn: sensorData.devsn,
       ubibotChannelId: sensorData.ubibotChannelId,
       ubibotDeviceSerial: sensorData.ubibotDeviceSerial,
+      // Shelly fields
+      sensorProvider: sensorData.sensorProvider || "ubibot",
+      shellyDeviceId: sensorData.shellyDeviceId,
+      shellyAuthKey: sensorData.shellyAuthKey,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
