@@ -116,13 +116,26 @@ export async function GET(request: Request) {
           if (finalData) {
             // Determine primary value based on sensor type
             let valueStr = "—";
-            if (sensor.type?.toLowerCase().includes("temp")) {
-              valueStr = finalData.temperature ? `${finalData.temperature.toFixed(1)}°C` : "—";
-            } else if (sensor.type?.toLowerCase().includes("humid")) {
-              valueStr = finalData.humidity ? `${finalData.humidity.toFixed(0)}%` : "—";
+            const sensorType = (sensor.type || "").toLowerCase();
+            if (sensorType.includes("temp") || sensorType.includes("hum")) {
+              valueStr = finalData.temperature !== undefined ? `${finalData.temperature.toFixed(1)}°C` : "—";
+            } else if (sensorType.includes("humid")) {
+              valueStr = finalData.humidity !== undefined ? `${Math.round(finalData.humidity)}%` : "—";
+            } else {
+              // Default to temperature for Temp & Hum sensors
+              valueStr = finalData.temperature !== undefined ? `${finalData.temperature.toFixed(1)}°C` : "—";
             }
             
-            const status = "Online";
+            // Determine status based on data age
+            // Shelly H&T G3 updates every 2 hours (wakeup_period: 7200)
+            const dataAgeHours = finalData.dataAgeHours ?? 0;
+            let status: "Online" | "Warning" | "Offline" = "Online";
+            if (!finalData.online || dataAgeHours > 6) {
+              status = "Offline";
+            } else if (dataAgeHours > 2.5) {
+              status = "Warning";
+            }
+            
             const lastUpdate = finalData.timestamp || now.toISOString();
 
             updates.push({

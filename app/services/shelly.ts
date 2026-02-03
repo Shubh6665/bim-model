@@ -11,6 +11,7 @@ export interface ShellySensorData {
   battery?: number;
   timestamp?: string;
   online?: boolean;
+  dataAgeHours?: number;
 }
 
 export interface ShellyDeviceStatus {
@@ -78,12 +79,52 @@ export async function getShellyDeviceStatus(
 
     const deviceStatus = result.data.device_status;
     
+    // Parse Shelly timestamp - device has utc_offset which we need to account for
+    // The _updated timestamp is in device's local time
+    // We also have unix timestamp in sys.unixtime which is UTC
+    let timestamp: string;
+    const unixTime = (deviceStatus as any).sys?.unixtime;
+    
+    if (unixTime && typeof unixTime === 'number') {
+      // Use unix timestamp directly - this is UTC
+      timestamp = new Date(unixTime * 1000).toISOString();
+    } else if (deviceStatus._updated) {
+      // Fallback: parse the local time string
+      // Format is "YYYY-MM-DD HH:mm:ss" in device's local timezone
+      const utcOffset = (deviceStatus as any).sys?.utc_offset || 0;
+      const shellyTime = deviceStatus._updated.replace(' ', 'T');
+      const parsed = new Date(shellyTime);
+      if (!isNaN(parsed.getTime())) {
+        // Adjust for UTC offset (convert from local to UTC)
+        const utcMs = parsed.getTime() - (utcOffset * 1000);
+        timestamp = new Date(utcMs).toISOString();
+      } else {
+        timestamp = new Date().toISOString();
+      }
+    } else {
+      timestamp = new Date().toISOString();
+    }
+    
+    // Calculate data age for status
+    const dataAge = Date.now() - new Date(timestamp).getTime();
+    const hoursOld = dataAge / (1000 * 60 * 60);
+    
+    // Shelly H&T G3 wakes up every 2 hours (wakeup_period: 7200)
+    // Online = data < 2.5 hours old, Warning = 2.5-6 hours, Offline = > 6 hours
+    let effectiveOnline = result.data.online ?? true;
+    if (hoursOld > 6) {
+      effectiveOnline = false; // Consider offline if data is very old
+    }
+
+    console.log(`[Shelly] Device ${deviceId}: temp=${deviceStatus["temperature:0"]?.tC}°C, humidity=${deviceStatus["humidity:0"]?.rh}%, battery=${deviceStatus["devicepower:0"]?.battery?.percent}%, lastUpdate=${timestamp}, hoursOld=${hoursOld.toFixed(1)}`);
+    
     return {
       temperature: deviceStatus["temperature:0"]?.tC,
       humidity: deviceStatus["humidity:0"]?.rh,
       battery: deviceStatus["devicepower:0"]?.battery?.percent,
-      timestamp: deviceStatus._updated || new Date().toISOString(),
-      online: result.data.online ?? true,
+      timestamp,
+      online: effectiveOnline,
+      dataAgeHours: hoursOld,
     };
   } catch (error) {
     console.error("Error fetching Shelly device status:", error);
