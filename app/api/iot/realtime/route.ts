@@ -4,12 +4,11 @@ import { ObjectId } from "mongodb";
 import {
   buildUbibotSnapshot,
   estimateBatteryPercentage,
-  estimateSignalStrength,
   formatMetricValue,
   pickPrimaryMetricForSensorType,
   ubibotViewChannel,
 } from "@/app/services/ubibot";
-import { getShellyDeviceStatus, buildShellySensorSnapshot } from "@/app/services/shelly";
+import { getShellyDeviceStatus, getShellyLocalStatus } from "@/app/services/shelly";
 
 type SensorDoc = {
   _id: any;
@@ -27,6 +26,8 @@ type SensorDoc = {
   sensorProvider?: "ubibot" | "shelly";
   shellyDeviceId?: string;
   shellyAuthKey?: string;
+  shellyIpAddress?: string;
+  shellyServerUri?: string;
 };
 
 // Return type for updates
@@ -92,31 +93,47 @@ export async function GET(request: Request) {
       const sensorId = String(sensor._id);
       
       // Handle Shelly Sensors
-      if (sensor.sensorProvider === "shelly" && sensor.shellyDeviceId && sensor.shellyAuthKey) {
+      if (sensor.sensorProvider === "shelly") {
         try {
-          const shellyData = await getShellyDeviceStatus(sensor.shellyDeviceId, sensor.shellyAuthKey);
+          const deviceId = (sensor.shellyDeviceId || "").trim();
+          // Use sensor-specific auth key, or fallback to env variable
+          const authKey = (sensor.shellyAuthKey || "").trim() || process.env.SHELLY_AUTH_KEY || "";
+          const ip = (sensor.shellyIpAddress || "").trim();
+          const serverUri = (sensor.shellyServerUri || "").trim() || process.env.SHELLY_CLOUD_SERVER || "https://shelly-238-eu.shelly.cloud";
+
+          console.log(`[IoT Realtime] Fetching Shelly sensor ${sensorId}, device: ${deviceId}, hasAuthKey: ${!!authKey}, serverUri: ${serverUri}`);
+
+          const shellyData = deviceId && authKey
+            ? await getShellyDeviceStatus(deviceId, authKey, serverUri)
+            : null;
+
+          const fallbackLocal = !shellyData && ip
+            ? await getShellyLocalStatus(ip)
+            : null;
+
+          const finalData = shellyData || fallbackLocal;
           
-          if (shellyData) {
+          if (finalData) {
             // Determine primary value based on sensor type
             let valueStr = "—";
             if (sensor.type?.toLowerCase().includes("temp")) {
-              valueStr = shellyData.temperature ? `${shellyData.temperature.toFixed(1)}°C` : "—";
+              valueStr = finalData.temperature ? `${finalData.temperature.toFixed(1)}°C` : "—";
             } else if (sensor.type?.toLowerCase().includes("humid")) {
-              valueStr = shellyData.humidity ? `${shellyData.humidity.toFixed(0)}%` : "—";
+              valueStr = finalData.humidity ? `${finalData.humidity.toFixed(0)}%` : "—";
             }
             
             const status = "Online";
-            const lastUpdate = shellyData.timestamp || now.toISOString();
+            const lastUpdate = finalData.timestamp || now.toISOString();
 
             updates.push({
               id: sensorId,
               value: valueStr,
               status,
               lastUpdate,
-              batteryLevel: shellyData.battery,
+              batteryLevel: finalData.battery,
               readings: {
-                temp: shellyData.temperature || 0,
-                rh: shellyData.humidity || 0,
+                temp: finalData.temperature || 0,
+                rh: finalData.humidity || 0,
               }
             });
 
@@ -127,8 +144,8 @@ export async function GET(request: Request) {
                 $set: {
                   value: valueStr,
                   status,
-                  lastUpdate: now.toISOString(), // Set local time as last check
-                  batteryLevel: shellyData.battery,
+                  lastUpdate, 
+                  batteryLevel: finalData.battery,
                 },
               }
             );
@@ -143,9 +160,9 @@ export async function GET(request: Request) {
                 deviceId: sensor.shellyDeviceId,
                 provider: "shelly",
                 ts: new Date(lastUpdate),
-                temp: shellyData.temperature,
-                rh: shellyData.humidity,
-                battery: shellyData.battery,
+                temp: finalData.temperature,
+                rh: finalData.humidity,
+                battery: finalData.battery,
                 createdAt: new Date(),
               } as any);
             } catch (err: any) {
@@ -153,6 +170,13 @@ export async function GET(request: Request) {
                 console.warn("[IoT Realtime] Shelly history insert failed", err?.message || err);
               }
             }
+          } else {
+            updates.push({
+              id: sensorId,
+              value: sensor.value || "—",
+              status: "Offline",
+              lastUpdate: sensor.lastUpdate || now.toISOString(),
+            });
           }
         } catch (error) {
           console.error(`Error processing Shelly sensor ${sensorId}:`, error);

@@ -95,13 +95,22 @@ export async function GET(
     let valueStr: string = sensor.value;
     
     // Generate dynamic values based on sensor type (matching the IoT sensors API logic)
+    // ONLY generate fake values if NO real data is present (UbiBot/Shelly)
     const t = (sensor.type || '').toLowerCase();
-    if (t.includes('temperature')) {
-      const v = currentTempForGroup(String(groupKey), now);
-      valueStr = `${v.toFixed(1)}°C`;
-    } else if (t.includes('humidity')) {
-      const v = currentHumidityForGroup(String(groupKey), now);
-      valueStr = `${Math.round(v)}%`;
+    const hasRealData = (sensor.sensorProvider === 'shelly' && sensor.shellyDeviceId) || 
+                        (sensor.sensorProvider === 'ubibot' && sensor.ubibotChannelId);
+
+    if (!hasRealData) {
+      if (t.includes('temperature')) {
+        const v = currentTempForGroup(String(groupKey), now);
+        valueStr = `${v.toFixed(1)}°C`;
+      } else if (t.includes('humidity')) {
+        const v = currentHumidityForGroup(String(groupKey), now);
+        valueStr = `${Math.round(v)}%`;
+      }
+    } else {
+        // Use real value from DB
+        valueStr = sensor.value;
     }
     
     const sensorData = {

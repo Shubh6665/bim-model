@@ -87,6 +87,11 @@ interface SensorContextType {
     devsn: string;
     ubibotChannelId: string;
     ubibotDeviceSerial: string;
+    sensorProvider: "ubibot" | "shelly";
+    shellyDeviceId: string;
+    shellyAuthKey: string;
+    shellyIpAddress: string;
+    shellyServerUri: string;
   }) => Promise<Sensor | null>;
   removeSensor: (sensorId: string) => Promise<boolean>;
   updateSensor: (sensorId: string, updates: Partial<Sensor>) => Promise<boolean>;
@@ -562,6 +567,11 @@ export function SensorProvider({ children }: SensorProviderProps) {
     devsn: string;
     ubibotChannelId: string;
     ubibotDeviceSerial: string;
+    sensorProvider: "ubibot" | "shelly";
+    shellyDeviceId: string;
+    shellyAuthKey: string;
+    shellyIpAddress: string;
+    shellyServerUri: string;
   }): Promise<Sensor | null> => {
     if (!pendingPosition) {
       console.error('No pending position for sensor placement');
@@ -639,6 +649,12 @@ export function SensorProvider({ children }: SensorProviderProps) {
         devsn: formData.devsn || undefined,
         ubibotChannelId: (formData.ubibotChannelId || '').trim() || undefined,
         ubibotDeviceSerial: (formData.ubibotDeviceSerial || '').trim() || undefined,
+        // Shelly fields
+        sensorProvider: formData.sensorProvider || "ubibot",
+        shellyDeviceId: (formData.shellyDeviceId || '').trim() || undefined,
+        shellyAuthKey: (formData.shellyAuthKey || '').trim() || undefined,
+        shellyIpAddress: (formData.shellyIpAddress || '').trim() || undefined,
+        shellyServerUri: formData.sensorProvider === "shelly" ? (formData.shellyServerUri || 'https://shelly-238-eu.shelly.cloud') : undefined,
         // Add room metadata if detected
         ...(roomInfo && {
           roomId: roomInfo.roomId,

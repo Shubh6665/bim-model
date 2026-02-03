@@ -18,6 +18,8 @@ export interface SensorFormData {
   sensorProvider: "ubibot" | "shelly";
   shellyDeviceId: string;
   shellyAuthKey: string;
+  shellyIpAddress: string;
+  shellyServerUri: string;
 }
 
 interface SensorInsertionFormProps {
@@ -53,6 +55,8 @@ export function SensorInsertionForm({
     sensorProvider: "ubibot",
     shellyDeviceId: "",
     shellyAuthKey: "",
+    shellyIpAddress: "",
+    shellyServerUri: "https://shelly-238-eu.shelly.cloud",
   });
 
   const [errors, setErrors] = useState<Partial<SensorFormData>>({});
@@ -75,6 +79,8 @@ export function SensorInsertionForm({
         sensorProvider: "ubibot",
         shellyDeviceId: "",
         shellyAuthKey: "",
+        shellyIpAddress: "",
+        shellyServerUri: "https://shelly-238-eu.shelly.cloud",
       });
       setErrors({});
     }
@@ -127,6 +133,18 @@ export function SensorInsertionForm({
       newErrors.model = "Model is required";
     }
 
+    if (formData.sensorProvider === "shelly") {
+      if (!formData.shellyDeviceId.trim()) {
+        newErrors.shellyDeviceId = "Device ID is required";
+      }
+    }
+    
+    if (formData.sensorProvider === "ubibot") {
+      if (!formData.ubibotChannelId.trim()) {
+        newErrors.ubibotChannelId = "Channel ID is required for UbiBot sensors";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -154,6 +172,8 @@ export function SensorInsertionForm({
       sensorProvider: "ubibot",
       shellyDeviceId: "",
       shellyAuthKey: "",
+      shellyIpAddress: "",
+      shellyServerUri: "https://shelly-238-eu.shelly.cloud",
     });
     setErrors({});
     onCancel();
@@ -330,46 +350,14 @@ export function SensorInsertionForm({
             />
           </div>
 
-          {/* External ID Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              External ID
-              <span className="text-xs text-gray-400 ml-1">(for data merging)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.externalId}
-              onChange={(e) => handleInputChange("externalId", e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., 20286614 (sensors with same ID share data)"
-              disabled={loading}
-            />
-          </div>
-
-          {/* Device Serial Number Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Device Serial (devsn)
-              <span className="text-xs text-gray-400 ml-1">(alternative grouping)</span>
-            </label>
-            <input
-              type="text"
-              value={formData.devsn}
-              onChange={(e) => handleInputChange("devsn", e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., DEV001 (fallback if no External ID)"
-              disabled={loading}
-            />
-          </div>
-
           {/* UbiBot Link (optional) */}
           {formData.sensorProvider === "ubibot" && (
             <div className="pt-2 border-t border-gray-700">
-              <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Link (optional)</div>
+              <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Configuration</div>
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Channel ID
+                    Channel ID *
                     <span className="text-xs text-gray-400 ml-1">(e.g., 121744)</span>
                   </label>
                   <input
@@ -377,28 +365,30 @@ export function SensorInsertionForm({
                     inputMode="numeric"
                     value={formData.ubibotChannelId}
                     onChange={(e) => handleInputChange("ubibotChannelId", e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.ubibotChannelId ? "border-red-500" : "border-gray-600"
+                    }`}
                     placeholder="Enter UbiBot Channel ID"
                     disabled={loading}
                   />
+                  {errors.ubibotChannelId && (
+                    <p className="text-red-400 text-xs mt-1">{errors.ubibotChannelId}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Device Serial Number
-                    <span className="text-xs text-gray-400 ml-1">(e.g., M5AM11KTWS1P)</span>
+                    Device Serial
+                    <span className="text-xs text-gray-400 ml-1">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.ubibotDeviceSerial}
                     onChange={(e) => handleInputChange("ubibotDeviceSerial", e.target.value)}
                     className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter UbiBot device serial"
+                    placeholder="Enter Device Serial (optional)"
                     disabled={loading}
                   />
                 </div>
-                <p className="text-xs text-gray-400">
-                  If you fill Channel ID, the sensor will pull real values from UbiBot and store real history.
-                </p>
               </div>
             </div>
           )}
@@ -406,8 +396,12 @@ export function SensorInsertionForm({
           {/* Shelly Link (optional) */}
           {formData.sensorProvider === "shelly" && (
             <div className="pt-2 border-t border-gray-700">
-              <div className="text-sm font-medium text-gray-200 mb-2">Shelly Device Configuration</div>
+              <div className="text-sm font-medium text-gray-200 mb-2">Shelly Configuration</div>
               <div className="space-y-3">
+                
+                {/* Server URI (Hidden/Default) */}
+                <input type="hidden" value={formData.shellyServerUri} />
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Device ID *
@@ -417,28 +411,45 @@ export function SensorInsertionForm({
                     type="text"
                     value={formData.shellyDeviceId}
                     onChange={(e) => handleInputChange("shellyDeviceId", e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.shellyDeviceId ? "border-red-500" : "border-gray-600"
+                    }`}
                     placeholder="Enter Shelly Device ID"
                     disabled={loading}
                   />
+                  {errors.shellyDeviceId && (
+                    <p className="text-red-400 text-xs mt-1">{errors.shellyDeviceId}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Authorization Cloud Key *
-                    <span className="text-xs text-gray-400 ml-1">(from Shelly Cloud app)</span>
+                    Authorization Cloud Key
+                    <span className="text-xs text-gray-400 ml-1">(optional - uses env default if empty)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.shellyAuthKey}
                     onChange={(e) => handleInputChange("shellyAuthKey", e.target.value)}
                     className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter Authorization Cloud Key"
+                    placeholder="Leave empty to use default key"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Get from Shelly App → Device → Settings → Authorization Cloud Key</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    IP Address
+                    <span className="text-xs text-gray-400 ml-1">(optional - for local fallback)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.shellyIpAddress}
+                    onChange={(e) => handleInputChange("shellyIpAddress", e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., 192.168.1.29"
                     disabled={loading}
                   />
                 </div>
-                <p className="text-xs text-gray-400">
-                  Device ID and Authorization Key are required to fetch real-time data from Shelly Cloud.
-                </p>
               </div>
             </div>
           )}

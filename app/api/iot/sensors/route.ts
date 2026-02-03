@@ -33,6 +33,8 @@ interface SensorData {
   sensorProvider?: "ubibot" | "shelly";
   shellyDeviceId?: string;
   shellyAuthKey?: string;
+  shellyIpAddress?: string;
+  shellyServerUri?: string;
 }
 
 async function getUserEmail() {
@@ -125,6 +127,8 @@ export async function GET(request: Request) {
         sensorProvider: sensor.sensorProvider,
         shellyDeviceId: sensor.shellyDeviceId,
         shellyAuthKey: sensor.shellyAuthKey,
+        shellyIpAddress: sensor.shellyIpAddress,
+        shellyServerUri: sensor.shellyServerUri,
       };
     });
 
@@ -194,6 +198,8 @@ export async function POST(request: Request) {
       sensorProvider: sensorData.sensorProvider || "ubibot",
       shellyDeviceId: sensorData.shellyDeviceId,
       shellyAuthKey: sensorData.shellyAuthKey,
+      shellyIpAddress: sensorData.shellyIpAddress,
+      shellyServerUri: sensorData.shellyServerUri,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
