@@ -30,7 +30,7 @@ interface SensorData {
   ubibotChannelId?: string;
   ubibotDeviceSerial?: string;
   // Shelly sensor fields
-  sensorProvider?: "ubibot" | "shelly";
+  sensorProvider?: "ubibot" | "shelly" | "generic";
   shellyDeviceId?: string;
   shellyAuthKey?: string;
   shellyIpAddress?: string;
@@ -287,6 +287,21 @@ export async function PUT(request: Request) {
         color: updatedSensor.color,
         projectId: updatedSensor.projectId,
         modelPosition: updatedSensor.modelPosition,
+        // Additional fields
+        code: updatedSensor.code,
+        mark: updatedSensor.mark,
+        model: updatedSensor.model,
+        link: updatedSensor.link,
+        externalId: updatedSensor.externalId,
+        devsn: updatedSensor.devsn,
+        ubibotChannelId: updatedSensor.ubibotChannelId,
+        ubibotDeviceSerial: updatedSensor.ubibotDeviceSerial,
+        // Shelly fields
+        sensorProvider: updatedSensor.sensorProvider,
+        shellyDeviceId: updatedSensor.shellyDeviceId,
+        shellyAuthKey: updatedSensor.shellyAuthKey,
+        shellyIpAddress: updatedSensor.shellyIpAddress,
+        shellyServerUri: updatedSensor.shellyServerUri,
       };
 
       return NextResponse.json(transformedSensor, { status: 200 });

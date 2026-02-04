@@ -35,6 +35,12 @@ export interface Sensor {
   ubibotChannelId?: string;
   ubibotDeviceSerial?: string;
   readings?: Record<string, number>;
+  // Sensor provider field
+  sensorProvider?: "ubibot" | "shelly" | "generic";
+  shellyDeviceId?: string;
+  shellyAuthKey?: string;
+  shellyIpAddress?: string;
+  shellyServerUri?: string;
 }
 
 export const SENSOR_TYPES = [
@@ -87,7 +93,7 @@ interface SensorContextType {
     devsn: string;
     ubibotChannelId: string;
     ubibotDeviceSerial: string;
-    sensorProvider: "ubibot" | "shelly";
+    sensorProvider: "ubibot" | "shelly" | "generic";
     shellyDeviceId: string;
     shellyAuthKey: string;
     shellyIpAddress: string;
@@ -567,7 +573,7 @@ export function SensorProvider({ children }: SensorProviderProps) {
     devsn: string;
     ubibotChannelId: string;
     ubibotDeviceSerial: string;
-    sensorProvider: "ubibot" | "shelly";
+    sensorProvider: "ubibot" | "shelly" | "generic";
     shellyDeviceId: string;
     shellyAuthKey: string;
     shellyIpAddress: string;

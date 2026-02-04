@@ -1,115 +1,80 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { SENSOR_TYPES, useSensorContext } from "@/app/context/sensor-context";
+import { SENSOR_TYPES, Sensor } from "@/app/context/sensor-context";
 
-export interface SensorFormData {
+export interface SensorEditFormData {
   name: string;
   code: string;
   mark: string;
   model: string;
   room: string;
   link: string;
-  type: string;
-  externalId: string;
-  devsn: string;
+  sensorProvider: "ubibot" | "shelly" | "generic";
   ubibotChannelId: string;
   ubibotDeviceSerial: string;
-  sensorProvider: "ubibot" | "shelly" | "generic";
   shellyDeviceId: string;
   shellyAuthKey: string;
   shellyIpAddress: string;
   shellyServerUri: string;
 }
 
-interface SensorInsertionFormProps {
+interface SensorEditFormProps {
   isOpen: boolean;
-  sensorType: string;
-  position: { x: number; y: number; z: number } | null;
-  onSubmit: (formData: SensorFormData) => void;
+  sensor: Sensor | null;
+  onSubmit: (formData: SensorEditFormData) => void;
   onCancel: () => void;
   loading?: boolean;
 }
 
-export function SensorInsertionForm({
+export function SensorEditForm({
   isOpen,
-  sensorType,
-  position,
+  sensor,
   onSubmit,
   onCancel,
   loading = false,
-}: SensorInsertionFormProps) {
-  const { getRoomForPosition, getRoomForPending } = useSensorContext();
-  const [formData, setFormData] = useState<SensorFormData>({
+}: SensorEditFormProps) {
+  const [formData, setFormData] = useState<SensorEditFormData>({
     name: "",
     code: "",
     mark: "",
     model: "",
     room: "",
     link: "",
-    type: sensorType,
-    externalId: "",
-    devsn: "",
+    sensorProvider: "ubibot",
     ubibotChannelId: "",
     ubibotDeviceSerial: "",
-    sensorProvider: "ubibot",
     shellyDeviceId: "",
     shellyAuthKey: "",
     shellyIpAddress: "",
     shellyServerUri: "https://shelly-238-eu.shelly.cloud",
   });
 
-  const [errors, setErrors] = useState<Partial<SensorFormData>>({});
+  const [errors, setErrors] = useState<Partial<SensorEditFormData>>({});
 
-  // Reset form when modal opens/closes or sensor type changes
+  // Populate form with sensor data when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && sensor) {
       setFormData({
-        name: `${sensorType} Sensor`,
-        code: "",
-        mark: "",
-        model: "",
-        room: "",
-        link: "",
-        type: sensorType,
-        externalId: "",
-        devsn: "",
-        ubibotChannelId: "",
-        ubibotDeviceSerial: "",
-        sensorProvider: "ubibot",
-        shellyDeviceId: "",
-        shellyAuthKey: "",
-        shellyIpAddress: "",
-        shellyServerUri: "https://shelly-238-eu.shelly.cloud",
+        name: sensor.name || "",
+        code: sensor.code || "",
+        mark: sensor.mark || "",
+        model: sensor.model || "",
+        room: sensor.room || "",
+        link: sensor.link || "",
+        sensorProvider: sensor.sensorProvider || "ubibot",
+        ubibotChannelId: sensor.ubibotChannelId || "",
+        ubibotDeviceSerial: sensor.ubibotDeviceSerial || "",
+        shellyDeviceId: sensor.shellyDeviceId || "",
+        shellyAuthKey: sensor.shellyAuthKey || "",
+        shellyIpAddress: sensor.shellyIpAddress || "",
+        shellyServerUri: sensor.shellyServerUri || "https://shelly-238-eu.shelly.cloud",
       });
       setErrors({});
     }
-  }, [isOpen, sensorType]);
+  }, [isOpen, sensor]);
 
-  // Autofill room from pending placement (dbId preferred), fallback to geometric, allow user to edit
-  useEffect(() => {
-    if (!isOpen) return;
-    let active = true;
-    (async () => {
-      try {
-        const info = await (getRoomForPending ? getRoomForPending() : Promise.resolve(null));
-        const fallbackInfo = (!info && position && getRoomForPosition) ? getRoomForPosition(position) : null;
-        const detected = (info?.roomName || fallbackInfo?.roomName) ? String(info?.roomName || fallbackInfo?.roomName) : "";
-        console.log('[Form] Room auto-detect:', {
-          fromPending: info?.roomName ?? null,
-          fromGeometric: fallbackInfo?.roomName ?? null,
-          chosen: detected || '(none)'
-        });
-        if (!active) return;
-        setFormData(prev => ({ ...prev, room: detected || prev.room }));
-      } catch {
-        // ignore detection errors; leave room as-is
-      }
-    })();
-    return () => { active = false; };
-  }, [isOpen, position, getRoomForPending, getRoomForPosition]);
-
-  const handleInputChange = (field: keyof SensorFormData, value: string) => {
+  const handleInputChange = (field: keyof SensorEditFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
@@ -118,7 +83,7 @@ export function SensorInsertionForm({
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<SensorFormData> = {};
+    const newErrors: Partial<SensorEditFormData> = {};
 
     if (!formData.name.trim()) {
       newErrors.name = "Name is required";
@@ -133,6 +98,7 @@ export function SensorInsertionForm({
       newErrors.model = "Model is required";
     }
 
+    // Only validate provider-specific fields for non-generic providers
     if (formData.sensorProvider === "shelly") {
       if (!formData.shellyDeviceId.trim()) {
         newErrors.shellyDeviceId = "Device ID is required";
@@ -157,38 +123,20 @@ export function SensorInsertionForm({
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: "",
-      code: "",
-      mark: "",
-      model: "",
-      room: "",
-      link: "",
-      type: sensorType,
-      externalId: "",
-      devsn: "",
-      ubibotChannelId: "",
-      ubibotDeviceSerial: "",
-      sensorProvider: "ubibot",
-      shellyDeviceId: "",
-      shellyAuthKey: "",
-      shellyIpAddress: "",
-      shellyServerUri: "https://shelly-238-eu.shelly.cloud",
-    });
     setErrors({});
     onCancel();
   };
 
-  const sensorTypeInfo = SENSOR_TYPES.find(t => t.name === sensorType);
+  const sensorTypeInfo = sensor ? SENSOR_TYPES.find(t => t.name === sensor.type) : null;
 
-  if (!isOpen) return null;
+  if (!isOpen || !sensor) return null;
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-white">
-            Insert {sensorType} Sensor
+            Edit Sensor
           </h2>
           <button
             onClick={handleCancel}
@@ -199,24 +147,23 @@ export function SensorInsertionForm({
           </button>
         </div>
 
-        {position && (
-          <div className="mb-4 p-3 bg-gray-700 rounded-lg">
-            <p className="text-sm text-gray-300">
-              Position: ({position.x.toFixed(2)}, {position.y.toFixed(2)}, {position.z.toFixed(2)})
-            </p>
+        {/* Sensor Type Display */}
+        <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-300">Type:</span>
             {sensorTypeInfo && (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
                 <div 
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: sensorTypeInfo.color }}
                 />
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-white font-medium">
                   {sensorTypeInfo.name} ({sensorTypeInfo.unit})
                 </span>
               </div>
             )}
           </div>
-        )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Sensor Provider Selection */}
@@ -316,7 +263,7 @@ export function SensorInsertionForm({
             )}
           </div>
 
-          {/* Room Field (optional, auto-filled if available) */}
+          {/* Room Field */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Room
@@ -325,15 +272,10 @@ export function SensorInsertionForm({
               type="text"
               value={formData.room}
               onChange={(e) => handleInputChange("room", e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.room ? "border-red-500" : "border-gray-600"
-              }`}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Room name"
               disabled={loading}
             />
-            {errors.room && (
-              <p className="text-red-400 text-xs mt-1">{errors.room}</p>
-            )}
           </div>
 
           {/* Link Field */}
@@ -351,7 +293,7 @@ export function SensorInsertionForm({
             />
           </div>
 
-          {/* UbiBot Link (optional) */}
+          {/* UbiBot Configuration */}
           {formData.sensorProvider === "ubibot" && (
             <div className="pt-2 border-t border-gray-700">
               <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Configuration</div>
@@ -394,13 +336,11 @@ export function SensorInsertionForm({
             </div>
           )}
 
-          {/* Shelly Link (optional) */}
+          {/* Shelly Configuration */}
           {formData.sensorProvider === "shelly" && (
             <div className="pt-2 border-t border-gray-700">
               <div className="text-sm font-medium text-gray-200 mb-2">Shelly Configuration</div>
               <div className="space-y-3">
-                
-                {/* Server URI (Hidden/Default) */}
                 <input type="hidden" value={formData.shellyServerUri} />
 
                 <div>
@@ -473,10 +413,10 @@ export function SensorInsertionForm({
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Placing...
+                  Saving...
                 </>
               ) : (
-                "Place Sensor"
+                "Save Changes"
               )}
             </button>
           </div>

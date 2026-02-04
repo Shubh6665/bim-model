@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSensorContext, SENSOR_TYPES } from "../../context/sensor-context";
+import { useSensorContext, SENSOR_TYPES, Sensor } from "../../context/sensor-context";
+import { SensorEditForm, SensorEditFormData } from "./sensor-edit-form";
 
 const SENSOR_TYPE_COLORS = {
   "Temp & Hum": "bg-red-500",
@@ -28,6 +29,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
   const [showMoreInfo, setShowMoreInfo] = useState<string | null>(null);
   const [showInfoDetail, setShowInfoDetail] = useState<string | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null);
+  const [editingSensor, setEditingSensor] = useState<Sensor | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
   
   // Use sensor context
   const {
@@ -46,6 +49,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
     filterSensorsByType,
     getFilteredSensors,
     removeSensor,
+    updateSensor,
     showViewerOverlay
   } = useSensorContext();
 
@@ -57,6 +61,38 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
       exitPlacementMode();
     }
   }, [insertMode, exitPlacementMode]);
+
+  // Handle edit sensor submit
+  const handleEditSensorSubmit = async (formData: SensorEditFormData) => {
+    if (!editingSensor) return;
+    
+    setEditLoading(true);
+    try {
+      const success = await updateSensor(editingSensor.id, {
+        name: formData.name,
+        code: formData.code,
+        mark: formData.mark,
+        model: formData.model,
+        room: formData.room,
+        link: formData.link || undefined,
+        sensorProvider: formData.sensorProvider,
+        ubibotChannelId: formData.sensorProvider === "ubibot" ? formData.ubibotChannelId : undefined,
+        ubibotDeviceSerial: formData.sensorProvider === "ubibot" ? formData.ubibotDeviceSerial : undefined,
+        shellyDeviceId: formData.sensorProvider === "shelly" ? formData.shellyDeviceId : undefined,
+        shellyAuthKey: formData.sensorProvider === "shelly" ? formData.shellyAuthKey : undefined,
+        shellyIpAddress: formData.sensorProvider === "shelly" ? formData.shellyIpAddress : undefined,
+        shellyServerUri: formData.sensorProvider === "shelly" ? formData.shellyServerUri : undefined,
+      });
+      
+      if (success) {
+        setEditingSensor(null);
+      }
+    } catch (err) {
+      console.error("Failed to update sensor:", err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   // Handle sensor type selection for insertion
   const handleSensorTypeSelect = (sensorType: string) => {
@@ -337,6 +373,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     showViewerOverlay(sensor, 'graphs');
+                                    setShowMoreInfo(null);
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-md transition-all duration-200"
                                 >
@@ -345,12 +382,22 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Always open 'statistics' overlay; viewer will decide which full-screen dashboard to show
                                     showViewerOverlay(sensor, 'statistics');
+                                    setShowMoreInfo(null);
                                   }}
                                   className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
                                 >
                                   <span className="font-medium">Statistics</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSensor(sensor);
+                                    setShowMoreInfo(null);
+                                  }}
+                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-amber-600 hover:to-orange-600 rounded-md transition-all duration-200"
+                                >
+                                  <span className="font-medium">Edit</span>
                                 </button>
                               </div>
                             </div>
@@ -471,6 +518,14 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
         )}
       </div>
       
+      {/* Sensor Edit Form Modal */}
+      <SensorEditForm
+        isOpen={editingSensor !== null}
+        sensor={editingSensor}
+        onSubmit={handleEditSensorSubmit}
+        onCancel={() => setEditingSensor(null)}
+        loading={editLoading}
+      />
     </div>
   );
 }
