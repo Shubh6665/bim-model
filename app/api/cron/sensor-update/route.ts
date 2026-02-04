@@ -160,6 +160,36 @@ async function updateUbibotSensors() {
           }
         }
       );
+
+      // Store history reading for Ubibot
+      if (snapshot.sampledAt) {
+          const historyId = `${sensor._id}:${snapshot.sampledAt.toISOString()}`;
+          try {
+              // Avoid duplicate entry if running frequently
+              await db.collection("iot_sensor_readings").updateOne(
+                  { _id: historyId } as any,
+                  {
+                      $setOnInsert: {
+                          sensorId: String(sensor._id),
+                          projectId: sensor.projectId,
+                          deviceId: sensor.ubibotDeviceSerial || sensor.ubibotChannelId,
+                          provider: "ubibot",
+                          ts: snapshot.sampledAt,
+                          temp: snapshot.values.temp,
+                          rh: snapshot.values.rh,
+                          light: snapshot.values.light,
+                          voltage: snapshot.values.voltage,
+                          battery: batteryLevel,
+                          createdAt: new Date(),
+                      }
+                  },
+                  { upsert: true }
+              );
+          } catch (err: any) {
+              console.warn("[Cron Ubibot] History insert failed", err?.message);
+          }
+      }
+
       return { id: sensor._id, status: 'updated' };
     } catch (err) {
       console.error(`[Cron] Error updating sensor ${sensor._id}:`, err);

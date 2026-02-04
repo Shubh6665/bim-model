@@ -190,33 +190,15 @@ export function formatMetricValue(value: number | undefined, unit: string | unde
   return unit ? `${rounded}${unit}` : `${rounded}`;
 }
 
-/**
- * Estimates battery percentage from voltage (for 2xAA 1.5V batteries usually in series ~3V or USB 5V).
- * WS1 Pro usually runs on 4xAA or USB.
- * Nominal range: 3.6V (0%) to 6.0V (100%) if using 4xAA alkaline?
- * Actually Ubibot WS1 Pro usage:
- * USB: ~5V -> 100%
- * Batteries: 4xAA. Full ~6V. Low ~3.6V-4V.
- * Let's approximate: >4.5V = 100%, <3.6V = 0%.
- * Wait, WS1 Pro usually reports "0-100" in field if configured? 
- * No, raw voltage is typically field4.
- */
+
 export function estimateBatteryPercentage(voltage: number | undefined): number {
   if (voltage === undefined || !Number.isFinite(voltage)) return 100; // Assume plugged in/unknown
   if (voltage >= 4.5) return 100;
   if (voltage <= 3.6) return 0;
-  // Linear 3.6 -> 4.5
   return Math.round(((voltage - 3.6) / (4.5 - 3.6)) * 100);
 }
 
-/**
- * Maps RSSI dBm to 0-4 signal bars.
- * -50 or greater: 4 (Excellent)
- * -65: 3 (Good)
- * -75: 2 (Fair)
- * -85: 1 (Poor)
- * < -85: 0 (No signal)
- */
+
 export function estimateSignalStrength(rssi: number | undefined): number {
   if (rssi === undefined || !Number.isFinite(rssi)) return 4; // Assume good if unknown
   if (rssi >= -55) return 4;
