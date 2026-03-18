@@ -1,222 +1,86 @@
-# BIM Project Dashboard with Google Maps Integration
+# Architecture Documentation — BIM Platform
 
-A comprehensive Building Information Modeling (BIM) project management dashboard with integrated Google Earth view and Autodesk Forge viewer capabilities.
+> This folder contains comprehensive technical documentation for every layer of the BIM Project Management Platform. Each document is self-contained and can be read independently.
 
-## 🚀 Features
+---
 
-### 🌍 Google Earth Integration
-- **Interactive Map View**: Satellite/Earth-style visualization of project locations
-- **Project Markers**: Visual indicators for BIM project locations with custom construction-themed icons
-- **Two-Way Selection**: Select projects from map markers or sidebar list with synchronized highlighting
-- **Info Windows**: Detailed project information with direct action buttons
+## Documents
 
-### 🏗️ BIM Model Viewing
-- **Autodesk Forge Integration**: Professional 3D BIM model viewing capabilities
-- **RVT File Processing**: Direct upload and processing of Revit files
-- **Multiple Format Support**: Support for RVT, DWG, IFC, and other BIM file formats
-- **Real-time Processing**: Live file processing status and progress tracking
+| # | Document | Description | Key Metrics |
+|---|----------|-------------|-------------|
+| 1 | [Project Overview](./PROJECT_OVERVIEW.md) | High-level summary of the entire platform — what it does, tech stack, architecture diagram, project structure, and getting started guide. | 45+ dependencies, 25 routes, 126 endpoints |
+| 2 | [Backend API Reference](./BACKEND_API_REFERENCE.md) | Every API endpoint documented with methods, paths, auth requirements, request/response formats, and data flow diagrams. | 126 endpoints across 12 modules |
+| 3 | [Database Architecture](./DATABASE_ARCHITECTURE.md) | All 27 MongoDB collections with field-level schemas, entity relationships, indexing strategy, caching, and data flow patterns. | 27 collections, 20 indexes |
+| 4 | [Frontend Architecture](./FRONTEND_ARCHITECTURE.md) | React component tree, page routing, state management, 3D visualization engine, IoT dashboards, FM UI, and design system. | 41+ components, 25 pages, 570+ hooks |
+| 5 | [Infrastructure & DevOps](./INFRASTRUCTURE_AND_DEVOPS.md) | Deployment architecture, Railway/Vercel hosting, cron jobs, environment variables, scripts, build process, and production checklist. | 21 env vars, 2 cron jobs, 4 scripts |
+| 6 | [Authentication & Security](./AUTHENTICATION_AND_SECURITY.md) | Auth providers, JWT sessions, RBAC hierarchy, maintenance roles, password security, audit logging, and security recommendations. | 3 auth providers, 6+ RBAC tiers |
 
-### 🔄 Seamless Workflow
-- **View Mode Toggle**: Switch between Earth view and 3D model viewer
-- **Project Context**: Maintain project selection across different view modes
-- **Unified Interface**: Single dashboard for all project management needs
-- **Responsive Design**: Works across desktop and mobile devices
+---
 
-### 🔐 Authentication & Security
-- **Google OAuth**: Secure authentication using Google accounts
-- **Session Management**: Persistent login sessions with NextAuth.js
-- **Protected Routes**: Secure access to dashboard and project data
+## Quick Reference — Platform at a Glance
 
-## 🛠️ Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn package manager
-- Google Cloud Platform account (for Maps API)
-- Autodesk Forge account (for BIM viewing)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Shubh6665/bim-model
-   cd bim-project-client
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Environment Setup**
-   ```bash
-   cp env.example .env.local
-   ```
-   
-   Configure the following environment variables:
-   ```env
-   # Google OAuth
-   GOOGLE_CLIENT_ID=your_google_client_id
-   GOOGLE_CLIENT_SECRET=your_google_client_secret
-   NEXTAUTH_SECRET=your_nextauth_secret
-   NEXTAUTH_URL=http://localhost:3000
-
-   # Autodesk Forge
-   FORGE_CLIENT_ID=your_forge_client_id
-   FORGE_CLIENT_SECRET=your_forge_client_secret
-   FORGE_BUCKET_KEY=your_bucket_key
-   FORGE_REGION=us
-
-   # Google Maps API
-   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-   ```
-
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open the application**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 📚 Detailed Setup Guides
-
-### Google Maps API Setup
-See [GOOGLE_MAPS_SETUP.md](./GOOGLE_MAPS_SETUP.md) for comprehensive Google Maps integration setup instructions.
-
-### Autodesk Forge Setup
-See [FORGE_SETUP.md](./FORGE_SETUP.md) for Autodesk Forge API configuration and implementation details.
-
-## 🏗️ Architecture
-
-### Component Structure
 ```
-app/
-├── dashboard/
-│   ├── enhanced-bim-dashboard.tsx      # Main dashboard orchestrator
-│   ├── components/
-│   │   ├── google-earth-map.tsx        # Google Maps integration
-│   │   ├── enhanced-project-panel.tsx  # Dual-tab project/file browser
-│   │   ├── 3d-viewer.tsx              # BIM model viewer container
-│   │   └── dashboard-header.tsx        # Navigation header
-│   └── page.tsx                        # Dashboard page entry
-├── components/
-│   ├── forge-viewer.tsx                # Autodesk Forge viewer wrapper
-│   └── session-wrapper.tsx             # Authentication wrapper
-└── api/
-    ├── auth/                           # NextAuth.js endpoints
-    └── forge/                          # Forge API routes
+┌─────────────────────────────────────────────────────────────┐
+│                   BIM PROJECT PLATFORM                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Framework:    Next.js 15 + React 19 + TypeScript 5         │
+│  Database:     MongoDB Atlas (27 collections, 20 indexes)   │
+│  Hosting:      Railway.app (production)                     │
+│  Auth:         NextAuth.js (Google OAuth, Email, Password)  │
+│  Styling:      Tailwind CSS 4                               │
+│  3D Engine:    Autodesk Forge + Three.js                    │
+│                                                             │
+│  API Endpoints:      126                                    │
+│  Frontend Pages:     25                                     │
+│  React Components:   41+                                    │
+│  Service Files:      11                                     │
+│  RBAC Roles:         6+ tiers                               │
+│  External APIs:      5 (Forge, Google, UbiBot, Shelly, SMTP)│
+│  Cron Jobs:          2 automated                            │
+│                                                             │
+│  Core Features:                                             │
+│  ├── 3D BIM model viewing (RVT, DWG, IFC)                  │
+│  ├── IoT sensor monitoring (5 dashboard types)              │
+│  ├── Facility management (tickets → work orders lifecycle)  │
+│  ├── Team collaboration (invites, RBAC, packages)           │
+│  ├── Document management (upload, folders, sharing)         │
+│  └── Geo-located project browsing (Google Maps)             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
-1. **Authentication**: Google OAuth → NextAuth.js session
-2. **Project Data**: Static/API → Dashboard state management
-3. **Map Interaction**: Google Maps events → Project selection
-4. **Model Loading**: Project selection → Forge API → 3D viewer
-5. **Two-way Sync**: Map ↔ Sidebar selection synchronization
+---
 
-## 🎯 Usage Workflow
+## Reading Order
 
-### For End Users
-1. **Login**: Authenticate using Google account
-2. **Explore Projects**: 
-   - View project locations on Google Earth
-   - Browse projects in sidebar list
-   - Search for specific projects
-3. **Select Projects**:
-   - Click map markers to select projects
-   - Or select from sidebar project list
-4. **View Models**:
-   - Switch to 3D viewer for detailed BIM model examination
-   - Use Forge viewer tools for measurement, sectioning, etc.
+**For a complete understanding, read in this order:**
 
-### For Developers
-1. **Add Projects**: Update project data with geolocation coordinates
-2. **File Management**: Handle RVT file uploads and processing
-3. **API Integration**: Extend Forge API integration for additional features
-4. **Styling**: Customize map markers and UI components
+1. **[Project Overview](./PROJECT_OVERVIEW.md)** — Start here. Understand what the platform does and how it's structured.
+2. **[Database Architecture](./DATABASE_ARCHITECTURE.md)** — Understand the data models that power everything.
+3. **[Backend API Reference](./BACKEND_API_REFERENCE.md)** — See how the API exposes the data.
+4. **[Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)** — Understand who can access what.
+5. **[Frontend Architecture](./FRONTEND_ARCHITECTURE.md)** — See how users interact with the platform.
+6. **[Infrastructure & DevOps](./INFRASTRUCTURE_AND_DEVOPS.md)** — Learn how it's deployed and operated.
 
-## 🔧 Configuration
+**For a specific topic, jump directly to the relevant document.**
 
-### Project Data Structure
-```typescript
-interface Project {
-  id: string;
-  name: string;
-  lat: number;           // Latitude (-90 to 90)
-  lng: number;           // Longitude (-180 to 180) 
-  urn?: string;          // Forge viewer URN (optional)
-  description?: string;  // Project description (optional)
-}
-```
+---
 
-### Supported File Formats
-- **RVT**: Autodesk Revit (primary support)
-- **DWG**: AutoCAD drawings
-- **IFC**: Industry Foundation Classes
-- **NWD/NWC**: Navisworks files
+## Other Documentation
 
-## 🚀 Deployment
+The `/docs` folder also contains:
 
-### Vercel (Recommended)
-```bash
-npm run build
-vercel --prod
-```
+| Folder/File | Description |
+|-------------|-------------|
+| `docs/setup/FORGE_SETUP.md` | Autodesk Forge account and API setup |
+| `docs/setup/GOOGLE_MAPS_SETUP.md` | Google Maps API configuration |
+| `docs/development/` | 15+ development guides (implementation details, debugging) |
+| `docs/api/` | API pricing analysis for external services |
+| `docs/guides/` | Quick reference guides for developers and users |
+| `docs/COST_ANALYSIS.md` | Infrastructure cost breakdown |
+| `docs/INTERVIEW_PREP.md` | Interview preparation notes |
 
-### Environment Variables for Production
-Ensure all environment variables are configured in your deployment platform:
-- Google OAuth credentials
-- Autodesk Forge API keys  
-- Google Maps API key with proper domain restrictions
+---
 
-## 🔒 Security Considerations
-
-### API Key Security
-- **Never commit API keys** to version control
-- **Restrict Google Maps API key** to specific domains
-- **Use environment variables** for all sensitive configuration
-- **Enable billing alerts** for Google Cloud Platform
-
-### Authentication
-- NextAuth.js provides secure session management
-- Google OAuth ensures reliable user authentication
-- Protected routes prevent unauthorized access
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Map not loading**:
-   - Verify `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is set
-   - Check Google Cloud Console for API restrictions
-   - Ensure billing is enabled for Google Maps
-
-2. **Forge viewer issues**:
-   - Verify Forge API credentials
-   - Check file processing status in Forge dashboard
-   - Ensure proper CORS configuration
-
-3. **Authentication problems**:
-   - Verify Google OAuth client configuration
-   - Check `NEXTAUTH_URL` matches your domain
-   - Ensure `NEXTAUTH_SECRET` is set
-
-### Performance Optimization
-- Implement project data caching for large datasets
-- Use map clustering for many project markers
-- Optimize Forge viewer loading for better user experience
-
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Autodesk Forge** for BIM viewing capabilities
-- **Google Maps Platform** for mapping services
-- **Next.js** for the React framework
-- **NextAuth.js** for authentication
-- **Tailwind CSS** for styling
+*Last updated: March 2026*
