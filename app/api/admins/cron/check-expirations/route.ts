@@ -36,8 +36,8 @@ export async function GET(_req: NextRequest) {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const expiredEntries: Array<{ email: string; name?: string; company: string; expiresAt: Date } > = [];
-    const tomorrowEntries: Array<{ email: string; name?: string; company: string; expiresAt: Date } > = [];
+    const expiredEntries: Array<{ email: string; name?: string; company: string; expiresAt: Date }> = [];
+    const tomorrowEntries: Array<{ email: string; name?: string; company: string; expiresAt: Date }> = [];
 
     for (const u of users) {
       const arr = Array.isArray(u.adminCompanies) ? u.adminCompanies : [];
@@ -45,8 +45,11 @@ export async function GET(_req: NextRequest) {
         if (entry?.status === 'approved' && entry?.expiresAt) {
           const exp = new Date(entry.expiresAt);
           const expStart = new Date(exp.getFullYear(), exp.getMonth(), exp.getDate());
-          const alreadyNotified = !!entry?.expiryNotifiedAt && new Date(entry.expiryNotifiedAt) >= expStart;
-          const alreadyPre = !!entry?.expiryPreNotifiedAt && new Date(entry.expiryPreNotifiedAt) >= expStart;
+
+          // Check if already notified today, to ensure we only send once per day maximum.
+          const alreadyNotified = !!entry?.expiryNotifiedAt && new Date(entry.expiryNotifiedAt) >= startOfToday;
+          const alreadyPre = !!entry?.expiryPreNotifiedAt && new Date(entry.expiryPreNotifiedAt) >= startOfToday;
+
           if (!isNaN(exp.getTime())) {
             if (expStart.getTime() <= startOfToday.getTime() && !alreadyNotified) {
               expiredEntries.push({ email: u.email, name: u.name, company: entry.company, expiresAt: expStart });
@@ -73,7 +76,7 @@ export async function GET(_req: NextRequest) {
         await db.collection('users').updateOne(
           { email: e.email },
           { $set: { 'adminCompanies.$[elem].expiryPreNotifiedAt': new Date() } },
-          { arrayFilters: [ { 'elem.company': e.company, 'elem.status': 'approved' } ] }
+          { arrayFilters: [{ 'elem.company': e.company, 'elem.status': 'approved' }] }
         );
       }
     }
@@ -88,7 +91,7 @@ export async function GET(_req: NextRequest) {
         await db.collection('users').updateOne(
           { email: e.email },
           { $set: { 'adminCompanies.$[elem].expiryNotifiedAt': new Date() } },
-          { arrayFilters: [ { 'elem.company': e.company, 'elem.status': 'approved' } ] }
+          { arrayFilters: [{ 'elem.company': e.company, 'elem.status': 'approved' }] }
         );
       }
     }
