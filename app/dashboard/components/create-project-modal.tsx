@@ -256,16 +256,34 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         if (!initRes.ok || !initData.uploadUrl || !initData.uploadKey) {
           throw new Error(initData.error || "Failed to initialize upload");
         }
-        // PUT file directly to signed URL
-        const putRes = await fetch(initData.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: m.file,
+        // PUT file directly to signed URL with progress tracking
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", initData.uploadUrl, true);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 100);
+              updatedModels[i] = { ...updatedModels[i], status: "uploading", progress: 10 + percent * 0.2 };
+              setModels([...updatedModels]);
+              // Overall progress from 10% to 30% for this model
+              const overall = 10 + Math.floor((i / total) * 70) + Math.floor((percent / 100) * (70 / total) * 0.28);
+              setProgress(Math.min(overall, 80));
+            }
+          };
+          
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Direct upload failed: ${xhr.status} ${xhr.responseText}`));
+            }
+          };
+          
+          xhr.onerror = () => reject(new Error("Network error during direct S3 upload"));
+          xhr.send(m.file);
         });
-        if (!putRes.ok) {
-          const errText = await putRes.text();
-          throw new Error(errText || "Direct upload failed");
-        }
         // COMPLETE
         const completeRes = await fetch("/api/forge/upload", {
           method: "POST",

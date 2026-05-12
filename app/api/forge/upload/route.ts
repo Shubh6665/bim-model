@@ -19,6 +19,38 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+async function ensureBucketExists(bucketKey: string, accessToken: string) {
+  // First, check if the bucket exists (Optional, but good practice)
+  const getBucketRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/details`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  
+  if (getBucketRes.ok) {
+    return; // Bucket exists
+  }
+
+  console.log(` Bucket ${bucketKey} not found. Creating it now...`);
+  const createRes = await fetch('https://developer.api.autodesk.com/oss/v2/buckets', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      bucketKey: bucketKey,
+      policyKey: 'persistent' // Keeps models permanently
+    })
+  });
+  
+  if (!createRes.ok && createRes.status !== 409) {
+    const errorDetails = await createRes.text();
+    console.error(`❌ Failed to create bucket ${bucketKey}:`, errorDetails);
+    throw new Error('Failed to create bucket');
+  }
+  
+  console.log(`✅ Bucket ${bucketKey} is ready.`);
+}
+
 export async function POST(req: NextRequest) {
   try {
     console.log('🚀 Starting upload process...');
@@ -28,6 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Bucket key not configured' }, { status: 500 });
     }
 
+    const accessToken = await getAccessToken();
+    await ensureBucketExists(bucketKey, accessToken);
+
     // Support JSON control flow for large files: init and complete
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
@@ -36,8 +71,7 @@ export async function POST(req: NextRequest) {
       // INIT: return signed URL so browser can upload directly
       if (body.init && fileName) {
         console.log('🪪 INIT signed URL for', fileName);
-        const accessToken = await getAccessToken();
-        const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
+        const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload?minutesExpiration=60`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${accessToken}` },
         });
@@ -52,7 +86,6 @@ export async function POST(req: NextRequest) {
       // COMPLETE: finalize the upload and return URN
       if (body.complete && fileName && body.uploadKey) {
         console.log('✅ COMPLETE upload for', fileName);
-        const accessToken = await getAccessToken();
         const completeRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
           method: 'POST',
           headers: {
@@ -86,8 +119,7 @@ export async function POST(req: NextRequest) {
     const fileName = file.name;
     const fileBuffer = await file.arrayBuffer();
 
-    const accessToken = await getAccessToken();
-    const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload`, {
+    const signedUrlRes = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${bucketKey}/objects/${encodeURIComponent(fileName)}/signeds3upload?minutesExpiration=60`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
