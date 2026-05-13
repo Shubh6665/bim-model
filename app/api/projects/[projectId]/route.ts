@@ -179,8 +179,30 @@ export async function DELETE(_request: Request, context: { params: Promise<{ pro
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
+
+    // Cascade delete associated data across all relevant collections
+    const collectionsToClean = [
+      'files', 'fm_scheduled_maintenance', 'invites', 'activity_logs', 
+      'shareLinks', 'annotations', 'fm_tickets', 'sensors', 'assets', 
+      'zipShares', 'tickets', 'iot_sensor_readings', 'iot_readings', 
+      'work_orders', 'fm_assets', 'deletedAssets', 'fm_spaces', 
+      'assignments', 'fm_work_orders', 'notifications', 'folders'
+    ];
+
+    // Delete matches for both ObjectId and string representations of projectId
+    const deleteFilter = { 
+      projectId: { $in: [new ObjectId(projectId), projectId] } 
+    };
+
+    const cleanupPromises = collectionsToClean.map(collection => 
+      db.collection(collection).deleteMany(deleteFilter).catch((err: any) => {
+        console.warn(`Failed to cleanup ${collection} for project ${projectId}:`, err);
+      })
+    );
+
+    await Promise.all(cleanupPromises);
     
-    return NextResponse.json({ message: 'Project deleted successfully' });
+    return NextResponse.json({ message: 'Project and all associated data deleted successfully' });
     
   } catch (error: any) {
     console.error('Error deleting project:', error);
