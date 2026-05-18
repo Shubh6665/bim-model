@@ -607,7 +607,7 @@ function BIMDashboard() {
   }, [projects, selectedProject, activePanel]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#0B0F19] relative overflow-hidden">
+    <div className="h-screen flex flex-col bg-background relative overflow-hidden">
       {/* Ambient Glows */}
       <div className="absolute top-0 left-[20%] w-[50rem] h-[50rem] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 z-0"></div>
       <div className="absolute bottom-0 right-[10%] w-[40rem] h-[40rem] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/3 z-0"></div>
@@ -628,17 +628,17 @@ function BIMDashboard() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {noAccessMsg && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded shadow-lg border border-red-400">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-destructive text-destructive-foreground px-4 py-2 rounded shadow-lg border border-red-400">
             {noAccessMsg}
           </div>
         )}
         {projects.length === 0 ? (
           // Empty state panel
           <div className="flex flex-1 items-center justify-center bg-transparent z-10 relative">
-            <div className="bg-[#0B0F19]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-12 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-              <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+            <div className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-12 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)]">
                 <svg
-                  className="w-10 h-10 text-blue-400"
+                  className="w-10 h-10 text-primary"
                   fill="none"
                 stroke="currentColor"
                 viewBox="0 0 48 48"
@@ -658,16 +658,16 @@ function BIMDashboard() {
                 />
               </svg>
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 No Projects Yet
               </h2>
-              <p className="text-gray-400 mb-6 text-center max-w-xs">
+              <p className="text-muted-foreground mb-6 text-center max-w-xs">
                 Get started by creating your first BIM project. Upload your RVT
                 file, set a location, and view your model in 3D!
               </p>
               {session?.user && canCreateProjectPerm && (
                 <button
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full text-lg font-medium shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-1"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-full text-lg font-medium shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-1"
                   onClick={handleRequestCreateProject}
                 >
                   + Create Project
@@ -727,7 +727,7 @@ function BIMDashboard() {
                     />
                     {openFile && (
                       /\.pdf$/i.test(openFile.name) ? (
-                        <div className="absolute inset-0 bg-gray-900 z-10 flex flex-col">
+                        <div className="absolute inset-0 bg-card z-10 flex flex-col">
                           <div className="flex-1 min-h-0">
                             <PdfViewer
                               projectId={selectedProject?.id || ''}
@@ -813,8 +813,8 @@ function BIMDashboard() {
                   openFileId={openFile?.id || null}
                 />
               ) : (
-                <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
-                  <p className="text-gray-400">Select a project to view files</p>
+                <div className="w-80 bg-card border-l border-border flex items-center justify-center">
+                  <p className="text-muted-foreground">Select a project to view files</p>
                 </div>
               )
             ) : activePanel === "fm" ? (
@@ -828,12 +828,12 @@ function BIMDashboard() {
               />
             ) : activePanel === "ai" ? (
               // Placeholder for AI panel
-              <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center relative z-10">
-                <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+              <div className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/50 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center relative z-10">
+                <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
                   <span className="text-2xl">🤖</span>
                 </div>
-                <p className="text-gray-400 text-sm font-medium">AI Panel</p>
-                <p className="text-gray-600 text-xs mt-1">Coming soon</p>
+                <p className="text-muted-foreground text-sm font-medium">AI Panel</p>
+                <p className="text-muted-foreground/60 text-xs mt-1">Coming soon</p>
               </div>
             ) : (
               // Show project panel when no active panel
