@@ -123,9 +123,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
     return () => clearInterval(timer);
   }, []);
 
-  const box = "bg-gray-900/95 border border-gray-700 rounded-xl p-2 shadow-md";
-  const label = "text-[11px] uppercase tracking-wider text-gray-400";
-  const value = "text-sm font-semibold text-gray-100";
+  const box = "bg-card/95 border border-border rounded-xl p-2 shadow-md";
+  const label = "text-[11px] uppercase tracking-wider text-muted-foreground";
+  const value = "text-sm font-semibold text-foreground";
 
   // Helpers for redesigned Power panel
   const prevPowerRef = useRef<number>(realtimeData.currentPower);
@@ -371,8 +371,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           onClick={() => setScale(k)}
           className={`px-2 py-0.5 rounded border text-[10px] font-semibold transition ${
             currentScale === k
-              ? "bg-blue-600 border-blue-500 text-white"
-              : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+              ? "bg-blue-600 border-blue-500 text-foreground"
+              : "bg-card border-border text-muted-foreground hover:bg-muted"
           }`}
           title={
             k === "D" ? "Day" : k === "W" ? "Week" : k === "M" ? "Month" : "Year"
@@ -385,12 +385,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
   );
 
   return (
-    <div className={standalone ? "h-full w-full flex flex-col bg-gray-950" : "fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-gray-950/98"}>
+    <div className={standalone ? "h-full w-full flex flex-col bg-background" : "fixed left-0 right-0 bottom-0 top-16 z-[2000] flex flex-col bg-background/98"}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-800 bg-gray-900/70 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-border bg-card/70 flex-shrink-0">
         <div className="flex items-baseline gap-3">
-          <h3 className="text-lg font-bold text-white">Consumption</h3>
-          {sensor?.name && <div className="text-xs text-gray-400">Sensor: {sensor.name}</div>}
+          <h3 className="text-lg font-bold text-foreground">Consumption</h3>
+          {sensor?.name && <div className="text-xs text-muted-foreground">Sensor: {sensor.name}</div>}
         </div>
         <div className="flex items-center gap-2">
           {!standalone && (
@@ -401,13 +401,13 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                 const url = `/energy-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}`;
                 window.open(url, '_blank', 'width=1400,height=900,scrollbars=yes,resizable=yes');
               }}
-              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm border border-blue-500 flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-foreground text-sm border border-blue-500 flex items-center justify-center transition-colors"
               title="Open in new window"
             >
               ⧉
             </button>
           )}
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-sm border border-gray-600 flex items-center justify-center transition-colors">
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted hover:bg-muted text-foreground text-sm border border-border flex items-center justify-center transition-colors">
             ×
           </button>
         </div>
@@ -426,26 +426,26 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
           {/* Left Column - Time-of-Use & Monthly Summary */}
           <div className="col-span-12 md:col-span-3 space-y-1.5 h-full flex flex-col">
             <div className={box + " flex-none"}>
-              <div className="text-gray-200 font-semibold mb-3">Time Band</div>
+              <div className="text-foreground font-semibold mb-3">Time Band</div>
               
               {/* Table Header */}
-              <div className="border border-gray-600 rounded-lg overflow-hidden">
-                <div className="grid grid-cols-5 bg-gray-800 border-b border-gray-600">
-                  <div className="p-2 text-center border-r border-gray-600">
-                    <div className="text-[10px] text-gray-400 font-semibold">Date</div>
-                    <div className="text-[9px] text-gray-500">Sept 2025</div>
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-5 bg-card border-b border-border">
+                  <div className="p-2 text-center border-r border-border">
+                    <div className="text-[10px] text-muted-foreground font-semibold">Date</div>
+                    <div className="text-[9px] text-muted-foreground">Sept 2025</div>
                   </div>
-                  <div className="p-2 text-center border-r border-gray-600">
-                    <div className="text-[11px] text-gray-300 font-bold">D</div>
+                  <div className="p-2 text-center border-r border-border">
+                    <div className="text-[11px] text-muted-foreground font-bold">D</div>
                   </div>
-                  <div className="p-2 text-center border-r border-gray-600">
-                    <div className="text-[11px] text-gray-300 font-bold">W</div>
+                  <div className="p-2 text-center border-r border-border">
+                    <div className="text-[11px] text-muted-foreground font-bold">W</div>
                   </div>
-                  <div className="p-2 text-center border-r border-gray-600">
-                    <div className="text-[11px] text-gray-300 font-bold">M</div>
+                  <div className="p-2 text-center border-r border-border">
+                    <div className="text-[11px] text-muted-foreground font-bold">M</div>
                   </div>
                   <div className="p-2 text-center">
-                    <div className="text-[11px] text-gray-300 font-bold">Y</div>
+                    <div className="text-[11px] text-muted-foreground font-bold">Y</div>
                   </div>
                 </div>
 
@@ -456,32 +456,32 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   { band: "F3", d: realtimeData.l3Current, w: realtimeData.l3Current * 6.2, m: realtimeData.monthConsumption * 0.21, y: realtimeData.yearConsumption * 0.22 },
                   { band: "TOT", d: realtimeData.dayConsumption, w: realtimeData.dayConsumption * 7, m: realtimeData.monthConsumption, y: realtimeData.yearConsumption }
                 ].map(({ band, d, w, m, y }, index) => (
-                  <div key={band} className={`grid grid-cols-5 ${index < 3 ? 'border-b border-gray-600' : ''} ${band === 'TOT' ? 'bg-gray-850' : ''}`}>
-                    <div className="p-2 text-center border-r border-gray-600 bg-gray-800">
-                      <div className="text-[12px] font-bold text-gray-200">{band}</div>
+                  <div key={band} className={`grid grid-cols-5 ${index < 3 ? 'border-b border-border' : ''} ${band === 'TOT' ? 'bg-card' : ''}`}>
+                    <div className="p-2 text-center border-r border-border bg-card">
+                      <div className="text-[12px] font-bold text-foreground">{band}</div>
                     </div>
-                    <div className="p-2 text-center border-r border-gray-600">
-                      <div className="text-[11px] text-gray-200 font-semibold">{d.toFixed(1)}</div>
+                    <div className="p-2 text-center border-r border-border">
+                      <div className="text-[11px] text-foreground font-semibold">{d.toFixed(1)}</div>
                     </div>
-                    <div className="p-2 text-center border-r border-gray-600">
-                      <div className="text-[11px] text-gray-200 font-semibold">{w.toFixed(1)}</div>
+                    <div className="p-2 text-center border-r border-border">
+                      <div className="text-[11px] text-foreground font-semibold">{w.toFixed(1)}</div>
                     </div>
-                    <div className="p-2 text-center border-r border-gray-600">
-                      <div className="text-[11px] text-gray-200 font-semibold">{m.toFixed(1)}</div>
+                    <div className="p-2 text-center border-r border-border">
+                      <div className="text-[11px] text-foreground font-semibold">{m.toFixed(1)}</div>
                     </div>
                     <div className="p-2 text-center">
-                      <div className="text-[11px] text-gray-200 font-semibold">{y.toFixed(0)}</div>
+                      <div className="text-[11px] text-foreground font-semibold">{y.toFixed(0)}</div>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <div className="text-[10px] text-gray-500 mt-2 text-center">Energy [kWh]</div>
+              <div className="text-[10px] text-muted-foreground mt-2 text-center">Energy [kWh]</div>
             </div>
 
             <div className={box + " flex-1 min-h-0 overflow-hidden"}>
-              <div className="text-gray-200 font-semibold mb-3">Monthly Summary</div>
-              <div className="divide-y divide-gray-800 h-full overflow-y-auto">
+              <div className="text-foreground font-semibold mb-3">Monthly Summary</div>
+              <div className="divide-y divide-border h-full overflow-y-auto">
                 {[
                   "September 2025", "August 2025", "July 2025", "June 2025", 
                   "May 2025", "April 2025", "March 2025", "February 2025"
@@ -490,8 +490,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                         817.69 + i * 45 + Math.sin(i + realtimeData.currentPower/100) * 80;
                   return (
                     <div key={month} className="flex items-center justify-between py-2">
-                      <div className="text-[12px] text-gray-300">{month}</div>
-                      <div className="text-[12px] text-gray-200 font-semibold">
+                      <div className="text-[12px] text-muted-foreground">{month}</div>
+                      <div className="text-[12px] text-foreground font-semibold">
                         {baseConsumption.toFixed(0)} kWh
                       </div>
                     </div>
@@ -506,9 +506,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             {/* L1 Chart */}
             <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-200 font-semibold">Line 1 (L1)</div>
+                <div className="text-foreground font-semibold">Line 1 (L1)</div>
                 <div className="flex items-center gap-3">
-                  <div className="text-[11px] text-gray-400">kWh</div>
+                  <div className="text-[11px] text-muted-foreground">kWh</div>
                   <ScaleSwitch currentScale={l1Scale} setScale={setL1Scale} />
                 </div>
               </div>
@@ -590,9 +590,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             {/* L2 Chart */}
             <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-200 font-semibold">Line 2 (L2)</div>
+                <div className="text-foreground font-semibold">Line 2 (L2)</div>
                 <div className="flex items-center gap-3">
-                  <div className="text-[11px] text-gray-400">kWh</div>
+                  <div className="text-[11px] text-muted-foreground">kWh</div>
                   <ScaleSwitch currentScale={l2Scale} setScale={setL2Scale} />
                 </div>
               </div>
@@ -674,9 +674,9 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             {/* L3 Chart */}
             <div className={box + " flex-1 flex flex-col min-h-[140px]"}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-200 font-semibold">Line 3 (L3)</div>
+                <div className="text-foreground font-semibold">Line 3 (L3)</div>
                 <div className="flex items-center gap-3">
-                  <div className="text-[11px] text-gray-400">kWh</div>
+                  <div className="text-[11px] text-muted-foreground">kWh</div>
                   <ScaleSwitch currentScale={l3Scale} setScale={setL3Scale} />
                 </div>
               </div>
@@ -758,27 +758,27 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             {/* Total Usage Chart (3 lines: L1/L2/L3) */}
             <div className={box + " flex-1 flex flex-col min-h-[160px]"}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-gray-200 font-semibold">Total Usage (L1/L2/L3)</div>
+                <div className="text-foreground font-semibold">Total Usage (L1/L2/L3)</div>
                 <div className="flex items-center gap-3">
                   {/* legend */}
                   <div className="hidden md:flex items-center gap-3 mr-1">
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>L1</div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>L2</div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-300"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>L3</div>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>L1</div>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>L2</div>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>L3</div>
                   </div>
-                  <div className="text-[11px] text-gray-400">kWh</div>
+                  <div className="text-[11px] text-muted-foreground">kWh</div>
                   <ScaleSwitch currentScale={totalScale} setScale={setTotalScale} />
                 </div>
               </div>
               
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2 flex-1">
+              <div className="bg-background border border-border rounded-lg p-2 flex-1">
                 <div className="flex h-full">
                   {/* Y-axis with values */}
                   <div className="flex flex-col justify-between h-full w-8 mr-2">
                     {[100, 80, 60, 40, 20, 0].map((val, i) => (
                       <div key={i} className="flex items-center">
-                        <div className="text-[9px] text-white text-right w-6">{val}</div>
-                        <div className="w-2 h-px bg-gray-700 ml-1"></div>
+                        <div className="text-[9px] text-foreground text-right w-6">{val}</div>
+                        <div className="w-2 h-px bg-muted ml-1"></div>
                       </div>
                     ))}
                   </div>
@@ -869,7 +869,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           {Array.from({ length: len }, (_, i) => (
                             <div
                               key={i}
-                              className="absolute text-[8px] text-white text-center"
+                              className="absolute text-[8px] text-foreground text-center"
                               style={{ left: `${(i / (len - 1)) * 100}%`, transform: 'translateX(-50%)' }}
                             >
                               {totalScale === "D" ? i : totalScale === "W" ? ["M","T","W","T","F","S","S"][i] : totalScale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : i+1}
@@ -890,7 +890,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
             <div className={box + " relative overflow-hidden flex-none"}>
               {/* POWER Header */}
               <div className="flex items-center justify-between mb-3">
-                <div className="text-gray-200 font-semibold">Power</div>
+                <div className="text-foreground font-semibold">Power</div>
                 {powerTrend !== 'same' && (
                   <div className={`text-[10px] flex items-center gap-1 font-semibold ${powerTrend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
                     {powerTrend === 'up' ? '▲' : '▼'}
@@ -903,71 +903,71 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                 {/* NOW Row */}
                 <div className="text-[14px] md:text-[15px] font-bold text-lime-400">Now</div>
                 <div className="text-right text-[16px] md:text-[18px] font-bold flex items-center justify-end gap-2">
-                  <span className={`${realtimeData.currentPower > 450 ? 'text-red-400' : realtimeData.currentPower > 350 ? 'text-yellow-400' : 'text-white'}`}>{realtimeData.currentPower.toFixed(0)}</span>
-                  <span className="text-gray-400 text-[11px] font-medium">W</span>
+                  <span className={`${realtimeData.currentPower > 450 ? 'text-red-400' : realtimeData.currentPower > 350 ? 'text-yellow-400' : 'text-foreground'}`}>{realtimeData.currentPower.toFixed(0)}</span>
+                  <span className="text-muted-foreground text-[11px] font-medium">W</span>
                 </div>
                 {/* Hour */}
                 <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Hour</div>
-                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{realtimeData.hourConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-right text-[13px] md:text-[14px] text-foreground">{realtimeData.hourConsumption.toFixed(1)} <span className="text-[10px] text-muted-foreground">kWh</span></div>
                 {/* Day */}
                 <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Day</div>
-                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{realtimeData.dayConsumption.toFixed(1)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-right text-[13px] md:text-[14px] text-foreground">{realtimeData.dayConsumption.toFixed(1)} <span className="text-[10px] text-muted-foreground">kWh</span></div>
                 {/* Month */}
                 <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Month</div>
-                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{formatEnergy(realtimeData.monthConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-right text-[13px] md:text-[14px] text-foreground">{formatEnergy(realtimeData.monthConsumption,0)} <span className="text-[10px] text-muted-foreground">kWh</span></div>
                 {/* Year */}
                 <div className="text-[13px] md:text-[14px] font-semibold text-lime-400">Year</div>
-                <div className="text-right text-[13px] md:text-[14px] text-gray-200">{formatEnergy(realtimeData.yearConsumption,0)} <span className="text-[10px] text-gray-400">kWh</span></div>
+                <div className="text-right text-[13px] md:text-[14px] text-foreground">{formatEnergy(realtimeData.yearConsumption,0)} <span className="text-[10px] text-muted-foreground">kWh</span></div>
                 {/* TOTAL */}
-                <div className="pt-1 mt-1 border-t border-gray-700 text-[13px] md:text-[14px] font-semibold text-gray-200">TOTAL</div>
-                <div className="pt-1 mt-1 border-t border-gray-700 text-right text-[14px] md:text-[15px] font-bold text-white">{formatEnergy(realtimeData.totalConsumption,0)} <span className="text-[10px] text-gray-400 font-medium">kWh</span></div>
+                <div className="pt-1 mt-1 border-t border-border text-[13px] md:text-[14px] font-semibold text-foreground">TOTAL</div>
+                <div className="pt-1 mt-1 border-t border-border text-right text-[14px] md:text-[15px] font-bold text-foreground">{formatEnergy(realtimeData.totalConsumption,0)} <span className="text-[10px] text-muted-foreground font-medium">kWh</span></div>
               </div>
             </div>
 
             {/* Export Data Section - Flexible with scroll */}
             <div className={box + " flex-[3] min-h-0 overflow-auto"}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="text-gray-200 font-semibold">Export Data</div>
+                <div className="text-foreground font-semibold">Export Data</div>
               </div>
               
               <div className="space-y-2">
                 {showCustomExport ? (
-                  <div className="p-3 border border-teal-700/50 rounded-lg bg-gray-900/60">
+                  <div className="p-3 border border-teal-700/50 rounded-lg bg-card/60">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-[13px] font-semibold text-gray-200">Custom Export</div>
+                      <div className="text-[13px] font-semibold text-foreground">Custom Export</div>
                       <button
                         onClick={() => setShowCustomExport(false)}
-                        className="text-[11px] px-2 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-700"
+                        className="text-[11px] px-2 py-1 rounded border border-border text-muted-foreground hover:bg-muted"
                       >
                         Back
                       </button>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                       <div className="flex items-center gap-2">
-                        <label className="text-[11px] text-gray-300 w-14">From</label>
+                        <label className="text-[11px] text-muted-foreground w-14">From</label>
                         <input
                           type="date"
                           value={customFrom}
                           onChange={(e) => setCustomFrom(e.target.value)}
                           max={todayStr}
-                          className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[12px] text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          className="flex-1 bg-card border border-border rounded px-2 py-1 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-teal-500"
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="text-[11px] text-gray-300 w-14">To</label>
+                        <label className="text-[11px] text-muted-foreground w-14">To</label>
                         <input
                           type="date"
                           value={customTo}
                           onChange={(e) => setCustomTo(e.target.value)}
                           min={customFrom}
                           max={todayStr}
-                          className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[12px] text-gray-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          className="flex-1 bg-card border border-border rounded px-2 py-1 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-teal-500"
                         />
                       </div>
                       <div className="flex justify-end">
                         <button
                           onClick={handleCustomExport}
-                          className="px-3 py-1.5 text-[12px] font-semibold text-white bg-teal-600 hover:bg-teal-500 border border-teal-500 rounded-md"
+                          className="px-3 py-1.5 text-[12px] font-semibold text-foreground bg-teal-600 hover:bg-teal-500 border border-teal-500 rounded-md"
                         >
                           Export
                         </button>
@@ -987,12 +987,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           </svg>
                         </div>
                         <div className="text-left">
-                          <div className="text-[12px] font-medium text-gray-200">Monthly Data</div>
+                          <div className="text-[12px] font-medium text-foreground">Monthly Data</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] px-1.5 py-0.5 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
-                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
                         </svg>
                       </div>
@@ -1009,12 +1009,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           </svg>
                         </div>
                         <div className="text-left">
-                          <div className="text-[12px] font-medium text-gray-200">Weekly Data</div>
+                          <div className="text-[12px] font-medium text-foreground">Weekly Data</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] px-1.5 py-0.5 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
-                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
                         </svg>
                       </div>
@@ -1031,12 +1031,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           </svg>
                         </div>
                         <div className="text-left">
-                          <div className="text-[12px] font-medium text-gray-200">Annual Consumption</div>
+                          <div className="text-[12px] font-medium text-foreground">Annual Consumption</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] px-1.5 py-0.5 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
-                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
                         </svg>
                       </div>
@@ -1053,12 +1053,12 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                           </svg>
                         </div>
                         <div className="text-left">
-                          <div className="text-[12px] font-medium text-gray-200">Custom</div>
+                          <div className="text-[12px] font-medium text-foreground">Custom</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] px-1.5 py-0.5 bg-green-600/20 text-green-400 rounded-full font-medium">Excel</span>
-                        <svg className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 text-muted-foreground group-hover:text-muted-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" />
                         </svg>
                       </div>
@@ -1070,7 +1070,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
 
             {/* Active Alerts Section - Flexible */}
             <div className={box + " flex-[2] min-h-0 overflow-hidden flex flex-col"}>
-              <div className="text-gray-200 font-semibold mb-3 flex-none">Active Alerts</div>
+              <div className="text-foreground font-semibold mb-3 flex-none">Active Alerts</div>
               <div className="flex flex-col gap-2 overflow-y-auto pr-1">
                 <div className="flex items-center gap-2 p-2 bg-blue-900/30 border border-blue-700/50 rounded-lg">
                   <div className="w-2 h-2 bg-blue-500 rounded-full" />

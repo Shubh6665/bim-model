@@ -134,7 +134,7 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
       case 'PLANNED': return 'bg-blue-900/40 text-blue-300';
       case 'IN_PROGRESS': return 'bg-purple-900/40 text-purple-300';
       case 'CLOSE': return 'bg-orange-900/40 text-orange-300';
-      default: return 'bg-gray-900/40 text-gray-300';
+      default: return 'bg-card/40 text-muted-foreground';
     }
   };
 
@@ -144,17 +144,17 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
       case 'High': return 'text-orange-400';
       case 'Medium': return 'text-yellow-400';
       case 'Low': return 'text-green-400';
-      default: return 'text-gray-400';
+      default: return 'text-muted-foreground';
     }
   };
 
   if (loading) {
-    return <div className="p-4 text-gray-400">Loading work orders...</div>;
+    return <div className="p-4 text-muted-foreground">Loading work orders...</div>;
   }
 
   if (!isFM) {
     return (
-      <div className="p-4 text-gray-400">
+      <div className="p-4 text-muted-foreground">
         Only Facility Managers can modify Priority and Type fields.
       </div>
     );
@@ -168,7 +168,7 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
           toast.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
-        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+        } text-foreground px-6 py-4 rounded-lg shadow-2xl border border-border/20 backdrop-blur-sm min-w-[320px]`}>
           <div className="flex items-center gap-3">
             {toast.type === 'success' ? (
               <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -185,7 +185,7 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-foreground/80 hover:text-foreground transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -196,7 +196,7 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white">Priority Order</h2>
+        <h2 className="text-xl font-semibold text-foreground">Priority Order</h2>
       </div>
 
       <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 text-sm text-blue-300">
@@ -204,7 +204,7 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
       </div>
 
       {workOrders.length === 0 ? (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center text-gray-400">
+        <div className="bg-card/50 border border-border rounded-lg p-6 text-center text-muted-foreground">
           No active work orders to manage.
         </div>
       ) : (
@@ -212,12 +212,12 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
           {workOrders.map((order) => (
             <div
               key={order.id || order._id}
-              className="bg-gray-800/70 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-all"
+              className="bg-card/70 border border-border rounded-lg p-4 hover:border-border transition-all"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white">{order.ticketId || order.requestId}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{order.description}</p>
+                  <h3 className="text-lg font-semibold text-foreground">{order.ticketId || order.requestId}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{order.description}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                   {order.status}
@@ -226,28 +226,28 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
 
               <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                 <div>
-                  <span className="text-gray-400">Priority:</span>
+                  <span className="text-muted-foreground">Priority:</span>
                   <span className={`ml-2 font-semibold ${getPriorityColor(order.priority || 'Medium')}`}>
                     {order.priority || 'Medium'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Type:</span>
-                  <span className="ml-2 text-white font-medium">{order.maintenanceType || 'Corrective'}</span>
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="ml-2 text-foreground font-medium">{order.maintenanceType || 'Corrective'}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Location:</span>
-                  <span className="ml-2 text-white">{order.location || 'N/A'}</span>
+                  <span className="text-muted-foreground">Location:</span>
+                  <span className="ml-2 text-foreground">{order.location || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Requester:</span>
-                  <span className="ml-2 text-white">{order.requester || 'Unknown'}</span>
+                  <span className="text-muted-foreground">Requester:</span>
+                  <span className="ml-2 text-foreground">{order.requester || 'Unknown'}</span>
                 </div>
               </div>
 
               <button
                 onClick={() => openEditModal(order)}
-                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded-lg text-sm font-medium transition-colors"
               >
                 Edit Priority & Type
               </button>
@@ -258,21 +258,21 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
 
       {/* Edit Modal */}
       {showEditModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-white mb-4">
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold text-foreground mb-4">
               Edit FM Fields
             </h3>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Priority
                 </label>
                 <select
                   value={editValues.priority}
                   onChange={(e) => setEditValues(prev => ({ ...prev, priority: e.target.value as TicketPriority }))}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground"
                 >
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
@@ -282,13 +282,13 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Maintenance Type
                 </label>
                 <select
                   value={editValues.maintenanceType}
                   onChange={(e) => setEditValues(prev => ({ ...prev, maintenanceType: e.target.value as MaintenanceType }))}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-foreground"
                 >
                   <option value="Preventive">Preventive</option>
                   <option value="Corrective">Corrective</option>
@@ -311,14 +311,14 @@ export const FMFieldEditor: React.FC<FMFieldEditorProps> = ({ projectId }) => {
                   setSelectedOrder(null);
                 }}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted disabled:bg-card text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveChanges}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>

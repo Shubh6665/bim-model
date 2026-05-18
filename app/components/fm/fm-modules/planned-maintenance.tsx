@@ -429,47 +429,47 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-hidden">
       {loading ? (
-        <div className="text-center text-gray-400 text-sm py-4">Loading planned maintenance...</div>
+        <div className="text-center text-muted-foreground text-sm py-4">Loading planned maintenance...</div>
       ) : scheduled.length === 0 ? (
-        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-4 text-center">
+        <div className="text-muted-foreground text-sm bg-card/30 rounded-lg p-4 text-center">
           No planned maintenance tasks.
         </div>
       ) : (
         <div className="flex-1 overflow-auto pr-2">
           {/* Table Header */}
-          <div className="sticky top-0 bg-gray-900/90 border border-gray-700 rounded-t-lg mb-0 backdrop-blur supports-[backdrop-filter]:backdrop-blur z-10">
+          <div className="sticky top-0 bg-card/90 border border-border rounded-t-lg mb-0 backdrop-blur supports-[backdrop-filter]:backdrop-blur z-10">
             {/* Top Row: Actions and Filters combined in a cleaner layout */}
-            <div className="p-3 border-b border-gray-700 space-y-3">
+            <div className="p-3 border-b border-border space-y-3">
               <div className="flex items-center justify-between">
-                 <h3 className="text-sm font-semibold text-white">Planned Maintenance</h3>
+                 <h3 className="text-sm font-semibold text-foreground">Planned Maintenance</h3>
                  <div className="flex gap-2">
                     <input 
                       value={filters.search} 
                       onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))} 
                       placeholder="Search..." 
-                      className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-xs text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none w-48" 
+                      className="px-3 py-1.5 bg-card border border-border rounded text-xs text-foreground placeholder-muted-foreground focus:border-blue-500 focus:outline-none w-48" 
                     />
                  </div>
               </div>
               
               <div className="grid grid-cols-5 gap-3">
-                <select value={filters.discipline} onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <select value={filters.discipline} onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none">
                   <option value="all">All Disciplines</option>
                   {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <select value={filters.revitCategory} onChange={e => setFilters(prev => ({ ...prev, revitCategory: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none">
                   <option value="all">All Categories</option>
                   {uniqueRevitCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <select value={filters.ifcClass} onChange={e => setFilters(prev => ({ ...prev, ifcClass: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none">
                   <option value="all">All IFC Classes</option>
                   {uniqueIfcClasses.map(ic => <option key={ic} value={ic}>{ic}</option>)}
                 </select>
-                <select value={filters.level} onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <select value={filters.level} onChange={e => setFilters(prev => ({ ...prev, level: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none">
                   <option value="all">All Levels</option>
                   {uniqueLevels.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
-                <select value={filters.room} onChange={e => setFilters(prev => ({ ...prev, room: e.target.value }))} className="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none">
+                <select value={filters.room} onChange={e => setFilters(prev => ({ ...prev, room: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none">
                   <option value="all">All Rooms</option>
                   {uniqueRooms.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
@@ -477,7 +477,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
             </div>
 
             {/* Column Headers */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-gray-400 bg-gray-800/50">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground bg-card/50">
               <div className="col-span-1 whitespace-nowrap">Actions</div>
               <div className="col-span-2 whitespace-nowrap">Discipline</div>
               <div className="col-span-2 whitespace-nowrap">Category</div>
@@ -492,11 +492,11 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
           </div>
 
           {/* Table Rows */}
-          <div className="space-y-0 border border-gray-700 border-t-0 rounded-b-lg overflow-hidden bg-gray-800/20">
+          <div className="space-y-0 border border-border border-t-0 rounded-b-lg overflow-hidden bg-card/20">
             {filteredRows.map((row, idx) => (
               <div
                 key={`${row.base.id}-${row.assetLabel}-${idx}`}
-                className={`grid grid-cols-12 gap-2 px-3 py-2.5 items-center border-b border-gray-700/50 hover:bg-gray-700/20 transition-colors ${
+                className={`grid grid-cols-12 gap-2 px-3 py-2.5 items-center border-b border-border/50 hover:bg-muted/20 transition-colors ${
                   idx === filteredRows.length - 1 ? 'border-b-0' : ''
                 }`}
               >
@@ -504,21 +504,21 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                 <div className="col-span-1 flex gap-1 justify-start">
                   <button
                     onClick={() => beginEditAsset(row.base)}
-                    className="p-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white transition-colors"
+                    className="p-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-foreground transition-colors"
                     title="Edit asset information"
                   >
                     <Wrench size={14} />
                   </button>
                   <button
                     onClick={() => beginEditTasks(row.base)}
-                    className="p-1.5 rounded bg-green-600/80 hover:bg-green-500 text-white transition-colors"
+                    className="p-1.5 rounded bg-green-600/80 hover:bg-green-500 text-foreground transition-colors"
                     title="Edit maintenance tasks"
                   >
                     <ClipboardList size={14} />
                   </button>
                   <button
                     onClick={() => openHistory(row.base)}
-                    className="p-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white transition-colors"
+                    className="p-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-foreground transition-colors"
                     title="View maintenance history"
                   >
                     <CalendarClock size={14} />
@@ -526,17 +526,17 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                 </div>
 
                 {/* Discipline */}
-                <div className="col-span-2 text-xs text-gray-200 truncate">
+                <div className="col-span-2 text-xs text-foreground truncate">
                   {row.base.discipline || '—'}
                 </div>
 
                 {/* Category */}
-                <div className="col-span-2 text-xs text-gray-300 truncate">
+                <div className="col-span-2 text-xs text-muted-foreground truncate">
                   {row.base.category || '—'}
                 </div>
 
                 {/* Asset Type */}
-                <div className="col-span-1 text-xs text-gray-300 truncate">
+                <div className="col-span-1 text-xs text-muted-foreground truncate">
                   {row.base.category?.split('/')[0].trim() || '—'}
                 </div>
 
@@ -546,17 +546,17 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                 </div>
 
                 {/* Asset */}
-                <div className="col-span-1 text-xs text-gray-300 truncate cursor-pointer hover:text-white" onClick={() => selectRowAssetInViewer(row)} title="Click to highlight in model">
+                <div className="col-span-1 text-xs text-muted-foreground truncate cursor-pointer hover:text-foreground" onClick={() => selectRowAssetInViewer(row)} title="Click to highlight in model">
                   {row.assetLabel || '—'}
                 </div>
 
                 {/* Level */}
-                <div className="col-span-1 text-xs text-gray-400">
+                <div className="col-span-1 text-xs text-muted-foreground">
                   {row.level || '—'}
                 </div>
 
                 {/* Room */}
-                <div className="col-span-1 text-xs text-gray-400">
+                <div className="col-span-1 text-xs text-muted-foreground">
                   {row.room || '—'}
                 </div>
 
@@ -577,16 +577,16 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
 
       {/* Edit Modal */}
       {editingId && editMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-[900px] max-w-full bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+          <div className="w-[900px] max-w-full bg-card border border-border rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-              <div className="text-lg font-semibold text-white">
+            <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+              <div className="text-lg font-semibold text-foreground">
                 {editMode === 'asset' ? '✎ Edit Asset Information' : editMode === 'tasks' ? '📋 Edit Maintenance Tasks' : 'Edit'}
               </div>
               <button
                 onClick={cancelEdit}
-                className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                className="p-1.5 rounded hover:bg-card text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X size={20} />
               </button>
@@ -599,69 +599,69 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                   {/* Asset Edit Form */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Discipline</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Discipline</label>
                       <select
                         value={edit.discipline}
                         onChange={e => setEdit(v => ({ ...v, discipline: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Discipline</option>
                         {disciplineOptions.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Category</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Category</label>
                       <select
                         value={edit.category}
                         onChange={e => setEdit(v => ({ ...v, category: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Category</option>
                         {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Code</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Code</label>
                       <input
                         type="text"
                         value={edit.code}
                         onChange={e => setEdit(v => ({ ...v, code: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                         placeholder="Enter asset code"
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Asset Type</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Asset Type</label>
                       <input
                         type="text"
                         value={edit.assetType}
                         onChange={e => setEdit(v => ({ ...v, assetType: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                         placeholder="Asset type"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-sm text-gray-300 block mb-2 font-medium">Assets</label>
+                    <label className="text-sm text-muted-foreground block mb-2 font-medium">Assets</label>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {(edit.assetsText.split('\n').map(s => s.trim()).filter(Boolean)).map((a, idx) => (
-                          <div key={a + '-' + idx} className="inline-flex items-center bg-gray-800 text-gray-200 px-3 py-1 rounded text-sm border border-gray-700">
+                          <div key={a + '-' + idx} className="inline-flex items-center bg-card text-foreground px-3 py-1 rounded text-sm border border-border">
                             <span className="mr-2">{a}</span>
                             <button onClick={() => setEdit(v => ({ ...v, assetsText: v.assetsText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300 font-bold">×</button>
                           </div>
                         ))}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setShowAssetPicker(true)} className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">Select from asset list</button>
-                        <button onClick={() => setEdit(v => ({ ...v, assetsText: '' }))} className="px-3 py-2 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-800">Clear</button>
+                        <button onClick={() => setShowAssetPicker(true)} className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-foreground text-sm">Select from asset list</button>
+                        <button onClick={() => setEdit(v => ({ ...v, assetsText: '' }))} className="px-3 py-2 rounded border border-border text-sm text-foreground hover:bg-card">Clear</button>
                       </div>
                       <div>
                         <textarea
                           value={edit.assetsText}
                           onChange={e => setEdit(v => ({ ...v, assetsText: e.target.value }))}
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                          className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                           placeholder="Enter assets (one per line)"
                           rows={3}
                         />
@@ -673,17 +673,17 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                 <>
                   {/* Tasks Edit Form */}
                   <div>
-                    <label className="text-sm text-gray-300 block mb-2 font-medium">Asset Code: {edit.code}</label>
+                    <label className="text-sm text-muted-foreground block mb-2 font-medium">Asset Code: {edit.code}</label>
                   </div>
 
 
 
                   <div>
-                    <label className="text-sm text-gray-300 block mb-2 font-medium">Maintenance Tasks</label>
+                    <label className="text-sm text-muted-foreground block mb-2 font-medium">Maintenance Tasks</label>
                     <div className="space-y-2">
                       <ul className="space-y-2 mb-3">
                         {(edit.tasksText.split('\n').map(s => s.trim()).filter(Boolean)).map((t, idx) => (
-                          <li key={t + '-' + idx} className="flex items-center justify-between bg-gray-800 px-3 py-2 rounded text-sm text-gray-200 border border-gray-700">
+                          <li key={t + '-' + idx} className="flex items-center justify-between bg-card px-3 py-2 rounded text-sm text-foreground border border-border">
                             <span className="flex-1">{t}</span>
                             <button onClick={() => setEdit(v => ({ ...v, tasksText: v.tasksText.split('\n').map(s => s.trim()).filter(Boolean).filter((_, i) => i !== idx).join('\n') }))} className="text-red-400 hover:text-red-300 ml-2 font-bold">Remove</button>
                           </li>
@@ -704,7 +704,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                             }
                           }}
                           placeholder="New task"
-                          className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                          className="flex-1 bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
                         />
                         <button
                           onClick={() => {
@@ -714,17 +714,17 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                               setEditTaskInput('');
                             }
                           }}
-                          className="px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm"
+                          className="px-3 py-2 rounded bg-green-600 hover:bg-green-700 text-foreground text-sm"
                         >
                           Add Task
                         </button>
-                        <button onClick={() => setEdit(v => ({ ...v, tasksText: '' }))} className="px-3 py-2 rounded border border-gray-600 text-sm text-gray-200 hover:bg-gray-800">Clear</button>
+                        <button onClick={() => setEdit(v => ({ ...v, tasksText: '' }))} className="px-3 py-2 rounded border border-border text-sm text-foreground hover:bg-card">Clear</button>
                       </div>
                       <div>
                         <textarea
                           value={edit.tasksText}
                           onChange={e => setEdit(v => ({ ...v, tasksText: e.target.value }))}
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                          className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                           placeholder="Enter tasks (one per line)"
                           rows={4}
                         />
@@ -733,22 +733,22 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                   </div>
                     <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Frequency (per year)</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Frequency (per year)</label>
                       <input
                         type="number"
                         value={edit.frequency}
                         onChange={e => setEdit(v => ({ ...v, frequency: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-gray-300 block mb-2 font-medium">Time per Intervention (hours)</label>
+                      <label className="text-sm text-muted-foreground block mb-2 font-medium">Time per Intervention (hours)</label>
                       <input
                         type="number"
                         value={edit.timeHours}
                         onChange={e => setEdit(v => ({ ...v, timeHours: e.target.value }))}
-                        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm hover:border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm hover:border-border focus:border-blue-500 focus:outline-none"
                         placeholder="0"
                       />
                     </div>
@@ -760,16 +760,16 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
             
 
             {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-gray-900 border-t border-gray-700 px-6 py-4 flex gap-2 justify-end">
+            <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex gap-2 justify-end">
               <button
                 onClick={cancelEdit}
-                className="px-4 py-2 text-sm rounded border border-gray-600 text-gray-200 hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 text-sm rounded border border-border text-foreground hover:bg-card transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => saveEdit(editingId!)}
-                className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors font-medium"
+                className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-foreground transition-colors font-medium"
               >
                 Save Changes
               </button>
@@ -780,15 +780,15 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
 
       {/* Asset Picker Modal */}
       {showAssetPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="w-[800px] max-w-full bg-gray-900 border border-gray-700 rounded-lg p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90">
+          <div className="w-[800px] max-w-full bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-white font-semibold">Select assets (category: {edit.category || 'All'})</div>
-              <button onClick={() => setShowAssetPicker(false)} className="px-2 py-1 rounded border border-gray-600 text-gray-200">Close</button>
+              <div className="text-foreground font-semibold">Select assets (category: {edit.category || 'All'})</div>
+              <button onClick={() => setShowAssetPicker(false)} className="px-2 py-1 rounded border border-border text-foreground">Close</button>
             </div>
             <div className="h-[420px] overflow-auto">
               {assetsLoading ? (
-                <div className="text-gray-400">Loading...</div>
+                <div className="text-muted-foreground">Loading...</div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {(() => {
@@ -815,10 +815,10 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                         }
                       }
                       return (
-                        <div key={a.id} className="flex items-center justify-between bg-gray-800/50 p-2 rounded border border-gray-700">
+                        <div key={a.id} className="flex items-center justify-between bg-card/50 p-2 rounded border border-border">
                           <div>
-                            <div className="text-sm text-gray-200">{display}</div>
-                            <div className="text-xs text-gray-400">{a.category} • {a.location || '—'}</div>
+                            <div className="text-sm text-foreground">{display}</div>
+                            <div className="text-xs text-muted-foreground">{a.category} • {a.location || '—'}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -830,7 +830,7 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
                                   setEdit(v => ({ ...v, assetsText: next.join('\n'), category: v.category || (bestLabel || '') }));
                                 }
                               }}
-                              className={`px-2 py-1 rounded text-white ${already ? 'bg-gray-600 cursor-not-allowed' : canAdd ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 cursor-not-allowed'}`}
+                              className={`px-2 py-1 rounded text-foreground ${already ? 'bg-muted cursor-not-allowed' : canAdd ? 'bg-blue-600 hover:bg-blue-700' : 'bg-muted cursor-not-allowed'}`}
                               title={already ? 'Already added' : canAdd ? 'Add asset' : 'Category mismatch'}
                             >
                               Add
@@ -849,29 +849,29 @@ const PlannedMaintenance: React.FC<{ projectId?: string; viewer?: any; }> = ({ p
 
       {/* History Modal */}
       {historyFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-[900px] max-w-full bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-              <div className="text-lg font-semibold text-white">Maintenance History — {historyFor.code || historyFor.category}</div>
-              <button onClick={() => { setHistoryFor(null); setHistoryOrders([]); }} className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-white transition-colors">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+          <div className="w-[900px] max-w-full bg-card border border-border rounded-lg shadow-2xl max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+              <div className="text-lg font-semibold text-foreground">Maintenance History — {historyFor.code || historyFor.category}</div>
+              <button onClick={() => { setHistoryFor(null); setHistoryOrders([]); }} className="p-1.5 rounded hover:bg-card text-muted-foreground hover:text-foreground transition-colors">
                 <X size={20} />
               </button>
             </div>
             <div className="px-6 py-4">
               {historyLoading ? (
-                <div className="text-gray-400">Loading history…</div>
+                <div className="text-muted-foreground">Loading history…</div>
               ) : historyOrders.length === 0 ? (
-                <div className="text-gray-400">No history found for selected asset(s).</div>
+                <div className="text-muted-foreground">No history found for selected asset(s).</div>
               ) : (
                 <div className="space-y-2">
                   {historyOrders.map(h => (
-                    <div key={h.id} className="bg-gray-800/50 rounded border border-gray-700 p-3">
+                    <div key={h.id} className="bg-card/50 rounded border border-border p-3">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-200 font-medium">{h.requestId || h.id} • {h.asset || h.location || '—'}</div>
-                        <div className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-200">{h.status}</div>
+                        <div className="text-sm text-foreground font-medium">{h.requestId || h.id} • {h.asset || h.location || '—'}</div>
+                        <div className="text-xs px-2 py-0.5 rounded bg-muted text-foreground">{h.status}</div>
                       </div>
-                      <div className="text-xs text-gray-300 mt-1">{h.description || '—'}</div>
-                      <div className="text-xs text-gray-500 mt-1">Resolved: {h.resolvedAt || '—'}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{h.description || '—'}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Resolved: {h.resolvedAt || '—'}</div>
                     </div>
                   ))}
                 </div>

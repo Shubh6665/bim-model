@@ -312,9 +312,9 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
-      <div className="text-white font-semibold text-sm">Work Orders / Service Requests</div>
-      <div className="text-xs text-gray-400">
-        <span className="text-gray-500">Gray fields</span> are from tickets.
+      <div className="text-foreground font-semibold text-sm">Work Orders / Service Requests</div>
+      <div className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground">Gray fields</span> are from tickets.
         <span className="text-blue-400 ml-2">Blue fields</span> are managed by Maintenance Team.
       </div>
 
@@ -325,12 +325,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           placeholder="Search..."
           value={filters.search}
           onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs flex-1 min-w-[200px]"
+          className="bg-card border border-border rounded px-3 py-1.5 text-foreground text-xs flex-1 min-w-[200px]"
         />
         <select
           value={filters.status}
           onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+          className="bg-card border border-border rounded px-3 py-1.5 text-foreground text-xs"
         >
           <option value="all">All Status</option>
           <option value="Open">Open</option>
@@ -341,7 +341,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.discipline}
           onChange={e => setFilters(f => ({ ...f, discipline: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+          className="bg-card border border-border rounded px-3 py-1.5 text-foreground text-xs"
         >
           <option value="all">All Disciplines</option>
           {uniqueDisciplines.map(d => (
@@ -351,7 +351,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.technician}
           onChange={e => setFilters(f => ({ ...f, technician: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+          className="bg-card border border-border rounded px-3 py-1.5 text-foreground text-xs"
         >
           <option value="all">All Technicians</option>
           {uniqueTechnicians.map(t => (
@@ -361,7 +361,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.priority}
           onChange={e => setFilters(f => ({ ...f, priority: e.target.value }))}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-white text-xs"
+          className="bg-card border border-border rounded px-3 py-1.5 text-foreground text-xs"
         >
           <option value="all">All Priorities</option>
           <option value="High">High</option>
@@ -370,7 +370,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         </select>
         <button
           onClick={() => setFilters({ status: 'all', discipline: 'all', technician: 'all', priority: 'all', search: '' })}
-          className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-xs"
+          className="bg-muted hover:bg-muted text-foreground px-3 py-1.5 rounded text-xs"
         >
           Clear Filters
         </button>
@@ -380,18 +380,18 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {selectedIds.size > 0 && (
         <div className="flex flex-wrap gap-2 items-center p-2 bg-blue-900/20 border border-blue-500/50 rounded">
           <span className="text-blue-300 text-sm">{selectedIds.size} selected</span>
-          <button onClick={exportToCSV} className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs">Export CSV</button>
+          <button onClick={exportToCSV} className="bg-muted hover:bg-muted text-foreground px-3 py-1 rounded text-xs">Export CSV</button>
         </div>
       )}
 
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
+          <thead className="sticky top-0 bg-card/90 backdrop-blur border-b border-border text-muted-foreground">
             <tr>
               <th className="px-2 py-1.5 w-10">
                 <input type="checkbox" checked={filteredAndSortedRows.length > 0 && selectedIds.size === filteredAndSortedRows.length} onChange={toggleSelectAll} />
               </th>
-              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-muted/50" onClick={() => {
                 if (sortBy === 'requestId') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('requestId'); setSortOrder('desc'); }
               }}>Request ID {sortBy === 'requestId' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Requester</th>
@@ -403,12 +403,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
               <th className="text-left px-2 py-1.5">Intervention Details</th>
               <th className="text-left px-2 py-1.5">Attachments</th>
               <th className="text-left px-2 py-1.5">Asset</th>
-              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-muted/50" onClick={() => {
                 if (sortBy === 'priority') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('priority'); setSortOrder('desc'); }
               }}>Priority {sortBy === 'priority' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Technician</th>
               <th className="text-left px-2 py-1.5">Company</th>
-              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-gray-700/50" onClick={() => {
+              <th className="text-left px-2 py-1.5 cursor-pointer hover:bg-muted/50" onClick={() => {
                 if (sortBy === 'status') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortBy('status'); setSortOrder('asc'); }
               }}>Status {sortBy === 'status' ? (sortOrder === 'asc' ? '▲' : '▼') : ''}</th>
               <th className="text-left px-2 py-1.5">Actions</th>
@@ -416,38 +416,38 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
           </thead>
           <tbody>
             {filteredAndSortedRows.length === 0 ? (
-              <tr><td colSpan={16} className="px-3 py-4 text-center text-gray-400">No work orders yet. Create tickets to generate work orders.</td></tr>
+              <tr><td colSpan={16} className="px-3 py-4 text-center text-muted-foreground">No work orders yet. Create tickets to generate work orders.</td></tr>
             ) : filteredAndSortedRows.map(r => {
               const isEditing = editingId === r.id;
               return (
                 <>
-                  <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
+                  <tr key={r.id} className="border-b border-border hover:bg-card/40" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
                     <td className="px-2 py-1.5 w-10" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                     </td>
                     {/* Gray-shaded: from ticket */}
-                    <td className="px-2 py-1.5 text-gray-500">{r.requestId || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.requester || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.contact || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.location || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.discipline || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{stripRevitPrefix(r.category) || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.description || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-500">
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.requestId || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.requester || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.contact || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.location || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.discipline || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{stripRevitPrefix(r.category) || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.description || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">
                       <div className="max-w-[220px] truncate" title={r.interventionDetails || ''}>{r.interventionDetails || '-'}</div>
                     </td>
-                    <td className="px-2 py-1.5 text-gray-500" onClick={e => e.stopPropagation()}>
+                    <td className="px-2 py-1.5 text-muted-foreground" onClick={e => e.stopPropagation()}>
                       {r.attachments && r.attachments.length > 0 ? (
                         <button onClick={() => setShowAttachmentsModal(r)} className="text-blue-400 hover:text-blue-300">📎 {r.attachments.length}</button>
                       ) : '-'}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-500">{r.asset || '-'}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.asset || '-'}</td>
                     <td className="px-2 py-1.5">
                       {isEditing ? (
                         <select
                           value={editForm.priority || r.priority || 'Medium'}
                           onChange={e => setEditForm(f => ({ ...f, priority: e.target.value as WorkOrderItem['priority'] }))}
-                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                          className="w-full bg-card border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
                         >
                           <option value="High">High</option>
                           <option value="Medium">Medium</option>
@@ -457,7 +457,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${r.priority === 'High' ? 'bg-red-900/40 text-red-300' :
                           r.priority === 'Medium' ? 'bg-yellow-900/40 text-yellow-300' :
                             r.priority === 'Low' ? 'bg-green-900/40 text-green-300' :
-                              'bg-gray-900/40 text-gray-400'
+                              'bg-card/40 text-muted-foreground'
                           }`}>
                           {r.priority || 'Not Set'}
                         </span>
@@ -470,7 +470,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                         <input
                           value={editForm.responsibleTechnician || ''}
                           onChange={e => setEditForm(f => ({ ...f, responsibleTechnician: e.target.value }))}
-                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                          className="w-full bg-card border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
                         />
                       ) : (
                         <span className="text-blue-300">{r.responsibleTechnician || '-'}</span>
@@ -481,7 +481,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                         <input
                           value={editForm.company || ''}
                           onChange={e => setEditForm(f => ({ ...f, company: e.target.value }))}
-                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                          className="w-full bg-card border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
                         />
                       ) : (
                         <span className="text-blue-300">{r.company || '-'}</span>
@@ -492,7 +492,7 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                         <select
                           value={editForm.status || r.status}
                           onChange={e => setEditForm(f => ({ ...f, status: e.target.value as WorkOrderItem['status'] }))}
-                          className="w-full bg-gray-800 border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
+                          className="w-full bg-card border border-blue-500 rounded px-1 py-0.5 text-blue-300 text-xs"
                         >
                           <option value="Open">Open</option>
                           <option value="Planned">Planned</option>
@@ -510,45 +510,45 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                     <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                       {isEditing ? (
                         <div className="flex gap-1">
-                          <button onClick={saveEdit} className="bg-green-600 hover:bg-green-700 text-white px-2 py-0.5 rounded text-xs">Save</button>
-                          <button onClick={() => { setEditingId(null); setEditForm({}) }} className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-0.5 rounded text-xs">Cancel</button>
+                          <button onClick={saveEdit} className="bg-green-600 hover:bg-green-700 text-foreground px-2 py-0.5 rounded text-xs">Save</button>
+                          <button onClick={() => { setEditingId(null); setEditForm({}) }} className="bg-muted hover:bg-muted text-foreground px-2 py-0.5 rounded text-xs">Cancel</button>
                         </div>
                       ) : (
                         <div className="flex gap-1">
-                          <button onClick={() => startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded text-xs">Edit</button>
-                          <button onClick={() => setShowCommentsModal(r)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">Comments</button>
-                          <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-0.5 rounded text-xs">{expandedId === r.id ? 'Hide' : 'Details'}</button>
+                          <button onClick={() => startEdit(r)} className="bg-blue-600 hover:bg-blue-700 text-foreground px-2 py-0.5 rounded text-xs">Edit</button>
+                          <button onClick={() => setShowCommentsModal(r)} className="bg-muted hover:bg-muted text-foreground px-2 py-0.5 rounded text-xs">Comments</button>
+                          <button onClick={() => setExpandedId(expandedId === r.id ? null : r.id)} className="bg-muted hover:bg-muted text-foreground px-2 py-0.5 rounded text-xs">{expandedId === r.id ? 'Hide' : 'Details'}</button>
                         </div>
                       )}
                     </td>
                   </tr>
                   {expandedId === r.id && (
-                    <tr className="border-b border-gray-800 bg-gray-900/30">
+                    <tr className="border-b border-border bg-card/30">
                       <td colSpan={16} className="px-3 py-3">
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <div className="text-xs text-gray-400">Full Description</div>
-                            <div className="text-gray-200">{r.description || '-'}</div>
+                            <div className="text-xs text-muted-foreground">Full Description</div>
+                            <div className="text-foreground">{r.description || '-'}</div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-400">Intervention Details</div>
-                            <div className="text-gray-200">{r.interventionDetails || '-'}</div>
+                            <div className="text-xs text-muted-foreground">Intervention Details</div>
+                            <div className="text-foreground">{r.interventionDetails || '-'}</div>
                           </div>
                           <div className="col-span-2">
-                            <div className="text-xs text-gray-400 mb-1">Attachments</div>
+                            <div className="text-xs text-muted-foreground mb-1">Attachments</div>
                             <div className="flex flex-wrap gap-2">
                               {r.attachments && r.attachments.length > 0 ? (
                                 r.attachments.map((a, idx) => (
-                                  <span key={idx} className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-200">📄 {typeof a === 'string' ? a : a.name || a.url}</span>
+                                  <span key={idx} className="bg-card px-2 py-1 rounded text-xs text-foreground">📄 {typeof a === 'string' ? a : a.name || a.url}</span>
                                 ))
                               ) : (
-                                <span className="text-gray-500 text-xs">No attachments</span>
+                                <span className="text-muted-foreground text-xs">No attachments</span>
                               )}
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-400">Timestamps</div>
-                            <div className="text-gray-400 text-xs space-y-0.5">
+                            <div className="text-xs text-muted-foreground">Timestamps</div>
+                            <div className="text-muted-foreground text-xs space-y-0.5">
                               <div>Created: {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}</div>
                               <div>Updated: {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : '-'}</div>
                               <div>Assigned: {r.assignedAt ? new Date(r.assignedAt).toLocaleString() : '-'}</div>
@@ -568,22 +568,22 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
       {/* Attachments Modal */}
       {showAttachmentsModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '300px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '300px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-white font-semibold text-lg">Attachments</h3>
-              <button onClick={() => setShowAttachmentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
+              <h3 className="text-foreground font-semibold text-lg">Attachments</h3>
+              <button onClick={() => setShowAttachmentsModal(null)} className="text-muted-foreground hover:text-foreground">✕</button>
             </div>
             <div className="space-y-2">
               {showAttachmentsModal.attachments && showAttachmentsModal.attachments.length > 0 ? (
                 showAttachmentsModal.attachments.map((a, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-gray-900/60 rounded px-3 py-2">
-                    <span className="text-gray-200 text-sm">📄 {typeof a === 'string' ? a : a.name || a.url}</span>
+                  <div key={idx} className="flex items-center justify-between bg-card/60 rounded px-3 py-2">
+                    <span className="text-foreground text-sm">📄 {typeof a === 'string' ? a : a.name || a.url}</span>
                     <a href={typeof a === 'string' ? a : a.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 text-xs">Open</a>
                   </div>
                 ))
               ) : (
-                <div className="text-gray-400 text-sm">No attachments</div>
+                <div className="text-muted-foreground text-sm">No attachments</div>
               )}
             </div>
           </div>
@@ -592,25 +592,25 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
       {/* Comments Modal */}
       {showCommentsModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-lg p-6 w-full max-w-5xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '400px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-white font-semibold text-lg">Comments & Notes</h3>
-              <button onClick={() => setShowCommentsModal(null)} className="text-gray-400 hover:text-white">✕</button>
+              <h3 className="text-foreground font-semibold text-lg">Comments & Notes</h3>
+              <button onClick={() => setShowCommentsModal(null)} className="text-muted-foreground hover:text-foreground">✕</button>
             </div>
             <div className="space-y-3 mb-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
               {showCommentsModal.comments && showCommentsModal.comments.length > 0 ? (
                 showCommentsModal.comments.map(c => (
-                  <div key={c.id} className="bg-gray-900/60 rounded p-3">
+                  <div key={c.id} className="bg-card/60 rounded p-3">
                     <div className="flex justify-between items-start mb-1">
                       <span className="text-blue-400 font-semibold text-sm">{c.author}</span>
-                      <span className="text-gray-500 text-xs">{new Date(c.timestamp).toLocaleString()}</span>
+                      <span className="text-muted-foreground text-xs">{new Date(c.timestamp).toLocaleString()}</span>
                     </div>
-                    <div className="text-gray-300 text-sm">{c.text}</div>
+                    <div className="text-muted-foreground text-sm">{c.text}</div>
                   </div>
                 ))
               ) : (
-                <div className="text-gray-400 text-sm">No comments yet.</div>
+                <div className="text-muted-foreground text-sm">No comments yet.</div>
               )}
             </div>
             <div className="flex gap-2">
@@ -618,12 +618,12 @@ const WorkOrders: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
                 placeholder="Add a comment..."
-                className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                className="flex-1 bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
                 rows={3}
               />
               <button
                 onClick={() => showCommentsModal && addComment(showCommentsModal.id)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm self-start"
+                className="bg-blue-600 hover:bg-blue-700 text-foreground px-4 py-2 rounded text-sm self-start"
               >
                 Add
               </button>
@@ -742,7 +742,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       case 'Planned': return 'bg-blue-900/30 text-blue-300';
       case 'In Progress': return 'bg-purple-900/30 text-purple-300';
       case 'Resolved': return 'bg-green-900/30 text-green-300';
-      default: return 'bg-gray-800/60 text-gray-300';
+      default: return 'bg-card/60 text-muted-foreground';
     }
   };
 
@@ -881,9 +881,9 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
   return (
     <div className="p-4 space-y-4 h-full flex flex-col overflow-hidden">
       <div>
-        <h3 className="text-white font-semibold text-lg mb-1">Service Requests</h3>
-        <p className="text-xs text-gray-400">
-          <span className="inline-block bg-gray-700/40 px-1.5 py-0.5 rounded text-gray-300 mr-2">Gray fields</span>
+        <h3 className="text-foreground font-semibold text-lg mb-1">Service Requests</h3>
+        <p className="text-xs text-muted-foreground">
+          <span className="inline-block bg-muted/40 px-1.5 py-0.5 rounded text-muted-foreground mr-2">Gray fields</span>
           are from tickets.
           <span className="inline-block bg-blue-900/40 px-1.5 py-0.5 rounded text-blue-300 ml-2">Blue fields</span>
           are managed by Maintenance Team.
@@ -891,19 +891,19 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       </div>
 
       {/* Filters and Actions */}
-      <div className="flex flex-wrap items-center gap-2 bg-gray-800/40 p-3 rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 bg-card/40 p-3 rounded-lg">
         <input
           type="text"
           placeholder="Search..."
           value={filters.search}
           onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white flex-1 min-w-[200px]"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground flex-1 min-w-[200px]"
         />
 
         <select
           value={filters.status}
           onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Status</option>
           {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -912,7 +912,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.discipline}
           onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Disciplines</option>
           {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
@@ -921,7 +921,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.technician}
           onChange={e => setFilters(prev => ({ ...prev, technician: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Technicians</option>
           {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
@@ -930,7 +930,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.priority}
           onChange={e => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Priorities</option>
           {uniquePriorities.map(p => <option key={p} value={p}>{p}</option>)}
@@ -938,7 +938,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
         <button
           onClick={clearFilters}
-          className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+          className="px-3 py-1.5 bg-muted hover:bg-muted text-foreground text-sm rounded transition-colors"
         >
           Clear Filters
         </button>
@@ -946,9 +946,9 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <button
           onClick={exportToCSV}
           disabled={selectedIds.size === 0}
-          className={`px-3 py-1.5 text-white text-sm rounded transition-colors ${selectedIds.size > 0
+          className={`px-3 py-1.5 text-foreground text-sm rounded transition-colors ${selectedIds.size > 0
             ? 'bg-green-600 hover:bg-green-700'
-            : 'bg-gray-600 cursor-not-allowed'
+            : 'bg-muted cursor-not-allowed'
             }`}
         >
           Export to CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
@@ -956,24 +956,24 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       </div>
 
       {/* Results count */}
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-muted-foreground">
         Showing {filteredRows.length} of {rows.length} request{rows.length !== 1 ? 's' : ''}
         {selectedIds.size > 0 && ` • ${selectedIds.size} selected`}
       </div>
 
       {rows.length === 0 ? (
-        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-6 text-center">
+        <div className="text-muted-foreground text-sm bg-card/30 rounded-lg p-6 text-center">
           No service requests yet. Requests will appear here when submitted through the Maintenance Ticket form.
         </div>
       ) : filteredRows.length === 0 ? (
-        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-6 text-center">
+        <div className="text-muted-foreground text-sm bg-card/30 rounded-lg p-6 text-center">
           No requests match the current filters.
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm border-collapse">
-            <thead className="sticky top-0 bg-gray-900 z-10">
-              <tr className="border-b border-gray-700">
+            <thead className="sticky top-0 bg-card z-10">
+              <tr className="border-b border-border">
                 <th className="px-3 py-2 text-left">
                   <input
                     type="checkbox"
@@ -983,31 +983,31 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                   />
                 </th>
                 <th
-                  className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-muted-foreground cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('requestId')}
                 >
                   Request ID {sortBy === 'requestId' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-muted-foreground cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('requester')}
                 >
                   Requester {sortBy === 'requester' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Contact</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Location</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Discipline</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Category</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Description</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Contact</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Location</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Discipline</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Category</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Description</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Technician</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Company</th>
                 <th
-                  className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('status')}
                 >
                   Status {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Actions</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1018,7 +1018,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                 return (
                   <React.Fragment key={row.id}>
-                    <tr className={`border-b border-gray-800 hover:bg-gray-800/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
+                    <tr className={`border-b border-border hover:bg-card/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
@@ -1030,20 +1030,20 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       <td className="px-3 py-2 text-blue-400 font-mono text-xs">
                         {row.requestId || row.id.slice(0, 12)}
                       </td>
-                      <td className="px-3 py-2 text-gray-300">{row.requester || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs">{row.contact || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.location}>
+                      <td className="px-3 py-2 text-muted-foreground">{row.requester || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs">{row.contact || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[120px] truncate" title={row.location}>
                         {row.location || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-300">{row.discipline || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.category}>
+                      <td className="px-3 py-2 text-muted-foreground">{row.discipline || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[120px] truncate" title={row.category}>
                         {row.category || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[150px] truncate" title={row.description}>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[150px] truncate" title={row.description}>
                         {row.description || '-'}
                       </td>
                       <td className="px-3 py-2 text-blue-300 text-xs">
-                        {row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>}
+                        {row.responsibleTechnician || <span className="text-muted-foreground">Unassigned</span>}
                       </td>
                       <td className="px-3 py-2 text-blue-300 text-xs">{row.company || '-'}</td>
                       <td className="px-3 py-2">
@@ -1054,7 +1054,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       <td className="px-3 py-2">
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : row.id)}
-                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs whitespace-nowrap"
+                          className="px-2 py-1 bg-muted hover:bg-muted text-foreground rounded text-xs whitespace-nowrap"
                         >
                           {isExpanded ? 'Hide ▲' : 'Expand ▼'}
                         </button>
@@ -1063,65 +1063,65 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                     {/* Expanded Row with Full Details */}
                     {isExpanded && (
-                      <tr className="border-b border-gray-800 bg-gray-900/60">
+                      <tr className="border-b border-border bg-card/60">
                         <td colSpan={12} className="p-0">
                           <div className="p-4 space-y-4">
                             {!isEditing ? (
                               <>
                                 {/* Gray Fields - From Ticket */}
-                                <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
-                                  <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-                                    <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
+                                <div className="bg-card/40 rounded-lg p-4 border border-border">
+                                  <div className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                                    <span className="bg-muted/60 px-2 py-1 rounded text-xs">From Ticket</span>
                                     Full Request Details
                                   </div>
                                   <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Request ID</div>
-                                      <div className="text-sm text-white font-mono">{row.requestId || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Request ID</div>
+                                      <div className="text-sm text-foreground font-mono">{row.requestId || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Requester</div>
-                                      <div className="text-sm text-gray-200">{row.requester || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Requester</div>
+                                      <div className="text-sm text-foreground">{row.requester || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Contact</div>
-                                      <div className="text-sm text-gray-200">{row.contact || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Contact</div>
+                                      <div className="text-sm text-foreground">{row.contact || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Location</div>
-                                      <div className="text-sm text-gray-200">{row.location || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Location</div>
+                                      <div className="text-sm text-foreground">{row.location || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Discipline</div>
-                                      <div className="text-sm text-gray-200">{row.discipline || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Discipline</div>
+                                      <div className="text-sm text-foreground">{row.discipline || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Category</div>
-                                      <div className="text-sm text-gray-200">{row.category || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Category</div>
+                                      <div className="text-sm text-foreground">{row.category || 'N/A'}</div>
                                     </div>
                                     <div className="col-span-3">
-                                      <div className="text-xs text-gray-500 mb-1">Short Description</div>
-                                      <div className="text-sm text-gray-200">{row.description || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Short Description</div>
+                                      <div className="text-sm text-foreground">{row.description || 'N/A'}</div>
                                     </div>
                                     <div className="col-span-3">
-                                      <div className="text-xs text-gray-500 mb-1">Detailed Intervention Description</div>
-                                      <div className="text-sm text-gray-200 whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Detailed Intervention Description</div>
+                                      <div className="text-sm text-foreground whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Asset</div>
-                                      <div className="text-sm text-gray-200">{row.asset || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground mb-1">Asset</div>
+                                      <div className="text-sm text-foreground">{row.asset || 'N/A'}</div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Attachments</div>
-                                      <div className="text-sm text-gray-200">
+                                      <div className="text-xs text-muted-foreground mb-1">Attachments</div>
+                                      <div className="text-sm text-foreground">
                                         {row.attachments && row.attachments.length > 0
                                           ? `${row.attachments.length} file(s)`
                                           : 'None'}
                                       </div>
                                     </div>
                                     <div>
-                                      <div className="text-xs text-gray-500 mb-1">Created At</div>
-                                      <div className="text-sm text-gray-400">
+                                      <div className="text-xs text-muted-foreground mb-1">Created At</div>
+                                      <div className="text-sm text-muted-foreground">
                                         {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
                                       </div>
                                     </div>
@@ -1137,7 +1137,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                     </div>
                                     <button
                                       onClick={() => startEdit(row)}
-                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-foreground rounded text-xs"
                                     >
                                       Edit Blue Fields
                                     </button>
@@ -1146,7 +1146,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                     <div>
                                       <div className="text-xs text-blue-400 mb-1">Responsible Technician</div>
                                       <div className="text-sm text-blue-200 font-semibold">
-                                        {row.responsibleTechnician || <span className="text-gray-500">Not Assigned</span>}
+                                        {row.responsibleTechnician || <span className="text-muted-foreground">Not Assigned</span>}
                                       </div>
                                     </div>
                                     <div>
@@ -1196,7 +1196,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                         type="text"
                                         value={editForm.responsibleTechnician || ''}
                                         onChange={e => setEditForm(prev => ({ ...prev, responsibleTechnician: e.target.value }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 bg-muted border border-blue-600 rounded text-sm text-foreground focus:outline-none focus:border-blue-400"
                                         placeholder="Assign technician name"
                                       />
                                     </div>
@@ -1208,7 +1208,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                         type="text"
                                         value={editForm.company || ''}
                                         onChange={e => setEditForm(prev => ({ ...prev, company: e.target.value }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 bg-muted border border-blue-600 rounded text-sm text-foreground focus:outline-none focus:border-blue-400"
                                         placeholder="Company name"
                                       />
                                     </div>
@@ -1219,7 +1219,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       <select
                                         value={editForm.status || row.status}
                                         onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value as any }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 bg-muted border border-blue-600 rounded text-sm text-foreground focus:outline-none focus:border-blue-400"
                                       >
                                         <option value="Open">Open</option>
                                         <option value="Planned">Planned</option>
@@ -1234,7 +1234,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       <select
                                         value={editForm.priority || row.priority || 'Medium'}
                                         onChange={e => setEditForm(prev => ({ ...prev, priority: e.target.value as any }))}
-                                        className="w-full px-3 py-2 bg-gray-700 border border-blue-600 rounded text-sm text-white focus:outline-none focus:border-blue-400"
+                                        className="w-full px-3 py-2 bg-muted border border-blue-600 rounded text-sm text-foreground focus:outline-none focus:border-blue-400"
                                       >
                                         <option value="Low">Low</option>
                                         <option value="Medium">Medium</option>
@@ -1248,13 +1248,13 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                   <div className="flex gap-3 mt-4 pt-4 border-t border-blue-800">
                                     <button
                                       onClick={saveEdit}
-                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors"
+                                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-foreground rounded font-semibold transition-colors"
                                     >
                                       Save Changes
                                     </button>
                                     <button
                                       onClick={() => { setEditingId(null); setEditForm({}); }}
-                                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                                      className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded transition-colors"
                                     >
                                       Cancel
                                     </button>
@@ -1326,17 +1326,17 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
   return (
     <div className="p-3 space-y-4">
-      <div className="text-white font-semibold text-sm">Maintenance Reports</div>
+      <div className="text-foreground font-semibold text-sm">Maintenance Reports</div>
 
       {/* Shrunk stat cards - smaller padding & font-sizes */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-gray-800/60 rounded p-2">
-          <div className="text-xs text-gray-400">Scheduled Tasks</div>
-          <div className="text-lg text-white font-bold">{totalScheduled}</div>
+        <div className="bg-card/60 rounded p-2">
+          <div className="text-xs text-muted-foreground">Scheduled Tasks</div>
+          <div className="text-lg text-foreground font-bold">{totalScheduled}</div>
         </div>
-        <div className="bg-gray-800/60 rounded p-2">
-          <div className="text-xs text-gray-400">Total Work Orders</div>
-          <div className="text-lg text-white font-bold">{totalWorkOrders}</div>
+        <div className="bg-card/60 rounded p-2">
+          <div className="text-xs text-muted-foreground">Total Work Orders</div>
+          <div className="text-lg text-foreground font-bold">{totalWorkOrders}</div>
         </div>
         <div className="bg-yellow-900/30 rounded p-2">
           <div className="text-xs text-yellow-400">Open Orders</div>
@@ -1352,29 +1352,29 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
         </div>
       </div>
 
-      <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400">Reports generated at: {reportTime || '—'}</div>
+      <div className="border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground">Reports generated at: {reportTime || '—'}</div>
       </div>
 
       <div className="mt-3">
-        <div className="text-sm text-gray-200 mb-2">Work Orders</div>
+        <div className="text-sm text-foreground mb-2">Work Orders</div>
         <div className="space-y-2">
           {workOrders.map(w => (
-            <div key={w.id} className="bg-gray-800/40 rounded">
+            <div key={w.id} className="bg-card/40 rounded">
               <div className="flex items-center justify-between p-2">
                 <div>
                   <div className="text-sm font-medium">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
-                  <div className="text-xs text-gray-300">{w.description?.slice(0, 80) || 'No description'}</div>
+                  <div className="text-xs text-muted-foreground">{w.description?.slice(0, 80) || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="text-xs text-gray-300">{w.status}</div>
+                  <div className="text-xs text-muted-foreground">{w.status}</div>
                   <button onClick={() => setOpenWO(openWO && openWO.id === w.id ? null : w)} className="px-2 py-1 bg-blue-600 rounded text-sm">{openWO && openWO.id === w.id ? 'Close' : 'Open'}</button>
                 </div>
               </div>
 
               {/* Inline expanded report */}
               {openWO && openWO.id === w.id && (
-                <div className="p-2 border-t border-gray-700">
+                <div className="p-2 border-t border-border">
                   <MaintenanceReport
                     projectId={projectId}
                     workOrder={openWO}
@@ -1425,34 +1425,34 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
 
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Upcoming Maintenance Activities</div>
+      <div className="text-foreground font-semibold text-sm">Upcoming Maintenance Activities</div>
 
       <div className="space-y-2">
-        <div className="text-xs text-gray-400 font-semibold">Scheduled Maintenance</div>
+        <div className="text-xs text-muted-foreground font-semibold">Scheduled Maintenance</div>
         {upcomingScheduled.length === 0 ? (
-          <div className="text-gray-500 text-xs">No scheduled maintenance.</div>
+          <div className="text-muted-foreground text-xs">No scheduled maintenance.</div>
         ) : (
           <ul className="space-y-1">
             {upcomingScheduled.map(s => (
-              <li key={s.id} className="bg-blue-900/20 rounded px-2 py-1.5 text-xs text-gray-200">
+              <li key={s.id} className="bg-blue-900/20 rounded px-2 py-1.5 text-xs text-foreground">
                 <span className="font-semibold text-blue-300">[{s.discipline}]</span> {s.asset} • {s.tasks.join(', ')}
-                <div className="text-xs text-gray-400 mt-0.5">{s.frequency}/year • {s.timeHours}h</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{s.frequency}/year • {s.timeHours}h</div>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <div className="space-y-2 border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 font-semibold">Planned Work Orders</div>
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground font-semibold">Planned Work Orders</div>
         {plannedOrders.length === 0 ? (
-          <div className="text-gray-500 text-xs">No planned work orders.</div>
+          <div className="text-muted-foreground text-xs">No planned work orders.</div>
         ) : (
           <ul className="space-y-1">
             {plannedOrders.map(w => (
-              <li key={w.id} className="bg-gray-800/60 rounded px-2 py-1.5 text-xs text-gray-200">
+              <li key={w.id} className="bg-card/60 rounded px-2 py-1.5 text-xs text-foreground">
                 <span className="font-semibold">{w.requestId}</span> • {w.description}
-                <div className="text-xs text-gray-400 mt-0.5">Technician: {w.responsibleTechnician || 'Unassigned'}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Technician: {w.responsibleTechnician || 'Unassigned'}</div>
               </li>
             ))}
           </ul>

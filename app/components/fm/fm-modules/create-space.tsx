@@ -877,7 +877,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
           toast.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
-        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+        } text-foreground px-6 py-4 rounded-lg shadow-2xl border border-border/20 backdrop-blur-sm min-w-[320px]`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <p className="font-semibold text-sm">{toast.type === 'success' ? 'Success' : 'Error'}</p>
@@ -885,7 +885,7 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors text-xl font-bold leading-none"
+              className="text-foreground/80 hover:text-foreground transition-colors text-xl font-bold leading-none"
             >
               &times;
             </button>
@@ -894,28 +894,28 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
       )}
 
       <div className="flex items-center justify-between">
-        <div className="text-white font-semibold text-sm">Create New Space</div>
-        <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Clear</button>
+        <div className="text-foreground font-semibold text-sm">Create New Space</div>
+        <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-muted hover:bg-muted text-foreground">Clear</button>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e => { console.log('[CreateSpace][input] area change:', e.target.value); setF(v => ({ ...v, area: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Perimeter (m)</label><input value={(f as any).perimeter} onChange={e => { console.log('[CreateSpace][input] perimeter change:', e.target.value); setF(v => ({ ...(v as any), perimeter: e.target.value } as any)); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Area (m²)</label><input value={f.area} onChange={e => { console.log('[CreateSpace][input] area change:', e.target.value); setF(v => ({ ...v, area: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Perimeter (m)</label><input value={(f as any).perimeter} onChange={e => { console.log('[CreateSpace][input] perimeter change:', e.target.value); setF(v => ({ ...(v as any), perimeter: e.target.value } as any)); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div className="col-span-2"><label className="text-[12px] text-muted-foreground block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
       </div>
       {/* Footprint Editor */}
-      <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 mb-2">2D Footprint (optional)</div>
+      <div className="border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground mb-2">2D Footprint (optional)</div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-gray-700 text-gray-400' : 'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
-          <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
-          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-gray-700 text-gray-400' : 'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
-          <button type="button" onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
+          <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-muted text-muted-foreground' : 'bg-emerald-700 hover:bg-emerald-800 text-foreground'}`}>Start drawing</button>
+          <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-muted text-muted-foreground' : 'bg-blue-700 hover:bg-blue-800 text-foreground'}`}>Finish</button>
+          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-muted text-muted-foreground' : 'bg-yellow-700 hover:bg-yellow-800 text-foreground'}`}>Undo</button>
+          <button type="button" onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-muted text-muted-foreground' : 'bg-red-700 hover:bg-red-800 text-foreground'}`}>Clear</button>
         </div>
-        <div className="text-[11px] text-gray-500 mt-2">
+        <div className="text-[11px] text-muted-foreground mt-2">
           {drawing
             ? `Drawing... ${pointCount} point${pointCount !== 1 ? 's' : ''} added. Click to add more, Enter to finish, ESC to cancel.`
             : footprint
@@ -924,17 +924,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         </div>
       </div>
       {confirmOpen && footprint && (
-        <div className="mt-3 border border-gray-700 rounded p-2 bg-gray-900 text-xs text-gray-200">
+        <div className="mt-3 border border-border rounded p-2 bg-card text-xs text-foreground">
           <div className="mb-2 font-semibold">Footprint Points (x, y, z):</div>
-          <div className="max-h-40 overflow-auto space-y-1 bg-gray-950 p-2 rounded">
+          <div className="max-h-40 overflow-auto space-y-1 bg-background p-2 rounded">
             {footprint.points.map((p, i) => (
               <div key={i} className="font-mono">{i + 1}. ({p.x.toFixed(3)}, {p.y.toFixed(3)}, {p.z.toFixed(3)})</div>
             ))}
           </div>
-          <div className="mt-2"><button onClick={() => { console.log('[CreateSpace][confirmClose] Closing confirmation'); setConfirmOpen(false); }} className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Close</button></div>
+          <div className="mt-2"><button onClick={() => { console.log('[CreateSpace][confirmClose] Closing confirmation'); setConfirmOpen(false); }} className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground">Close</button></div>
         </div>
       )}
-      <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
+      <div><button className="bg-blue-600 hover:bg-blue-700 text-foreground px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
     </div>
   );
 };

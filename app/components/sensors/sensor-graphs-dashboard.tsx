@@ -441,7 +441,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const minHCls = small ? 'min-h-[80px] md:min-h-[90px]' : 'min-h-[160px]';
     
     return (
-      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner w-full overflow-hidden`}>
+      <div className={`bg-card border border-border rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner w-full overflow-hidden`}>
         <svg viewBox="0 0 200 120" className="w-full flex-1 max-h-[80px] md:max-h-[90px]">
           {/* Outer ring - 3 color segments */}
           <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
@@ -455,11 +455,11 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
           
           {/* Center value text */}
-          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
+          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-foreground" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
             {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : 1)}${unit}` : `—${unit}`}
           </text>
         </svg>
-        <div className="text-[8px] md:text-[10px] text-gray-300 uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
+        <div className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
       </div>
     );
   };
@@ -476,8 +476,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           onClick={() => setScale(k)}
           className={`px-2 py-0.5 rounded border text-[10px] font-semibold transition ${
             currentScale === k
-              ? "bg-blue-600 border-blue-500 text-white"
-              : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+              ? "bg-blue-600 border-blue-500 text-foreground"
+              : "bg-card border-border text-muted-foreground hover:bg-muted"
           }`}
           title={
             k === "D" ? "Day" : k === "W" ? "Week" : k === "M" ? "Month" : "Year"
@@ -559,7 +559,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
     
-    if (!data?.timestamps?.length || !data.temp || !data.rh) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
+    if (!data?.timestamps?.length || !data.temp || !data.rh) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-muted-foreground bg-card border border-border rounded-xl">No data</div>;
     // Explicit canvas size (no letterboxing) - we still draw with margins
     const w = Math.max(320, width);
     const h = Math.max(120, height);
@@ -1033,25 +1033,25 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
   };
 
   return (
-    <div className={standalone ? "h-full w-full bg-gray-950 flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col"}>
+    <div className={standalone ? "h-full w-full bg-background flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-background/98 z-[2000] flex flex-col"}>
       {/* Top Header */}
-      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-gray-800 bg-gray-900/70">
+      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-border bg-card/70">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-white">Sensor Graphs Dashboard</h3>
-            <div className="text-xs text-gray-300 flex items-center gap-2">
-              <div><span className="text-gray-400">Room:</span> <span className="font-semibold text-white">{sensor.room || '—'}</span></div>
+            <h3 className="text-lg font-bold text-foreground">Sensor Graphs Dashboard</h3>
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <div><span className="text-muted-foreground">Room:</span> <span className="font-semibold text-foreground">{sensor.room || '—'}</span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Sensor:</span> <span className="font-semibold text-white">{sensor.name}</span></div>
+              <div><span className="text-muted-foreground">Sensor:</span> <span className="font-semibold text-foreground">{sensor.name}</span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Battery:</span> <span className="font-semibold text-white">{sensor.batteryLevel ?? 100}% </span></div>
+              <div><span className="text-muted-foreground">Battery:</span> <span className="font-semibold text-foreground">{sensor.batteryLevel ?? 100}% </span></div>
               <div className="hidden sm:block">|</div>
               <div className="flex items-center gap-1.5">
-                <span className="text-gray-400">Wi‑Fi:</span> 
+                <span className="text-muted-foreground">Wi‑Fi:</span> 
                 <div className="flex items-center mb-1">
                  <WiFiSignal strength={sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 4 : sensor.batteryLevel > 50 ? 3 : sensor.batteryLevel > 25 ? 2 : 1) : 4} size={16} />
                 </div>
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-foreground">
                   {sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 'Excellent' : sensor.batteryLevel > 50 ? 'Good' : sensor.batteryLevel > 25 ? 'Fair' : 'Poor') : 'Excellent'}
                 </span>
               </div>
@@ -1061,17 +1061,17 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {/* Date pill (calendar style) on the left of this cluster */}
             <button
               onClick={()=>{ const el=dateInputEl.current as any; if(el?.showPicker) el.showPicker(); else el?.click(); }}
-              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl bg-gray-800/70 border border-gray-700 text-xs md:text-sm text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-1 md:gap-2"
+              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl bg-card/70 border border-border text-xs md:text-sm text-foreground hover:bg-muted/60 transition flex items-center gap-1 md:gap-2"
               title="Pick date"
             >
               <span className="hidden sm:inline">{formatDate(date)}</span>
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
-              <span className="inline-block w-3 h-3 md:w-4 md:h-4 text-gray-300">📅</span>
+              <span className="inline-block w-3 h-3 md:w-4 md:h-4 text-muted-foreground">📅</span>
             </button>
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
 
             {/* Time label (hh:mm) where the old calendar input used to be */}
-            <div className="hidden md:flex px-3 py-1.5 rounded-xl bg-transparent border border-transparent text-sm md:text-base text-gray-200 font-semibold">
+            <div className="hidden md:flex px-3 py-1.5 rounded-xl bg-transparent border border-transparent text-sm md:text-base text-foreground font-semibold">
               {now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </div>
 
@@ -1084,7 +1084,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   const url = `/sensor-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}&projectId=${projectId || ''}`;
                   window.open(url, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
                 }}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
                 aria-label="Open in new window"
                 title="Open in new window"
               >
@@ -1093,7 +1093,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             )}
             <button
               onClick={onClose}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-muted hover:bg-muted border border-border text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
               aria-label="Close"
               title="Close"
             >
@@ -1108,8 +1108,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Left column: Current Condition + Temperature + Humidity */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
           {/* Current Condition Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow overflow-hidden min-h-[220px]">
-            <div className="text-sm md:text-md font-semibold text-white mb-1.5 md:mb-2 text-center">Current Condition</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow overflow-hidden min-h-[220px]">
+            <div className="text-sm md:text-md font-semibold text-foreground mb-1.5 md:mb-2 text-center">Current Condition</div>
             <div className="grid grid-cols-2 py-3 gap-1 md:gap-1.5 w-full">
               {/* Indoor Temperature (Gauge) */}
               <Gauge
@@ -1162,8 +1162,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Temperature Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Temperature</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2 text-center">Temperature</div>
             <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               {/* Temperature Min Gauge */}
               <div className="relative">
@@ -1198,8 +1198,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           </div>
 
           {/* Humidity Min/Max Section */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Humidity</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2 text-center">Humidity</div>
             <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               {/* Humidity Min Gauge */}
               <div className="relative">
@@ -1239,12 +1239,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           {/* Container for all three graphs with dynamic height distribution */}
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             {/* Combined Temperature + Humidity Graph */}
-            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-base font-semibold text-white">Temperature & Humidity</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-foreground">Temperature & Humidity</h4>
                   {compareSeries && (
-                    <div className="text-[10px] md:text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-muted-foreground">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
@@ -1259,12 +1259,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             </div>
 
             {/* Temperature Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-base font-semibold text-white">Temperature</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-foreground">Temperature</h4>
                   {compareSeries && (
-                    <div className="text-[10px] md:text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-muted-foreground">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
@@ -1279,12 +1279,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             </div>
 
             {/* Humidity Only Graph */}
-            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[200px] md:shrink-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm md:text-base font-semibold text-white">Humidity</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-foreground">Humidity</h4>
                   {compareSeries && (
-                    <div className="text-[10px] md:text-xs text-gray-400">
+                    <div className="text-[10px] md:text-xs text-muted-foreground">
                       {compareRoomA} ({formatDate(compareDateA)}) vs {compareRoomB} ({formatDate(compareDateB)})
                     </div>
                   )}
@@ -1303,56 +1303,56 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         {/* Right column: Weather + Compare + Alerts */}
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
           {/* Weather (external, not indoor) */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow flex flex-col overflow-hidden min-h-[180px]">
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:shrink-0 md:grow flex flex-col overflow-hidden min-h-[180px]">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="text-xs md:text-sm font-semibold text-white truncate">Weather Condition</div>
+              <div className="text-xs md:text-sm font-semibold text-foreground truncate">Weather Condition</div>
             </div>
             
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-xl md:text-2xl lg:text-3xl flex-shrink-0">{weatherData.icon}</div>
               <div className="text-right flex-shrink-0">
-                <div className="text-lg md:text-xl lg:text-2xl font-bold text-white whitespace-nowrap">{weatherData.temp.toFixed(1)}°C</div>
-                <div className="text-[10px] md:text-xs text-gray-400 whitespace-nowrap">Humidity {weatherData.hum}%</div>
+                <div className="text-lg md:text-xl lg:text-2xl font-bold text-foreground whitespace-nowrap">{weatherData.temp.toFixed(1)}°C</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">Humidity {weatherData.hum}%</div>
               </div>
             </div>
             
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 py-3 gap-1.5 w-full">
-                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[60px] md:min-h-[55px] flex flex-col justify-center">
+                <div className="bg-card/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[60px] md:min-h-[55px] flex flex-col justify-center">
                 
-                  <div className="text-[10px] md:text-xs text-gray-400 mb-1">Sunrise</div>
-                  <div className="text-xs md:text-sm font-semibold text-white truncate">{weatherData.sunrise}</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground mb-1">Sunrise</div>
+                  <div className="text-xs md:text-sm font-semibold text-foreground truncate">{weatherData.sunrise}</div>
                 </div>
-                <div className="bg-gray-800/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[50px] md:min-h-[55px] flex flex-col justify-center">
+                <div className="bg-card/50 rounded-lg p-2 md:p-2.5 text-center overflow-hidden min-h-[50px] md:min-h-[55px] flex flex-col justify-center">
                  
-                  <div className="text-[10px] md:text-xs text-gray-400 mb-1">Sunset</div>
-                  <div className="text-xs md:text-sm font-semibold text-white truncate">{weatherData.sunset}</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground mb-1">Sunset</div>
+                  <div className="text-xs md:text-sm font-semibold text-foreground truncate">{weatherData.sunset}</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Compare UI */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1">
-            <div className="text-sm md:text-base font-semibold text-white mb-2">Compare</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1">
+            <div className="text-sm md:text-base font-semibold text-foreground mb-2">Compare</div>
             {/* Row A: Independent date selection */}
             <div className="grid grid-cols-2 gap-1.5 md:gap-2 mb-2">
               <div>
-                <label className="block text-[10px] md:text-[11px] text-gray-400 mb-1">Date A</label>
+                <label className="block text-[10px] md:text-[11px] text-muted-foreground mb-1">Date A</label>
                 <input
                   type="date"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-xs md:text-sm text-gray-200 px-1.5 md:px-2 py-1"
+                  className="w-full bg-card border border-border rounded-md text-xs md:text-sm text-foreground px-1.5 md:px-2 py-1"
                   max={todayYmd}
                   value={`${(compareDateA.getFullYear())}-${(compareDateA.getMonth()+1).toString().padStart(2,'0')}-${(compareDateA.getDate()).toString().padStart(2,'0')}`}
                   onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setCompareDateA(d>today? today : d); }}
                 />
               </div>
               <div>
-                <label className="block text-[10px] md:text-[11px] text-gray-400 mb-1">Room A</label>
+                <label className="block text-[10px] md:text-[11px] text-muted-foreground mb-1">Room A</label>
                 <select
                   value={compareRoomA}
                   onChange={(e)=> setCompareRoomA(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-xs md:text-sm text-gray-200 px-1.5 md:px-2 py-1"
+                  className="w-full bg-card border border-border rounded-md text-xs md:text-sm text-foreground px-1.5 md:px-2 py-1"
                 >
                   <option value="">Select room</option>
                   {Array.from(new Set(allSensors.filter(s=> s.type===sensor.type && s.room).map(s=> s.room))).map((room)=> (
@@ -1364,21 +1364,21 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
             {/* Row B: Comparison selection */}
             <div className="grid grid-cols-2 gap-1.5 md:gap-2 mb-2">
               <div>
-                <label className="block text-[10px] md:text-[11px] text-gray-400 mb-1">Date B</label>
+                <label className="block text-[10px] md:text-[11px] text-muted-foreground mb-1">Date B</label>
                 <input
                   type="date"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-xs md:text-sm text-gray-200 px-1.5 md:px-2 py-1"
+                  className="w-full bg-card border border-border rounded-md text-xs md:text-sm text-foreground px-1.5 md:px-2 py-1"
                   max={todayYmd}
                   value={`${(compareDateB.getFullYear())}-${(compareDateB.getMonth()+1).toString().padStart(2,'0')}-${(compareDateB.getDate()).toString().padStart(2,'0')}`}
                   onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setCompareDateB(d>today? today : d); }}
                 />
               </div>
               <div>
-                <label className="block text-[10px] md:text-[11px] text-gray-400 mb-1">Room B</label>
+                <label className="block text-[10px] md:text-[11px] text-muted-foreground mb-1">Room B</label>
                 <select
                   value={compareRoomB}
                   onChange={(e)=> setCompareRoomB(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-md text-xs md:text-sm text-gray-200 px-1.5 md:px-2 py-1"
+                  className="w-full bg-card border border-border rounded-md text-xs md:text-sm text-foreground px-1.5 md:px-2 py-1"
                 >
                   <option value="">Select room</option>
                   {Array.from(new Set(allSensors.filter(s=> s.type===sensor.type && s.room).map(s=> s.room))).map((room)=> (
@@ -1423,9 +1423,9 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     setCompareSeries(null);
                   }
                 }}
-                className={`px-3 py-1.5 rounded-md text-white text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded-md text-foreground text-sm transition-colors ${
                   !compareRoomA || !compareRoomB
-                    ? 'bg-gray-600 cursor-not-allowed' 
+                    ? 'bg-muted cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-500'
                 }`}
                 disabled={!compareRoomA || !compareRoomB}
@@ -1448,13 +1448,13 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   await loadForSensor(sensor, setTempSeries, 'primary', date, tempScale);
                   await loadForSensor(sensor, setHumSeries, 'primary', date, humScale);
                 }} className="text-[10px] md:text-[11px] text-red-400 hover:text-red-300 whitespace-nowrap">Clear</button>
-              ) : <span className="text-[10px] md:text-[11px] text-gray-500 whitespace-nowrap">Both rooms required</span>}
+              ) : <span className="text-[10px] md:text-[11px] text-muted-foreground whitespace-nowrap">Both rooms required</span>}
             </div>
           </div>
 
           {/* Alerts */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1">
-            <div className="text-sm md:text-base font-semibold text-white mb-2">Active Alerts</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1">
+            <div className="text-sm md:text-base font-semibold text-foreground mb-2">Active Alerts</div>
             <div className="space-y-1.5 md:space-y-2">
               {/* Dynamic Alerts Logic */}
               {(sensor.status === 'Offline' || sensor.status === 'Warning') && (
@@ -1497,8 +1497,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         </div>
       </div>
 
-      {loading && (<div className="absolute inset-0 flex items-center justify-center bg-gray-900/50"><div className="text-sm text-gray-300">Loading data…</div></div>)}
-      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-white text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
+      {loading && (<div className="absolute inset-0 flex items-center justify-center bg-card/50"><div className="text-sm text-muted-foreground">Loading data…</div></div>)}
+      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-foreground text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
     </div>
   );
 }

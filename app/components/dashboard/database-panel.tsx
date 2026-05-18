@@ -560,7 +560,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       case 'dwg':
         return <FileImage className="w-4 h-4 text-purple-400" />;
       default:
-        return <FileText className="w-4 h-4 text-gray-400" />;
+        return <FileText className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -899,7 +899,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       return (
         <div key={folder.id} style={{ marginLeft: `${level * 1.25}rem` }}>
           <button 
-            className={`w-full text-left px-2 py-1 rounded ${moveState?.targetFolderId === folder.id ? 'bg-blue-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+            className={`w-full text-left px-2 py-1 rounded ${moveState?.targetFolderId === folder.id ? 'bg-blue-700 text-foreground' : 'hover:bg-muted text-foreground'}`}
             onClick={() => setMoveState(prev => prev ? { ...prev, targetFolderId: folder.id } : null)}
           >
             <span className="inline-flex items-center gap-2 flex-1">
@@ -910,7 +910,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     type="text"
                     value={inlineRename.newName}
                     onChange={(e) => setInlineRename(prev => prev ? { ...prev, newName: e.target.value } : null)}
-                    className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    className="flex-1 px-2 py-1 bg-muted border border-border rounded text-foreground text-sm"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') saveInlineRename();
@@ -954,10 +954,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
         <div key={item.id} style={{ marginLeft: `${Math.min(level * 0.75, 3)}rem` }}>
           <div 
             key={item.id}
-            className={`group flex items-center gap-2 px-3 py-2 hover:bg-gray-800 cursor-pointer ${
+            className={`group flex items-center gap-2 px-3 py-2 hover:bg-card cursor-pointer ${
               selectedFolderId === item.id ? 'bg-blue-700' : 
               (isFile && openFileId === item.id) ? 'bg-green-700' :
-              selectedItem?.id === item.id ? 'bg-gray-700' : ''
+              selectedItem?.id === item.id ? 'bg-muted' : ''
             }`}
             onClick={() => {
               if (isFolder) {
@@ -978,12 +978,12 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   const folder = item as DatabaseFolder;
                   toggleFolderExpansion(folder.id);
                 }}
-                className="p-0.5 hover:bg-gray-600 rounded"
+                className="p-0.5 hover:bg-muted rounded"
               >
                 {(item as DatabaseFolder).isExpanded ? (
-                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="w-3 h-3 text-gray-400" />
+                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
                 )}
               </button>
             )}
@@ -1000,7 +1000,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   type="text"
                   value={inlineRename.newName}
                   onChange={(e) => setInlineRename(prev => prev ? { ...prev, newName: e.target.value } : null)}
-                  className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                  className="flex-1 px-2 py-1 bg-muted border border-border rounded text-foreground text-sm"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') saveInlineRename();
@@ -1028,7 +1028,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 </button>
               </div>
             ) : (
-              <span className="text-gray-200 text-sm flex-1 truncate" title={item.name}>{item.name}</span>
+              <span className="text-foreground text-sm flex-1 truncate" title={item.name}>{item.name}</span>
             )}
             
             <button
@@ -1036,9 +1036,9 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 e.stopPropagation();
                 handleContextMenu(e, item);
               }}
-              className="p-1 hover:bg-gray-600 rounded opacity-0 group-hover:opacity-100"
+              className="p-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100"
             >
-              <MoreVertical className="w-3 h-3 text-gray-400" />
+              <MoreVertical className="w-3 h-3 text-muted-foreground" />
             </button>
           </div>
           
@@ -1047,7 +1047,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
               {/* Show subfolder creation input if creating subfolder for this folder */}
               {creatingSubfolder && creatingSubfolder.parentId === item.id && (
                 <div 
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-600 rounded mx-3 mb-2"
+                  className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded mx-3 mb-2"
                   style={{ marginLeft: `${Math.min((level + 1) * 0.75, 3)}rem` }}
                 >
                   <Folder className="w-4 h-4 text-yellow-400" />
@@ -1056,7 +1056,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     value={creatingSubfolder.name}
                     onChange={(e) => setCreatingSubfolder(prev => prev ? { ...prev, name: e.target.value } : null)}
                     placeholder="Enter subfolder name"
-                    className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    className="flex-1 px-2 py-1 bg-muted border border-border rounded text-foreground text-sm"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') saveSubfolder();
@@ -1089,19 +1089,19 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
   return (
     <div 
-      className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full z-10"
+      className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full z-10"
       ref={panelRef}
     >
       {/* Header Commands */}
-      <div className="p-4 border-b border-white/5 bg-white/[0.02]">
-        <h2 className="text-lg font-semibold text-white mb-2 text-center tracking-wide">Database</h2>
+      <div className="p-4 border-b border-border/5 bg-foreground/[0.02]">
+        <h2 className="text-lg font-semibold text-foreground mb-2 text-center tracking-wide">Database</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveCommand('manage')}
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'manage'
                 ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
-                : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
+                : 'bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground'
             }`}
           >
             <Folder className="w-4 h-4 mr-2" />
@@ -1112,7 +1112,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'new'
                 ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
-                : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
+                : 'bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground'
             }`}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -1124,16 +1124,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       {/* Folder Tree */}
       {activeCommand === 'manage' && (
         <div className="flex-1 p-4 overflow-auto relative">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 tracking-wide">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 tracking-wide">
             Folders & Files
           </h3>
           {moveState ? (
             <div className="space-y-4">
-              <div className="bg-gray-800 p-3 rounded border border-gray-700">
-                <h4 className="text-sm font-medium text-white mb-2">Move '{moveState.item.name}' to:</h4>
-                <div className="max-h-48 overflow-auto border border-gray-600 rounded p-2 bg-gray-900">
+              <div className="bg-card p-3 rounded border border-border">
+                <h4 className="text-sm font-medium text-foreground mb-2">Move '{moveState.item.name}' to:</h4>
+                <div className="max-h-48 overflow-auto border border-border rounded p-2 bg-card">
                   <button 
-                    className={`w-full text-left px-2 py-1 rounded mb-1 ${!moveState.targetFolderId ? 'bg-blue-700 text-white' : 'hover:bg-gray-700 text-gray-200'}`}
+                    className={`w-full text-left px-2 py-1 rounded mb-1 ${!moveState.targetFolderId ? 'bg-blue-700 text-foreground' : 'hover:bg-muted text-foreground'}`}
                     onClick={() => setMoveState(prev => prev ? { ...prev, targetFolderId: null } : null)}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -1144,8 +1144,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   {renderMoveFolderPicker(folders)}
                 </div>
                 <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setMoveState(null)} className="px-3 py-1 text-gray-300 hover:text-white text-sm">Cancel</button>
-                  <button onClick={handleMoveConfirm} className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">Move</button>
+                  <button onClick={() => setMoveState(null)} className="px-3 py-1 text-muted-foreground hover:text-foreground text-sm">Cancel</button>
+                  <button onClick={handleMoveConfirm} className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-foreground rounded text-sm">Move</button>
                 </div>
               </div>
             </div>
@@ -1157,26 +1157,26 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Properties Modal */}
       {showPropertiesModal && createPortal(
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-xl w-[32rem] shadow-2xl border border-gray-700">
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl w-[32rem] shadow-2xl border border-border">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="p-2 bg-gray-700 rounded-lg shrink-0 mt-1">
-                  <Info className="w-5 h-5 text-white" />
+                <div className="p-2 bg-muted rounded-lg shrink-0 mt-1">
+                  <Info className="w-5 h-5 text-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xl font-semibold text-white truncate" title={(propertiesData?.name || showPropertiesModal.item?.name) || 'Item'}>
+                  <h3 className="text-xl font-semibold text-foreground truncate" title={(propertiesData?.name || showPropertiesModal.item?.name) || 'Item'}>
                     {propertiesData?.name || showPropertiesModal.item?.name}
                   </h3>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                    <span className="capitalize px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600">{showPropertiesModal.type}</span>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="capitalize px-2 py-0.5 rounded bg-muted/60 border border-border">{showPropertiesModal.type}</span>
                     {propertiesData?.sizeFormatted && (
-                      <span className="px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600">{propertiesData.sizeFormatted}</span>
+                      <span className="px-2 py-0.5 rounded bg-muted/60 border border-border">{propertiesData.sizeFormatted}</span>
                     )}
                   </div>
                 </div>
               </div>
-              <button onClick={() => setShowPropertiesModal(null)} className="text-gray-300 hover:text-white">
+              <button onClick={() => setShowPropertiesModal(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1188,39 +1188,39 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <div className="text-xs text-gray-400">Name</div>
-                  <div className="text-sm text-gray-200 truncate" title={propertiesData?.name || showPropertiesModal.item?.name}>
+                  <div className="text-xs text-muted-foreground">Name</div>
+                  <div className="text-sm text-foreground truncate" title={propertiesData?.name || showPropertiesModal.item?.name}>
                     {propertiesData?.name || showPropertiesModal.item?.name}
                   </div>
                 </div>
                 {propertiesData?.uploadedByName || propertiesData?.uploadedBy ? (
                   <div>
-                    <div className="text-xs text-gray-400">Uploaded By</div>
-                    <div className="text-sm text-gray-200">
+                    <div className="text-xs text-muted-foreground">Uploaded By</div>
+                    <div className="text-sm text-foreground">
                       {propertiesData?.uploadedByName || propertiesData?.uploadedBy}
                     </div>
                   </div>
                 ) : null}
                 {propertiesData?.createdAt ? (
                   <div>
-                    <div className="text-xs text-gray-400">Created</div>
-                    <div className="text-sm text-gray-200">{new Date(propertiesData.createdAt).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">Created</div>
+                    <div className="text-sm text-foreground">{new Date(propertiesData.createdAt).toLocaleString()}</div>
                   </div>
                 ) : null}
                 {propertiesData?.modifiedByName || propertiesData?.modifiedBy ? (
                   <div>
-                    <div className="text-xs text-gray-400">Modified By</div>
-                    <div className="text-sm text-gray-200">{propertiesData?.modifiedByName || propertiesData?.modifiedBy}</div>
+                    <div className="text-xs text-muted-foreground">Modified By</div>
+                    <div className="text-sm text-foreground">{propertiesData?.modifiedByName || propertiesData?.modifiedBy}</div>
                   </div>
                 ) : null}
                 {propertiesData?.modifiedAt ? (
                   <div>
-                    <div className="text-xs text-gray-400">Modified</div>
-                    <div className="text-sm text-gray-200">{new Date(propertiesData.modifiedAt).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">Modified</div>
+                    <div className="text-sm text-foreground">{new Date(propertiesData.modifiedAt).toLocaleString()}</div>
                   </div>
                 ) : null}
                 {!propertiesLoading && !propertiesData && (
-                  <div className="col-span-2 text-sm text-gray-400">No properties available.</div>
+                  <div className="col-span-2 text-sm text-muted-foreground">No properties available.</div>
                 )}
               </div>
             )}
@@ -1228,7 +1228,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             <div className="flex justify-end mt-6">
               <button 
                 onClick={() => setShowPropertiesModal(null)} 
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg transition-colors"
               >
                 Close
               </button>
@@ -1240,7 +1240,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       {/* New Folder Creation */}
       {activeCommand === 'new' && (
         <div className="flex-1 p-4 overflow-auto relative">
-          <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wide">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">
             Create New Folder
           </h3>
           <div className="mb-3">
@@ -1249,7 +1249,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="New folder name"
-              className="w-full h-8 px-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+              className="w-full h-8 px-2 bg-card border border-border rounded text-foreground text-sm"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleNewFolder();
@@ -1257,8 +1257,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
               }}
             />
             <div className="flex items-center gap-2 mt-2">
-              <button onClick={handleNewFolder} className="px-3 h-8 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm">Add</button>
-              <button onClick={() => { setNewFolderName(''); setActiveCommand('manage'); }} className="px-3 h-8 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 text-sm">Cancel</button>
+              <button onClick={handleNewFolder} className="px-3 h-8 bg-blue-600 hover:bg-blue-700 rounded text-foreground text-sm">Add</button>
+              <button onClick={() => { setNewFolderName(''); setActiveCommand('manage'); }} className="px-3 h-8 bg-card hover:bg-muted rounded text-foreground text-sm">Cancel</button>
             </div>
           </div>
         </div>
@@ -1270,7 +1270,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
         <>
           <div className="fixed inset-0 z-[9998]" onMouseDown={closeContextMenu} />
           <div
-            className="database-context-menu fixed z-[9999] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
+            className="database-context-menu fixed z-[9999] bg-card border border-border rounded-lg shadow-lg py-2 min-w-48"
             style={{ 
               left: contextMenu.x, 
               top: contextMenu.y,
@@ -1286,7 +1286,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowPropertiesModal({ type: 'folder', item: contextMenu.item });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Info className="w-4 h-4 mr-2" />
                   Properties
@@ -1296,7 +1296,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     handleFileUpload(contextMenu.item.id);
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload File
@@ -1311,7 +1311,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download Folder
@@ -1321,14 +1321,14 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     startInlineRename(contextMenu.item);
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Rename Folder
                 </button>
                 <button
                   onClick={() => { setMoveState({ item: contextMenu.item }); closeContextMenu(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center">
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center">
                   <Folder className="w-4 h-4 mr-2" />
                   Move Folder
                 </button>
@@ -1337,7 +1337,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     startCreateSubfolder(contextMenu.item.id);
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Subfolder
@@ -1347,7 +1347,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     handleCreateShareLink(contextMenu.item);
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Share className="w-4 h-4 mr-2" />
                   Create Share Link
@@ -1357,7 +1357,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowUserAssignModal({ item: contextMenu.item, email: '' });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Assign to User
@@ -1367,7 +1367,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowUserAssignModal({ item: contextMenu.item, email: '', mode: 'remove' });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <UserMinus className="w-4 h-4 mr-2" />
                   Remove User Access
@@ -1382,7 +1382,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Archive className="w-4 h-4 mr-2" />
                   Send as ZIP
@@ -1392,7 +1392,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowDeleteConfirm({ item: contextMenu.item });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-red-400 flex items-center"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Folder
@@ -1407,21 +1407,21 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowPropertiesModal({ type: 'file', item: contextMenu.item });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Info className="w-4 h-4 mr-2" />
                   Properties
                 </button>
                 <button
                   onClick={() => { handleDownloadFile(contextMenu.item as DatabaseFile); closeContextMenu(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download File
                 </button>
                 <button
                   onClick={() => { handleDuplicateFile(contextMenu.item as DatabaseFile); closeContextMenu(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <FilePlus className="w-4 h-4 mr-2" />
                   Duplicate File
@@ -1431,14 +1431,14 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     startInlineRename(contextMenu.item);
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Rename File
                 </button>
                 <button
                   onClick={() => { setMoveState({ item: contextMenu.item }); closeContextMenu(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center">
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center">
                   <FileText className="w-4 h-4 mr-2" />
                   Move File
                 </button>
@@ -1447,14 +1447,14 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowEmailModal({ item: contextMenu.item, email: '' });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send via Email
                 </button>
                 <button
                   onClick={() => { handleCreateShareLink(contextMenu.item); closeContextMenu(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <Share className="w-4 h-4 mr-2" />
                   Create Share Link
@@ -1464,7 +1464,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowUserAssignModal({ item: contextMenu.item, email: '' });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Assign to User
@@ -1474,7 +1474,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowUserAssignModal({ item: contextMenu.item, email: '', mode: 'remove' });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-gray-300 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-muted-foreground flex items-center"
                 >
                   <UserMinus className="w-4 h-4 mr-2" />
                   Remove User Access
@@ -1484,7 +1484,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                     setShowDeleteConfirm({ item: contextMenu.item });
                     closeContextMenu();
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 text-red-400 flex items-center"
+                  className="w-full px-4 py-2 text-left hover:bg-muted text-red-400 flex items-center"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete File
@@ -1498,24 +1498,24 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && createPortal(
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-xl w-[28rem] shadow-2xl border border-gray-700">
+        <div className="fixed inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl w-[28rem] shadow-2xl border border-border">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-red-600/20 rounded-lg">
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white">Confirm Deletion</h3>
+              <h3 className="text-lg font-semibold text-foreground">Confirm Deletion</h3>
             </div>
-            <p className="text-gray-300 text-sm mb-4">
+            <p className="text-muted-foreground text-sm mb-4">
               Are you sure you want to delete '{'type' in showDeleteConfirm.item ? (showDeleteConfirm.item as any).name : showDeleteConfirm.item.name}'?
             </p>
-            <div className="bg-gray-900/60 border border-gray-700 rounded p-3 text-xs text-gray-400 mb-4">
+            <div className="bg-card/60 border border-border rounded p-3 text-xs text-muted-foreground mb-4">
               This action cannot be undone.
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -1526,7 +1526,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                   await handleDelete(item);
                   showNotification('Deleted successfully', 'success');
                 }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-lg transition-colors"
               >
                 Delete
               </button>
@@ -1537,19 +1537,19 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Rename Modal */}
       {showRenameModal && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-          <div className="bg-gray-800 p-6 rounded-lg w-96">
-            <h3 className="text-lg font-semibold text-white mb-4">Rename {'type' in showRenameModal.item ? 'File' : 'Folder'}</h3>
+        <div className="fixed inset-0 bg-background bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-card p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Rename {'type' in showRenameModal.item ? 'File' : 'Folder'}</h3>
             <input
               type="text"
               value={showRenameModal.newName}
               onChange={(e) => setShowRenameModal(prev => prev ? { ...prev, newName: e.target.value } : null)}
-              className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+              className="w-full p-2 bg-muted border border-border rounded text-foreground"
               autoFocus
             />
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowRenameModal(null)} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
-              <button onClick={handleRename} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">Rename</button>
+              <button onClick={() => setShowRenameModal(null)} className="px-4 py-2 text-muted-foreground hover:text-foreground">Cancel</button>
+              <button onClick={handleRename} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded">Rename</button>
             </div>
           </div>
         </div>
@@ -1557,16 +1557,16 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Email Modal */}
       {showEmailModal && createPortal(
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl w-96 shadow-2xl border border-border">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-blue-600 rounded-lg">
-                <Mail className="w-5 h-5 text-white" />
+                <Mail className="w-5 h-5 text-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-white">Send via Email</h3>
+              <h3 className="text-lg font-semibold text-foreground">Send via Email</h3>
             </div>
             
-            <p className="text-gray-300 text-sm mb-4">
+            <p className="text-muted-foreground text-sm mb-4">
               Send "{showEmailModal.item.name}" via email
             </p>
             
@@ -1575,20 +1575,20 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
               value={showEmailModal.email}
               onChange={(e) => setShowEmailModal(prev => prev ? { ...prev, email: e.target.value } : null)}
               placeholder="Enter recipient email"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               autoFocus
             />
             
             <div className="flex justify-end gap-2 mt-6">
               <button 
                 onClick={() => setShowEmailModal(null)} 
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSendEmail} 
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded-lg transition-colors"
               >
                 Send
               </button>
@@ -1599,9 +1599,9 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* User Assignment Modal */}
       {showUserAssignModal && createPortal(
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg w-96">
-            <h3 className="text-lg font-semibold text-white mb-4">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-lg w-96">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               {showUserAssignModal.mode === 'remove' ? 'Remove User Access' : 'Assign to User'}
             </h3>
             {showUserAssignModal.mode !== 'remove' && (
@@ -1610,28 +1610,28 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                 value={showUserAssignModal.email}
                 onChange={(e) => setShowUserAssignModal(prev => prev ? { ...prev, email: e.target.value } : null)}
                 placeholder="Enter user email"
-                className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white"
+                className="w-full p-2 bg-muted border border-border rounded text-foreground"
                 autoFocus
               />
             )}
             {/* In Assign mode, show list of currently shared users (no status text) */}
             {showUserAssignModal.mode !== 'remove' && (
               assigneesLoading ? (
-                <div className="mt-3 text-sm text-gray-400">Loading shared users...</div>
+                <div className="mt-3 text-sm text-muted-foreground">Loading shared users...</div>
               ) : (
                 <div className="mt-4">
-                  <div className="text-sm font-medium text-gray-300 mb-2">Assigned users</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Assigned users</div>
                   {assignees && assignees.length > 0 ? (
-                    <div className="max-h-40 overflow-auto border border-gray-700 rounded divide-y divide-gray-700">
+                    <div className="max-h-40 overflow-auto border border-border rounded divide-y divide-border">
                       {assignees.map((a, idx) => (
                         <div key={idx} className="flex items-center justify-between px-3 py-2">
-                          <div className="text-sm text-gray-200">{a.assignedTo}</div>
+                          <div className="text-sm text-foreground">{a.assignedTo}</div>
                           <span className="text-xs text-green-400">Assigned</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">No users have access yet.</div>
+                    <div className="text-sm text-muted-foreground">No users have access yet.</div>
                   )}
                 </div>
               )
@@ -1639,21 +1639,21 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             {/* Shared with list — only in Remove mode */}
             {showUserAssignModal.mode === 'remove' && (
               assigneesLoading ? (
-                <div className="mt-3 text-sm text-gray-400">Loading shared users...</div>
+                <div className="mt-3 text-sm text-muted-foreground">Loading shared users...</div>
               ) : (
                 <div className="mt-4">
-                  <div className="text-sm font-medium text-gray-300 mb-2">Shared with</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Shared with</div>
                   {assignees && assignees.length > 0 ? (
                     <div className="space-y-2 max-h-40 overflow-auto">
                       {assignees.map((a, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-gray-700/60 border border-gray-600 rounded px-3 py-2">
+                        <div key={idx} className="flex items-center justify-between bg-muted/60 border border-border rounded px-3 py-2">
                           <div>
-                            <div className="text-sm text-gray-200">{a.assignedTo}</div>
-                            {a.permissions && <div className="text-xs text-gray-400">Perm: {a.permissions.join(', ')}</div>}
+                            <div className="text-sm text-foreground">{a.assignedTo}</div>
+                            {a.permissions && <div className="text-xs text-muted-foreground">Perm: {a.permissions.join(', ')}</div>}
                           </div>
                           <button
                             onClick={() => handleRemoveAssignee(a.assignedTo)}
-                            className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white"
+                            className="px-2 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-foreground"
                           >
                             Remove
                           </button>
@@ -1661,18 +1661,18 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500">No users have access yet.</div>
+                    <div className="text-sm text-muted-foreground">No users have access yet.</div>
                   )}
                 </div>
               )
             )}
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => { setShowUserAssignModal(null); }} className="px-4 py-2 text-gray-300 hover:text-white">Cancel</button>
+              <button onClick={() => { setShowUserAssignModal(null); }} className="px-4 py-2 text-muted-foreground hover:text-foreground">Cancel</button>
               {showUserAssignModal.mode !== 'remove' && (
                 <button
                   onClick={handleAssignUser}
                   disabled={assignLoading}
-                  className={`px-4 py-2 rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2`}
+                  className={`px-4 py-2 rounded text-foreground bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2`}
                 >
                   {assignLoading && (
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1690,33 +1690,33 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Share Link Modal */}
       {showShareLinkModal && createPortal(
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl w-96 shadow-2xl border border-border">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-blue-600 rounded-lg">
-                <Share className="w-5 h-5 text-white" />
+                <Share className="w-5 h-5 text-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-white">Share Link Created</h3>
+              <h3 className="text-lg font-semibold text-foreground">Share Link Created</h3>
             </div>
             
-            <p className="text-gray-300 text-sm mb-4">
+            <p className="text-muted-foreground text-sm mb-4">
               Share this link to give others access to "{showShareLinkModal.item.name}"
             </p>
             
-            <div className="bg-gray-900 p-3 rounded-lg border border-gray-600 mb-4">
+            <div className="bg-card p-3 rounded-lg border border-border mb-4">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={showShareLinkModal.shareUrl}
                   readOnly
-                  className="flex-1 bg-transparent text-gray-300 text-sm outline-none"
+                  className="flex-1 bg-transparent text-muted-foreground text-sm outline-none"
                 />
                 <button
                   onClick={() => handleCopyLink(showShareLinkModal.shareUrl)}
                   className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                     copySuccess 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      ? 'bg-green-600 text-foreground' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-foreground'
                   }`}
                 >
                   {copySuccess ? 'Copied!' : 'Copy'}
@@ -1727,7 +1727,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             <div className="flex justify-end">
               <button 
                 onClick={() => setShowShareLinkModal(null)} 
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg transition-colors"
               >
                 Close
               </button>
@@ -1738,22 +1738,22 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Send as ZIP Modal */}
       {showSendZipModal && createPortal(
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
+        <div className="fixed inset-0 bg-background/40 backdrop-blur-md flex items-center justify-center z-50">
+          <div className="bg-card p-6 rounded-xl w-96 shadow-2xl border border-border">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-purple-600 rounded-lg">
-                <Mail className="w-5 h-5 text-white" />
+                <Mail className="w-5 h-5 text-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-white">Send as ZIP</h3>
+              <h3 className="text-lg font-semibold text-foreground">Send as ZIP</h3>
             </div>
             
-            <p className="text-gray-300 text-sm mb-4">
+            <p className="text-muted-foreground text-sm mb-4">
               Send "{showSendZipModal.item.name}" as a ZIP file via email
             </p>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Recipients</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Recipients</label>
                 <div className="space-y-2">
                   {showSendZipModal.recipients.map((email, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -1765,7 +1765,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                           newRecipients[index] = e.target.value;
                           setShowSendZipModal(prev => prev ? { ...prev, recipients: newRecipients } : null);
                         }}
-                        className="flex-1 p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                        className="flex-1 p-2 bg-muted border border-border rounded text-foreground placeholder-muted-foreground"
                         placeholder="Enter email address"
                       />
                       <button
@@ -1786,13 +1786,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                         recipients: [...prev.recipients, ''] 
                       } : null);
                     }}
-                    className="w-full p-2 border-2 border-dashed border-gray-600 rounded text-gray-400 hover:border-gray-500 hover:text-gray-300"
+                    className="w-full p-2 border-2 border-dashed border-border rounded text-muted-foreground hover:border-border hover:text-muted-foreground"
                   >
                     + Add Recipient
                   </button>
                   <div className="pt-2">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-gray-400">Previous recipients</span>
+                      <span className="text-xs text-muted-foreground">Previous recipients</span>
                       <button
                         onClick={fetchZipRecipients}
                         className="text-xs text-blue-400 hover:text-blue-300"
@@ -1802,11 +1802,11 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                       </button>
                     </div>
                     {zipRecipientsLoading ? (
-                      <div className="text-xs text-gray-400">Loading…</div>
+                      <div className="text-xs text-muted-foreground">Loading…</div>
                     ) : (
                       <div className="flex flex-wrap gap-1">
                         {(zipRecipients || []).length === 0 ? (
-                          <span className="text-xs text-gray-500">No history</span>
+                          <span className="text-xs text-muted-foreground">No history</span>
                         ) : (
                           (zipRecipients || []).map((r) => {
                             const already = showSendZipModal.recipients.some(e => (e || '').trim().toLowerCase() === r.toLowerCase());
@@ -1817,7 +1817,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
                                   if (already) return;
                                   setShowSendZipModal(prev => prev ? { ...prev, recipients: [...prev.recipients, r] } : null);
                                 }}
-                                className={`text-xs px-2 py-1 rounded border ${already ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-default' : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'}`}
+                                className={`text-xs px-2 py-1 rounded border ${already ? 'bg-muted border-border text-muted-foreground cursor-default' : 'bg-muted border-border text-foreground hover:bg-muted'}`}
                                 disabled={already}
                                 title={already ? 'Already added' : 'Add'}
                               >
@@ -1833,23 +1833,23 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Subject</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Subject</label>
                 <input
                   type="text"
                   value={showSendZipModal.subject}
                   onChange={(e) => setShowSendZipModal(prev => prev ? { ...prev, subject: e.target.value } : null)}
-                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400"
+                  className="w-full p-2 bg-muted border border-border rounded text-foreground placeholder-muted-foreground"
                   placeholder="Email subject"
                 />
               </div>
               
               
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Message</label>
                 <textarea
                   value={showSendZipModal.message}
                   onChange={(e) => setShowSendZipModal(prev => prev ? { ...prev, message: e.target.value } : null)}
-                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-400 h-20 resize-none"
+                  className="w-full p-2 bg-muted border border-border rounded text-foreground placeholder-muted-foreground h-20 resize-none"
                   placeholder="Optional message"
                 />
               </div>
@@ -1858,13 +1858,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             <div className="flex justify-end gap-2">
               <button 
                 onClick={() => setShowSendZipModal(null)} 
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSendZip} 
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-foreground rounded-lg transition-colors"
               >
                 Send ZIP
               </button>
@@ -1877,8 +1877,8 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       {notification && createPortal(
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
           notification.type === 'success' 
-            ? 'bg-green-600 text-white' 
-            : 'bg-red-600 text-white'
+            ? 'bg-green-600 text-foreground' 
+            : 'bg-red-600 text-foreground'
         }`}>
           <div className="flex items-center gap-2">
             {notification.type === 'success' ? (
@@ -1893,10 +1893,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
       {/* Sending Overlay */}
       {isSending && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 bg-gray-900/90 border border-gray-700 rounded-xl px-6 py-5 shadow-2xl">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 bg-card/90 border border-border rounded-xl px-6 py-5 shadow-2xl">
             <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" aria-label="Loading" />
-            <div className="text-sm text-gray-200">{sendingMessage || 'Processing...'}</div>
+            <div className="text-sm text-foreground">{sendingMessage || 'Processing...'}</div>
           </div>
         </div>
       , document.body)}

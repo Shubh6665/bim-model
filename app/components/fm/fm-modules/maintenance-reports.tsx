@@ -80,17 +80,17 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
   return (
     <div className="p-3 space-y-4">
-      <div className="text-white font-semibold text-sm">Maintenance Reports</div>
+      <div className="text-foreground font-semibold text-sm">Maintenance Reports</div>
 
       {/* Shrunk stat cards - smaller padding & font-sizes */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-gray-800/60 rounded p-2">
-          <div className="text-xs text-gray-400">Scheduled Tasks</div>
-          <div className="text-lg text-white font-bold">{totalScheduled}</div>
+        <div className="bg-card/60 rounded p-2">
+          <div className="text-xs text-muted-foreground">Scheduled Tasks</div>
+          <div className="text-lg text-foreground font-bold">{totalScheduled}</div>
         </div>
-        <div className="bg-gray-800/60 rounded p-2">
-          <div className="text-xs text-gray-400">Total Work Orders</div>
-          <div className="text-lg text-white font-bold">{totalWorkOrders}</div>
+        <div className="bg-card/60 rounded p-2">
+          <div className="text-xs text-muted-foreground">Total Work Orders</div>
+          <div className="text-lg text-foreground font-bold">{totalWorkOrders}</div>
         </div>
         <div className="bg-yellow-900/30 rounded p-2">
           <div className="text-xs text-yellow-400">Open Orders</div>
@@ -106,22 +106,22 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
         </div>
       </div>
 
-      <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400">Reports generated at: {reportTime || '—'}</div>
+      <div className="border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground">Reports generated at: {reportTime || '—'}</div>
       </div>
 
       <div className="mt-3">
-        <div className="text-sm text-gray-200 mb-2">Work orders</div>
+        <div className="text-sm text-foreground mb-2">Work orders</div>
         <div className="space-y-2">
           {workOrders.map(w => (
-            <div key={w.id} className="bg-gray-800/40 rounded">
+            <div key={w.id} className="bg-card/40 rounded">
               <div className="flex items-center justify-between p-2">
                 <div>
-                  <div className="text-sm font-medium text-white">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
-                  <div className="text-xs text-gray-300">{w.description?.slice(0, 80) || 'No description'}</div>
+                  <div className="text-sm font-medium text-foreground">{w.requestId || w.id} • {w.asset || w.location || '—'}</div>
+                  <div className="text-xs text-muted-foreground">{w.description?.slice(0, 80) || 'No description'}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="text-xs text-gray-300">
+                  <div className="text-xs text-muted-foreground">
                     {String(w.ticketStatus)?.toUpperCase() === 'REJECTED' ? 'Rejected' : (String(w.status || '').toLowerCase().replace(/(^|\s)[a-z]/g, s => s.toUpperCase()))}
                   </div>
                   <button
@@ -137,7 +137,7 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
 
               {/* Inline expanded report */}
               {openWO && openWO.id === w.id && (
-                <div className="fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+                <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
                   <EnhancedMaintenanceReport
                     projectId={projectId}
                     workOrder={openWO}
@@ -176,34 +176,34 @@ const UpcomingMaintenance: React.FC<{ projectId?: string; }> = ({ projectId }) =
 
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Upcoming Maintenance Activities</div>
+      <div className="text-foreground font-semibold text-sm">Upcoming Maintenance Activities</div>
 
       <div className="space-y-2">
-        <div className="text-xs text-gray-400 font-semibold">Scheduled Maintenance</div>
+        <div className="text-xs text-muted-foreground font-semibold">Scheduled Maintenance</div>
         {upcomingScheduled.length === 0 ? (
-          <div className="text-gray-500 text-xs">No scheduled maintenance.</div>
+          <div className="text-muted-foreground text-xs">No scheduled maintenance.</div>
         ) : (
           <ul className="space-y-1">
             {upcomingScheduled.map(s => (
-              <li key={s.id} className="bg-blue-900/20 rounded px-2 py-1.5 text-xs text-gray-200">
+              <li key={s.id} className="bg-blue-900/20 rounded px-2 py-1.5 text-xs text-foreground">
                 <span className="font-semibold text-blue-300">[{s.discipline}]</span> {s.asset} • {s.tasks.join(', ')}
-                <div className="text-xs text-gray-400 mt-0.5">{s.frequency}/year • {s.timeHours}h</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{s.frequency}/year • {s.timeHours}h</div>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <div className="space-y-2 border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 font-semibold">Planned Work Orders</div>
+      <div className="space-y-2 border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground font-semibold">Planned Work Orders</div>
         {plannedOrders.length === 0 ? (
-          <div className="text-gray-500 text-xs">No planned work orders.</div>
+          <div className="text-muted-foreground text-xs">No planned work orders.</div>
         ) : (
           <ul className="space-y-1">
             {plannedOrders.map(w => (
-              <li key={w.id} className="bg-gray-800/60 rounded px-2 py-1.5 text-xs text-gray-200">
+              <li key={w.id} className="bg-card/60 rounded px-2 py-1.5 text-xs text-foreground">
                 <span className="font-semibold">{w.requestId}</span> • {w.description}
-                <div className="text-xs text-gray-400 mt-0.5">Technician: {w.responsibleTechnician || 'Unassigned'}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Technician: {w.responsibleTechnician || 'Unassigned'}</div>
               </li>
             ))}
           </ul>

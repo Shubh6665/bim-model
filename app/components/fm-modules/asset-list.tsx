@@ -48,7 +48,7 @@ const AssetSizeInput = ({ value, onChange }: { value: number | undefined | null,
       onClick={e => e.stopPropagation()}
       value={text}
       onChange={handleChange}
-      className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+      className="w-12 bg-card border border-border rounded px-1 py-0.5 text-[11px] text-foreground"
       placeholder="0.3"
     />
   );
@@ -2338,11 +2338,11 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b border-gray-800">
+      <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-white font-semibold text-sm">Asset List</div>
+          <div className="text-foreground font-semibold text-sm">Asset List</div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-300">{rows.length} items</span>
+            <span className="text-[11px] px-2 py-0.5 rounded bg-card border border-border text-muted-foreground">{rows.length} items</span>
           </div>
         </div>
 
@@ -2352,14 +2352,14 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
             onClick={extractAssetsFromBIM}
             disabled={isExtracting}
             className={`w-full text-xs py-2 px-3 rounded-md font-medium transition ${isExtracting
-              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              : 'bg-green-600 hover:bg-green-700 text-white'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-foreground'
               }`}
           >
             {isExtracting ? `Extracting... ${extractionProgress.toFixed(0)}%` : 'Extract from BIM'}
           </button>
           {isExtracting && (
-            <div className="bg-gray-800 rounded-full h-1">
+            <div className="bg-card rounded-full h-1">
               <div
                 className="bg-green-500 h-1 rounded-full transition-all duration-300"
                 style={{ width: `${extractionProgress}%` }}
@@ -2373,13 +2373,13 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
         {/* Controls: Show/Hide & Filters toggles */}
         <div className="grid grid-cols-2 gap-2">
           <button
-            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${fieldsOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
+            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${fieldsOpen ? 'text-foreground border-border bg-muted' : 'text-muted-foreground border-border bg-card/60 hover:bg-muted'}`}
             onClick={() => { if (fieldsOpen) { setFieldsOpen(false); } else { setFieldsOpen(true); setFiltersOpen(false); } }}
           >
             Show/Hide Fields
           </button>
           <button
-            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${filtersOpen ? 'text-white border-gray-500 bg-gray-700' : 'text-gray-300 border-gray-700 bg-gray-800/60 hover:bg-gray-700'}`}
+            className={`w-full inline-flex items-center justify-center gap-1 text-xs px-2 py-1 rounded border ${filtersOpen ? 'text-foreground border-border bg-muted' : 'text-muted-foreground border-border bg-card/60 hover:bg-muted'}`}
             onClick={() => { if (filtersOpen) { setFiltersOpen(false); } else { setFiltersOpen(true); setFieldsOpen(false); } }}
           >
             Filters
@@ -2388,10 +2388,10 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
         {/* Full-width content panels below */}
         {fieldsOpen && (
-          <div className="mt-2 p-2 text-xs bg-gray-900/60 rounded border border-gray-800 w-full">
+          <div className="mt-2 p-2 text-xs bg-card/60 rounded border border-border w-full">
             <div className="grid grid-cols-2 gap-2">
               {/* Basic checkbox - always checked and disabled */}
-              <label className="flex items-center gap-1 text-gray-300 cursor-not-allowed opacity-75">
+              <label className="flex items-center gap-1 text-muted-foreground cursor-not-allowed opacity-75">
                 <input
                   type="checkbox"
                   checked={true}
@@ -2411,7 +2411,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                 ['Compliance', 'compliance'],
                 ['Relationships', 'relationships']
               ].map(([label, key]) => (
-                <label key={key} className="flex items-center gap-1 text-gray-300">
+                <label key={key} className="flex items-center gap-1 text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={visibleFields[key as keyof typeof visibleFields]}
@@ -2426,9 +2426,9 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
         )}
 
         {filtersOpen && (
-          <div className="mt-2 p-2 bg-gray-900/60 rounded border border-gray-800 w-full">
+          <div className="mt-2 p-2 bg-card/60 rounded border border-border w-full">
             <div className="grid grid-cols-3 gap-2">
-              <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs">
                 <option value="">Revit Categories</option>
                 {assetCategories.map(cat => {
                   const isMaster = assetCategoryMasterOptions.includes(cat);
@@ -2440,25 +2440,25 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                 })}
               </select>
               {/* IFC Class Filter (next to Revit Categories) */}
-              <select value={filter.ifcClass} onChange={e => setFilter(f => ({ ...f, ifcClass: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.ifcClass} onChange={e => setFilter(f => ({ ...f, ifcClass: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs">
                 <option value="">Ifc Class</option>
                 {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
-              <select value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.type} onChange={e => setFilter(f => ({ ...f, type: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs">
                 <option value="">All Types</option>
                 {distinct.types.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.location} onChange={e => setFilter(f => ({ ...f, location: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.location} onChange={e => setFilter(f => ({ ...f, location: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs">
                 <option value="">All Locations</option>
                 {distinct.locations.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
-              <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs">
+              <select value={filter.classification} onChange={e => setFilter(f => ({ ...f, classification: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs">
                 <option value="">All Classifications</option>
                 {distinct.classifications.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
               <button
                 onClick={toggleShowSelected}
-                className={`w-full text-white text-xs py-1 rounded ${filter.selectedOnly ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-700 hover:bg-gray-600'}`}
+                className={`w-full text-foreground text-xs py-1 rounded ${filter.selectedOnly ? 'bg-amber-600 hover:bg-amber-700' : 'bg-muted hover:bg-muted'}`}
               >
                 Show Selected
               </button>
@@ -2468,11 +2468,11 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                 placeholder="Search by category, name, code, brand, model, condition, IFC class, type, source"
                 value={filter.search}
                 onChange={e => setFilter(f => ({ ...f, search: e.target.value }))}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+                className="w-full bg-card border border-border rounded px-2 py-1 text-foreground text-xs"
               />
               <button
                 onClick={exportCSV}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded"
+                className="w-full bg-muted hover:bg-muted text-foreground text-xs py-1 rounded"
               >
                 Export CSV
               </button>
@@ -2483,7 +2483,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
+          <thead className="sticky top-0 bg-card/90 backdrop-blur border-b border-border text-muted-foreground">
             <tr>
               <th className="px-2 py-1.5 w-8">
                 <input
@@ -2552,14 +2552,14 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={20} className="px-3 py-4 text-center text-gray-400">
+                <td colSpan={20} className="px-3 py-4 text-center text-muted-foreground">
                   {filter.category || filter.type || filter.location || filter.ifcClass || filter.classification
                     ? 'No assets available'
                     : 'No assets. Use "Create new asset".'}
                 </td>
               </tr>
             ) : paginatedRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer" onClick={() => onRowClick(r)}>
+              <tr key={r.id} className="border-b border-border hover:bg-card/60 cursor-pointer" onClick={() => onRowClick(r)}>
                 <td className="px-2 py-1.5 w-8" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                 </td>
@@ -2574,31 +2574,31 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                       </span>
                       {r.conflictWithId && <span className="ml-2 text-[10px] text-red-300">⚠ Conflict</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-100">{stripRevitPrefix(r.category) || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.type || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.brand || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.model || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.ifcClass || 'Unknown'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{stripRevitPrefix(r.category) || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.type || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.brand || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.model || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.ifcClass || 'Unknown'}</td>
                   </>
                 )}
                 {visibleFields.identification && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.assetCode || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.assetName || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.serialNumber || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.installationDate || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.assetCode || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.assetName || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.serialNumber || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.installationDate || '-'}</td>
                   </>
                 )}
                 {visibleFields.technical && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.material || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.dimensions || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.capacity || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.material || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.dimensions || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.capacity || '-'}</td>
                   </>
                 )}
                 {visibleFields.documentation && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">
+                    <td className="px-2 py-1.5 text-foreground">
                       {r.manuals ? (
                         <div className="flex flex-wrap gap-1">
                           {r.manuals.split(', ').map((fileName, idx) => (
@@ -2631,30 +2631,30 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                         </div>
                       ) : '-'}
                     </td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.warranties || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.warranties || '-'}</td>
                   </>
                 )}
                 {visibleFields.lifecycle && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.condition || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.expectedLife || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.condition || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.expectedLife || '-'}</td>
                   </>
                 )}
                 {visibleFields.economic && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.purchaseCost || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.maintenanceCost || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.purchaseCost || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.maintenanceCost || '-'}</td>
                   </>
                 )}
                 {visibleFields.compliance && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.regulations || '-'}</td>
-                    <td className="px-2 py-1.5 text-gray-200">{r.safetyNotes || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.regulations || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.safetyNotes || '-'}</td>
                   </>
                 )}
                 {visibleFields.relationships && (
                   <>
-                    <td className="px-2 py-1.5 text-gray-200">{r.suppliers || '-'}</td>
+                    <td className="px-2 py-1.5 text-foreground">{r.suppliers || '-'}</td>
                   </>
                 )}
                 <td className="px-2 py-1.5">
@@ -2676,7 +2676,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                           setRows(prev => prev.map(x => x.id === r.id ? updated : x)); 
                           saveAssetToBackend(updated);
                         }}
-                        className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-[11px] text-white"
+                        className="bg-card border border-border rounded px-1 py-0.5 text-[11px] text-foreground"
                       >
                         <option value="cube">Cube</option>
                         <option value="sphere">Sphere</option>
@@ -2692,7 +2692,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                       <button
                         onClick={(e) => { e.stopPropagation(); placeManual(r); }}
                         disabled={placingAssetId === r.id}
-                        className={`text-xs text-white px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                        className={`text-xs text-foreground px-2 py-0.5 rounded ${placingAssetId === r.id ? 'bg-muted cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
                       >
                         {placingAssetId === r.id ? 'Placing…' : (r.placeholderX == null ? 'Place' : 'Re-place')}
                       </button>
@@ -2718,15 +2718,15 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       {/* Conflict Resolution Modal */}
       {conflictModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 resize overflow-auto" style={{ width: '320px', minWidth: '280px', minHeight: '200px' }}>
-            <div className="text-white text-sm font-semibold mb-2">Resolve Conflict</div>
-            <div className="text-xs text-gray-300 mb-2">Choose how to resolve the BIM vs Manual conflict.</div>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded p-3 resize overflow-auto" style={{ width: '320px', minWidth: '280px', minHeight: '200px' }}>
+            <div className="text-foreground text-sm font-semibold mb-2">Resolve Conflict</div>
+            <div className="text-xs text-muted-foreground mb-2">Choose how to resolve the BIM vs Manual conflict.</div>
             <div className="grid grid-cols-1 gap-2">
-              <button className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1 rounded" onClick={resolveLink}>Link (keep both)</button>
-              <button className="bg-blue-700 hover:bg-blue-600 text-white text-xs py-1 rounded" onClick={resolveMerge}>Merge into Manual (hide BIM)</button>
-              <button className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-1 rounded" onClick={resolveKeepBoth}>Keep both (dismiss)</button>
-              <button className="bg-red-800 hover:bg-red-700 text-white text-xs py-1 rounded" onClick={() => setConflictModal({ open: false })}>Cancel</button>
+              <button className="bg-emerald-700 hover:bg-emerald-600 text-foreground text-xs py-1 rounded" onClick={resolveLink}>Link (keep both)</button>
+              <button className="bg-blue-700 hover:bg-blue-600 text-foreground text-xs py-1 rounded" onClick={resolveMerge}>Merge into Manual (hide BIM)</button>
+              <button className="bg-muted hover:bg-muted text-foreground text-xs py-1 rounded" onClick={resolveKeepBoth}>Keep both (dismiss)</button>
+              <button className="bg-red-800 hover:bg-red-700 text-foreground text-xs py-1 rounded" onClick={() => setConflictModal({ open: false })}>Cancel</button>
             </div>
           </div>
         </div>
@@ -2737,7 +2737,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
         <div className="fixed bottom-4 right-4 z-[1000]">
           <div className={`px-3 py-2 rounded text-xs shadow border ${toast.type === 'success' ? 'bg-emerald-800/80 text-emerald-100 border-emerald-700' :
             toast.type === 'error' ? 'bg-red-800/80 text-red-100 border-red-700' :
-              'bg-gray-800/80 text-gray-100 border-gray-700'
+              'bg-card/80 text-foreground border-border'
             }`}>
             {toast.text}
           </div>
@@ -2746,13 +2746,13 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[320px]" onClick={e => e.stopPropagation()}>
-            <div className="text-white text-sm font-semibold mb-2">Delete asset?</div>
-            <div className="text-xs text-gray-300 mb-3">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.label}</span>?</div>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
+          <div className="bg-card border border-border rounded p-3 w-[320px]" onClick={e => e.stopPropagation()}>
+            <div className="text-foreground text-sm font-semibold mb-2">Delete asset?</div>
+            <div className="text-xs text-muted-foreground mb-3">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.label}</span>?</div>
             <div className="flex items-center justify-end gap-2">
-              <button className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" onClick={() => setDeleteModal({ open: false })}>Cancel</button>
-              <button className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" onClick={performDelete}>Delete</button>
+              <button className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground" onClick={() => setDeleteModal({ open: false })}>Cancel</button>
+              <button className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-foreground" onClick={performDelete}>Delete</button>
             </div>
           </div>
         </div>
@@ -2760,8 +2760,8 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       {/* Edit Asset Modal - reuse CreateAsset UI so the edit dialog is identical to create */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => { setEditModal({ open: false }); setEditQueue([]); setEditIndex(0); setBulkEditMode(false); setBulkEditIds([]); setBulkCategoryLabel(''); }}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-3 w-[1100px] max-w-[98vw] max-h-[90vh] overflow-auto resize" style={{ minWidth: '640px', minHeight: '420px', resize: 'both' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[1001]" onClick={() => { setEditModal({ open: false }); setEditQueue([]); setEditIndex(0); setBulkEditMode(false); setBulkEditIds([]); setBulkCategoryLabel(''); }}>
+          <div className="bg-card border border-border rounded p-3 w-[1100px] max-w-[98vw] max-h-[90vh] overflow-auto resize" style={{ minWidth: '640px', minHeight: '420px', resize: 'both' }} onClick={e => e.stopPropagation()}>
             <CreateAsset
               projectId={projectId}
               viewer={viewer}
@@ -2908,7 +2908,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       {/* Bottom Action Bar: Edit Selected (sequential) and Schedule Maintenance */}
       {selectedIds.size > 0 && (
-        <div className="px-2 py-1.5 border-t border-gray-800 flex justify-end gap-2">
+        <div className="px-2 py-1.5 border-t border-border flex justify-end gap-2">
           <button
             onClick={startSequentialEdit}
             className="text-[11px] py-1 px-2 rounded border border-amber-500 bg-amber-600/20 hover:bg-amber-600/40 text-amber-200 transition"
@@ -2931,25 +2931,25 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
       )}
 
       {/* Bottom Pagination Controls */}
-      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2">
+      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-muted-foreground gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="whitespace-nowrap">Rows:</span>
           <select
             value={pageSize}
             onChange={e => setPageSize(parseInt(e.target.value, 10))}
-            className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
+            className="h-6 bg-card/80 border border-border rounded px-2 text-[11px] focus:outline-none focus:border-border"
           >
             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
-        <div className="flex-1 text-center text-gray-400 truncate">
+        <div className="flex-1 text-center text-muted-foreground truncate">
           {filteredRows.length === 0 ? '0' : `${startIndex + 1}-${Math.min(endIndex, filteredRows.length)}`} of {filteredRows.length}
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={pageClamped <= 1}
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-muted-foreground border-border' : 'text-foreground border-border hover:bg-muted'}`}
             aria-label="Previous page"
           >
             &#8249;
@@ -2970,7 +2970,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                 }
               }}
               placeholder="#"
-              className="w-12 h-6 text-xs bg-gray-800 border border-gray-700 rounded px-1 text-white"
+              className="w-12 h-6 text-xs bg-card border border-border rounded px-1 text-foreground"
             />
             <button
               onClick={() => {
@@ -2978,13 +2978,13 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                 setPage(n);
                 setJumpPage('');
               }}
-              className="h-6 px-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs"
+              className="h-6 px-2 rounded bg-muted hover:bg-muted text-foreground text-xs"
             >Go</button>
           </div>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={pageClamped >= totalPages}
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-muted-foreground border-border' : 'text-foreground border-border hover:bg-muted'}`}
             aria-label="Next page"
           >
             &#8250;
@@ -2994,8 +2994,8 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
 
       {/* PDF Viewer Modal */}
       {pdfModal.open && pdfModal.fileId && projectId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1002]" onClick={() => setPdfModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded w-[95vw] h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[1002]" onClick={() => setPdfModal({ open: false })}>
+          <div className="bg-card border border-border rounded w-[95vw] h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex-1 overflow-hidden">
               <PdfViewer
                 projectId={projectId}
@@ -3487,11 +3487,11 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col">
       <div className="flex items-center justify-between">
-        <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
+        <div className="text-foreground font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
         <div className="flex items-center gap-2">
           {mode !== 'edit' && (
             <button
-              className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
+              className="text-[11px] px-2 py-1 rounded border border-border bg-card/60 hover:bg-muted text-foreground"
               onClick={clearForm}
             >
               Clear
@@ -3515,8 +3515,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
             key={sec.key}
             onClick={() => setActiveSection(sec.key)}
             className={`text-xs px-2 py-1 rounded whitespace-nowrap ${activeSection === sec.key
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              ? 'bg-blue-600 text-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
           >
             {sec.label}
@@ -3528,8 +3528,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Discipline</label>
-              <select value={f.assetClassification || ''} onChange={e => updateField('assetClassification', e.target.value as any)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Discipline</label>
+              <select value={f.assetClassification || ''} onChange={e => updateField('assetClassification', e.target.value as any)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select discipline</option>
                 <option value="ARCHITECTURAL">Architecture</option>
                 <option value="STRUCTURAL">Structure</option>
@@ -3539,8 +3539,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 <option value="OTHER">Other</option>
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
-              <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Category</label>
+              <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select category</option>
                 {f.category && !categoryOptions.includes(f.category) && (
                   <option key={f.category} value={f.category}>{f.category} (current)</option>
@@ -3548,15 +3548,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Ifc Class</label>
-              <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Ifc Class</label>
+              <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select Ifc Class</option>
                 {f.ifcClass && !IFCCLASSES_UNIQUE.includes(f.ifcClass) && (
                   <option key={f.ifcClass} value={f.ifcClass}>{f.ifcClass} (current)</option>
@@ -3564,26 +3564,26 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Asset extracted from BIM model" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Asset extracted from BIM model" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" rows={2} /></div>
           </div>
         )}
 
         {activeSection === 'technical' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Material</label><input value={f.material || ''} onChange={e => updateField('material', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Dimensions</label><input value={f.dimensions || ''} onChange={e => updateField('dimensions', e.target.value)} placeholder="L x W x H" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Weight</label><input value={f.weight || ''} onChange={e => updateField('weight', e.target.value)} placeholder="kg" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Capacity</label><input value={f.capacity || ''} onChange={e => updateField('capacity', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Power Rating</label><input value={f.powerRating || ''} onChange={e => updateField('powerRating', e.target.value)} placeholder="kW" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Material</label><input value={f.material || ''} onChange={e => updateField('material', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Dimensions</label><input value={f.dimensions || ''} onChange={e => updateField('dimensions', e.target.value)} placeholder="L x W x H" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Weight</label><input value={f.weight || ''} onChange={e => updateField('weight', e.target.value)} placeholder="kg" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Capacity</label><input value={f.capacity || ''} onChange={e => updateField('capacity', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Power Rating</label><input value={f.powerRating || ''} onChange={e => updateField('powerRating', e.target.value)} placeholder="kW" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'documentation' && (
           <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="text-[11px] text-gray-300 block mb-1">Manuals</label>
+              <label className="text-[11px] text-muted-foreground block mb-1">Manuals</label>
               <div className="space-y-2">
                 <input 
                   type="file" 
@@ -3624,12 +3624,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                     }
                   }} 
                   placeholder="Select one or more files" 
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" 
+                  className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" 
                 />
                 {f.manuals && (
-                  <div className="bg-gray-700/40 border border-gray-600 rounded px-2 py-1.5 text-[11px] text-gray-300">
-                    <div className="font-semibold text-gray-400 mb-1">Uploaded files:</div>
-                    <div className="text-gray-400 whitespace-pre-wrap break-words">{f.manuals}</div>
+                  <div className="bg-muted/40 border border-border rounded px-2 py-1.5 text-[11px] text-muted-foreground">
+                    <div className="font-semibold text-muted-foreground mb-1">Uploaded files:</div>
+                    <div className="text-muted-foreground whitespace-pre-wrap break-words">{f.manuals}</div>
                     <button
                       type="button"
                       onClick={() => updateField('manuals', '')}
@@ -3641,15 +3641,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 )}
               </div>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'lifecycle' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Condition</label>
-              <select value={f.condition || ''} onChange={e => updateField('condition', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Condition</label>
+              <select value={f.condition || ''} onChange={e => updateField('condition', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select</option>
                 <option value="Excellent">Excellent</option>
                 <option value="Good">Good</option>
@@ -3658,51 +3658,51 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 <option value="Critical">Critical</option>
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Service Date</label><input type="date" value={f.serviceDate || ''} onChange={e => updateField('serviceDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Expected Life</label><input value={f.expectedLife || ''} onChange={e => updateField('expectedLife', e.target.value)} placeholder="Years" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Service Date</label><input type="date" value={f.serviceDate || ''} onChange={e => updateField('serviceDate', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Expected Life</label><input value={f.expectedLife || ''} onChange={e => updateField('expectedLife', e.target.value)} placeholder="Years" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'economic' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Maintenance Cost</label><input value={f.maintenanceCost || ''} onChange={e => updateField('maintenanceCost', e.target.value)} placeholder="€/year" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Maintenance Cost</label><input value={f.maintenanceCost || ''} onChange={e => updateField('maintenanceCost', e.target.value)} placeholder="€/year" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'compliance' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Regulations</label><input value={f.regulations || ''} onChange={e => updateField('regulations', e.target.value)} placeholder="Regulatory requirements" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Safety Notes</label><textarea value={f.safetyNotes || ''} onChange={e => updateField('safetyNotes', e.target.value)} placeholder="Safety precautions" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Regulations</label><input value={f.regulations || ''} onChange={e => updateField('regulations', e.target.value)} placeholder="Regulatory requirements" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Safety Notes</label><textarea value={f.safetyNotes || ''} onChange={e => updateField('safetyNotes', e.target.value)} placeholder="Safety precautions" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" rows={3} /></div>
           </div>
         )}
 
         {activeSection === 'relationships' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
         {activeSection === 'qr' && (
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-[11px] text-gray-300 block mb-1">{(f as any).qrCode ? 'View QR Code' : 'Create QR Code'}</label>
-              <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col items-center gap-3">
+              <label className="text-[11px] text-muted-foreground block mb-1">{(f as any).qrCode ? 'View QR Code' : 'Create QR Code'}</label>
+              <div className="bg-card border border-border rounded p-3 flex flex-col items-center gap-3">
                 {(f as any).qrCode ? (
                   <>
-                    <img src={qrImageUrl(getQrPayload(), 400)} alt="QR Code" className="w-40 h-40 bg-white p-2" />
-                    <div className="text-xs text-gray-300">Generated: {(f as any).qrGeneratedAt ? new Date((f as any).qrGeneratedAt).toLocaleString() : '—'}</div>
+                    <img src={qrImageUrl(getQrPayload(), 400)} alt="QR Code" className="w-40 h-40 bg-card p-2" />
+                    <div className="text-xs text-muted-foreground">Generated: {(f as any).qrGeneratedAt ? new Date((f as any).qrGeneratedAt).toLocaleString() : '—'}</div>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { const u = qrImageUrl(getQrPayload(), 800); window.open(u, '_blank'); }}>Open Image</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { navigator.clipboard?.writeText(String(getQrPayload())); try { (window as any).showToast?.('success', 'Link copied!'); } catch {} }}>Copy Link</button>
+                      <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-foreground text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
+                      <button className="px-3 py-1.5 rounded bg-muted hover:bg-muted text-foreground text-sm" onClick={() => { const u = qrImageUrl(getQrPayload(), 800); window.open(u, '_blank'); }}>Open Image</button>
+                      <button className="px-3 py-1.5 rounded bg-muted hover:bg-muted text-foreground text-sm" onClick={() => { navigator.clipboard?.writeText(String(getQrPayload())); try { (window as any).showToast?.('success', 'Link copied!'); } catch {} }}>Copy Link</button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="text-xs text-gray-300 mb-2">No QR code generated yet. Click the button below to generate a unique, permanent QR for this asset. Once created it cannot be modified.</div>
+                    <div className="text-xs text-muted-foreground mb-2">No QR code generated yet. Click the button below to generate a unique, permanent QR for this asset. Once created it cannot be modified.</div>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1.5 rounded text-sm font-semibold bg-green-600 hover:bg-green-700 text-white" onClick={generateQr}>Generate QR Code</button>
+                      <button className="px-3 py-1.5 rounded text-sm font-semibold bg-green-600 hover:bg-green-700 text-foreground" onClick={generateQr}>Generate QR Code</button>
                     </div>
                   </>
                 )}
@@ -3746,18 +3746,18 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         </div>
       )}
 
-      <div className="border-t border-gray-800 pt-3">
+      <div className="border-t border-border pt-3">
         <button
           className={`w-full px-4 py-2 rounded text-sm font-semibold transition-colors ${isSaving
-            ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
+            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-700 text-foreground'
             }`}
           onClick={onSave}
           disabled={isSaving}
         >
           {isSaving ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
               Saving Asset...
             </div>
           ) : (
@@ -3860,61 +3860,61 @@ const EditSpaceFormInline: React.FC<{
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-400">Building</label>
+        <label className="text-xs text-muted-foreground">Building</label>
         <input 
           type="text"
           value={formData.building}
           onChange={e => setFormData(d => ({ ...d, building: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Building"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Level</label>
+        <label className="text-xs text-muted-foreground">Level</label>
         <input 
           type="text"
           value={formData.level}
           onChange={e => setFormData(d => ({ ...d, level: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Level"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Room Name</label>
+        <label className="text-xs text-muted-foreground">Room Name</label>
         <input 
           type="text"
           value={formData.name}
           onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Room Name"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Area (m²)</label>
+        <label className="text-xs text-muted-foreground">Area (m²)</label>
         <input 
           type="number"
           value={formData.area}
           onChange={e => setFormData(d => ({ ...d, area: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Area"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Space Code</label>
+        <label className="text-xs text-muted-foreground">Space Code</label>
         <input 
           type="text"
           value={formData.spaceCode}
           onChange={e => setFormData(d => ({ ...d, spaceCode: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Space Code"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400 block mb-1">Description</label>
+        <label className="text-xs text-muted-foreground block mb-1">Description</label>
         <textarea 
           value={formData.description}
           onChange={e => setFormData(d => ({ ...d, description: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 resize-none"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground resize-none"
           placeholder="Description"
           rows={3}
         />
@@ -3922,14 +3922,14 @@ const EditSpaceFormInline: React.FC<{
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+          className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50"
+          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-foreground disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save'}
         </button>

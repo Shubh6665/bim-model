@@ -236,8 +236,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
         // Capture state before stripping classes
         const isGrid = htmlEl.classList.contains('grid');
         const isColSpan2 = htmlEl.classList.contains('col-span-2');
-        const isLabel = htmlEl.classList.contains('text-gray-400') || htmlEl.tagName === 'LABEL';
-        const isValue = htmlEl.classList.contains('text-white') || htmlEl.classList.contains('print-value');
+        const isLabel = htmlEl.classList.contains('text-muted-foreground') || htmlEl.tagName === 'LABEL';
+        const isValue = htmlEl.classList.contains('text-foreground') || htmlEl.classList.contains('print-value');
         const isSectionHeader = htmlEl.tagName === 'H2';
         
         // Identify section containers: Divs that have an H2 as a direct child
@@ -365,7 +365,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
   if (!workOrder) {
     return (
-      <div className="p-4 text-gray-400">
+      <div className="p-4 text-muted-foreground">
         No work order selected
       </div>
     );
@@ -375,7 +375,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
   const totalTimeToResolve = workOrder.totalTimeToResolve || 0;
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen p-6 overflow-y-auto print:bg-white print:text-black print:p-0">
+    <div className="bg-card text-foreground min-h-screen p-6 overflow-y-auto print:bg-card print:text-foreground print:p-0">
       <style jsx global>{`
         @media print {
           @page {
@@ -411,16 +411,16 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             display: none !important;
           }
           /* Force dark backgrounds to white for print */
-          .bg-gray-800\\/50, .bg-gray-900 {
+          .bg-card\\/50, .bg-card {
             background-color: white !important;
             border: 1px solid #ccc !important;
             color: black !important;
             box-shadow: none !important;
           }
-          .text-gray-400, .text-gray-300, .text-gray-200 {
+          .text-muted-foreground, .text-muted-foreground, .text-foreground {
             color: #333 !important;
           }
-          .text-white {
+          .text-foreground {
             color: black !important;
           }
           /* Hide inputs/textareas in print and show their values instead */
@@ -445,15 +445,15 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
       `}</style>
       <div ref={contentRef} className="max-w-6xl mx-auto print-content print:max-w-none print:w-full">
         {/* Header */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between no-print">
+        <div className="bg-card/50 border border-border rounded-lg p-4 mb-4 flex items-center justify-between no-print">
           <div>
-            <h1 className="text-2xl font-semibold text-white">Maintenance Report</h1>
-            <p className="text-sm text-gray-200 mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
+            <h1 className="text-2xl font-semibold text-foreground">Maintenance Report</h1>
+            <p className="text-sm text-foreground mt-1">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
           </div>
           <div className="flex gap-3 items-center">
             <button
               onClick={downloadPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded-lg text-sm font-medium transition-colors shadow-lg shadow-blue-900/20"
             >
               <Printer size={16} />
               Download PDF
@@ -461,7 +461,7 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
             
             <button
               onClick={onClose}
-              className="ml-2 p-2 bg-gray-700 hover:bg-red-600 text-white rounded-full transition-all duration-200 hover:rotate-90 shadow-lg"
+              className="ml-2 p-2 bg-muted hover:bg-red-600 text-foreground rounded-full transition-all duration-200 hover:rotate-90 shadow-lg"
               title="Close"
             >
               <X size={20} />
@@ -472,16 +472,16 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
         {/* Print Header (Only visible in print) */}
         <div className="hidden print:block mb-6 border-b pb-4">
           <h1 className="text-2xl font-bold">Maintenance Report</h1>
-          <p className="text-sm text-gray-600">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
-          <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
+          <p className="text-sm text-muted-foreground">Work Order: {workOrder.requestId || workOrder.ticketId || 'N/A'}</p>
+          <p className="text-sm text-muted-foreground">Date: {new Date().toLocaleDateString()}</p>
         </div>
 
         {/* Section Visibility Toggles */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 no-print">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Section Visibility (for PDF)</h3>
+        <div className="bg-card/50 border border-border rounded-lg p-4 mb-4 no-print">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3">Section Visibility (for PDF)</h3>
           <div className="grid grid-cols-4 gap-3">
             {Object.entries(sectionVisibility).map(([key, visible]) => (
-              <label key={key} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <label key={key} className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={visible}
@@ -496,44 +496,44 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 1: General Information (READ-ONLY) */}
         {sectionVisibility.general && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">1. General Information</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">1. General Information</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-400">Work Order ID:</span>
-                <span className="ml-2 font-medium text-white">{workOrder.requestId || workOrder.id}</span>
+                <span className="text-muted-foreground">Work Order ID:</span>
+                <span className="ml-2 font-medium text-foreground">{workOrder.requestId || workOrder.id}</span>
               </div>
               <div>
-                <span className="text-gray-400">Date & Time:</span>
-                <span className="ml-2 text-white">{workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleString() : 'N/A'}</span>
+                <span className="text-muted-foreground">Date & Time:</span>
+                <span className="ml-2 text-foreground">{workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleString() : 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Related Ticket:</span>
-                <span className="ml-2 text-white">{workOrder.ticketId || 'N/A'}</span>
+                <span className="text-muted-foreground">Related Ticket:</span>
+                <span className="ml-2 text-foreground">{workOrder.ticketId || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Requester:</span>
-                <span className="ml-2 text-white">{workOrder.requester || 'N/A'}</span>
+                <span className="text-muted-foreground">Requester:</span>
+                <span className="ml-2 text-foreground">{workOrder.requester || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Contact:</span>
-                <span className="ml-2 text-white">{workOrder.contact || 'N/A'}</span>
+                <span className="text-muted-foreground">Contact:</span>
+                <span className="ml-2 text-foreground">{workOrder.contact || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Location:</span>
-                <span className="ml-2 text-white">{workOrder.location || 'N/A'}</span>
+                <span className="text-muted-foreground">Location:</span>
+                <span className="ml-2 text-foreground">{workOrder.location || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Asset:</span>
-                <span className="ml-2 text-white">{workOrder.asset || 'N/A'}</span>
+                <span className="text-muted-foreground">Asset:</span>
+                <span className="ml-2 text-foreground">{workOrder.asset || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Category:</span>
-                <span className="ml-2 text-white">{workOrder.category || 'N/A'}</span>
+                <span className="text-muted-foreground">Category:</span>
+                <span className="ml-2 text-foreground">{workOrder.category || 'N/A'}</span>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-400">Description:</span>
-                <p className="mt-1 text-white">{workOrder.description || 'N/A'}</p>
+                <span className="text-muted-foreground">Description:</span>
+                <p className="mt-1 text-foreground">{workOrder.description || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -541,55 +541,55 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 2: Maintenance Team Assignment (READ-ONLY) */}
         {sectionVisibility.assignment && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">2. Maintenance Team Assignment</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">2. Maintenance Team Assignment</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-400">Company:</span>
-                <span className="ml-2 text-white">
+                <span className="text-muted-foreground">Company:</span>
+                <span className="ml-2 text-foreground">
                   {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 
                     ? workOrder.assignedTechnicians.map(t => t.company).filter(Boolean).join(', ') || 'N/A'
                     : (workOrder.company || 'N/A')}
                 </span>
               </div>
               <div>
-                <span className="text-gray-400">Name of Maintenance Team:</span>
-                <span className="ml-2 text-white">{maintenanceTeamInfo?.name || (workOrder as any).maintenanceTeamName || 'N/A'}</span>
+                <span className="text-muted-foreground">Name of Maintenance Team:</span>
+                <span className="ml-2 text-foreground">{maintenanceTeamInfo?.name || (workOrder as any).maintenanceTeamName || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Surname of Maintenance Team:</span>
-                <span className="ml-2 text-white">{maintenanceTeamInfo?.surname || (workOrder as any).maintenanceTeamSurname || 'N/A'}</span>
+                <span className="text-muted-foreground">Surname of Maintenance Team:</span>
+                <span className="ml-2 text-foreground">{maintenanceTeamInfo?.surname || (workOrder as any).maintenanceTeamSurname || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Primary Technician:</span>
-                <span className="ml-2 text-white">
+                <span className="text-muted-foreground">Primary Technician:</span>
+                <span className="ml-2 text-foreground">
                   {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 
                     ? workOrder.assignedTechnicians.map(t => t.name).join(', ')
                     : (workOrder.responsibleTechnician || 'N/A')}
                 </span>
               </div>
               <div>
-                <span className="text-gray-400">Surname of Manutentor (1):</span>
-                <span className="ml-2 text-white">{(workOrder as any).responsibleTechnicianSurname || 'N/A'}</span>
+                <span className="text-muted-foreground">Surname of Manutentor (1):</span>
+                <span className="ml-2 text-foreground">{(workOrder as any).responsibleTechnicianSurname || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Name of Manutentor (2):</span>
-                <span className="ml-2 text-white">{(workOrder as any).manutentor2Name || (workOrder.assignedTechnicians && workOrder.assignedTechnicians[0]?.name) || ''}</span>
+                <span className="text-muted-foreground">Name of Manutentor (2):</span>
+                <span className="ml-2 text-foreground">{(workOrder as any).manutentor2Name || (workOrder.assignedTechnicians && workOrder.assignedTechnicians[0]?.name) || ''}</span>
               </div>
               <div>
-                <span className="text-gray-400">Surname of Manutentor (2):</span>
-                <span className="ml-2 text-white">{(workOrder as any).manutentor2Surname || (workOrder.assignedTechnicians && (workOrder.assignedTechnicians as any)[0]?.surname) || ''}</span>
+                <span className="text-muted-foreground">Surname of Manutentor (2):</span>
+                <span className="ml-2 text-foreground">{(workOrder as any).manutentor2Surname || (workOrder.assignedTechnicians && (workOrder.assignedTechnicians as any)[0]?.surname) || ''}</span>
               </div>
               {workOrder.assignedTechnicians && workOrder.assignedTechnicians.length > 0 && (
                 <div className="col-span-2">
-                  <span className="text-gray-400">Assigned Technicians:</span>
+                  <span className="text-muted-foreground">Assigned Technicians:</span>
                   <div className="mt-2 space-y-1">
                     {workOrder.assignedTechnicians.map((tech: any, idx: number) => (
-                      <div key={idx} className="text-sm text-white bg-gray-900/30 rounded px-3 py-1.5 flex justify-between items-center">
+                      <div key={idx} className="text-sm text-foreground bg-card/30 rounded px-3 py-1.5 flex justify-between items-center">
                         <span>{tech.name} ({tech.email})</span>
                         <div className="flex items-center gap-3">
                           {tech.company && <span className="text-blue-300">{tech.company}</span>}
-                          <span className="text-gray-500 text-xs">Assigned {new Date(tech.assignedAt).toLocaleDateString()}</span>
+                          <span className="text-muted-foreground text-xs">Assigned {new Date(tech.assignedAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                     ))}
@@ -602,45 +602,45 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 3: Work Description (TM Editable) */}
         {sectionVisibility.workDescription && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">3. Work Description {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">3. Work Description {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Diagnosis / Root Cause</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Diagnosis / Root Cause</label>
                 <textarea
                   value={editableData.diagnosis}
                   onChange={(e) => updateData('diagnosis', e.target.value)}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
                 <div className="hidden print-value">{editableData.diagnosis}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Work Performed</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Work Performed</label>
                 <textarea
                   value={editableData.workPerformed}
                   onChange={(e) => updateData('workPerformed', e.target.value)}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
                 <div className="hidden print-value">{editableData.workPerformed}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Materials / Spare Parts Used</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Materials / Spare Parts Used</label>
                 <textarea
                   value={editableData.materialsUsed}
                   onChange={(e) => updateData('materialsUsed', e.target.value)}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
                 />
                 <div className="hidden print-value">{editableData.materialsUsed}</div>
               </div>
               <div>
-                <span className="text-sm text-gray-400">Total Time Spent:</span>
-                <span className="ml-2 text-white font-medium">{totalTime} minutes ({(totalTime / 60).toFixed(1)} hours)</span>
+                <span className="text-sm text-muted-foreground">Total Time Spent:</span>
+                <span className="ml-2 text-foreground font-medium">{totalTime} minutes ({(totalTime / 60).toFixed(1)} hours)</span>
               </div>
             </div>
           </div>
@@ -648,8 +648,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 4: Safety & Compliance (TM Editable) */}
         {sectionVisibility.safety && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">4. Safety & Compliance {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">4. Safety & Compliance {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <input
@@ -660,17 +660,17 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   className="rounded print:hidden"
                 />
                 <span className="hidden print:inline font-bold mr-2">{editableData.complianceCompleted ? '☑' : '☐'}</span>
-                <label className="text-sm font-medium text-gray-300">Compliance Check Completed</label>
+                <label className="text-sm font-medium text-muted-foreground">Compliance Check Completed</label>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">PPE Used</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">PPE Used</label>
                 <input
                   type="text"
                   value={editableData.ppeUsed}
                   onChange={(e) => updateData('ppeUsed', e.target.value)}
                   disabled={!isTM}
                   placeholder="e.g., Hard hat, Safety goggles, Gloves"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
                 <div className="hidden print-value">{editableData.ppeUsed}</div>
               </div>
@@ -680,24 +680,24 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 5: Approval Workflow (READ-ONLY) */}
         {sectionVisibility.approval && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">5. Approval Workflow</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">5. Approval Workflow</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-400">TM Approval Date:</span>
-                <span className="ml-2 text-white">{workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleDateString() : 'N/A'}</span>
+                <span className="text-muted-foreground">TM Approval Date:</span>
+                <span className="ml-2 text-foreground">{workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleDateString() : 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Priority:</span>
-                <span className="ml-2 text-white font-medium">{workOrder.priority || 'N/A'}</span>
+                <span className="text-muted-foreground">Priority:</span>
+                <span className="ml-2 text-foreground font-medium">{workOrder.priority || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Type:</span>
-                <span className="ml-2 text-white font-medium">{workOrder.maintenanceType || workOrder.type || 'N/A'}</span>
+                <span className="text-muted-foreground">Type:</span>
+                <span className="ml-2 text-foreground font-medium">{workOrder.maintenanceType || workOrder.type || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-400">Last FM Modification:</span>
-                <span className="ml-2 text-white">{(workOrder as any).fmModificationDate ? new Date((workOrder as any).fmModificationDate).toLocaleString() : 'N/A'}</span>
+                <span className="text-muted-foreground">Last FM Modification:</span>
+                <span className="ml-2 text-foreground">{(workOrder as any).fmModificationDate ? new Date((workOrder as any).fmModificationDate).toLocaleString() : 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -705,39 +705,39 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 6: Result & Closure (TM Editable) */}
         {sectionVisibility.result && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">6. Result & Closure {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">6. Result & Closure {isTM && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
             <div className="space-y-4">
               <div>
-                <span className="text-sm text-gray-400">Status:</span>
-                <span className="ml-2 text-white font-medium">{workOrder.status}</span>
+                <span className="text-sm text-muted-foreground">Status:</span>
+                <span className="ml-2 text-foreground font-medium">{workOrder.status}</span>
               </div>
               <div>
-                <span className="text-sm text-gray-400">TM Closure Date:</span>
-                <span className="ml-2 text-white">{workOrder.resolvedAt ? new Date(workOrder.resolvedAt).toLocaleString() : 'Not resolved yet'}</span>
+                <span className="text-sm text-muted-foreground">TM Closure Date:</span>
+                <span className="ml-2 text-foreground">{workOrder.resolvedAt ? new Date(workOrder.resolvedAt).toLocaleString() : 'Not resolved yet'}</span>
               </div>
               <div>
-                <span className="text-sm text-gray-400">Total Time to Resolve:</span>
-                <span className="ml-2 text-white font-medium">{totalTimeToResolve} minutes ({(totalTimeToResolve / 60).toFixed(1)} hours)</span>
+                <span className="text-sm text-muted-foreground">Total Time to Resolve:</span>
+                <span className="ml-2 text-foreground font-medium">{totalTimeToResolve} minutes ({(totalTimeToResolve / 60).toFixed(1)} hours)</span>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Asset Condition After Work</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Asset Condition After Work</label>
                 <textarea
                   value={editableData.assetCondition}
                   onChange={(e) => updateData('assetCondition', e.target.value)}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={2}
                 />
                 <div className="hidden print-value">{editableData.assetCondition}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Technical Notes / Recommendations</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Technical Notes / Recommendations</label>
                 <textarea
                   value={editableData.technicalNotes}
                   onChange={(e) => updateData('technicalNotes', e.target.value)}
                   disabled={!isTM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                   rows={3}
                 />
                 <div className="hidden print-value">{editableData.technicalNotes}</div>
@@ -748,11 +748,11 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 7: Signatures & Validation */}
         {sectionVisibility.signatures && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">7. Signatures & Validation</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">7. Signatures & Validation</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Maintenance Team Signature {isTM && <span className="text-xs text-blue-400">(Editable)</span>}
                 </label>
                 <input
@@ -761,12 +761,12 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   onChange={(e) => updateData('tmSignature', e.target.value)}
                   disabled={!isTM}
                   placeholder="Digital signature or name"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
                 <div className="hidden print-value font-serif italic text-lg">{editableData.tmSignature}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Facility Manager Signature {isFM && <span className="text-xs text-blue-400">(Editable)</span>}
                 </label>
                 <input
@@ -775,18 +775,18 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
                   onChange={(e) => updateData('fmSignature', e.target.value)}
                   disabled={!isFM}
                   placeholder="Digital signature or name"
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
                 <div className="hidden print-value font-serif italic text-lg">{editableData.fmSignature}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Signature Date</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Signature Date</label>
                 <input
                   type="date"
                   value={editableData.signatureDate}
                   onChange={(e) => updateData('signatureDate', e.target.value)}
                   disabled={!isTM && !isFM}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+                  className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
                 />
                 <div className="hidden print-value">{editableData.signatureDate}</div>
               </div>
@@ -796,14 +796,14 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
 
         {/* Section 8: Additional Comments */}
         {sectionVisibility.comments && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5 mb-4">
-            <h2 className="text-lg font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">8. Additional Comments {(isTM || isFM) && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
+          <div className="bg-card/50 border border-border rounded-lg p-5 mb-4">
+            <h2 className="text-lg font-semibold mb-4 text-foreground border-b border-border pb-2">8. Additional Comments {(isTM || isFM) && <span className="text-xs text-blue-400 ml-2">(Editable)</span>}</h2>
             <textarea
               value={editableData.additionalComments}
               onChange={(e) => updateData('additionalComments', e.target.value)}
               disabled={!isTM && !isFM}
               placeholder="Any additional notes or comments..."
-              className="w-full bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-white disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
+              className="w-full bg-card/50 border border-border rounded px-3 py-2 text-foreground disabled:opacity-50 disabled:cursor-not-allowed text-sm focus:outline-none focus:border-blue-500 print:hidden"
               rows={4}
             />
             <div className="hidden print-value">{editableData.additionalComments}</div>
@@ -818,8 +818,8 @@ export const EnhancedMaintenanceReport: React.FC<EnhancedMaintenanceReportProps>
               disabled={saving || !isDirty}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg ${
                 saving || !isDirty 
-                  ? 'bg-gray-600 text-gray-300 cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700 text-white shadow-green-900/20'
+                  ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 text-foreground shadow-green-900/20'
               }`}
             >
               <Save size={16} />

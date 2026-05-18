@@ -132,15 +132,15 @@ export function SensorEditForm({
   if (!isOpen || !sensor) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-card rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-xl font-semibold text-foreground">
             Edit Sensor
           </h2>
           <button
             onClick={handleCancel}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
             disabled={loading}
           >
             ✕
@@ -148,16 +148,16 @@ export function SensorEditForm({
         </div>
 
         {/* Sensor Type Display */}
-        <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+        <div className="mb-4 p-3 bg-muted rounded-lg">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-300">Type:</span>
+            <span className="text-sm text-muted-foreground">Type:</span>
             {sensorTypeInfo && (
               <div className="flex items-center gap-2">
                 <div 
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: sensorTypeInfo.color }}
                 />
-                <span className="text-sm text-white font-medium">
+                <span className="text-sm text-foreground font-medium">
                   {sensorTypeInfo.name} ({sensorTypeInfo.unit})
                 </span>
               </div>
@@ -168,13 +168,13 @@ export function SensorEditForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Sensor Provider Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Sensor Provider *
             </label>
             <select
               value={formData.sensorProvider}
               onChange={(e) => handleInputChange("sensorProvider", e.target.value as "ubibot" | "shelly" | "generic")}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             >
               <option value="ubibot">UbiBot</option>
@@ -185,15 +185,15 @@ export function SensorEditForm({
 
           {/* Name Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Name *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? "border-red-500" : "border-gray-600"
+              className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.name ? "border-red-500" : "border-border"
               }`}
               placeholder="Enter sensor name"
               disabled={loading}
@@ -205,15 +205,15 @@ export function SensorEditForm({
 
           {/* Code Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Code *
             </label>
             <input
               type="text"
               value={formData.code}
               onChange={(e) => handleInputChange("code", e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.code ? "border-red-500" : "border-gray-600"
+              className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.code ? "border-red-500" : "border-border"
               }`}
               placeholder="Enter sensor code"
               disabled={loading}
@@ -225,15 +225,15 @@ export function SensorEditForm({
 
           {/* Mark Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Mark *
             </label>
             <input
               type="text"
               value={formData.mark}
               onChange={(e) => handleInputChange("mark", e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.mark ? "border-red-500" : "border-gray-600"
+              className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.mark ? "border-red-500" : "border-border"
               }`}
               placeholder="Enter sensor mark"
               disabled={loading}
@@ -245,15 +245,15 @@ export function SensorEditForm({
 
           {/* Model Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Model *
             </label>
             <input
               type="text"
               value={formData.model}
               onChange={(e) => handleInputChange("model", e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.model ? "border-red-500" : "border-gray-600"
+              className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.model ? "border-red-500" : "border-border"
               }`}
               placeholder="Enter sensor model"
               disabled={loading}
@@ -265,14 +265,14 @@ export function SensorEditForm({
 
           {/* Room Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Room
             </label>
             <input
               type="text"
               value={formData.room}
               onChange={(e) => handleInputChange("room", e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Room name"
               disabled={loading}
             />
@@ -280,14 +280,14 @@ export function SensorEditForm({
 
           {/* Link Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-muted-foreground mb-1">
               Link
             </label>
             <input
               type="url"
               value={formData.link}
               onChange={(e) => handleInputChange("link", e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter documentation or reference link (optional)"
               disabled={loading}
             />
@@ -295,21 +295,21 @@ export function SensorEditForm({
 
           {/* UbiBot Configuration */}
           {formData.sensorProvider === "ubibot" && (
-            <div className="pt-2 border-t border-gray-700">
-              <div className="text-sm font-medium text-gray-200 mb-2">UbiBot Configuration</div>
+            <div className="pt-2 border-t border-border">
+              <div className="text-sm font-medium text-foreground mb-2">UbiBot Configuration</div>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Channel ID *
-                    <span className="text-xs text-gray-400 ml-1">(e.g., 121744)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(e.g., 121744)</span>
                   </label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={formData.ubibotChannelId}
                     onChange={(e) => handleInputChange("ubibotChannelId", e.target.value)}
-                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.ubibotChannelId ? "border-red-500" : "border-gray-600"
+                    className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.ubibotChannelId ? "border-red-500" : "border-border"
                     }`}
                     placeholder="Enter UbiBot Channel ID"
                     disabled={loading}
@@ -319,15 +319,15 @@ export function SensorEditForm({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Device Serial
-                    <span className="text-xs text-gray-400 ml-1">(optional)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.ubibotDeviceSerial}
                     onChange={(e) => handleInputChange("ubibotDeviceSerial", e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter Device Serial (optional)"
                     disabled={loading}
                   />
@@ -338,22 +338,22 @@ export function SensorEditForm({
 
           {/* Shelly Configuration */}
           {formData.sensorProvider === "shelly" && (
-            <div className="pt-2 border-t border-gray-700">
-              <div className="text-sm font-medium text-gray-200 mb-2">Shelly Configuration</div>
+            <div className="pt-2 border-t border-border">
+              <div className="text-sm font-medium text-foreground mb-2">Shelly Configuration</div>
               <div className="space-y-3">
                 <input type="hidden" value={formData.shellyServerUri} />
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Device ID *
-                    <span className="text-xs text-gray-400 ml-1">(e.g., 80b54e33e164)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(e.g., 80b54e33e164)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.shellyDeviceId}
                     onChange={(e) => handleInputChange("shellyDeviceId", e.target.value)}
-                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.shellyDeviceId ? "border-red-500" : "border-gray-600"
+                    className={`w-full px-3 py-2 bg-muted border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.shellyDeviceId ? "border-red-500" : "border-border"
                     }`}
                     placeholder="Enter Shelly Device ID"
                     disabled={loading}
@@ -363,30 +363,30 @@ export function SensorEditForm({
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Authorization Cloud Key
-                    <span className="text-xs text-gray-400 ml-1">(optional - uses env default if empty)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(optional - uses env default if empty)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.shellyAuthKey}
                     onChange={(e) => handleInputChange("shellyAuthKey", e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Leave empty to use default key"
                     disabled={loading}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Get from Shelly App → Device → Settings → Authorization Cloud Key</p>
+                  <p className="text-xs text-muted-foreground mt-1">Get from Shelly App → Device → Settings → Authorization Cloud Key</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     IP Address
-                    <span className="text-xs text-gray-400 ml-1">(optional - for local fallback)</span>
+                    <span className="text-xs text-muted-foreground ml-1">(optional - for local fallback)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.shellyIpAddress}
                     onChange={(e) => handleInputChange("shellyIpAddress", e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 192.168.1.29"
                     disabled={loading}
                   />
@@ -400,19 +400,19 @@ export function SensorEditForm({
             <button
               type="button"
               onClick={handleCancel}
-              className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-blue-600 text-foreground rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               disabled={loading}
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin" />
                   Saving...
                 </>
               ) : (

@@ -64,15 +64,15 @@ function SeismicDashboardContent() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Loading Seismic sensor data...</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">Loading Seismic sensor data...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
         <div className="text-red-400 text-lg">{error}</div>
       </div>
     );
@@ -80,14 +80,14 @@ function SeismicDashboardContent() {
 
   if (!sensor) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Seismic Sensor not found</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">Seismic Sensor not found</div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-950">
+    <div className="h-screen w-screen bg-background">
       <SeismicSensorDashboard
         sensor={sensor}
         allSensors={allSensors}
@@ -102,8 +102,8 @@ function SeismicDashboardContent() {
 export default function SeismicDashboardPage() {
   return (
     <Suspense fallback={
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Loading Seismic Dashboard...</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">Loading Seismic Dashboard...</div>
       </div>
     }>
       <SeismicDashboardContent />

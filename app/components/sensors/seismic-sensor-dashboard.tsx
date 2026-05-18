@@ -447,18 +447,18 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     const minHCls = small ? 'min-h-[80px] md:min-h-[90px]' : 'min-h-[160px]';
     
     return (
-      <div className={`bg-gray-900 border border-gray-700 rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner w-full overflow-hidden`}>
+      <div className={`bg-card border border-border rounded-xl ${paddingCls} ${minHCls} flex flex-col items-center shadow-inner w-full overflow-hidden`}>
         <svg viewBox="0 0 200 120" className="w-full flex-1 max-h-[80px] md:max-h-[90px]">
           <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
           <path d={outerPath} stroke="#22c55e" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="50 100" strokeDashoffset="-25" />
           <path d={outerPath} stroke="#ef4444" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" strokeDashoffset="-75" />
           <path d={innerPath} stroke="#1f2937" strokeWidth={innerStroke} fill="none" />
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
-          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-white" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
+          <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-foreground" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
             {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : unit.includes('m/s') ? 4 : 2)}${unit}` : `—${unit}`}
           </text>
         </svg>
-        <div className="text-[8px] md:text-[10px] text-gray-300 uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
+        <div className="text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-wide -mt-0.5 truncate w-full text-center">{label}</div>
       </div>
     );
   };
@@ -474,8 +474,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           onClick={() => setScale(k)}
           className={`px-2 py-0.5 rounded border text-[10px] font-semibold transition ${
             currentScale === k
-              ? "bg-blue-600 border-blue-500 text-white"
-              : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+              ? "bg-blue-600 border-blue-500 text-foreground"
+              : "bg-card border-border text-muted-foreground hover:bg-muted"
           }`}
           title={k === "D" ? "Day" : k === "W" ? "Week" : k === "M" ? "Month" : "Year"}
         >
@@ -520,9 +520,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
     
     // For frequency mode, check if frequency data exists
     if (mode === 'frequency') {
-      if (!data?.timestamps?.length || !data.frequency) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
+      if (!data?.timestamps?.length || !data.frequency) return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-muted-foreground bg-card border border-border rounded-xl">No data</div>;
     } else if (!data?.timestamps?.length || !data.magnitude || !effectiveAccelerationData) {
-      return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500 bg-gray-900 border border-gray-700 rounded-xl">No data</div>;
+      return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-muted-foreground bg-card border border-border rounded-xl">No data</div>;
     }
     
     const w = Math.max(320, width);
@@ -907,24 +907,24 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
   };
 
   return (
-    <div className={standalone ? "h-full w-full bg-gray-950 flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col"}>
-      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-gray-800 bg-gray-900/70">
+    <div className={standalone ? "h-full w-full bg-background flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-background/98 z-[2000] flex flex-col"}>
+      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-border bg-card/70">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-white">Seismic Sensor Dashboard</h3>
-            <div className="text-xs text-gray-300 flex items-center gap-2">
-              <div><span className="text-gray-400">Room:</span> <span className="font-semibold text-white">{sensor.room || '—'}</span></div>
+            <h3 className="text-lg font-bold text-foreground">Seismic Sensor Dashboard</h3>
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <div><span className="text-muted-foreground">Room:</span> <span className="font-semibold text-foreground">{sensor.room || '—'}</span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Sensor:</span> <span className="font-semibold text-white">{sensor.name}</span></div>
+              <div><span className="text-muted-foreground">Sensor:</span> <span className="font-semibold text-foreground">{sensor.name}</span></div>
               <div className="hidden sm:block">|</div>
-              <div><span className="text-gray-400">Battery:</span> <span className="font-semibold text-white">{sensor.batteryLevel ?? 100}% </span></div>
+              <div><span className="text-muted-foreground">Battery:</span> <span className="font-semibold text-foreground">{sensor.batteryLevel ?? 100}% </span></div>
               <div className="hidden sm:block">|</div>
               <div className="flex items-center gap-1.5">
-                <span className="text-gray-400">Wi‑Fi:</span> 
+                <span className="text-muted-foreground">Wi‑Fi:</span> 
                 <div className="flex items-center mb-1">
                   <WiFiSignal strength={sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 4 : sensor.batteryLevel > 50 ? 3 : sensor.batteryLevel > 25 ? 2 : 1) : 4} size={16} />
                 </div>
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-foreground">
                   {sensor.batteryLevel ? (sensor.batteryLevel > 75 ? 'Excellent' : sensor.batteryLevel > 50 ? 'Good' : sensor.batteryLevel > 25 ? 'Fair' : 'Poor') : 'Excellent'}
                 </span>
               </div>
@@ -933,16 +933,16 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button
               onClick={()=>{ const el=dateInputEl.current as any; if(el?.showPicker) el.showPicker(); else el?.click(); }}
-              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl bg-gray-800/70 border border-gray-700 text-xs md:text-sm text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-1 md:gap-2"
+              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl bg-card/70 border border-border text-xs md:text-sm text-foreground hover:bg-muted/60 transition flex items-center gap-1 md:gap-2"
               title="Pick date"
             >
               <span className="hidden sm:inline">{formatDate(date)}</span>
               <span className="inline sm:hidden text-[10px]">{date.getDate()}/{date.getMonth()+1}</span>
-              <span className="inline-block w-3 h-3 md:w-4 md:h-4 text-gray-300">📅</span>
+              <span className="inline-block w-3 h-3 md:w-4 md:h-4 text-muted-foreground">📅</span>
             </button>
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
 
-            <div className="hidden md:flex px-3 py-1.5 rounded-xl bg-transparent border border-transparent text-sm md:text-base text-gray-200 font-semibold">
+            <div className="hidden md:flex px-3 py-1.5 rounded-xl bg-transparent border border-transparent text-sm md:text-base text-foreground font-semibold">
               {now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
             </div>
 
@@ -954,7 +954,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
                   const url = `/seismic-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}&projectId=${projectId || ''}`;
                   window.open(url, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
                 }}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
                 aria-label="Open in new window"
                 title="Open in new window"
               >
@@ -963,7 +963,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             )}
             <button
               onClick={onClose}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-muted hover:bg-muted border border-border text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
               aria-label="Close"
               title="Close"
             >
@@ -975,8 +975,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 p-2 md:p-3 overflow-hidden">
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full space-y-2 min-h-0">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
-            <div className="text-sm md:text-md font-semibold text-white mb-1.5 md:mb-2 text-center">Seismic Activity</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
+            <div className="text-sm md:text-md font-semibold text-foreground mb-1.5 md:mb-2 text-center">Seismic Activity</div>
             <div className="grid grid-cols-2 py-3 gap-1 md:gap-1.5 w-full">
               <Gauge label="Magnitude" value={gaugeStats?.magnitudeCur ?? stats?.magnitudeCur ?? 0} min={0} max={5} unit="" color="#ef4444" small />
               <Gauge label="Frequency" value={gaugeStats?.frequencyCur ?? 0} min={0} max={20} unit=" Hz" color="#fbbf24" small />
@@ -985,16 +985,16 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             </div>
           </div>
 
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Magnitude Range</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2 text-center">Magnitude Range</div>
             <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               <Gauge label="Min" value={gaugeStats?.magnitudeMin ?? stats?.magnitudeMin ?? 0} min={0} max={5} unit="" color="#3b82f6" small />
               <Gauge label="Max" value={gaugeStats?.magnitudeMax ?? stats?.magnitudeMax ?? 0} min={0} max={5} unit="" color="#ef4444" small />
             </div>
           </div>
 
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2 text-center">Acceleration Range</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2 text-center">Acceleration Range</div>
             <div className="grid grid-cols-2 gap-1 md:gap-1.5 w-full">
               <Gauge label="Min" value={gaugeStats?.accelerationMin ?? stats?.accelerationMin ?? 0} min={0} max={1} unit="m/s²" color="#3b82f6" small />
               <Gauge label="Max" value={gaugeStats?.accelerationMax ?? stats?.accelerationMax ?? 0} min={0} max={1} unit="m/s²" color="#3b82f6" small />
@@ -1006,9 +1006,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           {/* Container for three graphs with dynamic height distribution */}
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
             {/* Magnitude Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Magnitude (Richter Scale)</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Magnitude (Richter Scale)</div>
                 <ScaleSwitch currentScale={magnitudeScale} setScale={setMagnitudeScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1017,9 +1017,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             </div>
 
             {/* Acceleration Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Acceleration (m/s²)</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Acceleration (m/s²)</div>
                 <ScaleSwitch currentScale={accelerationScale} setScale={setAccelerationScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1028,9 +1028,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             </div>
 
             {/* Frequency Graph */}
-            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[180px] md:min-h-0 bg-card border border-border rounded-xl p-2 md:p-3 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Frequency (Hz)</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Frequency (Hz)</div>
                 <ScaleSwitch currentScale={frequencyScale} setScale={setFrequencyScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1042,33 +1042,33 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
 
         <div className="col-span-1 md:col-span-3 flex flex-col h-auto md:h-full gap-2 md:gap-3 min-h-0">
           {/* Displacement & Frequency Stats Card - Smaller */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 overflow-hidden">
             <div className="flex items-center justify-between mb-1.5">
-              <div className="text-xs md:text-sm font-semibold text-white truncate">Performance Stats</div>
+              <div className="text-xs md:text-sm font-semibold text-foreground truncate">Performance Stats</div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
-                <div className="text-[10px] md:text-xs text-gray-400 truncate">Current Displacement</div>
-                <div className="text-sm md:text-base font-bold text-white truncate">{(gaugeStats?.displacementCur ?? 0).toFixed(2)} mm</div>
+              <div className="bg-card/50 border border-border rounded-lg p-2">
+                <div className="text-[10px] md:text-xs text-muted-foreground truncate">Current Displacement</div>
+                <div className="text-sm md:text-base font-bold text-foreground truncate">{(gaugeStats?.displacementCur ?? 0).toFixed(2)} mm</div>
               </div>
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
-                <div className="text-[10px] md:text-xs text-gray-400 truncate">Peak Displacement</div>
-                <div className="text-sm md:text-base font-bold text-white truncate">{(gaugeStats?.displacementMax ?? 0).toFixed(2)} mm</div>
+              <div className="bg-card/50 border border-border rounded-lg p-2">
+                <div className="text-[10px] md:text-xs text-muted-foreground truncate">Peak Displacement</div>
+                <div className="text-sm md:text-base font-bold text-foreground truncate">{(gaugeStats?.displacementMax ?? 0).toFixed(2)} mm</div>
               </div>
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
-                <div className="text-[10px] md:text-xs text-gray-400 truncate">Current Frequency</div>
-                <div className="text-sm md:text-base font-bold text-white truncate">{(gaugeStats?.frequencyCur ?? 0).toFixed(2)} Hz</div>
+              <div className="bg-card/50 border border-border rounded-lg p-2">
+                <div className="text-[10px] md:text-xs text-muted-foreground truncate">Current Frequency</div>
+                <div className="text-sm md:text-base font-bold text-foreground truncate">{(gaugeStats?.frequencyCur ?? 0).toFixed(2)} Hz</div>
               </div>
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2">
-                <div className="text-[10px] md:text-xs text-gray-400 truncate">Avg Frequency</div>
-                <div className="text-sm md:text-base font-bold text-white truncate">{(gaugeStats?.frequencyAvg ?? 0).toFixed(2)} Hz</div>
+              <div className="bg-card/50 border border-border rounded-lg p-2">
+                <div className="text-[10px] md:text-xs text-muted-foreground truncate">Avg Frequency</div>
+                <div className="text-sm md:text-base font-bold text-foreground truncate">{(gaugeStats?.frequencyAvg ?? 0).toFixed(2)} Hz</div>
               </div>
             </div>
           </div>
 
           {/* Event History Card - Equal height with Alerts */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2">Event History</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2">Event History</div>
             <div className="space-y-1 overflow-y-auto flex-1">
               {seismicEvents.length > 0 ? seismicEvents.map((event, idx) => {
                 const eventColor = event.status === 'Major' ? 'red' : event.status === 'Moderate' ? 'yellow' : 'green';
@@ -1079,21 +1079,21 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
                       <span className="text-xs">{eventIcon}</span>
                       <div className="flex-1 min-w-0">
                         <div className={`text-[10px] md:text-xs font-medium text-${eventColor}-400 truncate`}>{event.status}</div>
-                        <div className="text-[9px] md:text-[10px] text-gray-400">{event.time}</div>
+                        <div className="text-[9px] md:text-[10px] text-muted-foreground">{event.time}</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-white whitespace-nowrap">M {event.magnitude.toFixed(2)}</div>
+                    <div className="text-xs font-bold text-foreground whitespace-nowrap">M {event.magnitude.toFixed(2)}</div>
                   </div>
                 );
               }) : (
-                <div className="flex items-center justify-center h-full text-xs text-gray-500">No significant events</div>
+                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">No significant events</div>
               )}
             </div>
           </div>
 
           {/* Active Alerts Card - Equal height with Event History */}
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
-            <div className="text-xs md:text-sm font-semibold text-white mb-1.5 md:mb-2">Active Alerts</div>
+          <div className="bg-card border border-border rounded-xl p-2 md:p-3 flex-shrink-0 md:flex-1 md:min-h-0 flex flex-col overflow-hidden">
+            <div className="text-xs md:text-sm font-semibold text-foreground mb-1.5 md:mb-2">Active Alerts</div>
             <div className="space-y-1.5 md:space-y-2">
               <div className={`flex items-center gap-2 bg-${seismicStatus.color}-900/30 border border-${seismicStatus.color}-700 rounded-lg p-2`}>
                 <div className={`w-1.5 h-1.5 bg-${seismicStatus.color}-400 rounded-full flex-shrink-0`}></div>
@@ -1112,8 +1112,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
         </div>
       </div>
 
-      {loading && (<div className="absolute inset-0 flex items-center justify-center bg-gray-900/50"><div className="text-sm text-gray-300">Loading data…</div></div>)}
-      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-white text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
+      {loading && (<div className="absolute inset-0 flex items-center justify-center bg-card/50"><div className="text-sm text-muted-foreground">Loading data…</div></div>)}
+      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-foreground text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
     </div>
   );
 }

@@ -125,12 +125,12 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
   const rejectedTickets = tickets.filter((t) => t.status === "REJECTED");
 
   if (loading || roleLoading) {
-    return <div className="p-4 text-gray-400">Loading...</div>;
+    return <div className="p-4 text-muted-foreground">Loading...</div>;
   }
 
   if (!isTM) {
     return (
-      <div className="p-4 text-center text-gray-400">
+      <div className="p-4 text-center text-muted-foreground">
         <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-6">
           <div className="text-yellow-400 text-lg font-semibold mb-2"> TM Access Only</div>
           <div className="text-sm">
@@ -151,7 +151,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
           toast.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
-        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+        } text-foreground px-6 py-4 rounded-lg shadow-2xl border border-border/20 backdrop-blur-sm min-w-[320px]`}>
           <div className="flex items-center gap-3">
             {toast.type === 'success' ? (
               <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,7 +168,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-foreground/80 hover:text-foreground transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -179,7 +179,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
       )}
 
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-white">Ticket Approvals (TM)</h2>
+        <h2 className="text-lg font-semibold text-foreground">Ticket Approvals (TM)</h2>
         
       </div>
 
@@ -189,7 +189,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
         Pending Approval ({pendingTickets.length})
         </h3>
         {pendingTickets.length === 0 ? (
-          <div className="text-gray-500 text-sm bg-gray-800/30 rounded p-4">No pending tickets</div>
+          <div className="text-muted-foreground text-sm bg-card/30 rounded p-4">No pending tickets</div>
         ) : (
           <div className="space-y-2">
             {pendingTickets.map((ticket) => (
@@ -197,19 +197,19 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-semibold text-yellow-300">{ticket.ticketCode}</div>
-                    <div className="text-sm text-gray-300">
+                    <div className="text-sm text-muted-foreground">
                       {ticket.requester.name} {ticket.requester.surname}
                     </div>
-                    <div className="text-xs text-gray-400">{ticket.requester.contact}</div>
+                    <div className="text-xs text-muted-foreground">{ticket.requester.contact}</div>
                   </div>
                   <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-900/40 text-yellow-300">
                     PENDING
                   </span>
                 </div>
-                <div className="text-sm text-gray-200 mb-2">
+                <div className="text-sm text-foreground mb-2">
                   {ticket.intervention?.descriptionShort || "No description"}
                 </div>
-                <div className="text-xs text-gray-400 mb-3">
+                <div className="text-xs text-muted-foreground mb-3">
                   {ticket.location?.building} - {ticket.location?.level} - {ticket.location?.room}
                 </div>
 
@@ -219,7 +219,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                       setSelectedTicket(ticket);
                       setShowApprovalModal(true);
                     }}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-foreground px-3 py-1.5 rounded text-sm font-medium transition-colors"
                   >
                     Approve
                   </button>
@@ -228,7 +228,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                       setSelectedTicket(ticket);
                       setShowRejectionModal(true);
                     }}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-foreground px-3 py-1.5 rounded text-sm font-medium transition-colors"
                   >
                     Reject
                   </button>
@@ -245,7 +245,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
           Approved ({approvedTickets.length})
         </h3>
         {approvedTickets.length === 0 ? (
-          <div className="text-gray-500 text-sm">No approved tickets yet</div>
+          <div className="text-muted-foreground text-sm">No approved tickets yet</div>
         ) : (
           <div className="space-y-2">
             {approvedTickets.slice(0, 5).map((ticket) => (
@@ -253,7 +253,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="font-semibold text-green-300">{ticket.ticketCode}</div>
-                    <div className="text-sm text-gray-300">
+                    <div className="text-sm text-muted-foreground">
                       {ticket.requester.name} {ticket.requester.surname}
                     </div>
                     {ticket.priority && (
@@ -266,7 +266,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                         }`}>
                           {ticket.priority}
                         </span>
-                        {ticket.type && <span className="text-gray-400 ml-2">| {ticket.type}</span>}
+                        {ticket.type && <span className="text-muted-foreground ml-2">| {ticket.type}</span>}
                       </div>
                     )}
                   </div>
@@ -277,7 +277,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
               </div>
             ))}
             {approvedTickets.length > 5 && (
-              <div className="text-xs text-gray-500 text-center">
+              <div className="text-xs text-muted-foreground text-center">
                 ... and {approvedTickets.length - 5} more
               </div>
             )}
@@ -297,7 +297,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="font-semibold text-red-300">{ticket.ticketCode}</div>
-                    <div className="text-sm text-gray-300">
+                    <div className="text-sm text-muted-foreground">
                       {ticket.requester.name} {ticket.requester.surname}
                     </div>
                     {ticket.rejectionReason && (
@@ -316,21 +316,21 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
 
       {/* Approval Modal */}
       {showApprovalModal && selectedTicket && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Approve Ticket</h3>
-            <div className="text-sm text-gray-300 mb-4">
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Approve Ticket</h3>
+            <div className="text-sm text-muted-foreground mb-4">
               <div className="font-semibold">{selectedTicket.ticketCode}</div>
               <div>{selectedTicket.intervention?.descriptionShort}</div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Priority *</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Priority *</label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as TicketPriority)}
-                  className="w-full bg-gray-700 text-white border border-gray-600 rounded px-3 py-2"
+                  className="w-full bg-muted text-foreground border border-border rounded px-3 py-2"
                 >
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
@@ -340,11 +340,11 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Type *</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">Type *</label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as MaintenanceType)}
-                  className="w-full bg-gray-700 text-white border border-gray-600 rounded px-3 py-2"
+                  className="w-full bg-muted text-foreground border border-border rounded px-3 py-2"
                 >
                   <option value="Corrective">Corrective</option>
                   <option value="Urgent">Urgent</option>
@@ -361,7 +361,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
               <button
                 onClick={handleApprove}
                 disabled={processing}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-4 py-2 rounded font-medium transition-colors"
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground px-4 py-2 rounded font-medium transition-colors"
               >
                 {processing ? "Approving..." : "Approve"}
               </button>
@@ -371,7 +371,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                   setSelectedTicket(null);
                 }}
                 disabled={processing}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                className="flex-1 bg-muted hover:bg-muted text-foreground px-4 py-2 rounded font-medium transition-colors"
               >
                 Cancel
               </button>
@@ -382,20 +382,20 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
 
       {/* Rejection Modal */}
       {showRejectionModal && selectedTicket && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Reject Ticket</h3>
-            <div className="text-sm text-gray-300 mb-4">
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Reject Ticket</h3>
+            <div className="text-sm text-muted-foreground mb-4">
               <div className="font-semibold">{selectedTicket.ticketCode}</div>
               <div>{selectedTicket.intervention?.descriptionShort}</div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Rejection Reason *</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Rejection Reason *</label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full bg-gray-700 text-white border border-gray-600 rounded px-3 py-2 min-h-[100px]"
+                className="w-full bg-muted text-foreground border border-border rounded px-3 py-2 min-h-[100px]"
                 placeholder="Please provide a reason for rejection..."
               />
             </div>
@@ -404,7 +404,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
               <button
                 onClick={handleReject}
                 disabled={processing || !rejectionReason.trim()}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-4 py-2 rounded font-medium transition-colors"
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-muted text-foreground px-4 py-2 rounded font-medium transition-colors"
               >
                 {processing ? "Rejecting..." : "❌ Reject"}
               </button>
@@ -415,7 +415,7 @@ export const PendingApprovals: React.FC<PendingApprovalsProps> = ({ projectId })
                   setRejectionReason("");
                 }}
                 disabled={processing}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-medium transition-colors"
+                className="flex-1 bg-muted hover:bg-muted text-foreground px-4 py-2 rounded font-medium transition-colors"
               >
                 Cancel
               </button>

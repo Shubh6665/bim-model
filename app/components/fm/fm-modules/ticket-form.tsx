@@ -696,21 +696,21 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col overflow-y-auto">
-      <div className="text-white font-semibold text-sm">Ticket based Maintenance</div>
+      <div className="text-foreground font-semibold text-sm">Ticket based Maintenance</div>
 
       {/* Requester Section */}
-      <div className="border-b border-gray-700 pb-3">
-        <div className="text-xs text-gray-400 mb-2">Requester</div>
+      <div className="border-b border-border pb-3">
+        <div className="text-xs text-muted-foreground mb-2">Requester</div>
         <div className="grid grid-cols-2 gap-2">
-          <input placeholder="Name" value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Surname" value={form.surname} onChange={e => setForm(v => ({ ...v, surname: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <div className="col-span-2"><input placeholder="Contact (email / phone)" value={form.contact} onChange={e => setForm(v => ({ ...v, contact: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+          <input placeholder="Name" value={form.name} onChange={e => setForm(v => ({ ...v, name: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <input placeholder="Surname" value={form.surname} onChange={e => setForm(v => ({ ...v, surname: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <div className="col-span-2"><input placeholder="Contact (email / phone)" value={form.contact} onChange={e => setForm(v => ({ ...v, contact: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
         </div>
       </div>
 
       {/* Intervention Section - Moved under Requester */}
-      <div className="border-b border-gray-700 pb-3">
-        <div className="text-xs text-gray-400 mb-2">Intervention Identification</div>
+      <div className="border-b border-border pb-3">
+        <div className="text-xs text-muted-foreground mb-2">Intervention Identification</div>
         <div className="grid grid-cols-1 gap-2">
           {/* Item - Now first field with Prefill from Selection */}
           <div className="flex gap-2 items-center">
@@ -718,7 +718,7 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
               placeholder={waitingForSelection ? "Waiting for selection..." : "Item (select from model)"}
               value={form.item}
               onChange={e => setForm(v => ({ ...v, item: e.target.value }))}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
+              className="flex-1 bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs"
               disabled={waitingForSelection}
             />
             {(viewer || isStandalone) && (
@@ -728,8 +728,8 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
                   onClick={selectFromModel}
                   disabled={waitingForSelection}
                   className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap ${waitingForSelection
-                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                    : 'bg-purple-600 hover:bg-purple-700 text-foreground'
                   }`}
                   title={isStandalone ? "Select object from main window" : "Select object from 3D model"}
                   style={{ minWidth: 140 }}
@@ -751,7 +751,7 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
                       spaceCode: ''
                     }));
                   }}
-                  className="px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap bg-gray-700 hover:bg-gray-600 text-white"
+                  className="px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap bg-muted hover:bg-muted text-foreground"
                   style={{ minWidth: 120 }}
                   disabled={waitingForSelection}
                   title="Clear selection and autofilled fields"
@@ -761,11 +761,11 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
               </div>
             )}
           </div>
-          <select value={form.discipline} onChange={e => setForm(v => ({ ...v, discipline: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+          <select value={form.discipline} onChange={e => setForm(v => ({ ...v, discipline: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
             <option value="">Select Discipline</option>
             {disciplines.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+          <select value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
             <option value="">Select Category</option>
             {/* If form.category contains a raw value not present in categoryOptions, inject it so the select displays it */}
             {form.category && !categoryOptions.includes(form.category) && (
@@ -773,17 +773,17 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
             )}
             {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
-          <input placeholder="Short Description" value={form.descriptionShort} onChange={e => setForm(v => ({ ...v, descriptionShort: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e => setForm(v => ({ ...v, descriptionDetailed: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} />
+          <input placeholder="Short Description" value={form.descriptionShort} onChange={e => setForm(v => ({ ...v, descriptionShort: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <textarea placeholder="Detailed Description" value={form.descriptionDetailed} onChange={e => setForm(v => ({ ...v, descriptionDetailed: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" rows={3} />
 
           {/* File Attachments */}
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Attached Files</label>
-            <input type="file" multiple onChange={handleFileUpload} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+            <label className="text-xs text-muted-foreground block mb-1">Attached Files</label>
+            <input type="file" multiple onChange={handleFileUpload} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
             {form.attachments.length > 0 && (
               <div className="mt-2 space-y-1">
                 {form.attachments.map((file, idx) => (
-                  <div key={idx} className="text-xs text-gray-400 flex justify-between items-center bg-gray-900/60 px-2 py-1 rounded">
+                  <div key={idx} className="text-xs text-muted-foreground flex justify-between items-center bg-card/60 px-2 py-1 rounded">
                     <span>{file}</span>
                     <button onClick={() => setForm(v => ({ ...v, attachments: v.attachments.filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-300">×</button>
                   </div>
@@ -795,13 +795,13 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
       </div>
 
       {/* Location Section - Now after Intervention */}
-      <div className="border-b border-gray-700 pb-3">
-        <div className="text-xs text-gray-400 mb-2">Location of Intervention</div>
+      <div className="border-b border-border pb-3">
+        <div className="text-xs text-muted-foreground mb-2">Location of Intervention</div>
         <div className="grid grid-cols-2 gap-2">
-          <input placeholder="Building" value={form.building} onChange={e => setForm(v => ({ ...v, building: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Level" value={form.level} onChange={e => setForm(v => ({ ...v, level: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Room" value={form.room} onChange={e => setForm(v => ({ ...v, room: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
-          <input placeholder="Space Code" value={form.spaceCode} onChange={e => setForm(v => ({ ...v, spaceCode: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" />
+          <input placeholder="Building" value={form.building} onChange={e => setForm(v => ({ ...v, building: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <input placeholder="Level" value={form.level} onChange={e => setForm(v => ({ ...v, level: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <input placeholder="Room" value={form.room} onChange={e => setForm(v => ({ ...v, room: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
+          <input placeholder="Space Code" value={form.spaceCode} onChange={e => setForm(v => ({ ...v, spaceCode: e.target.value }))} className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" />
         </div>
       </div>
 
@@ -820,14 +820,14 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
 
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
-        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded text-sm font-semibold" onClick={submit}>Submit Ticket</button>
-        <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded text-sm" onClick={resetForm}>Reset</button>
+        <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-foreground px-4 py-2.5 rounded text-sm font-semibold" onClick={submit}>Submit Ticket</button>
+        <button className="flex-1 bg-muted hover:bg-muted text-foreground px-4 py-2.5 rounded text-sm" onClick={resetForm}>Reset</button>
       </div>
 
       {/* Success Modal with QR Code */}
       {showQrModal && generatedCode && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-4xl border border-gray-700 shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-4xl border border-border shadow-2xl resize overflow-auto" style={{ minWidth: '400px', minHeight: '500px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
             {/* Success Header */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-4">
@@ -835,16 +835,16 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Ticket Created Successfully!</h3>
-              <p className="text-gray-400 text-sm">Your maintenance request has been submitted</p>
+              <h3 className="text-2xl font-bold text-foreground mb-2">Ticket Created Successfully!</h3>
+              <p className="text-muted-foreground text-sm">Your maintenance request has been submitted</p>
             </div>
 
             {/* QR Code Display */}
-            <div className="bg-white rounded-xl p-6 mb-6 flex items-center justify-center shadow-lg">
+            <div className="bg-card rounded-xl p-6 mb-6 flex items-center justify-center shadow-lg">
               {qrCodeDataUrl ? (
                 <img src={qrCodeDataUrl} alt="QR Code" className="w-64 h-64" />
               ) : (
-                <div className="w-64 h-64 bg-gray-100 flex items-center justify-center text-gray-600 text-sm text-center p-4 rounded-lg">
+                <div className="w-64 h-64 bg-muted flex items-center justify-center text-muted-foreground text-sm text-center p-4 rounded-lg">
                   <div>
                     <div className="text-2xl mb-2">📱</div>
                     <div className="font-mono text-xs">{generatedCode}</div>
@@ -855,11 +855,11 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
 
             {/* Ticket Info */}
             <div className="space-y-3 mb-6">
-              <div className="bg-gray-900/60 rounded-lg px-4 py-3 border border-gray-700">
-                <div className="text-xs text-gray-400 mb-1">Ticket Code</div>
-                <div className="text-lg font-mono text-white font-semibold">{generatedCode}</div>
+              <div className="bg-card/60 rounded-lg px-4 py-3 border border-border">
+                <div className="text-xs text-muted-foreground mb-1">Ticket Code</div>
+                <div className="text-lg font-mono text-foreground font-semibold">{generatedCode}</div>
               </div>
-              <div className="text-center text-sm text-gray-400 py-2">
+              <div className="text-center text-sm text-muted-foreground py-2">
                 <span className="inline-flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -875,7 +875,7 @@ const TicketForm: React.FC<TicketFormProps> = ({ projectId, viewer }) => {
                 setShowQrModal(false);
                 resetForm();
               }}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-3 rounded-lg text-sm font-semibold transition-colors shadow-lg hover:shadow-xl"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-foreground px-6 py-3 rounded-lg text-sm font-semibold transition-colors shadow-lg hover:shadow-xl"
             >
               Close
             </button>

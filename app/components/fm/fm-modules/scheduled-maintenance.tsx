@@ -679,11 +679,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
     };
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-        <div className="bg-gray-800 rounded-lg p-4 w-full max-w-6xl flex flex-col resize overflow-auto" style={{ minWidth: '600px', minHeight: '560px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50" onClick={onClose}>
+        <div className="bg-card rounded-lg p-4 w-full max-w-6xl flex flex-col resize overflow-auto" style={{ minWidth: '600px', minHeight: '560px', maxHeight: 'calc(100vh - 40px)', maxWidth: 'calc(100vw - 40px)' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">Asset List</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h3 className="text-foreground font-semibold">Asset List</h3>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-2xl">&times;</button>
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-2 items-center">
@@ -691,33 +691,33 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
               placeholder="Search assets by name, code, category, location, type, brand..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full max-w-[760px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9"
+              className="w-full max-w-[760px] bg-muted border border-border rounded-md px-3 text-foreground text-sm h-9"
             />
             <div className="flex gap-2 items-center w-full">
-              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px] bg-muted border border-border rounded-md px-3 text-foreground text-sm h-9">
                 <option value="">Revit Categories</option>
                 {REVIT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
-              <select value={ifcFilter} onChange={e => setIfcFilter(e.target.value)} className="flex-1 min-w-[140px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+              <select value={ifcFilter} onChange={e => setIfcFilter(e.target.value)} className="flex-1 min-w-[140px] bg-muted border border-border rounded-md px-3 text-foreground text-sm h-9">
                 <option value="">Ifc Class</option>
                 {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="flex-1 min-w-[120px] bg-gray-700 border border-gray-600 rounded-md px-3 text-white text-sm h-9">
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="flex-1 min-w-[120px] bg-muted border border-border rounded-md px-3 text-foreground text-sm h-9">
                 <option value="name">Name (A-Z)</option>
                 <option value="category">Category (A-Z)</option>
                 <option value="location">Location (A-Z)</option>
               </select>
-              <div className="px-3 h-9 flex items-center bg-gray-700/50 rounded text-xs text-gray-300">
+              <div className="px-3 h-9 flex items-center bg-muted/50 rounded text-xs text-muted-foreground">
                 {filtered.length} item{filtered.length !== 1 ? 's' : ''}
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto border border-gray-700 rounded">
+          <div className="flex-1 overflow-auto border border-border rounded">
             {assetsLoading ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                <div className="text-gray-400 text-sm">Loading assets...</div>
+                <div className="text-muted-foreground text-sm">Loading assets...</div>
               </div>
             ) : (
               <table ref={tableRef} className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
@@ -731,10 +731,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                   <col style={{ width: `${columnWidths.brand}px` }} />
                   <col style={{ width: `${columnWidths.model}px` }} />
                 </colgroup>
-                <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
+                <thead className="sticky top-0 bg-card/90 backdrop-blur border-b border-border text-muted-foreground">
                   <tr>
                     <th className="py-1.5 relative group" style={{ paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60">
                         <input className="h-4 w-4" type="checkbox" onChange={e => {
                           const allIds = filtered.map(a => a.id);
                           setSelected(prev => {
@@ -752,7 +752,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Source
                       </div>
                       {/* Left edge handle resizes previous column */}
@@ -769,7 +769,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Category
                       </div>
                       <div
@@ -784,7 +784,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Asset Code
                       </div>
                       <div
@@ -799,7 +799,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Asset Name
                       </div>
                       <div
@@ -814,7 +814,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Type
                       </div>
                       <div
@@ -829,7 +829,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Brand
                       </div>
                       <div
@@ -844,7 +844,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                       />
                     </th>
                     <th className="text-left py-1.5 relative group" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
-                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-gray-800/60 border border-gray-600">
+                      <div className="w-full h-full flex items-center px-3 py-2 rounded-md bg-card/60 border border-border">
                         Model
                       </div>
                       <div
@@ -863,10 +863,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-3 py-6 text-center text-gray-400">No assets</td>
+                      <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No assets</td>
                     </tr>
                   ) : filtered.map(a => (
-                    <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/60">
+                    <tr key={a.id} className="border-b border-border hover:bg-card/60">
                       <td style={{ paddingLeft: '6px', paddingRight: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }} className="py-1.5">
                         <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
                       </td>
@@ -875,12 +875,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                           {a.source === 'BIM_MODEL' ? 'BIM' : 'Manual'}
                         </span>
                       </td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-100 truncate" title={stripRevitPrefix(a.category) || '-'}>{stripRevitPrefix(a.category) || '-'}</td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.type || '-'}>{a.type || '-'}</td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.brand || '-'}>{a.brand || '-'}</td>
-                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-gray-200 truncate" title={a.model || '-'}>{a.model || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={stripRevitPrefix(a.category) || '-'}>{stripRevitPrefix(a.category) || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={a.assetCode || '-'}>{a.assetCode || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={a.assetName || '-'}>{a.assetName || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={a.type || '-'}>{a.type || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={a.brand || '-'}>{a.brand || '-'}</td>
+                      <td style={{ paddingLeft: '8px', paddingRight: '8px' }} className="py-1.5 text-foreground truncate" title={a.model || '-'}>{a.model || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -889,10 +889,10 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
           </div>
 
           <div className="mt-3 flex items-center justify-between">
-            <div className="text-xs text-gray-400">{selected.size} selected</div>
+            <div className="text-xs text-muted-foreground">{selected.size} selected</div>
             <div className="flex gap-2">
-              <button onClick={onClose} className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Cancel</button>
-              <button onClick={confirm} disabled={selected.size === 0} className={`px-3 py-1.5 rounded text-xs ${selected.size === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>Add Selected</button>
+              <button onClick={onClose} className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground">Cancel</button>
+              <button onClick={confirm} disabled={selected.size === 0} className={`px-3 py-1.5 rounded text-xs ${selected.size === 0 ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-foreground'}`}>Add Selected</button>
             </div>
           </div>
         </div>
@@ -1101,15 +1101,15 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
   return (
     <div className="p-3 space-y-3">
-      <div className="text-white font-semibold text-sm">Scheduled Maintenance</div>
+      <div className="text-foreground font-semibold text-sm">Scheduled Maintenance</div>
       <div className="grid grid-cols-2 gap-2">
         {/* Discipline Dropdown */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Discipline *</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Discipline *</label>
           <select
             value={f.discipline}
             onChange={e => { setF(v => ({ ...v, discipline: e.target.value })); setErrors(prev => ({ ...prev, discipline: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.discipline ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.discipline ? 'border-red-500' : 'border-border'}`}
           >
             <option value="">Select Discipline</option>
             {['Architecture', 'Structure', 'Mechanical System', 'Electrical System', 'Plumbing System', 'Fire Protection', 'Elevator System', 'Safety', 'IT/Technology', 'Other'].map(d => <option key={d} value={d}>{d}</option>)}
@@ -1119,11 +1119,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
         {/* Revit Category Dropdown */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Revit Category</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Revit Category</label>
           <select
             value={f.revitCategory}
             onChange={e => { setF(v => ({ ...v, revitCategory: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.category ? 'border-red-500' : 'border-border'}`}
           >
             <option value="">Select Revit Category</option>
             {categoryOptions.map(opt => (
@@ -1135,11 +1135,11 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
         {/* IFC Class Dropdown */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Ifc Class</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Ifc Class</label>
           <select
             value={f.ifcClass}
             onChange={e => { setF(v => ({ ...v, ifcClass: e.target.value })); setErrors(prev => ({ ...prev, category: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.category ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.category ? 'border-red-500' : 'border-border'}`}
           >
             <option value="">Select Ifc Class</option>
             {IFCCLASSES_UNIQUE.map(ic => (
@@ -1151,22 +1151,22 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
         {/* Code */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Code *</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Code *</label>
           <input
             placeholder="Alphanumeric code"
             value={f.code}
             onChange={e => { setF(v => ({ ...v, code: e.target.value })); setErrors(prev => ({ ...prev, code: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.code ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.code ? 'border-red-500' : 'border-border'}`}
           />
           {errors.code && <div className="text-[10px] text-red-400 mt-1">{errors.code}</div>}
         </div>
 
         {/* Assets with Picker (multiple) */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Assets *</label>
-          <div className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.asset ? 'border-red-500' : 'border-gray-700'}`}>
+          <label className="text-[11px] text-muted-foreground block mb-1">Assets *</label>
+          <div className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.asset ? 'border-red-500' : 'border-border'}`}>
             <div className="flex gap-2 overflow-x-auto py-1">
-              {selectedAssets.length === 0 && <div className="text-gray-400">No assets selected</div>}
+              {selectedAssets.length === 0 && <div className="text-muted-foreground">No assets selected</div>}
               {selectedAssets.map((a, idx) => {
                 const rec = a.assetRecord as any as AssetRecord | undefined;
                 const revit = (() => {
@@ -1187,9 +1187,9 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                 })();
                 const disc = inferDiscipline(rec);
                 return (
-                  <div key={(a.id || a.label) + '-' + idx} className="flex items-center bg-gray-900/60 px-3 py-1 rounded whitespace-nowrap mr-2">
+                  <div key={(a.id || a.label) + '-' + idx} className="flex items-center bg-card/60 px-3 py-1 rounded whitespace-nowrap mr-2">
                     <div className="flex flex-col mr-2">
-                      <span className="text-sm text-gray-200 max-w-xs overflow-hidden text-ellipsis">{a.label}</span>
+                      <span className="text-sm text-foreground max-w-xs overflow-hidden text-ellipsis">{a.label}</span>
                      
                     </div>
                     <button onClick={() => {
@@ -1217,12 +1217,12 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
                     } catch {}
                     setShowAssetPicker(true);
                   }}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs whitespace-nowrap"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-foreground rounded text-xs whitespace-nowrap"
                 >
                   Select from List
                 </button>
               )}
-              <div className="text-xs text-gray-400 self-center">You can add multiple assets. Click × to remove.</div>
+              <div className="text-xs text-muted-foreground self-center">You can add multiple assets. Click × to remove.</div>
             </div>
           </div>
           {errors.asset && <div className="text-[10px] text-red-400 mt-1">{errors.asset}</div>}
@@ -1230,7 +1230,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
         {/* Frequency (numeric) */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Frequency (n/year) *</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Frequency (n/year) *</label>
           <input
             type="number"
             min="0"
@@ -1238,14 +1238,14 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
             placeholder="e.g., 12"
             value={f.frequency}
             onChange={e => { setF(v => ({ ...v, frequency: e.target.value })); setErrors(prev => ({ ...prev, frequency: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.frequency ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.frequency ? 'border-red-500' : 'border-border'}`}
           />
           {errors.frequency && <div className="text-[10px] text-red-400 mt-0.5">{errors.frequency}</div>}
         </div>
 
         {/* Time (hours, numeric) */}
         <div>
-          <label className="text-[11px] text-gray-400 block mb-1">Time (hours) *</label>
+          <label className="text-[11px] text-muted-foreground block mb-1">Time (hours) *</label>
           <input
             type="number"
             min="0"
@@ -1253,27 +1253,27 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
             placeholder="e.g., 2"
             value={f.timeHours}
             onChange={e => { setF(v => ({ ...v, timeHours: e.target.value })); setErrors(prev => ({ ...prev, timeHours: '' })); setSubmitMessage(null); }}
-            className={`w-full bg-gray-800 border rounded px-2 py-1.5 text-white text-sm ${errors.timeHours ? 'border-red-500' : 'border-gray-700'}`}
+            className={`w-full bg-card border rounded px-2 py-1.5 text-foreground text-sm ${errors.timeHours ? 'border-red-500' : 'border-border'}`}
           />
           {errors.timeHours && <div className="text-[10px] text-red-400 mt-0.5">{errors.timeHours}</div>}
         </div>
       </div>
 
       {/* Multi-Task Input */}
-      <div className="border-t border-gray-700 pt-3">
-        <label className="text-[11px] text-gray-400 block mb-1">Tasks (multiple allowed) *</label>
+      <div className="border-t border-border pt-3">
+        <label className="text-[11px] text-muted-foreground block mb-1">Tasks (multiple allowed) *</label>
         <div className="flex gap-2">
           <input
             placeholder="Enter task description"
             value={currentTask}
             onChange={e => setCurrentTask(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } }}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm"
+            className="flex-1 bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm"
           />
           <button
             onClick={addTask}
             disabled={!currentTask.trim()}
-            className={`px-3 py-1.5 rounded text-sm ${currentTask.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}
+            className={`px-3 py-1.5 rounded text-sm ${currentTask.trim() ? 'bg-emerald-600 hover:bg-emerald-700 text-foreground' : 'bg-muted text-muted-foreground cursor-not-allowed'}`}
           >
             Add Task
           </button>
@@ -1281,7 +1281,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
         {tasks.length > 0 && (
           <div className="mt-2 space-y-1">
             {tasks.map((task, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-gray-900/60 rounded px-2 py-1.5 text-sm text-gray-200">
+              <div key={idx} className="flex items-center justify-between bg-card/60 rounded px-2 py-1.5 text-sm text-foreground">
                 <span className="flex-1">{idx + 1}. {task}</span>
                 <button
                   onClick={() => removeTask(idx)}
@@ -1304,7 +1304,7 @@ const ScheduledMaintenance: React.FC<{ projectId?: string; viewer?: any; preSele
 
       <div>
         <button
-          className={`px-4 py-2 rounded text-white ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+          className={`px-4 py-2 rounded text-foreground ${loading ? 'bg-muted cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
           onClick={validateAndAdd}
           disabled={loading}
         >

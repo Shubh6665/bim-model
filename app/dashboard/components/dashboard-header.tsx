@@ -230,9 +230,9 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                       'Administrator': 'bg-red-600/20 text-red-300 border-red-500/40',
                       'AdministratorPending': 'bg-amber-600/20 text-amber-200 border-amber-500/40',
                       'ProjectAdmin': 'bg-blue-600/20 text-blue-300 border-blue-500/40',
-                      'General': 'bg-gray-600/20 text-gray-300 border-gray-500/40',
+                      'General': 'bg-muted/20 text-muted-foreground border-border/40',
                     };
-                    const roleCls = colorMap[role] || 'bg-gray-600/20 text-gray-300 border-gray-500/40';
+                    const roleCls = colorMap[role] || 'bg-muted/20 text-muted-foreground border-border/40';
                     // If a project-specific displayRole exists (e.g., BIM Manager), prefer it for label.
                     const displayRoleBase = role === 'ProjectAdmin' ? 'Project Admin' : role;
                     const displayRole = (displayRoleRaw && displayRoleRaw.trim().length > 0) ? displayRoleRaw : displayRoleBase;
@@ -283,7 +283,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
                       </span>
                       {pendingAdminsCount > 0 && (
                         <span
-                          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-gray-900 text-[10px] font-bold"
+                          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-yellow-400 text-foreground text-[10px] font-bold"
                           title={`${pendingAdminsCount} pending`}
                         >
                           !

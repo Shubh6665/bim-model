@@ -43,7 +43,7 @@ const TreeNodeComponent: React.FC<TreeNodeProps> = ({ node, viewer, onNodeSelect
   };
 
   return (
-    <div className="ml-3 border-l border-gray-700 pl-2">
+    <div className="ml-3 border-l border-border pl-2">
       <div
         className={`flex items-center group rounded px-1 py-0.5 transition-colors ${isHovered ? 'bg-indigo-600/20' : ''}`}
         onMouseEnter={() => setIsHovered(true)}
@@ -53,7 +53,7 @@ const TreeNodeComponent: React.FC<TreeNodeProps> = ({ node, viewer, onNodeSelect
       >
         {hasChildren ? (
           <span onClick={handleToggle} className="flex items-center select-none">
-            {isExpanded ? <ChevronDown size={16} className="text-indigo-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+            {isExpanded ? <ChevronDown size={16} className="text-indigo-400" /> : <ChevronRight size={16} className="text-muted-foreground" />}
           </span>
         ) : (
           <span className="w-4"></span>
@@ -135,10 +135,10 @@ const ModelHierarchyPanel: React.FC<ModelHierarchyPanelProps> = ({ viewer, onClo
   };
 
   return (
-    <div className="w-96 bg-gray-900 border-l border-gray-800 flex flex-col p-0 text-white shadow-2xl rounded-l-xl">
-      <div className="flex justify-between items-center px-6 py-4 border-b border-gray-800 bg-gradient-to-r from-indigo-900/80 to-gray-900/80">
+    <div className="w-96 bg-card border-l border-border flex flex-col p-0 text-foreground shadow-2xl rounded-l-xl">
+      <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-gradient-to-r from-indigo-900/80 to-gray-900/80">
         <h3 className="text-xl font-bold tracking-wide text-indigo-300">Model Hierarchy</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none px-2 py-1 rounded transition-colors hover:bg-gray-700">&times;</button>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-2xl leading-none px-2 py-1 rounded transition-colors hover:bg-muted">&times;</button>
       </div>
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar py-2 px-4">
         {isLoading && <p className="text-indigo-300">Loading hierarchy...</p>}

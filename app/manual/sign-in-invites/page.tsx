@@ -6,17 +6,17 @@ export default function ManualSignInInvitesPage() {
       <ScreenshotPlaceholder title="Landing Page (Sign in / Sign up)" />
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-white">Sign in (simple)</h3>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4 text-sm text-gray-300">
+        <h3 className="text-base font-semibold text-foreground">Sign in (simple)</h3>
+        <div className="rounded-lg border border-border bg-card/30 p-4 text-sm text-muted-foreground">
           <div className="space-y-2">
             <div>
-              <span className="font-semibold text-gray-200">Step 1:</span> Open the website.
+              <span className="font-semibold text-foreground">Step 1:</span> Open the website.
             </div>
             <div>
-              <span className="font-semibold text-gray-200">Step 2:</span> Use the sign-in panel to log in.
+              <span className="font-semibold text-foreground">Step 2:</span> Use the sign-in panel to log in.
             </div>
             <div>
-              <span className="font-semibold text-gray-200">Step 3:</span> After login you are taken to the dashboard.
+              <span className="font-semibold text-foreground">Step 3:</span> After login you are taken to the dashboard.
             </div>
           </div>
         </div>
@@ -25,8 +25,8 @@ export default function ManualSignInInvitesPage() {
       <ScreenshotPlaceholder title="Forgot Password / Reset Password" />
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-white">Forgot password</h3>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4 text-sm text-gray-300">
+        <h3 className="text-base font-semibold text-foreground">Forgot password</h3>
+        <div className="rounded-lg border border-border bg-card/30 p-4 text-sm text-muted-foreground">
           If you forgot your password, use the “Forgot password” option on the login panel. Follow the steps shown on screen.
         </div>
       </div>
@@ -34,27 +34,27 @@ export default function ManualSignInInvitesPage() {
       <ScreenshotPlaceholder title="Invite Acceptance Screen" />
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-white">Accepting a project invite</h3>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4 text-sm text-gray-300">
+        <h3 className="text-base font-semibold text-foreground">Accepting a project invite</h3>
+        <div className="rounded-lg border border-border bg-card/30 p-4 text-sm text-muted-foreground">
           <div className="space-y-2">
             <div>
-              <span className="font-semibold text-gray-200">1)</span> Open the invite link from your email.
+              <span className="font-semibold text-foreground">1)</span> Open the invite link from your email.
             </div>
             <div>
-              <span className="font-semibold text-gray-200">2)</span> If you are not logged in, the system will ask you to sign in.
+              <span className="font-semibold text-foreground">2)</span> If you are not logged in, the system will ask you to sign in.
             </div>
             <div>
-              <span className="font-semibold text-gray-200">3)</span> Important: sign in using the same email address that received the invite.
+              <span className="font-semibold text-foreground">3)</span> Important: sign in using the same email address that received the invite.
             </div>
             <div>
-              <span className="font-semibold text-gray-200">Result:</span> the project becomes visible in your “My Projects” list.
+              <span className="font-semibold text-foreground">Result:</span> the project becomes visible in your “My Projects” list.
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4 text-sm text-gray-300">
-        <div className="font-semibold text-gray-200">If you used the wrong email</div>
+      <div className="rounded-lg border border-border bg-card/30 p-4 text-sm text-muted-foreground">
+        <div className="font-semibold text-foreground">If you used the wrong email</div>
         <div className="mt-1">
           The platform can log you out and ask you to sign in again with the correct invited account.
         </div>

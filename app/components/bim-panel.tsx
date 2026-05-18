@@ -1476,8 +1476,8 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
     return (
       <div key={nodeKey} className="select-none">
         <div 
-          className={`flex items-center py-2 px-2 rounded cursor-pointer hover:bg-gray-700 ${
-            isSelected ? 'bg-blue-600 text-white' : 'text-gray-300'
+          className={`flex items-center py-2 px-2 rounded cursor-pointer hover:bg-muted ${
+            isSelected ? 'bg-blue-600 text-foreground' : 'text-muted-foreground'
           }`}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
         >
@@ -1492,7 +1492,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             {node.isCategory ? (
               <Building className="w-4 h-4 text-yellow-500" />
             ) : (
-              <Box className="w-4 h-4 text-gray-400" />
+              <Box className="w-4 h-4 text-muted-foreground" />
             )}
             
             <span className="text-sm font-medium flex-1" title={node.name}>
@@ -1500,19 +1500,19 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             </span>
             
             {node.childCount !== undefined && node.childCount > 0 && (
-              <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
+              <span className="text-xs bg-blue-600 text-foreground px-2 py-1 rounded">
                 {node.childCount}
               </span>
             )}
             
             {node.depth !== undefined && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 L{node.depth}
               </span>
             )}
             
             {node.dbId && node.dbId !== -1 && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {node.dbId}
               </span>
             )}
@@ -1527,7 +1527,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "2d-views":
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-foreground">
               <Layers className="h-5 w-5" />
               2D Floor Views
             </h3>
@@ -1549,37 +1549,37 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "3d-views":
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-foreground">
               <Box className="h-5 w-5" />
               Saved 3D Views
             </h3>
             
             {savedViews.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <Box className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                <p className="text-gray-300">No saved views</p>
-                <p className="text-sm text-gray-500">Use "Save View" to capture your current camera position</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <Box className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground">No saved views</p>
+                <p className="text-sm text-muted-foreground">Use "Save View" to capture your current camera position</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {savedViews.map((view) => (
-                  <div key={view.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                  <div key={view.id} className="bg-card border border-border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-white">{view.name}</h4>
-                      <span className="text-xs text-gray-400">
+                      <h4 className="font-medium text-foreground">{view.name}</h4>
+                      <span className="text-xs text-muted-foreground">
                         {new Date(view.timestamp).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <button
                         onClick={() => handleRestoreView(view)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded transition-colors"
+                        className="bg-blue-600 hover:bg-blue-700 text-foreground text-xs px-3 py-1 rounded transition-colors"
                       >
                         Restore View
                       </button>
                       <button
                         onClick={() => setPendingDeleteId(view.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 rounded transition-colors inline-flex items-center gap-1"
+                        className="bg-red-600 hover:bg-red-700 text-foreground text-xs px-3 py-1 rounded transition-colors inline-flex items-center gap-1"
                         title="Delete View"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Delete View
@@ -1595,7 +1595,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "save-view":
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-foreground">
               <Save className="h-5 w-5" />
               Save Current View
             </h3>
@@ -1619,7 +1619,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   View Name
                 </label>
                 <input
@@ -1627,14 +1627,14 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   value={viewName}
                   onChange={(e) => setViewName(e.target.value)}
                   placeholder="Enter view name..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
+                  className="w-full px-3 py-2 bg-card border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-foreground placeholder-muted-foreground"
                 />
               </div>
               
               <button
                 onClick={handleSaveView}
                 disabled={!viewName.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-muted disabled:cursor-not-allowed text-foreground font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Save Current View
               </button>
@@ -1645,7 +1645,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "filter-objects":
         return (
           <div className="space-y-1.5">
-            <h3 className="text-base font-semibold mb-1 flex items-center gap-1 text-white">
+            <h3 className="text-base font-semibold mb-1 flex items-center gap-1 text-foreground">
               <Filter className="h-4 w-4" />
               Filter Objects
             </h3>
@@ -1654,7 +1654,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
 
             {/* Category dropdown */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Category / Type</label>
+              <label className="block text-xs text-muted-foreground mb-1">Category / Type</label>
               <select
                 value={filterCategory || ''}
                 onChange={(e) => {
@@ -1662,7 +1662,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   setFilterCategory(val || '');
                   // removed type filter reset
                 }}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm mb-1"
+                className="w-full bg-card border border-border text-foreground rounded px-2.5 py-1 text-sm mb-1"
               >
                 <option value="">
                   {categoriesLoading && availableCategories.length === 0 ? 'Loading categories…' : 'Select category…'}
@@ -1701,25 +1701,25 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
 
             {/* Search input */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Search</label>
+              <label className="block text-xs text-muted-foreground mb-1">Search</label>
               <input
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
                 placeholder="Search by name..."
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm"
+                className="w-full bg-card border border-border text-foreground rounded px-2.5 py-1 text-sm"
               />
             </div>
 
             {/* AND Category dropdown */}
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center rounded bg-gray-700 text-gray-200 text-[10px] px-1.5 py-0.5">AND</span>
-                <label className="block text-xs text-gray-400">Additional Category</label>
+                <span className="inline-flex items-center rounded bg-muted text-foreground text-[10px] px-1.5 py-0.5">AND</span>
+                <label className="block text-xs text-muted-foreground">Additional Category</label>
               </div>
               <select
                 value={filterCategory2 || ''}
                 onChange={(e) => setFilterCategory2(e.target.value || '')}
-                className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded px-2.5 py-1 text-sm mb-1"
+                className="w-full bg-card border border-border text-foreground rounded px-2.5 py-1 text-sm mb-1"
               >
                 <option value="">(Optional) Select another category…</option>
                 
@@ -1756,7 +1756,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             <div className="flex gap-1.5">
               <button
                 onClick={handleApplyFilters}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 px-3 rounded-md transition-colors"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-foreground font-medium py-1.5 px-3 rounded-md transition-colors"
               >
                 Apply Filters
               </button>
@@ -1765,7 +1765,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   // Single clear action restores full model without extra operations
                   handleClearFilters();
                 }}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-1.5 px-3 rounded-md transition-colors"
+                className="flex-1 bg-muted hover:bg-muted text-foreground font-medium py-1.5 px-3 rounded-md transition-colors"
               >
                 Show All
               </button>
@@ -1778,33 +1778,33 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 {Object.entries(groupedByType).map(([typeName, items]) => {
                   const isOpen = expandedGroups.has(typeName);
                   return (
-                    <div key={typeName} className="border border-gray-800 rounded-md overflow-hidden">
+                    <div key={typeName} className="border border-border rounded-md overflow-hidden">
                       <div
-                        className="flex items-center justify-between px-3 py-2 bg-gray-800 cursor-pointer hover:bg-gray-700"
+                        className="flex items-center justify-between px-3 py-2 bg-card cursor-pointer hover:bg-muted"
                         onClick={() => {
                           const next = new Set(expandedGroups);
                           if (next.has(typeName)) next.delete(typeName); else next.add(typeName);
                           setExpandedGroups(next);
                         }}
                       >
-                        <div className="flex items-center gap-2 text-sm text-gray-200">
+                        <div className="flex items-center gap-2 text-sm text-foreground">
                           {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           <span className="font-medium">{typeName}</span>
-                          <span className="text-gray-400">({items.length})</span>
+                          <span className="text-muted-foreground">({items.length})</span>
                         </div>
                         <button
-                          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white"
+                          className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-foreground"
                           onClick={(e) => { e.stopPropagation(); applyIsolation(items.map(i => i.dbId)); }}
                         >
                           Isolate
                         </button>
                       </div>
                       {isOpen && (
-                        <div className="max-h-56 overflow-auto divide-y divide-gray-800">
+                        <div className="max-h-56 overflow-auto divide-y divide-border">
                           {items.map((it) => (
                             <button
                               key={it.dbId}
-                              className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-800"
+                              className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-card"
                               title={it.label}
                               onClick={() => applyIsolation([it.dbId])}
                             >
@@ -1824,27 +1824,27 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "view-sensors":
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-foreground">
               <Eye className="h-5 w-5" />
               View Sensors
             </h3>
             
             <div className="space-y-3">
               {/* View Mode Toggle */}
-              <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="p-3 bg-card rounded-lg border border-border">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="font-medium text-white">View Mode</div>
+                  <div className="font-medium text-foreground">View Mode</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className={`px-3 py-2 rounded-md text-sm border ${wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-sm border ${wireframeMode ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}
                     onClick={() => onWireframeModeChange?.(true)}
                     title="Show wireframe (edges only)"
                   >
                     Wireframe
                   </button>
                   <button
-                    className={`px-3 py-2 rounded-md text-sm border ${!wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    className={`px-3 py-2 rounded-md text-sm border ${!wireframeMode ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-muted-foreground border-border hover:bg-muted'}`}
                     onClick={() => onWireframeModeChange?.(false)}
                     title="Show solid shading"
                   >
@@ -1853,16 +1853,16 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-border">
                 <div>
-                  <div className="font-medium text-white">Sensor Visibility</div>
+                  <div className="font-medium text-foreground">Sensor Visibility</div>
                 </div>
                 <button
                   onClick={() => onToggleSensors?.(!sensorsVisible)}
                   className={`p-2 rounded-lg transition-colors ${
                     sensorsVisible 
-                      ? 'bg-green-600 text-white hover:bg-green-700' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-green-600 text-foreground hover:bg-green-700' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted'
                   }`}
                 >
                   {sensorsVisible ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
@@ -1875,7 +1875,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       case "models":
         return (
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-white">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-foreground">
               <img src="/icon.svg" alt="Models" className="h-6 w-6 invert" />
               Models
             </h3>
@@ -1890,22 +1890,22 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   const order = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
                   const label: Record<string,string> = { architecture:'Architecture', structure:'Structure', mep:'MEP', electrical:'Electrical', plumbing:'Plumbing', hvac:'HVAC', other:'Other' };
                   return order.filter(d => groups[d]?.length).map((d) => (
-                    <div key={d} className="border border-gray-800 rounded-md overflow-hidden">
-                      <div className="px-3 py-2 bg-gray-800 flex items-center justify-between">
-                        <span className="text-gray-200 text-sm">{label[d]}</span>
-                        <span className="text-xs bg-gray-700 text-gray-300 rounded px-2 py-0.5">{groups[d].length}</span>
+                    <div key={d} className="border border-border rounded-md overflow-hidden">
+                      <div className="px-3 py-2 bg-card flex items-center justify-between">
+                        <span className="text-foreground text-sm">{label[d]}</span>
+                        <span className="text-xs bg-muted text-muted-foreground rounded px-2 py-0.5">{groups[d].length}</span>
                       </div>
-                      <ul className="divide-y divide-gray-800">
+                      <ul className="divide-y divide-border">
                         {groups[d].map((m) => {
                           const isOn = enabledModelIds ? enabledModelIds.has(m.id) : true;
                           return (
                             <li key={m.id} className="px-3 py-2 text-xs flex items-center justify-between">
                               <div className="min-w-0 mr-3">
-                                <div className="truncate text-gray-200">{m.name}</div>
-                                <div className="text-[10px] text-gray-400">{m.fileType || '—'}</div>
+                                <div className="truncate text-foreground">{m.name}</div>
+                                <div className="text-[10px] text-muted-foreground">{m.fileType || '—'}</div>
                               </div>
                               <button
-                                className={`p-1.5 rounded-md border ${isOn ? 'text-green-400 border-green-400/30 hover:bg-green-500/10' : 'text-gray-400 border-gray-700 hover:bg-gray-700/50'}`}
+                                className={`p-1.5 rounded-md border ${isOn ? 'text-green-400 border-green-400/30 hover:bg-green-500/10' : 'text-muted-foreground border-border hover:bg-muted/50'}`}
                                 onClick={() => onToggleModel && onToggleModel(m.id)}
                                 title={isOn ? 'Hide model' : 'Show model'}
                               >
@@ -1920,7 +1920,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 })()}
               </div>
             ) : (
-              <div className="text-xs text-gray-400">No models available.</div>
+              <div className="text-xs text-muted-foreground">No models available.</div>
             )}
           </div>
         );
@@ -1928,22 +1928,22 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       default:
         return (
           <div className="text-center py-8">
-            <Building className="w-16 h-16 mx-auto mb-4 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">BIM Tools</h3>
-            <p className="text-gray-500">Select a command from above to get started</p>
+            <Building className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">BIM Tools</h3>
+            <p className="text-muted-foreground">Select a command from above to get started</p>
           </div>
         );
     }
   };
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full min-h-0">
+    <div className="w-80 bg-card border-l border-border flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex flex-col items-center">
-        <h2 className="text-xl font-bold text-white mb-3">BIM</h2>
+      <div className="p-4 border-b border-border flex flex-col items-center">
+        <h2 className="text-xl font-bold text-foreground mb-3">BIM</h2>
         <button
           onClick={onBackToProjects}
-          className="flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors w-full justify-center"
+          className="flex items-center gap-2 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-card rounded-lg transition-colors w-full justify-center"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Project Info
@@ -1951,45 +1951,45 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       </div>
 
       {/* Vertical menu (compact) */}
-      <div className="p-3 space-y-1.5 border-b border-gray-800">
+      <div className="p-3 space-y-1.5 border-b border-border">
         <button
           onClick={() => setActiveCommand('models')}
-          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <img src="/icon.svg" alt="Models" className="h-5 w-5 invert" />
           <span className="font-medium">Models</span>
         </button>
         <button
           onClick={() => setActiveCommand('2d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '2d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '2d-views' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <Layers className="h-4 w-4" />
           <span className="font-medium">2D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('3d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '3d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '3d-views' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <Box className="h-4 w-4" />
           <span className="font-medium">3D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('save-view')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'save-view' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'save-view' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <Save className="h-4 w-4" />
           <span className="font-medium">Save View</span>
         </button>
         <button
           onClick={() => setActiveCommand('filter-objects')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'filter-objects' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'filter-objects' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <Filter className="h-4 w-4" />
           <span className="font-medium">Filter Objects</span>
         </button>
         <button
           onClick={() => setActiveCommand('view-sensors')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'view-sensors' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'view-sensors' ? 'bg-blue-600 text-foreground border-transparent' : 'bg-card text-foreground border-border hover:bg-muted'}`}
         >
           <Eye className="h-4 w-4" />
           <span className="font-medium">View Sensors</span>
@@ -2003,18 +2003,18 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
 
       {/* Centered Delete Confirmation Modal */}
       {pendingDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-xl w-full max-w-sm mx-4 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-sm mx-4 p-4">
             <div className="flex items-start gap-2 mb-3">
               <div className="shrink-0">
                 <AlertTriangle className="w-5 h-5 text-yellow-400" />
               </div>
               <div>
-                <h4 className="text-white font-semibold text-sm mb-1">Delete View</h4>
-                <p className="text-gray-300 text-sm">
+                <h4 className="text-foreground font-semibold text-sm mb-1">Delete View</h4>
+                <p className="text-muted-foreground text-sm">
                   Are you sure you want to delete 
                   {" "}
-                  <span className="font-medium text-white">{
+                  <span className="font-medium text-foreground">{
                     (savedViews.find(v => v.id === pendingDeleteId)?.name) || 'this view'
                   }</span>
                   {" "}view ?
@@ -2024,13 +2024,13 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setPendingDeleteId(null)}
-                className="px-3 py-1.5 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-100 text-sm"
+                className="px-3 py-1.5 rounded-md bg-muted hover:bg-muted text-foreground text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteView(pendingDeleteId)}
-                className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-sm inline-flex items-center gap-1"
+                className="px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 text-foreground text-sm inline-flex items-center gap-1"
               >
                 <Trash2 className="w-4 h-4" /> Delete
               </button>

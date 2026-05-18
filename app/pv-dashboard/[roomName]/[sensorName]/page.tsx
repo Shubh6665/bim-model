@@ -85,15 +85,15 @@ function PVDashboardContent() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Loading PV sensor data...</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">Loading PV sensor data...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
         <div className="text-red-400 text-lg">{error}</div>
       </div>
     );
@@ -101,14 +101,14 @@ function PVDashboardContent() {
 
   if (!sensor) {
     return (
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">PV Sensor not found</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">PV Sensor not found</div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-950">
+    <div className="h-screen w-screen bg-background">
       <PVSensorDashboard
         sensor={sensor}
         allSensors={allSensors}
@@ -123,8 +123,8 @@ function PVDashboardContent() {
 export default function PVDashboardPage() {
   return (
     <Suspense fallback={
-      <div className="h-screen w-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white text-lg">Loading PV Dashboard...</div>
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-lg">Loading PV Dashboard...</div>
       </div>
     }>
       <PVDashboardContent />

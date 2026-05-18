@@ -104,7 +104,7 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
   };
 
   if (loading) {
-    return <div className="p-4 text-gray-400">Loading service requests...</div>;
+    return <div className="p-4 text-muted-foreground">Loading service requests...</div>;
   }
 
   return (
@@ -115,7 +115,7 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
           toast.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
-        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+        } text-foreground px-6 py-4 rounded-lg shadow-2xl border border-border/20 backdrop-blur-sm min-w-[320px]`}>
           <div className="flex items-center gap-3">
             {toast.type === 'success' ? (
               <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,7 +132,7 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-foreground/80 hover:text-foreground transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -143,23 +143,23 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-white">Service Requests (READ-ONLY)</h2>
-        <span className="text-sm text-gray-400">{tickets.length} approved tickets</span>
+        <h2 className="text-xl font-semibold text-foreground">Service Requests (READ-ONLY)</h2>
+        <span className="text-sm text-muted-foreground">{tickets.length} approved tickets</span>
       </div>
 
       {tickets.length === 0 ? (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center text-gray-400">
+        <div className="bg-card/50 border border-border rounded-lg p-6 text-center text-muted-foreground">
           No approved service requests found
         </div>
       ) : (
         <div className="grid gap-4">
           {tickets.map((ticket) => (
-            <div key={ticket.id} className="bg-gray-800/70 border border-gray-700 rounded-lg p-4">
+            <div key={ticket.id} className="bg-card/70 border border-border rounded-lg p-4">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{ticket.ticketCode || ticket.id}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{ticket.intervention?.descriptionShort}</p>
+                  <h3 className="text-lg font-semibold text-foreground">{ticket.ticketCode || ticket.id}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{ticket.intervention?.descriptionShort}</p>
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-900/40 text-green-300 border border-green-700">
                   APPROVED
@@ -167,8 +167,8 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
               </div>
 
               {/* READ-ONLY Data Grid */}
-              <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-4 mb-4">
-                <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+              <div className="bg-card/50 border border-border rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -176,52 +176,52 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
                 </h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <span className="text-gray-400">Request ID:</span>
-                    <span className="ml-2 text-white">{ticket.ticketCode || 'N/A'}</span>
+                    <span className="text-muted-foreground">Request ID:</span>
+                    <span className="ml-2 text-foreground">{ticket.ticketCode || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Requester:</span>
-                    <span className="ml-2 text-white">{ticket.requester?.name} {ticket.requester?.surname}</span>
+                    <span className="text-muted-foreground">Requester:</span>
+                    <span className="ml-2 text-foreground">{ticket.requester?.name} {ticket.requester?.surname}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Contact:</span>
-                    <span className="ml-2 text-white">{ticket.requester?.contact}</span>
+                    <span className="text-muted-foreground">Contact:</span>
+                    <span className="ml-2 text-foreground">{ticket.requester?.contact}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Location:</span>
-                    <span className="ml-2 text-white">
+                    <span className="text-muted-foreground">Location:</span>
+                    <span className="ml-2 text-foreground">
                       {ticket.location?.building} - {ticket.location?.level} - {ticket.location?.room}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Category:</span>
-                    <span className="ml-2 text-white">{ticket.intervention?.category}</span>
+                    <span className="text-muted-foreground">Category:</span>
+                    <span className="ml-2 text-foreground">{ticket.intervention?.category}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Discipline:</span>
-                    <span className="ml-2 text-white">{ticket.intervention?.discipline}</span>
+                    <span className="text-muted-foreground">Discipline:</span>
+                    <span className="ml-2 text-foreground">{ticket.intervention?.discipline}</span>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-gray-400">Description:</span>
-                    <span className="ml-2 text-white">{ticket.intervention?.descriptionDetailed}</span>
+                    <span className="text-muted-foreground">Description:</span>
+                    <span className="ml-2 text-foreground">{ticket.intervention?.descriptionDetailed}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Approved By:</span>
-                    <span className="ml-2 text-white">{ticket.approvedBy || 'N/A'}</span>
+                    <span className="text-muted-foreground">Approved By:</span>
+                    <span className="ml-2 text-foreground">{ticket.approvedBy || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Approved At:</span>
-                    <span className="ml-2 text-white">
+                    <span className="text-muted-foreground">Approved At:</span>
+                    <span className="ml-2 text-foreground">
                       {ticket.approvedAt ? new Date(ticket.approvedAt).toLocaleString() : 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Priority (TM):</span>
-                    <span className="ml-2 text-white font-medium">{ticket.priority || 'N/A'}</span>
+                    <span className="text-muted-foreground">Priority (TM):</span>
+                    <span className="ml-2 text-foreground font-medium">{ticket.priority || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Type (TM):</span>
-                    <span className="ml-2 text-white font-medium">{ticket.type || 'N/A'}</span>
+                    <span className="text-muted-foreground">Type (TM):</span>
+                    <span className="ml-2 text-foreground font-medium">{ticket.type || 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -238,7 +238,7 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
                     </h4>
                     <button
                       onClick={() => openFMEditModal(ticket)}
-                      className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+                      className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-foreground rounded transition-colors"
                     >
                       Edit Priority/Type
                     </button>
@@ -246,21 +246,21 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-purple-300/70">FM Priority:</span>
-                      <span className="ml-2 text-white font-medium">{ticket.fmFields?.priority || ticket.priority || 'Not Set'}</span>
+                      <span className="ml-2 text-foreground font-medium">{ticket.fmFields?.priority || ticket.priority || 'Not Set'}</span>
                     </div>
                     <div>
                       <span className="text-purple-300/70">FM Type:</span>
-                      <span className="ml-2 text-white font-medium">{ticket.fmFields?.type || ticket.type || 'Not Set'}</span>
+                      <span className="ml-2 text-foreground font-medium">{ticket.fmFields?.type || ticket.type || 'Not Set'}</span>
                     </div>
                     {ticket.fmFields?.lastModifiedBy && (
                       <>
                         <div>
                           <span className="text-purple-300/70">Last Modified By:</span>
-                          <span className="ml-2 text-white text-xs">{ticket.fmFields.lastModifiedBy}</span>
+                          <span className="ml-2 text-foreground text-xs">{ticket.fmFields.lastModifiedBy}</span>
                         </div>
                         <div>
                           <span className="text-purple-300/70">Last Modified:</span>
-                          <span className="ml-2 text-white text-xs">
+                          <span className="ml-2 text-foreground text-xs">
                             {new Date(ticket.fmFields.lastModifiedAt!).toLocaleString()}
                           </span>
                         </div>
@@ -276,19 +276,19 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
 
       {/* FM Edit Modal */}
       {showFMModal && selectedTicket && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white mb-4">Edit FM Fields</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Ticket: <span className="text-white font-semibold">{selectedTicket.ticketCode}</span>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-foreground mb-4">Edit FM Fields</h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              Ticket: <span className="text-foreground font-semibold">{selectedTicket.ticketCode}</span>
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Priority</label>
                 <select
                   value={fmPriority}
                   onChange={(e) => setFmPriority(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:border-purple-500"
                 >
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
@@ -297,11 +297,11 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Type</label>
                 <select
                   value={fmType}
                   onChange={(e) => setFmType(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:border-purple-500"
                 >
                   <option value="Corrective">Corrective</option>
                   <option value="Urgent">Urgent</option>
@@ -319,14 +319,14 @@ export const ServiceRequestsView: React.FC<ServiceRequestsViewProps> = ({ projec
                   setShowFMModal(false);
                   setSelectedTicket(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={saveFMFields}
                 disabled={processing}
-                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {processing ? 'Saving...' : 'Save Changes'}
               </button>

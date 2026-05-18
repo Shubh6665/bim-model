@@ -114,9 +114,9 @@ function GoogleMapPicker({ apiKey, lat, lng, onChange }: { apiKey: string, lat: 
   }, [lat, lng, map]);
 
   return (
-    <div className="w-full h-56 rounded overflow-hidden border border-gray-700 bg-gray-800 relative">
+    <div className="w-full h-56 rounded overflow-hidden border border-border bg-card relative">
       <div ref={mapRef} className="absolute inset-0 w-full h-full" />
-      {error && <div className="absolute inset-0 flex items-center justify-center text-red-400 bg-gray-900/80 z-10">{error}</div>}
+      {error && <div className="absolute inset-0 flex items-center justify-center text-red-400 bg-card/80 z-10">{error}</div>}
     </div>
   );
 }
@@ -436,17 +436,17 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
-      <div className="relative bg-[#0B0F19] border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.5)] w-full max-w-xl mx-4 flex flex-col" style={{ maxHeight: '90vh' }}>
-        <button className="absolute top-4 right-4 text-gray-500 hover:text-white z-20 transition-colors" onClick={onClose}>&times;</button>
-        <h3 className="text-2xl font-semibold text-white mb-4 text-center pt-6 tracking-wide">Create New Project</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
+      <div className="relative bg-card border border-border/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.5)] w-full max-w-xl mx-4 flex flex-col" style={{ maxHeight: '90vh' }}>
+        <button className="absolute top-4 right-4 text-muted-foreground hover:text-foreground z-20 transition-colors" onClick={onClose}>&times;</button>
+        <h3 className="text-2xl font-semibold text-foreground mb-4 text-center pt-6 tracking-wide">Create New Project</h3>
         {/* Stepper */}
         <div className="flex justify-center gap-2 mb-4 px-4">
           {["Project Info", "Location", "Client", "Models", "Map"].map((label, i) => (
-            <div key={label} className={`flex items-center gap-1 ${i < step ? 'text-blue-400' : i === step ? 'text-white' : 'text-gray-600'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${i === step ? 'border-blue-400 bg-blue-600/30 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : i < step ? 'border-blue-400/50 bg-blue-900/50' : 'border-white/10 bg-white/5'}`}>{i+1}</div>
+            <div key={label} className={`flex items-center gap-1 ${i < step ? 'text-blue-400' : i === step ? 'text-foreground' : 'text-muted-foreground'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${i === step ? 'border-blue-400 bg-blue-600/30 shadow-[0_0_10px_rgba(59,130,246,0.3)]' : i < step ? 'border-blue-400/50 bg-blue-900/50' : 'border-border/10 bg-accent'}`}>{i+1}</div>
               <span className="text-xs font-medium whitespace-nowrap">{label}</span>
-              {i < 4 && <span className="w-6 h-0.5 bg-white/10 mx-1" />}
+              {i < 4 && <span className="w-6 h-0.5 bg-accent mx-1" />}
             </div>
           ))}
         </div>
@@ -454,11 +454,11 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         <div className="flex-1 overflow-y-auto px-6 pb-6" style={{ minHeight: 320 }}>
           {step === 0 && (
             <div>
-              <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Info <span className="text-xs text-gray-400">(Fields marked with <span className="text-red-500">*</span> are required)</span></h4>
-              <label className="block text-gray-300 mb-1">Project Name <span className="text-red-500">*</span></label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={projectName} onChange={e => setProjectName(e.target.value)} required placeholder="e.g. Main Building" />
-              <label className="block text-gray-300 mb-1">Project Code <span className="text-red-500">*</span></label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={projectCode} onChange={e => setProjectCode(e.target.value)} required placeholder="e.g. PRJ-2024-001" />
+              <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Info <span className="text-xs text-muted-foreground">(Fields marked with <span className="text-red-500">*</span> are required)</span></h4>
+              <label className="block text-muted-foreground mb-1">Project Name <span className="text-red-500">*</span></label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={projectName} onChange={e => setProjectName(e.target.value)} required placeholder="e.g. Main Building" />
+              <label className="block text-muted-foreground mb-1">Project Code <span className="text-red-500">*</span></label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={projectCode} onChange={e => setProjectCode(e.target.value)} required placeholder="e.g. PRJ-2024-001" />
             </div>
           )}
           {step === 1 && (
@@ -473,14 +473,14 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                   Skip for now
                 </button>
               </div>
-              <label className="block text-gray-300 mb-1">Country</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Germany" />
-              <label className="block text-gray-300 mb-1">Municipality</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={municipality} onChange={e => setMunicipality(e.target.value)} placeholder="e.g. Berlin" />
-              <label className="block text-gray-300 mb-1">Address</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Alexanderplatz 1, 10178 Berlin" />
-              <label className="block text-gray-300 mb-1">Cadastral Data</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={cadastral} onChange={e => setCadastral(e.target.value)} placeholder="e.g. Parcel 1234, Section A" />
+              <label className="block text-muted-foreground mb-1">Country</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Germany" />
+              <label className="block text-muted-foreground mb-1">Municipality</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={municipality} onChange={e => setMunicipality(e.target.value)} placeholder="e.g. Berlin" />
+              <label className="block text-muted-foreground mb-1">Address</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Alexanderplatz 1, 10178 Berlin" />
+              <label className="block text-muted-foreground mb-1">Cadastral Data</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={cadastral} onChange={e => setCadastral(e.target.value)} placeholder="e.g. Parcel 1234, Section A" />
             </div>
           )}
           {step === 2 && (
@@ -495,24 +495,24 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                   Skip for now
                 </button>
               </div>
-              <label className="block text-gray-300 mb-1">Company Name (optional)</label>
+              <label className="block text-muted-foreground mb-1">Company Name (optional)</label>
               <input
                 type="text"
-                className="w-full px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white mb-1 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                className="w-full px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground mb-1 placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                 value={company}
                 onChange={e => setCompany(e.target.value)}
                 placeholder="e.g. ACME Construction"
               />
-              <label className="block text-gray-300 mb-1">Surname</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={surname} onChange={e => setSurname(e.target.value)} placeholder="e.g. Smith" />
-              <label className="block text-gray-300 mb-1">Name</label>
-              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John" />
+              <label className="block text-muted-foreground mb-1">Surname</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={surname} onChange={e => setSurname(e.target.value)} placeholder="e.g. Smith" />
+              <label className="block text-muted-foreground mb-1">Name</label>
+              <input type="text" className="w-full mb-3 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John" />
 
               <div className="mt-4">
-                <label className="block text-gray-300 mb-1">Project Admin Email (optional)</label>
+                <label className="block text-muted-foreground mb-1">Project Admin Email (optional)</label>
                 <input
                   type="email"
-                  className="w-full mb-2 px-3 py-2 rounded-lg bg-black/20 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  className="w-full mb-2 px-3 py-2 rounded-lg bg-background/40 border border-border/10 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   value={adminEmail}
                   onChange={e => setAdminEmail(e.target.value)}
                   placeholder="projectadmin@example.com"
@@ -524,9 +524,9 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
           {step === 3 && (
             <div>
               <h4 className="text-lg font-semibold text-blue-400 mb-2">BIM Models <span className="text-red-500">*</span></h4>
-              <label className="block text-gray-300 mb-2">Add one or more BIM files</label>
+              <label className="block text-muted-foreground mb-2">Add one or more BIM files</label>
               <div className="mb-4">
-                <label htmlFor="bim-uploads" className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${models.length > 0 ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-gray-800 hover:bg-blue-900/20'}`} tabIndex={0}>
+                <label htmlFor="bim-uploads" className={`flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${models.length > 0 ? 'border-green-500 bg-green-900/10' : 'border-blue-500 bg-card hover:bg-blue-900/20'}`} tabIndex={0}>
                   <span className="flex items-center gap-2 text-blue-300 font-medium">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                     Click or drag multiple RVT, IFC, DWG, or NWD files
@@ -550,19 +550,19 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
               {models.length > 0 && (
                 <div className="space-y-3 max-h-56 overflow-auto pr-1">
                   {models.map((m, idx) => (
-                    <div key={m.tempId} className="border border-gray-700 rounded-lg p-3 bg-gray-800/60">
+                    <div key={m.tempId} className="border border-border rounded-lg p-3 bg-card/60">
                       <div className="flex items-center gap-2 justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex gap-2">
                             <input
                               type="text"
-                              className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white"
+                              className="flex-1 min-w-0 px-3 py-2 rounded bg-card border border-border text-foreground"
                               value={m.name}
                               onChange={e => setModels(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
                               placeholder="Model name"
                             />
                             <select
-                              className="w-40 px-3 py-2 rounded bg-gray-900 border border-gray-700 text-white"
+                              className="w-40 px-3 py-2 rounded bg-card border border-border text-foreground"
                               value={m.discipline}
                               onChange={e => setModels(prev => prev.map((x, i) => i === idx ? { ...x, discipline: e.target.value as Discipline } : x))}
                             >
@@ -572,12 +572,12 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                             </select>
                             <button
                               type="button"
-                              className="px-3 py-2 bg-red-700 hover:bg-red-600 text-white rounded"
+                              className="px-3 py-2 bg-red-700 hover:bg-red-600 text-foreground rounded"
                               onClick={() => setModels(prev => prev.filter((x) => x.tempId !== m.tempId))}
                             >Remove</button>
                           </div>
-                          <div className="mt-2 text-xs text-gray-400 flex items-center gap-2">
-                            <span className={`${m.status === 'done' ? 'text-green-400' : m.status === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{m.status || 'pending'}</span>
+                          <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                            <span className={`${m.status === 'done' ? 'text-green-400' : m.status === 'error' ? 'text-red-400' : 'text-muted-foreground'}`}>{m.status || 'pending'}</span>
                             {m.error && <span className="text-red-400">• {m.error}</span>}
                           </div>
                         </div>
@@ -591,7 +591,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
           {step === 4 && (
             <div>
               <h4 className="text-lg font-semibold text-blue-400 mb-2">Project Location (Coordinates)</h4>
-              <p className="text-gray-400 text-xs mb-2">Pick a location on the map or enter coordinates manually.</p>
+              <p className="text-muted-foreground text-xs mb-2">Pick a location on the map or enter coordinates manually.</p>
               <GoogleMapPicker
                 apiKey={apiKey}
                 lat={lat}
@@ -602,8 +602,8 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                 }}
               />
               <div className="flex flex-wrap gap-2 mb-3 mt-3 w-full">
-                <input type="number" step="any" placeholder="Latitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lat ?? ""} onChange={e => setLat(Number(e.target.value))} style={{ minWidth: 0 }} />
-                <input type="number" step="any" placeholder="Longitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-white" value={lng ?? ""} onChange={e => setLng(Number(e.target.value))} style={{ minWidth: 0 }} />
+                <input type="number" step="any" placeholder="Latitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-card border border-border text-foreground" value={lat ?? ""} onChange={e => setLat(Number(e.target.value))} style={{ minWidth: 0 }} />
+                <input type="number" step="any" placeholder="Longitude" className="flex-1 min-w-0 px-3 py-2 rounded bg-card border border-border text-foreground" value={lng ?? ""} onChange={e => setLng(Number(e.target.value))} style={{ minWidth: 0 }} />
               </div>
             </div>
           )}
@@ -611,7 +611,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         {/* Enhanced Progress Bar - fixed at bottom */}
         {(isProcessing || error) && (
           <div className="absolute left-0 right-0 bottom-0 px-6 pb-4 z-10">
-            <div className="p-4 bg-gray-800 border border-blue-700 rounded-lg text-blue-300 flex flex-col gap-3 shadow-xl">
+            <div className="p-4 bg-card border border-blue-700 rounded-lg text-blue-300 flex flex-col gap-3 shadow-xl">
               {/* Progress Header */}
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-lg">{processingStep || (isProcessing ? "Processing..." : "")}</span>
@@ -620,7 +620,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
               
               {/* Progress Bar */}
               {isProcessing && (
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-green-500 rounded-full transition-all duration-500 ease-out relative"
                     style={{ width: `${progress}%` }}
@@ -639,12 +639,12 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
                       key={index}
                       className={`flex flex-col items-center gap-1 ${
                         index < currentStepIndex ? 'text-green-400' : 
-                        index === currentStepIndex ? 'text-blue-300' : 'text-gray-500'
+                        index === currentStepIndex ? 'text-blue-300' : 'text-muted-foreground'
                       }`}
                     >
                       <div className={`w-3 h-3 rounded-full ${
                         index < currentStepIndex ? 'bg-green-400' : 
-                        index === currentStepIndex ? 'bg-blue-400 animate-pulse' : 'bg-gray-600'
+                        index === currentStepIndex ? 'bg-blue-400 animate-pulse' : 'bg-muted'
                       }`}></div>
                       <span className="text-xs text-center whitespace-nowrap">{
                         index === 0 ? 'Prep' :
@@ -680,10 +680,10 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
         )}
         {/* Stepper Controls */}
         <div className="flex gap-2 mt-4 px-6 pb-6">
-          {step > 0 && <button type="button" className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-2 rounded-lg transition-all duration-300" onClick={handleBack} disabled={isProcessing}>Back</button>}
-          {step < 3 && <button type="button" className="flex-1 bg-blue-600/80 hover:bg-blue-600 text-white py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(59,130,246,0.2)]" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
-          {step === 3 && <button type="button" className="flex-1 bg-blue-600/80 hover:bg-blue-600 text-white py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(59,130,246,0.2)]" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
-          {step === 4 && <button type="button" className="flex-1 bg-green-600/80 hover:bg-green-600 text-white py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(34,197,94,0.2)]" onClick={handleCreate} disabled={isProcessing}>Create Project</button>}
+          {step > 0 && <button type="button" className="flex-1 bg-accent hover:bg-accent border border-border/10 text-foreground py-2 rounded-lg transition-all duration-300" onClick={handleBack} disabled={isProcessing}>Back</button>}
+          {step < 3 && <button type="button" className="flex-1 bg-blue-600/80 hover:bg-blue-600 text-foreground py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(59,130,246,0.2)]" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
+          {step === 3 && <button type="button" className="flex-1 bg-blue-600/80 hover:bg-blue-600 text-foreground py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(59,130,246,0.2)]" onClick={handleNext} disabled={!canNext() || isProcessing}>Next</button>}
+          {step === 4 && <button type="button" className="flex-1 bg-green-600/80 hover:bg-green-600 text-foreground py-2 rounded-lg disabled:opacity-60 transition-all duration-300 shadow-[0_0_15px_rgba(34,197,94,0.2)]" onClick={handleCreate} disabled={isProcessing}>Create Project</button>}
         </div>
       </div>
     </div>

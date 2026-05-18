@@ -52,18 +52,18 @@ export default function SharedPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="min-h-screen bg-card flex items-center justify-center">
+        <div className="text-foreground">Loading...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-card flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">404</h1>
-          <p className="text-gray-300">{error}</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">404</h1>
+          <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
     );
@@ -71,25 +71,25 @@ export default function SharedPage() {
 
   if (!sharedItem) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-card flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">404</h1>
-          <p className="text-gray-300">This page could not be found.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-4">404</h1>
+          <p className="text-muted-foreground">This page could not be found.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 p-8 rounded-lg max-w-md w-full mx-4">
-        <h1 className="text-2xl font-bold text-white mb-4">Shared {sharedItem.type}</h1>
-        <div className="bg-gray-700 p-4 rounded mb-6">
-          <h2 className="text-lg font-semibold text-white mb-2">{sharedItem.item.name}</h2>
+    <div className="min-h-screen bg-card flex items-center justify-center">
+      <div className="bg-card p-8 rounded-lg max-w-md w-full mx-4">
+        <h1 className="text-2xl font-bold text-foreground mb-4">Shared {sharedItem.type}</h1>
+        <div className="bg-muted p-4 rounded mb-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">{sharedItem.item.name}</h2>
           {sharedItem.type === 'file' && sharedItem.item.size && (
-            <p className="text-gray-300">Size: {(sharedItem.item.size / 1024 / 1024).toFixed(1)} MB</p>
+            <p className="text-muted-foreground">Size: {(sharedItem.item.size / 1024 / 1024).toFixed(1)} MB</p>
           )}
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-muted-foreground text-sm mt-2">
             Expires: {new Date(sharedItem.expiresAt).toLocaleDateString()}
           </p>
         </div>
@@ -97,14 +97,14 @@ export default function SharedPage() {
         {sharedItem.type === 'file' ? (
           <button
             onClick={handleDownload}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-foreground py-2 px-4 rounded"
           >
             Download File
           </button>
         ) : (
           <a
             href={`/projects/${sharedItem.projectId}/database?folderId=${sharedItem.itemId}`}
-            className="block w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded text-center"
+            className="block w-full bg-blue-600 hover:bg-blue-700 text-foreground py-2 px-4 rounded text-center"
           >
             View Folder
           </a>

@@ -103,61 +103,61 @@ const EditSpaceFormInline: React.FC<{
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-400">Building</label>
+        <label className="text-xs text-muted-foreground">Building</label>
         <input 
           type="text"
           value={formData.building}
           onChange={e => setFormData(d => ({ ...d, building: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Building"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Level</label>
+        <label className="text-xs text-muted-foreground">Level</label>
         <input 
           type="text"
           value={formData.level}
           onChange={e => setFormData(d => ({ ...d, level: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Level"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Room Name</label>
+        <label className="text-xs text-muted-foreground">Room Name</label>
         <input 
           type="text"
           value={formData.name}
           onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Room Name"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Area (m²)</label>
+        <label className="text-xs text-muted-foreground">Area (m²)</label>
         <input 
           type="number"
           value={formData.area}
           onChange={e => setFormData(d => ({ ...d, area: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Area"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Space Code</label>
+        <label className="text-xs text-muted-foreground">Space Code</label>
         <input 
           type="text"
           value={formData.spaceCode}
           onChange={e => setFormData(d => ({ ...d, spaceCode: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Space Code"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Description</label>
+        <label className="text-xs text-muted-foreground">Description</label>
         <textarea 
           value={formData.description}
           onChange={e => setFormData(d => ({ ...d, description: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 resize-none"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground resize-none"
           placeholder="Description"
           rows={3}
         />
@@ -165,14 +165,14 @@ const EditSpaceFormInline: React.FC<{
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+          className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50"
+          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-foreground disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save'}
         </button>
@@ -1308,8 +1308,8 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b border-gray-800">
-        <div className="text-white font-semibold text-sm">Space List</div>
+      <div className="p-3 border-b border-border">
+        <div className="text-foreground font-semibold text-sm">Space List</div>
           <div className="mt-2 grid grid-cols-1 gap-2">
             <div className="flex gap-2">
               <input
@@ -1317,12 +1317,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
                 placeholder="Search rooms by name, code, level, building…"
                 value={spaceSearch}
                 onChange={e => { setSpaceSearch(e.target.value); setPage(1); }}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
+                className="flex-1 bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs"
               />
               <select
                 value={spaceSortBy}
                 onChange={e => { setSpaceSortBy(e.target.value as any); setPage(1); }}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs"
+                className="bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs"
                 title="Sort By"
               >
                 <option value="name">Sort by Name</option>
@@ -1334,7 +1334,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
               </select>
               <button
                 onClick={() => setSpaceSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-                className="px-2 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+                className="px-2 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground"
                 title="Toggle sort direction"
               >
                 {spaceSortDir === 'asc' ? 'Asc' : 'Desc'}
@@ -1343,12 +1343,12 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <button
             onClick={extractRoomsFromBIM}
             disabled={isExtracting}
-            className={`w-full ${isExtracting ? 'bg-green-700/70' : 'bg-green-600 hover:bg-green-700'} text-white text-xs py-1.5 rounded`}
+            className={`w-full ${isExtracting ? 'bg-green-700/70' : 'bg-green-600 hover:bg-green-700'} text-foreground text-xs py-1.5 rounded`}
           >
             {isExtracting ? `Extracting Rooms… ${extractionProgress}%` : 'Extract Rooms from BIM'}
           </button>
           {isExtracting && (
-            <div className="mt-2 h-1.5 bg-gray-700 rounded overflow-hidden">
+            <div className="mt-2 h-1.5 bg-muted rounded overflow-hidden">
               <div className="h-full bg-green-500 transition-all" style={{ width: `${Math.max(0, Math.min(100, extractionProgress))}%` }} />
             </div>
           )}
@@ -1357,7 +1357,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-gray-800/90 backdrop-blur border-b border-gray-700 text-gray-300">
+          <thead className="sticky top-0 bg-card/90 backdrop-blur border-b border-border text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">Level</th>
               <th className="text-left px-3 py-2">Room name</th>
@@ -1371,29 +1371,29 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">No spaces. Use "Create new space" or extract from BIM.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No spaces. Use "Create new space" or extract from BIM.</td></tr>
             ) : paginatedRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/50"
+              <tr key={r.id} className="border-b border-border hover:bg-card/50"
                   onMouseEnter={() => drawSavedFootprint(r.footprint || undefined)}
                   onMouseLeave={() => clearSavedFootprint()}>
-                <td className="px-3 py-2 text-gray-100">{r.level || '-'}</td>
-                <td className="px-3 py-2 text-gray-200 cursor-pointer hover:text-white" onClick={() => onRowClick(r)}>{r.name || '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.area != null ? (typeof r.area === 'string' ? parseFloat(r.area).toFixed(2) : r.area.toFixed(2)) : '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.perimeter != null ? Number(r.perimeter).toFixed(2) : '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.volume != null ? Number(r.volume).toFixed(2) : '-'}</td>
-                <td className="px-3 py-2 text-gray-200">{r.occupancy != null ? Number(r.occupancy) : '-'}</td>
-                <td className="px-3 py-2 text-gray-300">{r.description || '-'}</td>
+                <td className="px-3 py-2 text-foreground">{r.level || '-'}</td>
+                <td className="px-3 py-2 text-foreground cursor-pointer hover:text-foreground" onClick={() => onRowClick(r)}>{r.name || '-'}</td>
+                <td className="px-3 py-2 text-foreground">{r.area != null ? (typeof r.area === 'string' ? parseFloat(r.area).toFixed(2) : r.area.toFixed(2)) : '-'}</td>
+                <td className="px-3 py-2 text-foreground">{r.perimeter != null ? Number(r.perimeter).toFixed(2) : '-'}</td>
+                <td className="px-3 py-2 text-foreground">{r.volume != null ? Number(r.volume).toFixed(2) : '-'}</td>
+                <td className="px-3 py-2 text-foreground">{r.occupancy != null ? Number(r.occupancy) : '-'}</td>
+                <td className="px-3 py-2 text-muted-foreground">{r.description || '-'}</td>
                 <td className="px-3 py-2 text-center flex gap-1 justify-center">
                   <button
                     onClick={() => setEditModal({ open: true, space: r })}
-                    className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                    className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-foreground rounded"
                     title="Edit space"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => setDeleteModal({ open: true, id: r.id, name: r.name })}
-                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded"
+                    className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-foreground rounded"
                     title="Delete space"
                   >
                     Delete
@@ -1406,13 +1406,13 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
       </div>
 
       {/* Bottom Pagination Controls */}
-      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-gray-300 gap-2 border-t border-gray-800">
+      <div className="flex items-center justify-between px-2 py-2 text-[11px] text-muted-foreground gap-2 border-t border-border">
         <div className="flex items-center gap-2 min-w-0">
           <span className="whitespace-nowrap">Rows:</span>
           <select
             value={pageSize}
             onChange={e => { setPageSize(parseInt(e.target.value, 10)); setPage(1); }}
-            className="h-6 bg-gray-800/80 border border-gray-700 rounded px-2 text-[11px] focus:outline-none focus:border-gray-500"
+            className="h-6 bg-card/80 border border-border rounded px-2 text-[11px] focus:outline-none focus:border-border"
           >
             {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -1424,7 +1424,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={pageClamped <= 1}
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped <= 1 ? 'text-muted-foreground border-border' : 'text-foreground border-border hover:bg-muted'}`}
             aria-label="Previous page"
           >
             &#8249;
@@ -1433,7 +1433,7 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={pageClamped >= totalPages}
-            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-gray-500 border-gray-700' : 'text-white border-gray-600 hover:bg-gray-700'}`}
+            className={`h-6 w-6 grid place-items-center rounded border ${pageClamped >= totalPages ? 'text-muted-foreground border-border' : 'text-foreground border-border hover:bg-muted'}`}
             aria-label="Next page"
           >
             &#8250;
@@ -1443,19 +1443,19 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-4 w-[360px]" onClick={e => e.stopPropagation()}>
-            <div className="text-white text-sm font-semibold mb-2">Delete space?</div>
-            <div className="text-xs text-gray-300 mb-4">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.name}</span>?</div>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[1001]" onClick={() => setDeleteModal({ open: false })}>
+          <div className="bg-card border border-border rounded p-4 w-[360px]" onClick={e => e.stopPropagation()}>
+            <div className="text-foreground text-sm font-semibold mb-2">Delete space?</div>
+            <div className="text-xs text-muted-foreground mb-4">Are you sure you want to permanently delete <span className="text-red-300">{deleteModal.name}</span>?</div>
             <div className="flex items-center justify-end gap-2">
               <button 
-                className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white" 
+                className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground" 
                 onClick={() => setDeleteModal({ open: false })}
               >
                 Cancel
               </button>
               <button 
-                className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-white" 
+                className="px-3 py-1.5 rounded text-xs bg-red-700 hover:bg-red-600 text-foreground" 
                 onClick={async () => {
                   try {
                     const res = await fetch(`/api/projects/${projectId}/spaces/${deleteModal.id}`, { method: 'DELETE' });
@@ -1484,9 +1484,9 @@ const SpaceList: React.FC<{ projectId?: string; viewer?: any; }> = ({ projectId,
 
       {/* Edit Modal */}
       {editModal.open && editModal.space && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
-          <div className="bg-gray-900 border border-gray-700 rounded p-4 w-[420px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="text-white text-sm font-semibold mb-3">Edit Space</div>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-[1001]" onClick={() => setEditModal({ open: false })}>
+          <div className="bg-card border border-border rounded p-4 w-[420px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="text-foreground text-sm font-semibold mb-3">Edit Space</div>
             <EditSpaceFormInline 
               space={editModal.space} 
               projectId={projectId}
@@ -2407,28 +2407,28 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-white font-semibold text-sm">Create New Space</div>
-        <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Clear</button>
+        <div className="text-foreground font-semibold text-sm">Create New Space</div>
+        <button type="button" onClick={clearForm} className="px-2 py-1 rounded text-xs bg-muted hover:bg-muted text-foreground">Clear</button>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-[12px] text-gray-300 block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Area (m²)</label><input value={f.area} onChange={e => { console.log('[CreateSpace][input] area change:', e.target.value); setF(v => ({ ...v, area: e.target.value })); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div><label className="text-[12px] text-gray-300 block mb-1">Perimeter (m)</label><input value={(f as any).perimeter} onChange={e => { console.log('[CreateSpace][input] perimeter change:', e.target.value); setF(v => ({ ...(v as any), perimeter: e.target.value } as any)); }} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
-        <div className="col-span-2"><label className="text-[12px] text-gray-300 block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Building</label><input value={f.building} onChange={e => { console.log('[CreateSpace][input] building change:', e.target.value); setF(v => ({ ...v, building: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Level</label><input value={f.level} onChange={e => { console.log('[CreateSpace][input] level change:', e.target.value); setF(v => ({ ...v, level: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Room name</label><input value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Space Code</label><input value={f.spaceCode} onChange={e => setF(v => ({ ...v, spaceCode: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Area (m²)</label><input value={f.area} onChange={e => { console.log('[CreateSpace][input] area change:', e.target.value); setF(v => ({ ...v, area: e.target.value })); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div><label className="text-[12px] text-muted-foreground block mb-1">Perimeter (m)</label><input value={(f as any).perimeter} onChange={e => { console.log('[CreateSpace][input] perimeter change:', e.target.value); setF(v => ({ ...(v as any), perimeter: e.target.value } as any)); }} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
+        <div className="col-span-2"><label className="text-[12px] text-muted-foreground block mb-1">Description</label><input value={f.description} onChange={e => setF(v => ({ ...v, description: e.target.value }))} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-sm" /></div>
       </div>
       {/* Footprint Editor */}
-      <div className="border-t border-gray-700 pt-3">
-        <div className="text-xs text-gray-400 mb-2">2D Footprint (optional)</div>
+      <div className="border-t border-border pt-3">
+        <div className="text-xs text-muted-foreground mb-2">2D Footprint (optional)</div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-gray-700 text-gray-400' : 'bg-emerald-700 hover:bg-emerald-800 text-white'}`}>Start drawing</button>
-          <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-gray-700 text-gray-400' : 'bg-blue-700 hover:bg-blue-800 text-white'}`}>Finish</button>
-          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-gray-700 text-gray-400' : 'bg-yellow-700 hover:bg-yellow-800 text-white'}`}>Undo</button>
-          <button type="button" onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-gray-700 text-gray-400' : 'bg-red-700 hover:bg-red-800 text-white'}`}>Clear</button>
+          <button onClick={startDrawing} disabled={(!!viewer === false && !isRemote) || drawing} className={`px-3 py-1.5 rounded text-xs ${(((!!viewer === false) && !isRemote) || drawing) ? 'bg-muted text-muted-foreground' : 'bg-emerald-700 hover:bg-emerald-800 text-foreground'}`}>Start drawing</button>
+          <button onClick={finishDrawing} disabled={!drawing || pointCount < 3} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointCount < 3) ? 'bg-muted text-muted-foreground' : 'bg-blue-700 hover:bg-blue-800 text-foreground'}`}>Finish</button>
+          <button onClick={undoLastPoint} disabled={!drawing || pointsRef.current.length === 0} className={`px-3 py-1.5 rounded text-xs ${(!drawing || pointsRef.current.length === 0) ? 'bg-muted text-muted-foreground' : 'bg-yellow-700 hover:bg-yellow-800 text-foreground'}`}>Undo</button>
+          <button type="button" onClick={cancelDrawing} disabled={!drawing && !footprint} className={`px-3 py-1.5 rounded text-xs ${(!drawing && !footprint) ? 'bg-muted text-muted-foreground' : 'bg-red-700 hover:bg-red-800 text-foreground'}`}>Clear</button>
         </div>
-        <div className="text-[11px] text-gray-500 mt-2">
+        <div className="text-[11px] text-muted-foreground mt-2">
           {drawing
             ? `Drawing... ${pointCount} point${pointCount !== 1 ? 's' : ''} added. Click to add more, Enter to finish, ESC to cancel.`
             : footprint
@@ -2437,17 +2437,17 @@ const CreateSpace: React.FC<{ projectId?: string; viewer?: any; standalone?: boo
         </div>
       </div>
       {confirmOpen && footprint && (
-        <div className="mt-3 border border-gray-700 rounded p-2 bg-gray-900 text-xs text-gray-200">
+        <div className="mt-3 border border-border rounded p-2 bg-card text-xs text-foreground">
           <div className="mb-2 font-semibold">Footprint Points (x, y, z):</div>
-          <div className="max-h-40 overflow-auto space-y-1 bg-gray-950 p-2 rounded">
+          <div className="max-h-40 overflow-auto space-y-1 bg-background p-2 rounded">
             {footprint.points.map((p, i) => (
               <div key={i} className="font-mono">{i + 1}. ({p.x.toFixed(3)}, {p.y.toFixed(3)}, {p.z.toFixed(3)})</div>
             ))}
           </div>
-          <div className="mt-2"><button onClick={() => { console.log('[CreateSpace][confirmClose] Closing confirmation'); setConfirmOpen(false); }} className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white">Close</button></div>
+          <div className="mt-2"><button onClick={() => { console.log('[CreateSpace][confirmClose] Closing confirmation'); setConfirmOpen(false); }} className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground">Close</button></div>
         </div>
       )}
-      <div><button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
+      <div><button className="bg-blue-600 hover:bg-blue-700 text-foreground px-4 py-2 rounded" onClick={onSave}>Save Space</button></div>
     </div>
   );
 };

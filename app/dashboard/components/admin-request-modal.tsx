@@ -49,24 +49,24 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
+      <div className="w-full max-w-md bg-card border border-border rounded-xl p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Request Administrator Access</h2>
+          <h2 className="text-xl font-semibold text-foreground">Request Administrator Access</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Fill your company details. After Platform Owner approval, you'll be able to create projects for that company.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="company">
+            <label className="block text-sm text-muted-foreground mb-1" htmlFor="company">
               Company Name
             </label>
             <input
@@ -74,12 +74,12 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
               type="text"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              className="w-full h-11 px-3 rounded-md bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full h-11 px-3 rounded-md bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-600"
               placeholder="e.g., Acme Infra Pvt Ltd"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-300 mb-1" htmlFor="email">
+            <label className="block text-sm text-muted-foreground mb-1" htmlFor="email">
               Your Email (optional)
             </label>
             <input
@@ -87,10 +87,10 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-11 px-3 rounded-md bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full h-11 px-3 rounded-md bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-600"
               placeholder="you@company.com"
             />
-            <p className="mt-1 text-xs text-gray-500">Defaults to your login email.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Defaults to your login email.</p>
           </div>
           {error && (
             <div className="text-sm text-red-400 bg-red-900/30 border border-red-700 rounded p-2">
@@ -106,14 +106,14 @@ export function AdminRequestModal({ show, onClose }: AdminRequestModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 h-10 rounded-md border border-gray-600 text-gray-200 hover:bg-gray-800"
+              className="px-4 h-10 rounded-md border border-border text-foreground hover:bg-card"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className={`px-4 h-10 rounded-md bg-blue-600 text-white font-medium shadow hover:bg-blue-700 ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-4 h-10 rounded-md bg-blue-600 text-foreground font-medium shadow hover:bg-blue-700 ${submitting ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {submitting ? 'Submitting…' : 'Submit Request'}
             </button>

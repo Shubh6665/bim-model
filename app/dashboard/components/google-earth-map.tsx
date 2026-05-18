@@ -202,23 +202,23 @@ export function GoogleEarthMap({
 
   if (error) {
     return (
-      <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
-        <div className="text-center text-white">
+      <div className="w-full h-full bg-card rounded-lg flex items-center justify-center">
+        <div className="text-center text-foreground">
           <div className="text-red-400 mb-2">⚠️</div>
           <h3 className="text-lg font-semibold mb-2">Map Loading Error</h3>
-          <p className="text-gray-400 text-sm max-w-md">{error}</p>
+          <p className="text-muted-foreground text-sm max-w-md">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative w-full h-full bg-card rounded-lg overflow-hidden">
       {isLoading && (
-        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-10">
-          <div className="text-center text-white">
+        <div className="absolute inset-0 bg-card flex items-center justify-center z-10">
+          <div className="text-center text-foreground">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-sm text-gray-400">Loading Google Earth...</p>
+            <p className="text-sm text-muted-foreground">Loading Google Earth...</p>
           </div>
         </div>
       )}

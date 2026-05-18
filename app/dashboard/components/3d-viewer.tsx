@@ -116,7 +116,7 @@ export function ThreeDViewer({
   const shouldShowEmptyState = !forgeData && !showRVTInterface;
 
   return (
-    <div className="relative w-full h-full bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative w-full h-full bg-card rounded-lg overflow-hidden">
       {/* RVT Processing Interface */}
       {shouldShowRVTInterface && (
         <RVTForgeInterface
@@ -169,11 +169,11 @@ export function ThreeDViewer({
 
       {/* Loading Forge */}
       {isLoadingForge && (
-        <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center z-20">
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-600 shadow-xl">
+        <div className="absolute inset-0 bg-card/80 backdrop-blur-sm flex items-center justify-center z-20">
+          <div className="bg-card rounded-lg p-6 border border-border shadow-xl">
             <div className="flex items-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="text-white font-medium">
+              <span className="text-foreground font-medium">
                 Loading Forge viewer...
               </span>
             </div>
@@ -183,11 +183,11 @@ export function ThreeDViewer({
 
       {/* Empty State - Show when no file is selected */}
       {shouldShowEmptyState && (
-        <div className="flex flex-col items-center justify-center h-full text-white">
+        <div className="flex flex-col items-center justify-center h-full text-foreground">
           <div className="text-center">
-            <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
               <svg
-                className="w-12 h-12 text-gray-400"
+                className="w-12 h-12 text-muted-foreground"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -203,11 +203,11 @@ export function ThreeDViewer({
             <h3 className="text-xl font-semibold mb-2">
               Select a Project to View
             </h3>
-            <p className="text-gray-400 mb-4">
+            <p className="text-muted-foreground mb-4">
               Choose an RVT file from the project panel to start viewing your
               BIM model
             </p>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               <p>• Click on any RVT file to process and view</p>
               <p>• Files will be processed using Autodesk Forge</p>
               <p>• View your models with professional BIM tools</p>

@@ -81,19 +81,19 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
   return (
     <div className="fixed inset-0 z-[60]">
       <div
-        className="absolute inset-0 backdrop-blur-sm bg-black/30"
+        className="absolute inset-0 backdrop-blur-sm bg-background/60"
         onClick={onClose}
       />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl bg-gray-800 rounded-lg border border-gray-700 shadow-2xl">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+        <div className="w-full max-w-2xl bg-card rounded-lg border border-border shadow-2xl">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <div className="flex items-center gap-2">
               <User className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-semibold text-white">Profile</h3>
+              <h3 className="text-lg font-semibold text-foreground">Profile</h3>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -101,7 +101,7 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
 
           <div className="p-6">
             {loading && (
-              <div className="text-sm text-gray-400">Loading profile…</div>
+              <div className="text-sm text-muted-foreground">Loading profile…</div>
             )}
             {error && (
               <div className="mb-3 px-3 py-2 bg-red-900/30 border border-red-700/40 rounded text-red-200 text-sm">
@@ -112,39 +112,39 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Name</div>
+                    <div className="text-sm text-muted-foreground mb-2">Name</div>
                     {isEditing ? (
                       <input
                         value={edited?.name || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, name: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.name || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.name || '-'}</div>
                     )}
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Surname</div>
+                    <div className="text-sm text-muted-foreground mb-2">Surname</div>
                     {isEditing ? (
                       <input
                         value={edited?.surname || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, surname: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.surname || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.surname || '-'}</div>
                     )}
                   </div>
                 </div>
                 {/* Title (profession) and Role */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Title</div>
+                    <div className="text-sm text-muted-foreground mb-2">Title</div>
                     {isEditing ? (
                       <select
                         value={edited?.title || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, title: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select…</option>
                         <option value="Engineer">Engineer</option>
@@ -156,32 +156,32 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                         <option value="Other">Other</option>
                       </select>
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.title || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.title || '-'}</div>
                     )}
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Role (read-only)</div>
-                    <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{roleInfo?.roleLabel || "User"}</div>
+                    <div className="text-sm text-muted-foreground mb-2">Role (read-only)</div>
+                    <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{roleInfo?.roleLabel || "User"}</div>
                   </div>
                 </div>
 
                 {/* Email and Telephone */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Email (read-only)</div>
-                    <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.email || email}</div>
+                    <div className="text-sm text-muted-foreground mb-2">Email (read-only)</div>
+                    <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.email || email}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Telephone (+countrycode)</div>
+                    <div className="text-sm text-muted-foreground mb-2">Telephone (+countrycode)</div>
                     {isEditing ? (
                       <input
                         value={edited?.telephone || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, telephone: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="+14151234567"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.telephone || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.telephone || '-'}</div>
                     )}
                   </div>
                 </div>
@@ -189,45 +189,45 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                 {/* Society and Logo Society */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Society</div>
+                    <div className="text-sm text-muted-foreground mb-2">Society</div>
                     {isEditing ? (
                       <input
                         value={edited?.society || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, society: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.society || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.society || '-'}</div>
                     )}
                   </div>
                   <div>
-                    <div className="text-sm text-gray-400 mb-2">Logo Society</div>
+                    <div className="text-sm text-muted-foreground mb-2">Logo Society</div>
                     {isEditing ? (
                       <input
                         value={edited?.logoSociety || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, logoSociety: e.target.value } : prev)}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="https://.../logo.png"
                       />
                     ) : (
-                      <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.logoSociety || '-'}</div>
+                      <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.logoSociety || '-'}</div>
                     )}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-sm text-gray-400 mb-2">Avatar URL</div>
+                  <div className="text-sm text-muted-foreground mb-2">Avatar URL</div>
                   {isEditing ? (
                     <div className="flex gap-2">
                       <input
                         value={edited?.avatarUrl || ''}
                         onChange={(e) => setEdited((prev) => prev ? { ...prev, avatarUrl: e.target.value } : prev)}
-                        className="flex-1 px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 rounded bg-muted text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="https://.../avatar.png"
                       />
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-2 rounded bg-gray-600 hover:bg-gray-500 border border-gray-600 text-gray-200"
+                        className="px-3 py-2 rounded bg-muted hover:bg-muted border border-border text-foreground"
                         title="Upload photo"
                         disabled={uploadingAvatar}
                       >
@@ -260,7 +260,7 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                       />
                     </div>
                   ) : (
-                    <div className="px-3 py-2 rounded bg-gray-700 text-gray-200 border border-gray-600">{profile.avatarUrl || '-'}</div>
+                    <div className="px-3 py-2 rounded bg-muted text-foreground border border-border">{profile.avatarUrl || '-'}</div>
                   )}
                 </div>
 
@@ -317,14 +317,14 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                               setSaving(false);
                             }
                           }}
-                          className="px-4 py-2 text-sm rounded bg-green-600 text-white hover:bg-green-500 disabled:opacity-60"
+                          className="px-4 py-2 text-sm rounded bg-green-600 text-foreground hover:bg-green-500 disabled:opacity-60"
                           disabled={saving}
                         >
                           {saving ? 'Saving...' : 'Save'}
                         </button>
                         <button
                           onClick={() => { setEdited(profile); setIsEditing(false); setError(null); }}
-                          className="px-4 py-2 text-sm rounded bg-gray-600 text-gray-200 hover:bg-gray-500"
+                          className="px-4 py-2 text-sm rounded bg-muted text-foreground hover:bg-muted"
                         >
                           Cancel
                         </button>
@@ -332,7 +332,7 @@ export function ProfileModal({ open, onClose, email, roleInfo, projectId }: Prof
                     ) : (
                       <button
                         onClick={() => { setIsEditing(true); setEdited(profile); setError(null); }}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-500"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded bg-blue-600 text-foreground hover:bg-blue-500"
                       >
                         <Edit3 className="w-4 h-4" />
                         Edit Profile

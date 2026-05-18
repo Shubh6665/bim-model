@@ -201,30 +201,30 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60">
+    <div className="fixed inset-0 z-50 bg-background/80">
       <div
-        className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-4xl"
+        className="bg-card border border-border rounded-xl w-full max-w-4xl"
         style={{ position: 'absolute', left: pos.x, top: pos.y }}
       >
         <div
-          className="flex items-center justify-between p-4 border-b border-gray-700 cursor-move select-none"
+          className="flex items-center justify-between p-4 border-b border-border cursor-move select-none"
           onMouseDown={onMouseDownHeader}
         >
-          <h3 className="text-white font-semibold">Manage Administrators</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+          <h3 className="text-foreground font-semibold">Manage Administrators</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
         <div className="p-4 max-h-[70vh] overflow-auto">
-          {loading && <div className="text-gray-300">Loading administrators...</div>}
+          {loading && <div className="text-muted-foreground">Loading administrators...</div>}
           {error && <div className="text-red-400 mb-2">{error}</div>}
           {!loading && administrators.length === 0 && (
-            <div className="text-gray-400">No administrators found.</div>
+            <div className="text-muted-foreground">No administrators found.</div>
           )}
           {!loading && administrators.length > 0 && (
             <div className="space-y-4">
 
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
+                  <tr className="text-muted-foreground border-b border-border">
                     <th className="py-2 font-medium">Name</th>
                     <th className="py-2 font-medium">Email</th>
                     <th className="py-2 font-medium">Company</th>
@@ -235,19 +235,19 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                 </thead>
                 <tbody>
                   {administrators.map((admin) => (
-                    <tr key={`${admin.email}|${admin.company}`} className="border-t border-gray-800">
-                      <td className="py-3 text-gray-200">
+                    <tr key={`${admin.email}|${admin.company}`} className="border-t border-border">
+                      <td className="py-3 text-foreground">
                         {admin.name || '-'}
                       </td>
-                      <td className="py-3 text-gray-200">{admin.email}</td>
-                      <td className="py-3 text-gray-200">{admin.company}</td>
-                      <td className="py-3 text-gray-200">{fmt(admin.approvedAt)}</td>
-                      <td className="py-3 text-gray-200">
+                      <td className="py-3 text-foreground">{admin.email}</td>
+                      <td className="py-3 text-foreground">{admin.company}</td>
+                      <td className="py-3 text-foreground">{fmt(admin.approvedAt)}</td>
+                      <td className="py-3 text-foreground">
                         {editingExpireKey !== `${admin.email}|${admin.company}` ? (
                           <div className="flex items-center gap-3">
                             <span>{admin.expiresAt ? fmt(admin.expiresAt) : '-'}</span>
                             <button
-                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              className="px-2 py-1 rounded bg-card border border-border hover:bg-muted text-xs"
                               title="Change expire date"
                               onClick={() => setEditingExpireKey(`${admin.email}|${admin.company}`)}
                             >
@@ -258,7 +258,7 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                           <div className="flex items-center gap-2">
                             <input
                               type="date"
-                              className="bg-gray-800 border border-gray-700 text-gray-200 rounded px-2 py-1 text-xs"
+                              className="bg-card border border-border text-foreground rounded px-2 py-1 text-xs"
                               defaultValue={toInputDate(admin.expiresAt) || ''}
                               min={todayYMD()}
                               pattern="\d{4}-\d{2}-\d{2}"
@@ -269,7 +269,7 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                               placeholder="dd/mm/yyyy"
                             />
                             <button
-                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              className="px-2 py-1 rounded bg-card border border-border hover:bg-muted text-xs"
                               title="Save expiration"
                               onClick={() => {
                                 const v = expireInputRef.current?.value?.trim() || '';
@@ -306,7 +306,7 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                               ✓
                             </button>
                             <button
-                              className="px-2 py-1 rounded bg-gray-800 border border-gray-700 hover:bg-gray-700 text-xs"
+                              className="px-2 py-1 rounded bg-card border border-border hover:bg-muted text-xs"
                               title="Close without changes"
                               onClick={() => setEditingExpireKey(null)}
                             >
@@ -317,7 +317,7 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
                       </td>
                       <td className="py-3 text-right">
                         <button
-                          className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                           onClick={() => setConfirmTarget({ email: admin.email, company: admin.company, name: admin.name })}
                           disabled={busyKey === `${admin.email}|${admin.company}`}
                           title="Remove administrator access"
@@ -333,34 +333,34 @@ export function ManageAdministratorsModal({ onClose }: { onClose: () => void }) 
             </div>
           )}
         </div>
-        <div className="p-4 border-t border-gray-700 text-right">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white">
+        <div className="p-4 border-t border-border text-right">
+          <button onClick={onClose} className="px-4 py-2 rounded bg-muted hover:bg-muted text-foreground">
             Close
           </button>
         </div>
         {confirmTarget && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg w-full max-w-md mx-4 shadow-xl">
-              <div className="p-4 border-b border-gray-700">
-                <h4 className="text-white font-medium">Confirm removal</h4>
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-xl">
+            <div className="bg-card border border-border rounded-lg w-full max-w-md mx-4 shadow-xl">
+              <div className="p-4 border-b border-border">
+                <h4 className="text-foreground font-medium">Confirm removal</h4>
               </div>
-              <div className="p-4 text-sm text-gray-200 space-y-2">
+              <div className="p-4 text-sm text-foreground space-y-2">
                 <p>
                   Are you sure you want to remove
                   <span className="font-semibold"> {confirmTarget.name || confirmTarget.email}</span>
                   {' '}from company <span className="font-semibold">{confirmTarget.company}</span> as an administrator?
                 </p>
-                <p className="text-gray-400">This will revoke their administrator privileges for this company.</p>
+                <p className="text-muted-foreground">This will revoke their administrator privileges for this company.</p>
               </div>
-              <div className="p-4 border-t border-gray-700 flex items-center justify-end gap-2">
+              <div className="p-4 border-t border-border flex items-center justify-end gap-2">
                 <button
-                  className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white"
+                  className="px-4 py-2 rounded bg-muted hover:bg-muted text-foreground"
                   onClick={() => setConfirmTarget(null)}
                 >
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white disabled:opacity-60"
+                  className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-foreground disabled:opacity-60"
                   disabled={busyKey === `${confirmTarget.email}|${confirmTarget.company}`}
                   onClick={async () => {
                     const t = confirmTarget;

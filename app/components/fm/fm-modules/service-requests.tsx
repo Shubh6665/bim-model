@@ -237,7 +237,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       case 'In Progress': return 'bg-purple-900/30 text-purple-300';
       case 'Resolved': return 'bg-green-900/30 text-green-300';
       case 'Rejected': return 'bg-red-900/30 text-red-300';
-      default: return 'bg-gray-800/60 text-gray-300';
+      default: return 'bg-card/60 text-muted-foreground';
     }
   };
 
@@ -379,32 +379,32 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       {toast.show && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
           toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        } text-white font-medium animate-in slide-in-from-top-2 duration-300`}>
+        } text-foreground font-medium animate-in slide-in-from-top-2 duration-300`}>
           {toast.message}
         </div>
       )}
 
       <div>
-        <h3 className="text-white font-semibold text-lg mb-1">Service Requests</h3>
-        <p className="text-xs text-gray-400">
+        <h3 className="text-foreground font-semibold text-lg mb-1">Service Requests</h3>
+        <p className="text-xs text-muted-foreground">
           View and manage all service requests. Expand rows to access role-based actions.
         </p>
       </div>
 
       {/* Filters and Actions */}
-      <div className="flex flex-wrap items-center gap-2 bg-gray-800/40 p-3 rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 bg-card/40 p-3 rounded-lg">
         <input
           type="text"
           placeholder="Search..."
           value={filters.search}
           onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white flex-1 min-w-[200px]"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground flex-1 min-w-[200px]"
         />
 
         <select
           value={filters.status}
           onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Status</option>
           {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -413,7 +413,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.discipline}
           onChange={e => setFilters(prev => ({ ...prev, discipline: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Disciplines</option>
           {uniqueDisciplines.map(d => <option key={d} value={d}>{d}</option>)}
@@ -422,7 +422,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.technician}
           onChange={e => setFilters(prev => ({ ...prev, technician: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Technicians</option>
           {uniqueTechnicians.map(t => <option key={t} value={t}>{t}</option>)}
@@ -431,7 +431,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <select
           value={filters.priority}
           onChange={e => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-          className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white"
+          className="px-3 py-1.5 bg-muted border border-border rounded text-sm text-foreground"
         >
           <option value="all">All Priorities</option>
           {uniquePriorities.map(p => <option key={p} value={p}>{p}</option>)}
@@ -439,7 +439,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
         <button
           onClick={clearFilters}
-          className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+          className="px-3 py-1.5 bg-muted hover:bg-muted text-foreground text-sm rounded transition-colors"
         >
           Clear Filters
         </button>
@@ -447,9 +447,9 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
         <button
           onClick={exportToCSV}
           disabled={selectedIds.size === 0}
-          className={`px-3 py-1.5 text-white text-sm rounded transition-colors ${selectedIds.size > 0
+          className={`px-3 py-1.5 text-foreground text-sm rounded transition-colors ${selectedIds.size > 0
             ? 'bg-green-600 hover:bg-green-700'
-            : 'bg-gray-600 cursor-not-allowed'
+            : 'bg-muted cursor-not-allowed'
             }`}
         >
           Export to CSV {selectedIds.size > 0 && `(${selectedIds.size})`}
@@ -457,24 +457,24 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
       </div>
 
       {/* Results count */}
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-muted-foreground">
         Showing {filteredRows.length} of {rows.length} request{rows.length !== 1 ? 's' : ''}
         {selectedIds.size > 0 && ` • ${selectedIds.size} selected`}
       </div>
 
       {rows.length === 0 ? (
-        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-6 text-center">
+        <div className="text-muted-foreground text-sm bg-card/30 rounded-lg p-6 text-center">
           No service requests yet. Requests will appear here when submitted through the Maintenance Ticket form.
         </div>
       ) : filteredRows.length === 0 ? (
-        <div className="text-gray-400 text-sm bg-gray-800/30 rounded-lg p-6 text-center">
+        <div className="text-muted-foreground text-sm bg-card/30 rounded-lg p-6 text-center">
           No requests match the current filters.
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm border-collapse">
-            <thead className="sticky top-0 bg-gray-900 z-10">
-              <tr className="border-b border-gray-700">
+            <thead className="sticky top-0 bg-card z-10">
+              <tr className="border-b border-border">
                 <th className="px-3 py-2 text-left">
                   <input
                     type="checkbox"
@@ -484,32 +484,32 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                   />
                 </th>
                 <th
-                  className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-muted-foreground cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('requestId')}
                 >
                   Request ID {sortBy === 'requestId' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="px-3 py-2 text-left text-gray-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-muted-foreground cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('requester')}
                 >
                   Requester {sortBy === 'requester' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Contact</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Location</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Category</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Description</th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Maintenance Team</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Contact</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Location</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Category</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Description</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Maintenance Team</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Technician</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Company</th>
                 <th className="px-3 py-2 text-left text-blue-300 whitespace-nowrap">Facility Manager</th>
                 <th
-                  className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-white whitespace-nowrap"
+                  className="px-3 py-2 text-left text-blue-300 cursor-pointer hover:text-foreground whitespace-nowrap"
                   onClick={() => toggleSort('status')}
                 >
                   Status {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-2 text-left text-gray-300 whitespace-nowrap">Actions</th>
+                <th className="px-3 py-2 text-left text-muted-foreground whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -519,7 +519,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                 return (
                   <React.Fragment key={row.id}>
-                    <tr className={`border-b border-gray-800 hover:bg-gray-800/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
+                    <tr className={`border-b border-border hover:bg-card/40 transition-colors ${isSelected ? 'bg-blue-900/20' : ''}`}>
                       <td className="px-3 py-2">
                         <input
                           type="checkbox"
@@ -531,22 +531,22 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                       <td className="px-3 py-2 text-blue-400 font-mono text-xs">
                         {row.requestId || row.id.slice(0, 12)}
                       </td>
-                      <td className="px-3 py-2 text-gray-300">{row.requester || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs">{row.contact || '-'}</td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.location}>
+                      <td className="px-3 py-2 text-muted-foreground">{row.requester || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs">{row.contact || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[120px] truncate" title={row.location}>
                         {row.location || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[120px] truncate" title={row.category}>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[120px] truncate" title={row.category}>
                         {row.category || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs max-w-[150px] truncate" title={row.description}>
+                      <td className="px-3 py-2 text-muted-foreground text-xs max-w-[150px] truncate" title={row.description}>
                         {row.description || '-'}
                       </td>
-                      <td className="px-3 py-2 text-gray-300 text-xs">{getEmailsByRole('TM')}</td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs">{getEmailsByRole('TM')}</td>
                       <td className="px-3 py-2 text-blue-300 text-xs">
                         {row.assignedTechnicians && row.assignedTechnicians.length > 0 
                           ? row.assignedTechnicians.map(t => t.name).join(', ') 
-                          : (row.responsibleTechnician || <span className="text-gray-500">Unassigned</span>)}
+                          : (row.responsibleTechnician || <span className="text-muted-foreground">Unassigned</span>)}
                       </td>
                       <td className="px-3 py-2 text-blue-300 text-xs">
                         {row.assignedTechnicians && row.assignedTechnicians.length > 0 
@@ -594,7 +594,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                               }
                             }
                           }}
-                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs whitespace-nowrap"
+                          className="px-2 py-1 bg-muted hover:bg-muted text-foreground rounded text-xs whitespace-nowrap"
                         >
                           {isExpanded ? 'Hide ▲' : 'Expand ▼'}
                         </button>
@@ -603,14 +603,14 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                     {/* Expanded Row with Full Details */}
                     {isExpanded && (
-                      <tr className="border-b border-gray-800 bg-gray-900/60">
+                      <tr className="border-b border-border bg-card/60">
                         <td colSpan={13} className="p-0">
                           <div className="p-4 space-y-4">
                             {/* Gray Fields - From Ticket */}
-                            <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700">
-                              <div className="text-sm font-semibold text-gray-300 mb-3 flex items-center justify-between">
+                            <div className="bg-card/40 rounded-lg p-4 border border-border">
+                              <div className="text-sm font-semibold text-muted-foreground mb-3 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="bg-gray-700/60 px-2 py-1 rounded text-xs">From Ticket</span>
+                                  <span className="bg-muted/60 px-2 py-1 rounded text-xs">From Ticket</span>
                                   Full Request Details (READ-ONLY)
                                 </div>
                                 {/* Approval Status Badge */}
@@ -619,14 +619,14 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                   const ticketStatus = tid ? (ticketStatusMap[tid] || '').toUpperCase() : '';
                                   if (ticketStatus === 'APPROVED') {
                                     return (
-                                      <span className="px-3 py-1 rounded text-xs font-bold bg-green-700/80 text-white">
+                                      <span className="px-3 py-1 rounded text-xs font-bold bg-green-700/80 text-foreground">
                                         Approved
                                       </span>
                                     );
                                   }
                                   if (ticketStatus === 'REJECTED') {
                                     return (
-                                      <span className="px-3 py-1 rounded text-xs font-bold bg-red-700/80 text-white">
+                                      <span className="px-3 py-1 rounded text-xs font-bold bg-red-700/80 text-foreground">
                                         Rejected
                                       </span>
                                     );
@@ -636,57 +636,57 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                               </div>
                               <div className="grid grid-cols-3 gap-4">
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Request ID</div>
-                                  <div className="text-sm text-white font-mono">{row.requestId || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Request ID</div>
+                                  <div className="text-sm text-foreground font-mono">{row.requestId || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Requester</div>
-                                  <div className="text-sm text-gray-200">{row.requester || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Requester</div>
+                                  <div className="text-sm text-foreground">{row.requester || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Contact</div>
-                                  <div className="text-sm text-gray-200">{row.contact || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Contact</div>
+                                  <div className="text-sm text-foreground">{row.contact || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Location</div>
-                                  <div className="text-sm text-gray-200">{row.location || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Location</div>
+                                  <div className="text-sm text-foreground">{row.location || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Discipline</div>
-                                  <div className="text-sm text-gray-200">{row.discipline || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Discipline</div>
+                                  <div className="text-sm text-foreground">{row.discipline || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Category</div>
-                                  <div className="text-sm text-gray-200">{row.category || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Category</div>
+                                  <div className="text-sm text-foreground">{row.category || 'N/A'}</div>
                                 </div>
                                 <div className="col-span-3">
-                                  <div className="text-xs text-gray-500 mb-1">Short Description</div>
-                                  <div className="text-sm text-gray-200">{row.description || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Short Description</div>
+                                  <div className="text-sm text-foreground">{row.description || 'N/A'}</div>
                                 </div>
                                 <div className="col-span-3">
-                                  <div className="text-xs text-gray-500 mb-1">Detailed Intervention Description</div>
-                                  <div className="text-sm text-gray-200 whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Detailed Intervention Description</div>
+                                  <div className="text-sm text-foreground whitespace-pre-wrap">{row.interventionDetails || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Asset</div>
-                                  <div className="text-sm text-gray-200">{row.asset || 'N/A'}</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Asset</div>
+                                  <div className="text-sm text-foreground">{row.asset || 'N/A'}</div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Attachments</div>
-                                  <div className="text-sm text-gray-200">
+                                  <div className="text-xs text-muted-foreground mb-1">Attachments</div>
+                                  <div className="text-sm text-foreground">
                                     {row.attachments && row.attachments.length > 0
                                       ? `${row.attachments.length} file(s)`
                                       : 'None'}
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Created At</div>
-                                  <div className="text-sm text-gray-400">
+                                  <div className="text-xs text-muted-foreground mb-1">Created At</div>
+                                  <div className="text-sm text-muted-foreground">
                                     {row.createdAt ? new Date(row.createdAt).toLocaleString() : 'N/A'}
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Status</div>
+                                  <div className="text-xs text-muted-foreground mb-1">Status</div>
                                   <div>
                                     {(() => {
                                       const isRejected = row.ticketStatus === 'REJECTED' || row.status === 'Rejected';
@@ -701,14 +701,14 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Technician</div>
-                                  <div className="text-sm text-gray-200">
+                                  <div className="text-xs text-muted-foreground mb-1">Technician</div>
+                                  <div className="text-sm text-foreground">
                                     {row.assignedTechnicians && row.assignedTechnicians.length > 0 ? (
                                       <div className="flex flex-col gap-1">
                                         {row.assignedTechnicians.map((tech: any, idx: number) => (
-                                          <div key={idx} className="flex flex-col text-xs bg-gray-700/50 p-1.5 rounded">
-                                            <span className="font-medium text-white">{tech.name}</span>
-                                            <span className="text-gray-400">{tech.email}</span>
+                                          <div key={idx} className="flex flex-col text-xs bg-muted/50 p-1.5 rounded">
+                                            <span className="font-medium text-foreground">{tech.name}</span>
+                                            <span className="text-muted-foreground">{tech.email}</span>
                                             {tech.company && <span className="text-blue-300">{tech.company}</span>}
                                           </div>
                                         ))}
@@ -719,8 +719,8 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="text-xs text-gray-500 mb-1">Company</div>
-                                  <div className="text-sm text-gray-200">
+                                  <div className="text-xs text-muted-foreground mb-1">Company</div>
+                                  <div className="text-sm text-foreground">
                                     {row.assignedTechnicians && row.assignedTechnicians.length > 0 
                                       ? row.assignedTechnicians.map(t => t.company).filter(Boolean).join(', ') || 'N/A'
                                       : (row.company || 'N/A')}
@@ -756,17 +756,17 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
 
                                       <div className="grid grid-cols-3 gap-4 text-sm">
                                         <div>
-                                          <div className="text-xs text-gray-500 mb-1">Priority (TM)</div>
-                                          <div className="text-gray-200">{row.priority || ticketData.priority || 'N/A'}</div>
+                                          <div className="text-xs text-muted-foreground mb-1">Priority (TM)</div>
+                                          <div className="text-foreground">{row.priority || ticketData.priority || 'N/A'}</div>
                                         </div>
                                         <div>
-                                          <div className="text-xs text-gray-500 mb-1">Type (TM)</div>
-                                          <div className="text-gray-200">{row.type || row.maintenanceType || ticketData.type || 'N/A'}</div>
+                                          <div className="text-xs text-muted-foreground mb-1">Type (TM)</div>
+                                          <div className="text-foreground">{row.type || row.maintenanceType || ticketData.type || 'N/A'}</div>
                                         </div>
                                         {ticketStatus === 'REJECTED' && (
                                           <div className="col-span-3">
-                                            <div className="text-xs text-gray-500 mb-1">Rejection Reason</div>
-                                            <div className="text-gray-200 whitespace-pre-wrap">{ticketData.rejectionReason || 'Not provided'}</div>
+                                            <div className="text-xs text-muted-foreground mb-1">Rejection Reason</div>
+                                            <div className="text-foreground whitespace-pre-wrap">{ticketData.rejectionReason || 'Not provided'}</div>
                                           </div>
                                         )}
                                       </div>
@@ -791,7 +791,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                             setTmType((row.type || row.maintenanceType) as any || 'Corrective');
                                             setShowTMApproval(true);
                                           }}
-                                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-foreground rounded-lg font-medium transition-colors"
                                         >
                                           Approve Ticket
                                         </button>
@@ -800,7 +800,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                             setTmTicketId(tid);
                                             setShowTMRejection(true);
                                           }}
-                                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-lg font-medium transition-colors"
                                         >
                                           Reject Ticket
                                         </button>
@@ -813,7 +813,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                         <select
                                           value={tmPriority}
                                           onChange={(e) => setTmPriority(e.target.value as any)}
-                                          className="w-full px-3 py-2 bg-gray-800/80 border border-blue-600 rounded text-sm text-white"
+                                          className="w-full px-3 py-2 bg-card/80 border border-blue-600 rounded text-sm text-foreground"
                                         >
                                           <option value="Low">Low</option>
                                           <option value="Medium">Medium</option>
@@ -826,7 +826,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                         <select
                                           value={tmType}
                                           onChange={(e) => setTmType(e.target.value as any)}
-                                          className="w-full px-3 py-2 bg-gray-800/80 border border-blue-600 rounded text-sm text-white"
+                                          className="w-full px-3 py-2 bg-card/80 border border-blue-600 rounded text-sm text-foreground"
                                         >
                                           <option value="Corrective">Corrective</option>
                                           <option value="Urgent">Urgent</option>
@@ -842,13 +842,13 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       <button
                                         onClick={handleTMApprove}
                                         disabled={processing}
-                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-foreground rounded-lg font-medium transition-colors disabled:opacity-50"
                                       >
                                         {processing ? 'Processing...' : 'Confirm Approval'}
                                       </button>
                                       <button
                                         onClick={() => setShowTMApproval(false)}
-                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                        className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
                                       >
                                         Cancel
                                       </button>
@@ -861,7 +861,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       <textarea
                                         value={tmRejectionReason}
                                         onChange={(e) => setTmRejectionReason(e.target.value)}
-                                        className="w-full px-3 py-2 bg-gray-800/80 border border-red-600 rounded text-sm text-white"
+                                        className="w-full px-3 py-2 bg-card/80 border border-red-600 rounded text-sm text-foreground"
                                         rows={3}
                                         placeholder="Enter reason for rejection..."
                                       />
@@ -870,7 +870,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       <button
                                         onClick={handleTMReject}
                                         disabled={processing || !tmRejectionReason.trim()}
-                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-lg font-medium transition-colors disabled:opacity-50"
                                       >
                                         {processing ? 'Processing...' : 'Confirm Rejection'}
                                       </button>
@@ -879,7 +879,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                           setShowTMRejection(false);
                                           setTmRejectionReason('');
                                         }}
-                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                        className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
                                       >
                                         Cancel
                                       </button>
@@ -912,11 +912,11 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                       </div>
                                       <div className="grid grid-cols-4 gap-3 text-sm">
                                         <div>
-                                          <div className="text-xs text-gray-500 mb-1">Priority</div>
+                                          <div className="text-xs text-muted-foreground mb-1">Priority</div>
                                           <div className="text-sm text-purple-300 font-semibold">{row.priority || 'N/A'}</div>
                                         </div>
                                         <div>
-                                          <div className="text-xs text-gray-500 mb-1">Type</div>
+                                          <div className="text-xs text-muted-foreground mb-1">Type</div>
                                           <div className="text-sm text-purple-300 font-semibold">{row.type || row.maintenanceType || 'N/A'}</div>
                                         </div>
                                       </div>
@@ -933,11 +933,11 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                     </div>
                                     <div className="grid grid-cols-4 gap-3 mb-3">
                                       <div>
-                                        <div className="text-xs text-gray-500 mb-1">Current Priority</div>
+                                        <div className="text-xs text-muted-foreground mb-1">Current Priority</div>
                                         <div className="text-sm text-purple-300 font-semibold">{row.priority || 'N/A'}</div>
                                       </div>
                                       <div>
-                                        <div className="text-xs text-gray-500 mb-1">Current Type</div>
+                                        <div className="text-xs text-muted-foreground mb-1">Current Type</div>
                                         <div className="text-sm text-purple-300 font-semibold">{row.type || row.maintenanceType || 'N/A'}</div>
                                       </div>
                                     </div>
@@ -949,7 +949,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                           setFmType((row.type || row.maintenanceType) as any || 'Corrective');
                                           setShowFMEdit(true);
                                         }}
-                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-foreground rounded-lg font-medium transition-colors"
                                       >
                                         Edit Priority & Type
                                       </button>
@@ -961,7 +961,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                             <select
                                               value={fmPriority}
                                               onChange={(e) => setFmPriority(e.target.value as any)}
-                                              className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                              className="w-full px-3 py-2 bg-card/80 border border-purple-600 rounded text-sm text-foreground"
                                             >
                                               <option value="Low">Low</option>
                                               <option value="Medium">Medium</option>
@@ -974,7 +974,7 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                             <select
                                               value={fmType}
                                               onChange={(e) => setFmType(e.target.value as any)}
-                                              className="w-full px-3 py-2 bg-gray-800/80 border border-purple-600 rounded text-sm text-white"
+                                              className="w-full px-3 py-2 bg-card/80 border border-purple-600 rounded text-sm text-foreground"
                                             >
                                               <option value="Corrective">Corrective</option>
                                               <option value="Urgent">Urgent</option>
@@ -990,13 +990,13 @@ const ServiceRequests: React.FC<{ projectId?: string; }> = ({ projectId }) => {
                                           <button
                                             onClick={handleFMSave}
                                             disabled={processing}
-                                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-foreground rounded-lg font-medium transition-colors disabled:opacity-50"
                                           >
                                             {processing ? 'Saving...' : 'Save Changes'}
                                           </button>
                                           <button
                                             onClick={() => setShowFMEdit(false)}
-                                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                                            className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
                                           >
                                             Cancel
                                           </button>

@@ -292,27 +292,27 @@ export function RVTForgeInterface({
   };
 
   return (
-    <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-10">
-      <div className="bg-gray-800 rounded-xl p-8 max-w-2xl w-full mx-4 border border-gray-600">
+    <div className="absolute inset-0 bg-card/95 backdrop-blur-sm flex items-center justify-center z-10">
+      <div className="bg-card rounded-xl p-8 max-w-2xl w-full mx-4 border border-border">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mr-4">
-              <FileText className="w-6 h-6 text-white" />
+              <FileText className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-white">
+              <h3 className="text-xl font-semibold text-foreground">
                 RVT File Processing
               </h3>
-              <p className="text-gray-300 text-sm">{fileName}</p>
-              <p className="text-gray-400 text-xs">
+              <p className="text-muted-foreground text-sm">{fileName}</p>
+              <p className="text-muted-foreground text-xs">
                 {formatFileSize(fileSize)}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
             disabled={isProcessing}
           >
             <XCircle className="w-6 h-6" />
@@ -323,12 +323,12 @@ export function RVTForgeInterface({
         <div className="bg-blue-900/30 border border-blue-600/30 rounded-lg p-4 mb-6">
           <div className="flex items-center mb-2">
             <Globe className="w-5 h-5 text-blue-400 mr-2" />
-            <span className="font-medium text-white">Autodesk Forge Processing</span>
+            <span className="font-medium text-foreground">Autodesk Forge Processing</span>
           </div>
-          <p className="text-gray-300 text-sm mb-2">
+          <p className="text-muted-foreground text-sm mb-2">
             Your RVT file will be uploaded to Autodesk Forge and converted to a web-viewable format.
           </p>
-          <div className="flex items-center text-xs text-gray-400">
+          <div className="flex items-center text-xs text-muted-foreground">
             <Zap className="w-3 h-3 mr-1" />
             <span>Cloud-based processing • Secure • Fast</span>
           </div>
@@ -340,7 +340,7 @@ export function RVTForgeInterface({
             <div className="flex items-center gap-3 mb-4">
               {getStepIcon()}
               <div>
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm font-medium text-foreground">
                   {getStepDescription()}
                 </span>
                 {cacheStatus && (
@@ -352,24 +352,24 @@ export function RVTForgeInterface({
                       <span className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-600/40">Instant load from server cache</span>
                     )}
                     {cacheStatus === 'miss' && (
-                      <span className="px-2 py-0.5 rounded bg-gray-600/30 text-gray-300 border border-gray-500/40">No cache available, processing...</span>
+                      <span className="px-2 py-0.5 rounded bg-muted/30 text-muted-foreground border border-border/40">No cache available, processing...</span>
                     )}
                   </div>
                 )}
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   Step {currentStep === 'upload' ? '1' : currentStep === 'translate' ? '2' : '3'} of 3
                 </div>
               </div>
             </div>
             
-            <div className="w-full bg-gray-600 rounded-full h-3 mb-2">
+            <div className="w-full bg-muted rounded-full h-3 mb-2">
               <div
                 className="bg-blue-500 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
             
-            <div className="flex justify-between text-xs text-gray-400">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>Upload</span>
               <span>Translate</span>
               <span>Complete</span>
@@ -406,7 +406,7 @@ export function RVTForgeInterface({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-muted hover:bg-muted disabled:bg-muted text-foreground rounded-lg transition-colors"
           >
             {isProcessing ? 'Processing...' : 'Close'}
           </button>
@@ -414,12 +414,12 @@ export function RVTForgeInterface({
 
         {/* Processing Info */}
         {isProcessing && (
-          <div className="mt-4 p-3 bg-gray-700 rounded-lg">
-            <div className="flex items-center text-xs text-gray-300 mb-2">
+          <div className="mt-4 p-3 bg-muted rounded-lg">
+            <div className="flex items-center text-xs text-muted-foreground mb-2">
               <Clock className="w-3 h-3 mr-1" />
               <span>Processing time: ~2-5 minutes</span>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Large files may take longer. You can close this window and return later.
             </p>
           </div>

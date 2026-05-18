@@ -254,13 +254,13 @@ export function EnhancedProjectPanel({
   const getFileIcon = (file: ProjectFile) => {
     switch (file.type.toLowerCase()) {
       case 'rvt':
-        return <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">RVT</div>;
+        return <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-foreground text-xs font-bold">RVT</div>;
       case 'dwg':
-        return <div className="w-8 h-8 bg-green-600 rounded flex items-center justify-center text-white text-xs font-bold">DWG</div>;
+        return <div className="w-8 h-8 bg-green-600 rounded flex items-center justify-center text-foreground text-xs font-bold">DWG</div>;
       case 'ifc':
-        return <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center text-white text-xs font-bold">IFC</div>;
+        return <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center text-foreground text-xs font-bold">IFC</div>;
       default:
-        return <FileText className="w-8 h-8 text-gray-400" />;
+        return <FileText className="w-8 h-8 text-muted-foreground" />;
     }
   };
 
@@ -295,21 +295,21 @@ export function EnhancedProjectPanel({
   const selectedProjectId: string | null = selectedProject ? selectedProject.id : null;
 
   return (
-    <div className="h-full bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] text-white flex flex-col w-80 min-w-80 max-w-80 relative z-10">
-      <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+    <div className="h-full bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] text-foreground flex flex-col w-80 min-w-80 max-w-80 relative z-10">
+      <div className="p-4 border-b border-border/5 bg-foreground/[0.02]">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white tracking-wide">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
+          <h2 className="text-lg font-semibold text-foreground tracking-wide">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
         </div>
 
         {/* Tabs - hidden when a project is selected */}
         {!selectedProject && (
-          <div className="flex bg-black/20 rounded-lg p-1 border border-white/5">
+          <div className="flex bg-background/40 rounded-lg p-1 border border-border/5">
             <button
               onClick={() => { setActiveTab('projects'); setShowProjectDetail(true); }}
               className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
                 activeTab === 'projects'
-                  ? 'bg-white/10 text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-accent text-foreground shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
               <Globe className="w-4 h-4 inline mr-1.5" />
@@ -319,8 +319,8 @@ export function EnhancedProjectPanel({
               onClick={() => { setActiveTab('models'); setShowProjectDetail(false); }}
               className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
                 activeTab === 'models'
-                  ? 'bg-white/10 text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-accent text-foreground shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
               }`}
             >
               <File className="w-4 h-4 inline mr-1.5" />
@@ -333,13 +333,13 @@ export function EnhancedProjectPanel({
         {!selectedProject && (
           <div className="mt-4">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search projects..."
-                className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
+                className="w-full bg-background/40 border border-border/10 rounded-lg py-2 pl-9 pr-3 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
               />
             </div>
           </div>
@@ -357,7 +357,7 @@ export function EnhancedProjectPanel({
               <div className="mb-4">
                 <button
                   onClick={onReturnToMapView}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
+                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back to Google Earth
@@ -366,29 +366,29 @@ export function EnhancedProjectPanel({
 
               <div className="flex items-center gap-3 mb-2">
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-1">{selectedProject.name}</h3>
+                  <h3 className="text-2xl font-bold text-foreground mb-1">{selectedProject.name}</h3>
                 </div>
               </div>
               {/* Project info card - clean minimal */}
-              <div className="text-sm bg-black/20 border border-white/10 rounded-xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.2)] backdrop-blur-sm">
+              <div className="text-sm bg-background/40 border border-border/10 rounded-xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.2)] backdrop-blur-sm">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                  <div className="text-gray-400">Company</div>
-                  <div className="text-gray-100 text-right truncate">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</div>
+                  <div className="text-muted-foreground">Company</div>
+                  <div className="text-foreground text-right truncate">{selectedProject.company || <span className="italic text-muted-foreground">Not specified</span>}</div>
 
-                  <div className="text-gray-400">Client</div>
-                  <div className="text-gray-100 text-right truncate">{selectedProject.clientName || <span className="italic text-gray-500">Not specified</span>}</div>
+                  <div className="text-muted-foreground">Client</div>
+                  <div className="text-foreground text-right truncate">{selectedProject.clientName || <span className="italic text-muted-foreground">Not specified</span>}</div>
 
-                  <div className="text-gray-400">Location</div>
-                  <div className="text-gray-100 text-right truncate">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</div>
+                  <div className="text-muted-foreground">Location</div>
+                  <div className="text-foreground text-right truncate">{selectedProject.country || '—'}, {selectedProject.municipality || '—'}</div>
 
-                  <div className="text-gray-400">Address</div>
-                  <div className="text-gray-100 text-right truncate">{selectedProject.address || <span className="italic text-gray-500">Not specified</span>}</div>
+                  <div className="text-muted-foreground">Address</div>
+                  <div className="text-foreground text-right truncate">{selectedProject.address || <span className="italic text-muted-foreground">Not specified</span>}</div>
 
-                  <div className="text-gray-400">Cadastral</div>
-                  <div className="text-gray-100 text-right truncate">{selectedProject.cadastral || <span className="italic text-gray-500">Not specified</span>}</div>
+                  <div className="text-muted-foreground">Cadastral</div>
+                  <div className="text-foreground text-right truncate">{selectedProject.cadastral || <span className="italic text-muted-foreground">Not specified</span>}</div>
 
-                  <div className="text-gray-400">Lat/Lng</div>
-                  <div className="text-gray-100 text-right">{formatCoord(selectedProject.lat)}, {formatCoord(selectedProject.lng)}</div>
+                  <div className="text-muted-foreground">Lat/Lng</div>
+                  <div className="text-foreground text-right">{formatCoord(selectedProject.lat)}, {formatCoord(selectedProject.lng)}</div>
                 </div>
               </div>
 
@@ -396,7 +396,7 @@ export function EnhancedProjectPanel({
               {selectedProject.models && selectedProject.models.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2">
-                    <h4 className="text-base font-semibold text-white">Models Uploaded</h4>
+                    <h4 className="text-base font-semibold text-foreground">Models Uploaded</h4>
                   </div>
                   <div className="space-y-3">
                     {(() => {
@@ -412,14 +412,14 @@ export function EnhancedProjectPanel({
                     <div key={d}>
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-indigo-300 text-sm`}>{label[d]}</span>
-                        <span className={`text-[10px] rounded px-2 py-0.5 bg-gray-700 text-gray-200`}>{groups[d].length}</span>
+                        <span className={`text-[10px] rounded px-2 py-0.5 bg-muted text-foreground`}>{groups[d].length}</span>
                       </div>
                       <ul className="space-y-1">
                         {groups[d].map((m) => (
-                          <li key={m.id} className="text-xs flex items-center gap-2 text-gray-200">
-                            <span className={`inline-block w-1.5 h-1.5 rounded-full bg-gray-500`} />
+                          <li key={m.id} className="text-xs flex items-center gap-2 text-foreground">
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full bg-muted`} />
                             <span className="truncate">{m.name}</span>
-                            <span className="ml-auto text-[10px] text-gray-400">{m.fileType || '—'}</span>
+                            <span className="ml-auto text-[10px] text-muted-foreground">{m.fileType || '—'}</span>
                           </li>
                         ))}
                       </ul>
@@ -435,7 +435,7 @@ export function EnhancedProjectPanel({
         ) : (
           // No project selected: show tabs content
           activeTab === 'projects' ? (
-            <div className="p-8 text-center text-gray-400">
+            <div className="p-8 text-center text-muted-foreground">
               <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>Select a model to view project details</p>
               <p className="text-sm mt-1">Go to Models tab to select a project model</p>
@@ -467,7 +467,7 @@ export function EnhancedProjectPanel({
                   className={`p-3 rounded-xl border cursor-pointer transition-all duration-300 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_-4px_rgba(59,130,246,0.2)] group relative overflow-hidden ${
                     selectedProjectId === project.id
                     ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
-                    : 'border-white/10 bg-white/5 hover:border-blue-400/30 hover:bg-white/10'
+                    : 'border-border/10 bg-accent hover:border-blue-400/30 hover:bg-accent'
                 }`}
               >
                 {/* File preview (APS thumbnail if URN exists), otherwise fallback icon */}
@@ -481,7 +481,7 @@ export function EnhancedProjectPanel({
                         <img
                           src={thumbUrl}
                           alt={project.name}
-                          className="w-10 h-10 rounded-lg object-cover border border-gray-700 bg-gray-800"
+                          className="w-10 h-10 rounded-lg object-cover border border-border bg-card"
                           onError={(e) => {
                             // graceful fallback to gradient box with file type
                             const target = e.currentTarget as HTMLImageElement;
@@ -495,18 +495,18 @@ export function EnhancedProjectPanel({
                     return null;
                   })()}
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-orange-500 to-purple-600" style={{ display: (project.urn || (project.models||[]).some(m=>m.urn)) ? 'none' as any : 'flex' }}>
-                    <span className="text-white text-sm font-bold uppercase">{(project.fileType || '?')}</span>
+                    <span className="text-foreground text-sm font-bold uppercase">{(project.fileType || '?')}</span>
                   </div>
-                  <span className="mt-1 text-[10px] text-gray-400">{project.code || ''}</span>
+                  <span className="mt-1 text-[10px] text-muted-foreground">{project.code || ''}</span>
                 </div>
                 {/* Project info */}
                 <div className="flex-1 min-w-0 z-10">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-white truncate group-hover:text-blue-200 transition-colors">{project.name}</h4>
-                    <span className="text-[10px] bg-white/10 border border-white/10 text-gray-300 rounded px-1.5 py-0.5 ml-2 whitespace-nowrap">{project.country || ''}</span>
+                    <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-blue-200 transition-colors">{project.name}</h4>
+                    <span className="text-[10px] bg-accent border border-border/10 text-muted-foreground rounded px-1.5 py-0.5 ml-2 whitespace-nowrap">{project.country || ''}</span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[10px] text-gray-400">{project.municipality || ''}</span>
+                    <span className="text-[10px] text-muted-foreground">{project.municipality || ''}</span>
                     {project.urn && (<span className="text-[10px] text-green-400">URN</span>)}
                   </div>
                   {/* Discipline badges */}
@@ -521,12 +521,12 @@ export function EnhancedProjectPanel({
                         const order: Discipline[] = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
                         const label: Record<Discipline,string> = { architecture:'Arch', structure:'Str', mep:'MEP', electrical:'Elec', plumbing:'Plumb', hvac:'HVAC', other:'Other' };
                         return order.filter(d => counts[d]).map(d => (
-                          <span key={d} className="text-[10px] bg-gray-700 text-gray-200 rounded px-1.5 py-0.5">{label[d]}: {counts[d]}</span>
+                          <span key={d} className="text-[10px] bg-muted text-foreground rounded px-1.5 py-0.5">{label[d]}: {counts[d]}</span>
                         ));
                       })()}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {(() => {
                       const modelTypes = (project.models || [])
                         .map((m) => (m.fileType || '').toUpperCase())
@@ -535,18 +535,18 @@ export function EnhancedProjectPanel({
                         ? Array.from(new Set(modelTypes)).join(' / ')
                         : (project.fileType ? String(project.fileType).toUpperCase() : '');
                       return displayType ? (
-                        <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{displayType}</span>
+                        <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded">{displayType}</span>
                       ) : null;
                     })()}
                     {project.access?.role && (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
                         project.access.role === 'PlatformOwner' || project.access.owner
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-purple-600 text-foreground'
                           : project.access.role === 'Administrator'
-                          ? 'bg-orange-600 text-white'
+                          ? 'bg-orange-600 text-foreground'
                           : project.access.role === 'ProjectAdmin' || project.access.role === 'Project Admin'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-green-600 text-white'
+                          ? 'bg-blue-600 text-foreground'
+                          : 'bg-green-600 text-foreground'
                       }`}>
                         {project.access.role === 'ProjectAdmin' 
                           ? 'Project Admin' 
@@ -564,7 +564,7 @@ export function EnhancedProjectPanel({
                       onProjectSelect(project);
                       onViewModeChange('viewer');
                     }}
-                    className="p-1 text-gray-400 hover:text-white"
+                    className="p-1 text-muted-foreground hover:text-foreground"
                     title="View in 3D"
                   >
                     <Eye className="w-4 h-4" />
@@ -576,7 +576,7 @@ export function EnhancedProjectPanel({
                         onProjectSelect(project);
                         onViewModeChange('map');
                       }}
-                      className="p-1 text-gray-400 hover:text-white"
+                      className="p-1 text-muted-foreground hover:text-foreground"
                       title="Show on map"
                     >
                       <MapPin className="w-4 h-4" />
@@ -587,7 +587,7 @@ export function EnhancedProjectPanel({
             ))}
 
             {filteredProjects.length === 0 && (
-              <div className="p-8 text-center text-gray-400">
+              <div className="p-8 text-center text-muted-foreground">
                 <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No models found</p>
                 <p className="text-sm mt-1">Create some projects to see models here</p>

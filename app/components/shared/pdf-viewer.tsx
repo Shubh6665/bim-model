@@ -620,7 +620,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
                           <span className="font-semibold text-blue-400">Comment</span>
                           <button
                             onClick={() => toggleCommentExpansion(annotation._id || '')}
-                            className="text-gray-400 hover:text-gray-200 transition-colors"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -647,17 +647,17 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
 
   return (
     <div className="flex flex-col w-full h-full">
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
+      <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
         <div className="flex items-center gap-3 min-w-0">
           <FileText className="w-5 h-5 text-blue-400" />
-          <div className="text-white text-sm font-medium truncate">{fileName || 'Document'}</div>
+          <div className="text-foreground text-sm font-medium truncate">{fileName || 'Document'}</div>
         </div>
         <div className="flex items-center gap-2">
           {/* Undo/Redo buttons */}
           <button
             onClick={handleUndo}
             disabled={undoStack.length === 0}
-            className={`p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors ${undoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+            className={`p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors ${undoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
             title="Undo (Ctrl+Z)"
           >
             <Undo className="w-4 h-4" />
@@ -665,13 +665,13 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
           <button
             onClick={handleRedo}
             disabled={redoStack.length === 0}
-            className={`p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors ${redoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+            className={`p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors ${redoStack.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
             title="Redo (Ctrl+Y)"
           >
             <Redo className="w-4 h-4" />
           </button>
           
-          <div className="w-px h-5 bg-gray-600 mx-2"></div>
+          <div className="w-px h-5 bg-muted mx-2"></div>
           
           {/* Annotation Tools */}
           {(['highlight', 'underline', 'comment'] as AnnotationType[]).map((t) => {
@@ -684,8 +684,8 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
                 title={`${toolLabel[t]} (Ctrl+${t.charAt(0).toUpperCase()})`} 
                 className={`p-2 rounded-md transition-colors ${
                   isActive 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    ? 'bg-blue-600 text-foreground hover:bg-blue-700' 
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 {t === 'highlight' && <Highlighter className="w-4 h-4" />}
@@ -695,27 +695,27 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
             );
           })}
           
-          <div className="w-px h-5 bg-gray-600 mx-2"></div>
+          <div className="w-px h-5 bg-muted mx-2"></div>
           
           <a
             href={downloadUrl}
             target="_blank"
             rel="noreferrer"
-            className="p-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors"
+            className="p-2 rounded-md bg-green-600 text-foreground hover:bg-green-700 transition-colors"
             title="Download Annotated PDF"
           >
             <DownloadIcon className="w-4 h-4" />
           </a>
           <button 
             onClick={onClose} 
-            className="p-2 rounded-md text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" 
+            className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" 
             title="Close"
           >
             <CloseIcon className="w-4 h-4" />
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden bg-gray-800 relative">
+      <div className="flex-1 overflow-hidden bg-card relative">
         <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
           <Viewer 
             fileUrl={fileUrl} 
@@ -729,7 +729,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
         {/* Comment Input Dialog */}
         {showCommentInput && (
           <div
-            className="absolute bg-gray-800 border-2 border-gray-600 rounded-lg p-4 shadow-2xl z-50"
+            className="absolute bg-card border-2 border-border rounded-lg p-4 shadow-2xl z-50"
             style={{
               left: `${Math.max(20, Math.min(window.innerWidth - 320, showCommentInput.position.x - 150))}px`,
               top: `${Math.max(20, showCommentInput.position.y - 100)}px`,
@@ -738,13 +738,13 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
             }}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-100">Add Comment</h3>
+              <h3 className="font-semibold text-foreground">Add Comment</h3>
               <button
                 onClick={() => {
                   setShowCommentInput(null);
                   setCommentText('');
                 }}
-                className="text-gray-400 hover:text-gray-200 transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -753,7 +753,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Enter your comment..."
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-100 placeholder-gray-400"
+              className="w-full p-3 bg-muted border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-foreground placeholder-muted-foreground"
               rows={4}
               autoFocus
             />
@@ -763,14 +763,14 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
                   setShowCommentInput(null);
                   setCommentText('');
                 }}
-                className="px-4 py-2 text-sm bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500 transition-colors"
+                className="px-4 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCommentSubmit}
                 disabled={!commentText.trim()}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm bg-blue-600 text-foreground rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Add Comment
               </button>
@@ -779,7 +779,7 @@ export default function PdfViewer({ projectId, fileId, fileName, onClose }: PdfV
         )}
       </div>
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center text-white">Loading PDF…</div>
+        <div className="absolute inset-0 flex items-center justify-center text-foreground">Loading PDF…</div>
       )}
     </div>
   );

@@ -161,19 +161,19 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
   }
 
   return (
-    <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10">
+    <div className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10">
       {/* Header */}
-      <div className="p-4 border-b border-white/5 bg-white/[0.02] flex flex-col items-center">
-        <h2 className="text-xl font-semibold text-white mb-3 tracking-wide">IoT</h2>
+      <div className="p-4 border-b border-border/5 bg-foreground/[0.02] flex flex-col items-center">
+        <h2 className="text-xl font-semibold text-foreground mb-3 tracking-wide">IoT</h2>
         <div className="flex gap-3 w-full mb-4">
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
             onClick={() => handleModeChange("all")}
           >
             All sensors
           </button>
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
             onClick={() => handleModeChange("insert")}
           >
             Insert new sensor
@@ -183,8 +183,8 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
         {/* Wireframe Toggle */}
         <div className="w-full mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-300 font-medium">View Mode</span>
-            <span className="text-xs text-gray-500">
+            <span className="text-sm text-muted-foreground font-medium">View Mode</span>
+            <span className="text-xs text-muted-foreground">
               {wireframeMode ? "Wireframe" : "Solid"}
             </span>
           </div>
@@ -193,7 +193,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 wireframeMode 
                   ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
-                  : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5"
+                  : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent"
               }`}
               onClick={() => {
                 console.log('[IoTPanel] Wireframe button clicked');
@@ -207,7 +207,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 !wireframeMode 
                   ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
-                  : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5"
+                  : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent"
               }`}
               onClick={() => {
                 console.log('[IoTPanel] Solid button clicked');
@@ -223,15 +223,15 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
         <div className="grid grid-cols-3 gap-2 w-full mb-2">
           {SENSOR_TYPES.map((type) => {
             const isSelected = mode === "insert" ? selectedType === type.name : filteredSensorType === type.name;
-            const colorClass = SENSOR_TYPE_COLORS[type.name as keyof typeof SENSOR_TYPE_COLORS] || "bg-gray-500";
+            const colorClass = SENSOR_TYPE_COLORS[type.name as keyof typeof SENSOR_TYPE_COLORS] || "bg-muted";
             
             return (
               <button
                 key={type.name}
                 className={`py-2 px-1 rounded-lg text-xs font-medium border transition-all duration-300 text-center truncate ${
                   isSelected 
-                    ? `${colorClass} text-white border-white/20 shadow-[0_0_10px_rgba(59,130,246,0.15)]` 
-                    : "bg-black/20 text-gray-300 border-white/10 hover:bg-white/10 hover:border-blue-400/30"
+                    ? `${colorClass} text-foreground border-border/20 shadow-[0_0_10px_rgba(59,130,246,0.15)]` 
+                    : "bg-background/40 text-muted-foreground border-border/10 hover:bg-accent hover:border-blue-400/30"
                 }`}
                 title={type.name}
                 onClick={() => handleSensorTypeSelect(type.name)}
@@ -265,10 +265,10 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
           <div className="flex-1 px-2 overflow-y-auto iot-scrollbar">
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-semibold text-white">
+                <h3 className="text-lg font-semibold text-foreground">
                   {filteredSensorType ? `${filteredSensorType} Sensors` : "All Sensors"}
                 </h3>
-                <span className="text-sm text-gray-400">{displaySensors.length} sensors</span>
+                <span className="text-sm text-muted-foreground">{displaySensors.length} sensors</span>
               </div>
               {filteredSensorType && (
                 <button
@@ -281,7 +281,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
             </div>
             
             {loading ? (
-              <div className="text-center text-gray-400 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 Loading sensors...
               </div>
             ) : error ? (
@@ -289,14 +289,14 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                 Error: {error}
               </div>
             ) : displaySensors.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 {filteredSensorType ? `No ${filteredSensorType} sensors found` : "No sensors found"}
               </div>
             ) : (
               <div className="space-y-2">
                 {displaySensors.map((sensor) => {
                   const sensorTypeData = SENSOR_TYPES.find(t => t.name === sensor.type);
-                  const colorClass = SENSOR_TYPE_COLORS[sensor.type as keyof typeof SENSOR_TYPE_COLORS] || "bg-gray-500";
+                  const colorClass = SENSOR_TYPE_COLORS[sensor.type as keyof typeof SENSOR_TYPE_COLORS] || "bg-muted";
                   
                   return (
                     <div
@@ -304,7 +304,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                       className={`p-3 rounded-xl border cursor-pointer transition-all duration-300 ${
                         selectedSensor?.id === sensor.id
                           ? "border-blue-400/50 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                          : "border-white/10 bg-white/5 hover:border-blue-400/30 hover:bg-white/10"
+                          : "border-border/10 bg-accent hover:border-blue-400/30 hover:bg-accent"
                       }`}
                       onClick={() => {
                         selectSensor(sensor);
@@ -316,7 +316,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className={`w-3 h-3 rounded-full ${colorClass}`}></div>
-                          <span className="text-white font-medium text-sm">{sensor.name}</span>
+                          <span className="text-foreground font-medium text-sm">{sensor.name}</span>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded ${
                           sensor.status === "Online" ? "bg-green-600 text-green-100" :
@@ -326,14 +326,14 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           {sensor.status}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-400 space-y-1">
+                      <div className="text-xs text-muted-foreground space-y-1">
                         <div>Type: {sensor.type}</div>
                         <div>Value: {sensor.value}</div>
                         <div>Room: {sensor.room}</div>
                         <div>Battery: {sensor.batteryLevel}%</div>
                       </div>
                       {selectedSensor?.id === sensor.id && (
-                        <div className="mt-2 pt-2 border-t border-gray-600">
+                        <div className="mt-2 pt-2 border-t border-border">
                           <div className="flex justify-between items-center">
                             <button
                               onClick={(e) => {
@@ -357,7 +357,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           
                           {/* More Info Menu */}
                           {showMoreInfo === sensor.id && (
-                            <div className="mt-2 p-2 bg-gradient-to-br from-gray-800 to-gray-900 rounded-md border border-gray-600 shadow">
+                            <div className="mt-2 p-2 bg-gradient-to-br from-gray-800 to-gray-900 rounded-md border border-border shadow">
                               <div className="space-y-1">
                                 <button
                                   onClick={(e) => {
@@ -365,7 +365,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     showViewerOverlay(sensor, 'info');
                                     setShowMoreInfo(null);
                                   }}
-                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-md transition-all duration-200"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 rounded-md transition-all duration-200"
                                 >
                                   <span className="font-medium">Info</span>
                                 </button>
@@ -375,7 +375,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     showViewerOverlay(sensor, 'graphs');
                                     setShowMoreInfo(null);
                                   }}
-                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-md transition-all duration-200"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-600 rounded-md transition-all duration-200"
                                 >
                                   <span className="font-medium">Graphs</span>
                                 </button>
@@ -385,7 +385,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     showViewerOverlay(sensor, 'statistics');
                                     setShowMoreInfo(null);
                                   }}
-                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-violet-600 rounded-md transition-all duration-200"
                                 >
                                   <span className="font-medium">Statistics</span>
                                 </button>
@@ -395,7 +395,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     setEditingSensor(sensor);
                                     setShowMoreInfo(null);
                                   }}
-                                  className="flex items-center gap-1 w-full text-left text-xs text-gray-300 hover:text-white py-1 px-2 hover:bg-gradient-to-r hover:from-amber-600 hover:to-orange-600 rounded-md transition-all duration-200"
+                                  className="flex items-center gap-1 w-full text-left text-xs text-muted-foreground hover:text-foreground py-1 px-2 hover:bg-gradient-to-r hover:from-amber-600 hover:to-orange-600 rounded-md transition-all duration-200"
                                 >
                                   <span className="font-medium">Edit</span>
                                 </button>
@@ -405,49 +405,49 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           
                           {/* Detailed Info Panel */}
                           {showInfoDetail === sensor.id && (
-                            <div className="mt-3 p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-600 shadow-lg">
+                            <div className="mt-3 p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-border shadow-lg">
                               <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                                    <span className="text-white text-xs font-bold">i</span>
+                                    <span className="text-foreground text-xs font-bold">i</span>
                                   </div>
-                                  <h4 className="text-sm font-semibold text-white">Sensor Information</h4>
+                                  <h4 className="text-sm font-semibold text-foreground">Sensor Information</h4>
                                 </div>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowInfoDetail(null);
                                   }}
-                                  className="w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                                  className="w-6 h-6 rounded-full bg-muted hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                   ✕
                                 </button>
                               </div>
                               <div className="space-y-3 text-sm">
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Name:</span>
-                                  <span className="text-white">{sensor.name}</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Name:</span>
+                                  <span className="text-foreground">{sensor.name}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Code:</span>
-                                  <span className="text-white">{sensor.code || <span className="italic text-gray-500">Not specified</span>}</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Code:</span>
+                                  <span className="text-foreground">{sensor.code || <span className="italic text-muted-foreground">Not specified</span>}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Mark:</span>
-                                  <span className="text-white">{sensor.mark || <span className="italic text-gray-500">Not specified</span>}</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Mark:</span>
+                                  <span className="text-foreground">{sensor.mark || <span className="italic text-muted-foreground">Not specified</span>}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Model:</span>
-                                  <span className="text-white">{sensor.model || <span className="italic text-gray-500">Not specified</span>}</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Model:</span>
+                                  <span className="text-foreground">{sensor.model || <span className="italic text-muted-foreground">Not specified</span>}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Room:</span>
-                                  <span className="text-white">{sensor.room}</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Room:</span>
+                                  <span className="text-foreground">{sensor.room}</span>
                                 </div>
-                                <div className="flex items-center justify-between p-2 bg-gray-900 border border-gray-700 rounded-lg">
-                                  <span className="font-semibold text-gray-300">Link:</span>
+                                <div className="flex items-center justify-between p-2 bg-card border border-border rounded-lg">
+                                  <span className="font-semibold text-muted-foreground">Link:</span>
                                   <span className="text-blue-400 hover:text-blue-300 cursor-pointer underline decoration-dotted">
-                                    {sensor.link || <span className="italic text-gray-500 no-underline">Not specified</span>}
+                                    {sensor.link || <span className="italic text-muted-foreground no-underline">Not specified</span>}
                                   </span>
                                 </div>
                               </div>
@@ -459,18 +459,18 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                             <div className="mt-3 p-4 bg-gradient-to-br from-red-900/40 to-red-800/40 border border-red-500/50 rounded-lg shadow-lg backdrop-blur-sm">
                               <div className="flex items-center gap-2 mb-3">
                                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold">!</span>
+                                  <span className="text-foreground text-xs font-bold">!</span>
                                 </div>
-                                <div className="text-sm font-semibold text-white">Are you sure?</div>
+                                <div className="text-sm font-semibold text-foreground">Are you sure?</div>
                               </div>
-                              <p className="text-xs text-gray-300 mb-4">This action cannot be undone. The sensor will be permanently removed.</p>
+                              <p className="text-xs text-muted-foreground mb-4">This action cannot be undone. The sensor will be permanently removed.</p>
                               <div className="flex justify-end gap-2">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowRemoveConfirm(null);
                                   }}
-                                  className="px-3 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-gray-300 hover:from-gray-500 hover:to-gray-600 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
+                                  className="px-3 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-muted-foreground hover:from-gray-500 hover:to-gray-600 hover:text-foreground rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
                                 >
                                   Cancel
                                 </button>
@@ -480,7 +480,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                                     removeSensor(sensor.id);
                                     setShowRemoveConfirm(null);
                                   }}
-                                  className="px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
+                                  className="px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-foreground hover:from-red-500 hover:to-red-600 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm"
                                 >
                                   Remove
                                 </button>
@@ -496,14 +496,14 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
             )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col justify-center text-center text-gray-400">
+          <div className="flex-1 flex flex-col justify-center text-center text-muted-foreground">
             <p className="mb-4">Select a sensor type above, then click in the model to place it.</p>
             {selectedType && (
               <div className="mb-4">
                 <p className="text-blue-400 mb-2">Placing: <span className="font-semibold">{selectedType}</span></p>
                 <button
                   onClick={() => handleModeChange("all")}
-                  className="text-sm text-gray-500 hover:text-gray-400"
+                  className="text-sm text-muted-foreground hover:text-muted-foreground"
                 >
                   Cancel placement
                 </button>

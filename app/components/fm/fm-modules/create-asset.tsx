@@ -586,11 +586,11 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
   return (
     <div className="p-3 space-y-3 h-full flex flex-col relative">
       <div className="flex items-center justify-between">
-        <div className="text-white font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
+        <div className="text-foreground font-semibold text-sm">{title || (mode === 'edit' ? 'Edit Asset' : 'Create New Asset')}</div>
         <div className="flex items-center gap-2">
           {mode !== 'edit' && (
             <button
-              className="text-[11px] px-2 py-1 rounded border border-gray-700 bg-gray-800/60 hover:bg-gray-700 text-gray-200"
+              className="text-[11px] px-2 py-1 rounded border border-border bg-card/60 hover:bg-muted text-foreground"
               onClick={clearForm}
             >
               Clear
@@ -614,8 +614,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
             key={sec.key}
             onClick={() => setActiveSection(sec.key)}
             className={`text-xs px-2 py-1 rounded whitespace-nowrap ${activeSection === sec.key
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              ? 'bg-blue-600 text-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
           >
             {sec.label}
@@ -627,8 +627,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
       <div className="flex-1 overflow-y-auto space-y-2">
         {activeSection === 'identification' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Discipline</label>
-              <select value={f.assetClassification || ''} onChange={e => updateField('assetClassification', e.target.value as any)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Discipline</label>
+              <select value={f.assetClassification || ''} onChange={e => updateField('assetClassification', e.target.value as any)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select discipline</option>
                 <option value="ARCHITECTURAL">Architecture</option>
                 <option value="STRUCTURAL">Structure</option>
@@ -638,8 +638,8 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 <option value="OTHER">Other</option>
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Category</label>
-              <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Category</label>
+              <select value={f.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select category</option>
                 {f.category && !categoryOptions.includes(f.category) && (
                   <option key={f.category} value={f.category}>{f.category} (current)</option>
@@ -647,15 +647,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 {categoryOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Ifc Class</label>
-              <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Asset Name {bulkEditMode && <span className="text-red-400"></span>}</label><input disabled={bulkEditMode} placeholder="Description attribute" value={f.assetName || ''} onChange={e => updateField('assetName', e.target.value)} className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Asset Code</label><input disabled={bulkEditMode} value={f.assetCode || ''} onChange={e => updateField('assetCode', e.target.value)} className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">BIM ID (ElementId)</label><input disabled={bulkEditMode} value={f.elementId || ''} onChange={e => updateField('elementId' as any, e.target.value)} placeholder="Unique BIM Element ID" className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">IFC GUID</label><input disabled={bulkEditMode} value={f.ifcGuid || ''} onChange={e => updateField('ifcGuid', e.target.value)} placeholder="IFC Global ID" className={`w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs ${bulkEditMode ? 'opacity-50 cursor-not-allowed' : ''}`} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Brand</label><input placeholder="Manufacturer attribute (default: Unknown)" value={f.brand || ''} onChange={e => updateField('brand', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Model</label><input placeholder="Model attribute (default: Unknown)" value={f.model || ''} onChange={e => updateField('model', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Type</label><input value={f.type || ''} onChange={e => updateField('type', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Ifc Class</label>
+              <select value={f.ifcClass || ''} onChange={e => updateField('ifcClass', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select Ifc Class</option>
                 {f.ifcClass && !IFCCLASSES_UNIQUE.includes(f.ifcClass) && (
                   <option key={f.ifcClass} value={f.ifcClass}>{f.ifcClass} (current)</option>
@@ -663,26 +663,26 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 {IFCCLASSES_UNIQUE.map(ic => <option key={ic} value={ic}>{ic}</option>)}
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Asset extracted from BIM model" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={2} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Serial Number</label><input value={f.serialNumber || ''} onChange={e => updateField('serialNumber', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Installation Date</label><input type="date" value={f.installationDate || ''} onChange={e => updateField('installationDate', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Description</label><textarea value={f.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Asset extracted from BIM model" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" rows={2} /></div>
           </div>
         )}
 
         {activeSection === 'technical' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Material</label><input value={f.material || ''} onChange={e => updateField('material', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Dimensions</label><input value={f.dimensions || ''} onChange={e => updateField('dimensions', e.target.value)} placeholder="L x W x H" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Weight</label><input value={f.weight || ''} onChange={e => updateField('weight', e.target.value)} placeholder="kg" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Capacity</label><input value={f.capacity || ''} onChange={e => updateField('capacity', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Power Rating</label><input value={f.powerRating || ''} onChange={e => updateField('powerRating', e.target.value)} placeholder="kW" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Material</label><input value={f.material || ''} onChange={e => updateField('material', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Dimensions</label><input value={f.dimensions || ''} onChange={e => updateField('dimensions', e.target.value)} placeholder="L x W x H" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Weight</label><input value={f.weight || ''} onChange={e => updateField('weight', e.target.value)} placeholder="kg" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Capacity</label><input value={f.capacity || ''} onChange={e => updateField('capacity', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Power Rating</label><input value={f.powerRating || ''} onChange={e => updateField('powerRating', e.target.value)} placeholder="kW" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'documentation' && (
           <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="text-[11px] text-gray-300 block mb-1">Manuals</label>
+              <label className="text-[11px] text-muted-foreground block mb-1">Manuals</label>
               <div className="space-y-2">
                 <input 
                   type="file" 
@@ -723,12 +723,12 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                     }
                   }} 
                   placeholder="Select one or more files" 
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" 
+                  className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" 
                 />
                 {f.manuals && (
-                  <div className="bg-gray-700/40 border border-gray-600 rounded px-2 py-1.5 text-[11px] text-gray-300">
-                    <div className="font-semibold text-gray-400 mb-1">Uploaded files:</div>
-                    <div className="text-gray-400 whitespace-pre-wrap break-words">{f.manuals}</div>
+                  <div className="bg-muted/40 border border-border rounded px-2 py-1.5 text-[11px] text-muted-foreground">
+                    <div className="font-semibold text-muted-foreground mb-1">Uploaded files:</div>
+                    <div className="text-muted-foreground whitespace-pre-wrap break-words">{f.manuals}</div>
                     <button
                       type="button"
                       onClick={() => updateField('manuals', '')}
@@ -740,15 +740,15 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 )}
               </div>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Warranties</label><input value={f.warranties || ''} onChange={e => updateField('warranties', e.target.value)} placeholder="Expiry date / terms" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Certifications</label><input value={f.certifications || ''} onChange={e => updateField('certifications', e.target.value)} placeholder="ISO, CE, etc." className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'lifecycle' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Condition</label>
-              <select value={f.condition || ''} onChange={e => updateField('condition', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs">
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Condition</label>
+              <select value={f.condition || ''} onChange={e => updateField('condition', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs">
                 <option value="">Select</option>
                 <option value="Excellent">Excellent</option>
                 <option value="Good">Good</option>
@@ -757,51 +757,51 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
                 <option value="Critical">Critical</option>
               </select>
             </div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Service Date</label><input type="date" value={f.serviceDate || ''} onChange={e => updateField('serviceDate', e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div className="col-span-2"><label className="text-[11px] text-gray-300 block mb-1">Expected Life</label><input value={f.expectedLife || ''} onChange={e => updateField('expectedLife', e.target.value)} placeholder="Years" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Service Date</label><input type="date" value={f.serviceDate || ''} onChange={e => updateField('serviceDate', e.target.value)} className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div className="col-span-2"><label className="text-[11px] text-muted-foreground block mb-1">Expected Life</label><input value={f.expectedLife || ''} onChange={e => updateField('expectedLife', e.target.value)} placeholder="Years" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'economic' && (
           <div className="grid grid-cols-2 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Maintenance Cost</label><input value={f.maintenanceCost || ''} onChange={e => updateField('maintenanceCost', e.target.value)} placeholder="€/year" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Purchase Cost</label><input value={f.purchaseCost || ''} onChange={e => updateField('purchaseCost', e.target.value)} placeholder="€" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Maintenance Cost</label><input value={f.maintenanceCost || ''} onChange={e => updateField('maintenanceCost', e.target.value)} placeholder="€/year" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
 
         {activeSection === 'compliance' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Regulations</label><input value={f.regulations || ''} onChange={e => updateField('regulations', e.target.value)} placeholder="Regulatory requirements" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Safety Notes</label><textarea value={f.safetyNotes || ''} onChange={e => updateField('safetyNotes', e.target.value)} placeholder="Safety precautions" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" rows={3} /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Regulations</label><input value={f.regulations || ''} onChange={e => updateField('regulations', e.target.value)} placeholder="Regulatory requirements" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Safety Notes</label><textarea value={f.safetyNotes || ''} onChange={e => updateField('safetyNotes', e.target.value)} placeholder="Safety precautions" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" rows={3} /></div>
           </div>
         )}
 
         {activeSection === 'relationships' && (
           <div className="grid grid-cols-1 gap-2">
-            <div><label className="text-[11px] text-gray-300 block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
-            <div><label className="text-[11px] text-gray-300 block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Parent Asset</label><input value={f.parentAsset || ''} onChange={e => updateField('parentAsset', e.target.value)} placeholder="Related parent asset" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
+            <div><label className="text-[11px] text-muted-foreground block mb-1">Suppliers</label><input value={f.suppliers || ''} onChange={e => updateField('suppliers', e.target.value)} placeholder="Supplier contacts" className="w-full bg-card border border-border rounded px-2 py-1.5 text-foreground text-xs" /></div>
           </div>
         )}
         {activeSection === 'qr' && (
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-[11px] text-gray-300 block mb-1">Create / View QR Code</label>
-              <div className="bg-gray-800 border border-gray-700 rounded p-3 flex flex-col items-center gap-3">
+              <label className="text-[11px] text-muted-foreground block mb-1">Create / View QR Code</label>
+              <div className="bg-card border border-border rounded p-3 flex flex-col items-center gap-3">
                 {f.qrCode ? (
                   <>
-                    <img src={qrImageUrl(f.qrCode, 400)} alt="QR Code" className="w-40 h-40 bg-white p-2" />
-                    <div className="text-xs text-gray-300">Generated: {f.qrGeneratedAt ? new Date(f.qrGeneratedAt).toLocaleString() : '—'}</div>
+                    <img src={qrImageUrl(f.qrCode, 400)} alt="QR Code" className="w-40 h-40 bg-card p-2" />
+                    <div className="text-xs text-muted-foreground">Generated: {f.qrGeneratedAt ? new Date(f.qrGeneratedAt).toLocaleString() : '—'}</div>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { const u = qrImageUrl(f.qrCode, 800); window.open(u, '_blank'); }}>Open Image</button>
-                      <button className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm" onClick={() => { navigator.clipboard?.writeText(String(f.qrCode)); try { (window as any).showToast?.('success', 'Code copied!'); } catch {} }}>Copy Code</button>
+                      <button className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-foreground text-sm" onClick={exportQrPdf}>Export / Print as PDF</button>
+                      <button className="px-3 py-1.5 rounded bg-muted hover:bg-muted text-foreground text-sm" onClick={() => { const u = qrImageUrl(f.qrCode, 800); window.open(u, '_blank'); }}>Open Image</button>
+                      <button className="px-3 py-1.5 rounded bg-muted hover:bg-muted text-foreground text-sm" onClick={() => { navigator.clipboard?.writeText(String(f.qrCode)); try { (window as any).showToast?.('success', 'Code copied!'); } catch {} }}>Copy Code</button>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="text-xs text-gray-300 mb-2">No QR code generated yet. Click the button below to generate a unique, permanent QR for this asset. Once created it cannot be modified.</div>
+                    <div className="text-xs text-muted-foreground mb-2">No QR code generated yet. Click the button below to generate a unique, permanent QR for this asset. Once created it cannot be modified.</div>
                     <div className="flex gap-2">
-                      <button disabled={isSaving} className={`px-3 py-1.5 rounded text-sm font-semibold ${isSaving ? 'bg-gray-600 text-gray-300' : 'bg-green-600 hover:bg-green-700 text-white'}`} onClick={generateQr}>{isSaving ? 'Generating...' : 'Generate QR Code'}</button>
+                      <button disabled={isSaving} className={`px-3 py-1.5 rounded text-sm font-semibold ${isSaving ? 'bg-muted text-muted-foreground' : 'bg-green-600 hover:bg-green-700 text-foreground'}`} onClick={generateQr}>{isSaving ? 'Generating...' : 'Generate QR Code'}</button>
                     </div>
                   </>
                 )}
@@ -845,18 +845,18 @@ const CreateAsset: React.FC<{ projectId?: string; viewer?: any; title?: string; 
         </div>
       )}
 
-      <div className="border-t border-gray-800 pt-3">
+      <div className="border-t border-border pt-3">
         <button
           className={`w-full px-4 py-2 rounded text-sm font-semibold transition-colors ${isSaving
-            ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
+            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-700 text-foreground'
             }`}
           onClick={(e) => onSave(e)}
           disabled={isSaving}
         >
           {isSaving ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin"></div>
               Saving Asset...
             </div>
           ) : (
@@ -962,61 +962,61 @@ const EditSpaceFormInline: React.FC<{
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs text-gray-400">Building</label>
+        <label className="text-xs text-muted-foreground">Building</label>
         <input 
           type="text"
           value={formData.building}
           onChange={e => setFormData(d => ({ ...d, building: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Building"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Level</label>
+        <label className="text-xs text-muted-foreground">Level</label>
         <input 
           type="text"
           value={formData.level}
           onChange={e => setFormData(d => ({ ...d, level: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Level"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Room Name</label>
+        <label className="text-xs text-muted-foreground">Room Name</label>
         <input 
           type="text"
           value={formData.name}
           onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Room Name"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Area (m²)</label>
+        <label className="text-xs text-muted-foreground">Area (m²)</label>
         <input 
           type="number"
           value={formData.area}
           onChange={e => setFormData(d => ({ ...d, area: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Area"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Space Code</label>
+        <label className="text-xs text-muted-foreground">Space Code</label>
         <input 
           type="text"
           value={formData.spaceCode}
           onChange={e => setFormData(d => ({ ...d, spaceCode: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground"
           placeholder="Space Code"
         />
       </div>
       <div>
-        <label className="text-xs text-gray-400">Description</label>
+        <label className="text-xs text-muted-foreground">Description</label>
         <textarea 
           value={formData.description}
           onChange={e => setFormData(d => ({ ...d, description: e.target.value }))}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 resize-none"
+          className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground resize-none"
           placeholder="Description"
           rows={3}
         />
@@ -1024,14 +1024,14 @@ const EditSpaceFormInline: React.FC<{
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white"
+          className="px-3 py-1.5 rounded text-xs bg-muted hover:bg-muted text-foreground"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50"
+          className="px-3 py-1.5 rounded text-xs bg-blue-700 hover:bg-blue-600 text-foreground disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save'}
         </button>

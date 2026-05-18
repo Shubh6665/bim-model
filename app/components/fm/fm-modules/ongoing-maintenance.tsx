@@ -314,7 +314,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       case 'IN_PROGRESS': return 'bg-purple-900/40 text-purple-300 border-purple-700';
       case 'CLOSE': return 'bg-orange-900/40 text-orange-300 border-orange-700';
       case 'RESOLVED': return 'bg-green-900/40 text-green-300 border-green-700';
-      default: return 'bg-gray-900/40 text-gray-300 border-gray-700';
+      default: return 'bg-card/40 text-muted-foreground border-border';
     }
   };
 
@@ -347,14 +347,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
   };
 
   if (loading) {
-    return <div className="p-4 text-gray-400">Loading work orders...</div>;
+    return <div className="p-4 text-muted-foreground">Loading work orders...</div>;
   }
 
   // Allow User (Requester) and FM to view, but restrict actions
   const canView = isTM || isMaintainer || isFM || role === 'User';
   if (!canView) {
     return (
-      <div className="p-4 text-gray-400">
+      <div className="p-4 text-muted-foreground">
         You don't have permission to view ongoing maintenance activities.
       </div>
     );
@@ -368,7 +368,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           toast.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
-        } text-white px-6 py-4 rounded-lg shadow-2xl border border-white/20 backdrop-blur-sm min-w-[320px]`}>
+        } text-foreground px-6 py-4 rounded-lg shadow-2xl border border-border/20 backdrop-blur-sm min-w-[320px]`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <p className="font-semibold text-sm">{toast.type === 'success' ? 'Success' : 'Error'}</p>
@@ -376,7 +376,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
             </div>
             <button 
               onClick={() => setToast({ show: false, message: '', type: 'success' })}
-              className="text-white/80 hover:text-white transition-colors text-xl font-bold leading-none"
+              className="text-foreground/80 hover:text-foreground transition-colors text-xl font-bold leading-none"
             >
               &times;
             </button>
@@ -385,9 +385,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       )}
 
       {/* Filters Section */}
-      <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+      <div className="bg-card/60 border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-white">Filters</h3>
+          <h3 className="text-sm font-semibold text-foreground">Filters</h3>
           {(filterStatus !== 'ALL' || filterPriority !== 'ALL' || searchTechnician) && (
             <button
               onClick={() => {
@@ -405,11 +405,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
         <div className="grid grid-cols-3 gap-3">
           {/* Status Filter */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Status</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Status</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as WorkOrderStatus | 'ALL')}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
             >
               <option value="ALL">All Statuses</option>
               {!archived && (
@@ -431,11 +431,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           
           {/* Priority Filter */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Priority</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Priority</label>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
             >
               <option value="ALL">All Priorities</option>
               <option value="High">High</option>
@@ -446,13 +446,13 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
           
           {/* Technician Search */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Search Technician</label>
+            <label className="block text-xs text-muted-foreground mb-1.5">Search Technician</label>
             <input
               type="text"
               value={searchTechnician}
               onChange={(e) => setSearchTechnician(e.target.value)}
               placeholder="Name or email..."
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -503,16 +503,16 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
 
         return (
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-400">
-              Showing <span className="text-white font-semibold">{filteredOrders.length}</span> of{' '}
-              <span className="text-white font-semibold">{viewOrders.length}</span> work orders
+            <span className="text-muted-foreground">
+              Showing <span className="text-foreground font-semibold">{filteredOrders.length}</span> of{' '}
+              <span className="text-foreground font-semibold">{viewOrders.length}</span> work orders
             </span>
           </div>
         );
       })()}
 
       {workOrders.length === 0 ? (
-        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 text-center text-gray-400">
+        <div className="bg-card/50 border border-border rounded-lg p-6 text-center text-muted-foreground">
           No active work orders. All maintenance activities are completed.
         </div>
       ) : (
@@ -574,13 +574,13 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
             return (
               <div
                 key={order.id}
-                className={`bg-gray-800/70 border ${isRejected ? 'border-red-900/50' : 'border-gray-700'} rounded-lg p-4 hover:border-gray-600 transition-all`}
+                className={`bg-card/70 border ${isRejected ? 'border-red-900/50' : 'border-border'} rounded-lg p-4 hover:border-border transition-all`}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{order.requestId || order.ticketId || 'No ID'}</h3>
-                    <p className="text-sm text-gray-400 mt-1">{order.description}</p>
+                    <h3 className="text-lg font-semibold text-foreground">{order.requestId || order.ticketId || 'No ID'}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{order.description}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(effectiveStatus as WorkOrderStatus)}`}>
                     {effectiveStatus}
@@ -590,32 +590,32 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 {/* Details Grid */}
                 <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                   <div>
-                    <span className="text-gray-400">Priority:</span>
-                    <span className="ml-2 text-white font-medium">{order.priority}</span>
+                    <span className="text-muted-foreground">Priority:</span>
+                    <span className="ml-2 text-foreground font-medium">{order.priority}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Type:</span>
-                    <span className="ml-2 text-white font-medium">{order.maintenanceType}</span>
+                    <span className="text-muted-foreground">Type:</span>
+                    <span className="ml-2 text-foreground font-medium">{order.maintenanceType}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Location:</span>
-                    <span className="ml-2 text-white">{order.location}</span>
+                    <span className="text-muted-foreground">Location:</span>
+                    <span className="ml-2 text-foreground">{order.location}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Cycles:</span>
-                    <span className="ml-2 text-white">{order.maintenanceCycles?.length || 0}</span>
+                    <span className="text-muted-foreground">Cycles:</span>
+                    <span className="ml-2 text-foreground">{order.maintenanceCycles?.length || 0}</span>
                   </div>
                 </div>
                 
                 {/* Assigned Technicians - View Only for non-TM */}
                 {!isTM && order.assignedTechnicians && order.assignedTechnicians.length > 0 && (
                   <div className="mb-4 text-sm">
-                    <span className="text-gray-400">Assigned Technicians:</span>
+                    <span className="text-muted-foreground">Assigned Technicians:</span>
                     <div className="ml-2 mt-1 space-y-1">
                       {order.assignedTechnicians.map((tech: any, idx: number) => (
-                        <div key={idx} className="text-white">
-                          {tech.name} <span className="text-gray-200">({tech.email})</span>
-                          {tech.company && <span className="text-gray-200"> - {tech.company}</span>}
+                        <div key={idx} className="text-foreground">
+                          {tech.name} <span className="text-foreground">({tech.email})</span>
+                          {tech.company && <span className="text-foreground"> - {tech.company}</span>}
                         </div>
                       ))}
                     </div>
@@ -626,14 +626,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                 {isTM && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-gray-400">Assigned Technicians:</span>
+                      <span className="text-sm text-muted-foreground">Assigned Technicians:</span>
                       {!isRejected && (
                         <button
                           onClick={() => {
                             setSelectedOrderForTech(order);
                             setShowTechModal(true);
                           }}
-                          className="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                          className="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-foreground rounded transition-colors"
                         >
                           + Add
                         </button>
@@ -643,9 +643,9 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                       {order.assignedTechnicians && order.assignedTechnicians.length > 0 ? (
                         order.assignedTechnicians.map((tech: any, idx: number) => (
                           <div key={idx} className="flex items-center gap-2 text-sm">
-                            <span className="text-white">
-                              {tech.name} <span className="text-gray-500">({tech.email})</span>
-                              {tech.company && <span className="text-gray-500"> - {tech.company}</span>}
+                            <span className="text-foreground">
+                              {tech.name} <span className="text-muted-foreground">({tech.email})</span>
+                              {tech.company && <span className="text-muted-foreground"> - {tech.company}</span>}
                             </span>
                             <button
                               onClick={() => removeTechnician(order.id, tech.email)}
@@ -657,7 +657,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                           </div>
                         ))
                       ) : (
-                        <span className="text-xs text-gray-500 italic">No technicians assigned</span>
+                        <span className="text-xs text-muted-foreground italic">No technicians assigned</span>
                       )}
                     </div>
                   </div>
@@ -665,21 +665,21 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
 
                 {/* Current Cycle Info */}
                 {currentCycle && (
-                  <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-3 mb-4">
-                    <div className="text-xs text-gray-400 mb-2">Current Cycle</div>
+                  <div className="bg-card/50 border border-border rounded-lg p-3 mb-4">
+                    <div className="text-xs text-muted-foreground mb-2">Current Cycle</div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-gray-400">Status:</span>
-                        <span className="ml-2 text-white font-medium">{currentCycle.status}</span>
+                        <span className="text-muted-foreground">Status:</span>
+                        <span className="ml-2 text-foreground font-medium">{currentCycle.status}</span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Duration:</span>
-                        <span className="ml-2 text-white">{formatDuration(currentCycle.startedAt, currentCycle.endedAt, effectiveStatus, order.updatedAt, order.resolvedAt)}</span>
+                        <span className="text-muted-foreground">Duration:</span>
+                        <span className="ml-2 text-foreground">{formatDuration(currentCycle.startedAt, currentCycle.endedAt, effectiveStatus, order.updatedAt, order.resolvedAt)}</span>
                       </div>
                       {currentCycle.performedBy && (
                         <div className="col-span-2">
-                          <span className="text-gray-400">Performed by:</span>
-                          <span className="ml-2 text-white">{currentCycle.performedBy}</span>
+                          <span className="text-muted-foreground">Performed by:</span>
+                          <span className="ml-2 text-foreground">{currentCycle.performedBy}</span>
                         </div>
                       )}
                     </div>
@@ -694,7 +694,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         key={nextStatus}
                         onClick={() => openNotesModal(order.id, nextStatus)}
                         disabled={transitioning}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-lg text-sm font-medium transition-colors"
                       >
                         {transitioning ? 'Processing...' : `Move to ${nextStatus}`}
                       </button>
@@ -706,7 +706,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         setReportWorkOrder(order);
                         setShowReportModal(true);
                       }}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-foreground rounded-lg text-sm font-medium transition-colors"
                     >
                       View Report
                     </button>
@@ -722,7 +722,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         setShowResolveModal(true);
                       }}
                       disabled={transitioning}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground rounded-lg text-sm font-medium transition-colors"
                     >
                       {transitioning ? 'Processing...' : 'Mark as RESOLVED'}
                     </button>
@@ -733,7 +733,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         setReportWorkOrder(order);
                         setShowReportModal(true);
                       }}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-foreground rounded-lg text-sm font-medium transition-colors"
                     >
                       View Report
                     </button>
@@ -748,7 +748,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         <button
                           onClick={() => openConfirmModal(order)}
                           disabled={transitioning}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                         >
                           Confirm Resolution
                         </button>
@@ -757,7 +757,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                             setOrderForIntegration(order);
                             setShowIntegrationModal(true);
                           }}
-                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-foreground rounded-lg text-sm font-medium transition-colors"
                         >
                           Request Integration
                         </button>
@@ -773,7 +773,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                         setReportWorkOrder(order);
                         setShowReportModal(true);
                       }}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-foreground rounded-lg text-sm font-medium transition-colors"
                     >
                       View Report
                     </button>
@@ -782,7 +782,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
 
                 {/* Cycle History - Enhanced Display */}
                 {order.maintenanceCycles && order.maintenanceCycles.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-700">
+                  <div className="mt-4 pt-4 border-t border-border">
                     <button
                       onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
                       className="text-sm text-blue-400 hover:text-blue-300 transition-colors font-medium"
@@ -800,12 +800,12 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                             : formatDuration(cycle.startedAt, undefined, effectiveStatus, order.updatedAt, order.resolvedAt) + (isFinal ? '' : ' (ongoing)');
                           
                           return (
-                            <div key={idx} className="bg-gradient-to-r from-gray-900/50 to-gray-800/30 border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors">
+                            <div key={idx} className="bg-gradient-to-r from-gray-900/50 to-gray-800/30 border border-border rounded-lg p-3 hover:border-border transition-colors">
                               {/* Cycle Header */}
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-white">Cycle {idx + 1}</span>
-                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-sm font-semibold text-foreground">Cycle {idx + 1}</span>
+                                  <span className="text-xs text-muted-foreground">•</span>
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(cycle.status)}`}>
                                     {cycle.status}
                                   </span>
@@ -818,8 +818,8 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                               {/* Cycle Details */}
                               <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div>
-                                  <span className="text-gray-500">Started:</span>
-                                  <div className="text-gray-300 mt-0.5">
+                                  <span className="text-muted-foreground">Started:</span>
+                                  <div className="text-muted-foreground mt-0.5">
                                     {new Date(cycle.startedAt).toLocaleString('en-US', {
                                       month: 'short',
                                       day: 'numeric',
@@ -831,8 +831,8 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                                 </div>
                                 {cycle.endedAt && (
                                   <div>
-                                    <span className="text-gray-500">Ended:</span>
-                                    <div className="text-gray-300 mt-0.5">
+                                    <span className="text-muted-foreground">Ended:</span>
+                                    <div className="text-muted-foreground mt-0.5">
                                       {new Date(cycle.endedAt).toLocaleString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
@@ -845,8 +845,8 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                                 )}
                                 {cycle.performedBy && (
                                   <div className="col-span-2">
-                                    <span className="text-gray-500">Performed by:</span>
-                                    <div className="text-gray-300 mt-0.5">{cycle.performedBy}</div>
+                                    <span className="text-muted-foreground">Performed by:</span>
+                                    <div className="text-muted-foreground mt-0.5">{cycle.performedBy}</div>
                                   </div>
                                 )}
                               </div>
@@ -872,17 +872,17 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       
       {/* Operational Notes Modal */}
       {showNotesModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white mb-4">Add Operational Notes</h3>
-            <p className="text-gray-400 text-sm mb-4">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-foreground mb-4">Add Operational Notes</h3>
+            <p className="text-muted-foreground text-sm mb-4">
               Transitioning to: <span className="text-blue-400 font-semibold">{pendingTransition?.status}</span>
             </p>
             <textarea
               value={operationalNote}
               onChange={(e) => setOperationalNote(e.target.value)}
               placeholder="Enter operational notes (optional)"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none h-32 mb-4"
+              className="w-full bg-card border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500 resize-none h-32 mb-4"
             />
             <div className="flex gap-3">
               <button
@@ -891,14 +891,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setOperationalNote('');
                   setPendingTransition(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={submitWithNotes}
                 disabled={transitioning}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {transitioning ? 'Processing...' : 'Confirm'}
               </button>
@@ -909,20 +909,20 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       
       {/* TM Closing Notes Modal */}
       {showResolveModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white mb-4">Resolve Work Order</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Work Order: <span className="text-white font-semibold">{orderToResolve?.requestId || orderToResolve?.ticketId}</span>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-foreground mb-4">Resolve Work Order</h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              Work Order: <span className="text-foreground font-semibold">{orderToResolve?.requestId || orderToResolve?.ticketId}</span>
             </p>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               TM Closing Notes <span className="text-red-400">*</span>
             </label>
             <textarea
               value={tmClosingNotes}
               onChange={(e) => setTmClosingNotes(e.target.value)}
               placeholder="Enter closing notes (required)"
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 resize-none h-32 mb-4"
+              className="w-full bg-card border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-green-500 resize-none h-32 mb-4"
             />
             <div className="flex gap-3">
               <button
@@ -931,14 +931,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setTmClosingNotes('');
                   setOrderToResolve(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResolve}
                 disabled={transitioning || !tmClosingNotes.trim()}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {transitioning ? 'Resolving...' : 'Mark as RESOLVED'}
               </button>
@@ -949,23 +949,23 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       
       {/* FM Integration Request Modal */}
       {showIntegrationModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white mb-4">Request Integration</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Work Order: <span className="text-white font-semibold">{orderForIntegration?.requestId || orderForIntegration?.ticketId}</span>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-foreground mb-4">Request Integration</h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              Work Order: <span className="text-foreground font-semibold">{orderForIntegration?.requestId || orderForIntegration?.ticketId}</span>
             </p>
-            <p className="text-gray-400 text-xs mb-4">
+            <p className="text-muted-foreground text-xs mb-4">
               This will reopen the work order for the maintenance team to address the integration request.
             </p>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
               Reason for Integration <span className="text-red-400">*</span>
             </label>
             <textarea
               value={integrationReason}
               onChange={(e) => setIntegrationReason(e.target.value)}
               placeholder="Enter reason for integration request..."
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 resize-none h-32 mb-4"
+              className="w-full bg-card border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:border-orange-500 resize-none h-32 mb-4"
             />
             <div className="flex gap-3">
               <button
@@ -974,14 +974,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setIntegrationReason('');
                   setOrderForIntegration(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRequestIntegration}
                 disabled={transitioning || !integrationReason.trim()}
-                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {transitioning ? 'Requesting...' : 'Submit Request'}
               </button>
@@ -992,41 +992,41 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       
       {/* Technician Assignment Modal */}
       {showTechModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white mb-4">Assign Technician</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Work Order: <span className="text-white font-semibold">{selectedOrderForTech?.requestId || selectedOrderForTech?.ticketId}</span>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-foreground mb-4">Assign Technician</h3>
+            <p className="text-muted-foreground text-sm mb-4">
+              Work Order: <span className="text-foreground font-semibold">{selectedOrderForTech?.requestId || selectedOrderForTech?.ticketId}</span>
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Name</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Technician Name</label>
                 <input
                   type="text"
                   value={techName}
                   onChange={(e) => setTechName(e.target.value)}
                   placeholder="Enter technician name"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Email</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Technician Email</label>
                 <input
                   type="email"
                   value={techEmail}
                   onChange={(e) => setTechEmail(e.target.value)}
                   placeholder="technician@example.com"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Technician Company</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Technician Company</label>
                 <input
                   type="text"
                   value={techCompany}
                   onChange={(e) => setTechCompany(e.target.value)}
                   placeholder="Enter technician company"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -1039,14 +1039,14 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setTechCompany('');
                   setSelectedOrderForTech(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={assignTechnician}
                 disabled={transitioning || !techEmail.trim() || !techName.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-lg font-medium transition-colors"
               >
                 {transitioning ? 'Adding...' : 'Assign'}
               </button>
@@ -1057,7 +1057,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
       
       {/* Enhanced Maintenance Report Modal */}
       {showReportModal && reportWorkOrder && (
-        <div className="fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
           <EnhancedMaintenanceReport 
             projectId={projectId}
             workOrder={reportWorkOrder}
@@ -1072,10 +1072,10 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
 
       {/* Confirm Resolution Modal */}
       {showConfirmModal && orderToConfirm && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Confirm Resolution</h3>
-            <p className="text-gray-300 mb-6">
+        <div className="fixed inset-0 bg-background/95 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl border border-border p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-foreground mb-4">Confirm Resolution</h3>
+            <p className="text-muted-foreground mb-6">
               Are you sure you want to confirm this resolution? This will notify the requester that the work is complete and verify the fix.
             </p>
             <div className="flex gap-3 justify-end">
@@ -1084,7 +1084,7 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
                   setShowConfirmModal(false);
                   setOrderToConfirm(null);
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-lg font-medium transition-colors"
                 disabled={transitioning}
               >
                 Cancel
@@ -1092,11 +1092,11 @@ export const OngoingMaintenance: React.FC<OngoingMaintenanceProps> = ({ projectI
               <button
                 onClick={handleConfirmResolution}
                 disabled={transitioning}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-foreground rounded-lg font-medium transition-colors flex items-center gap-2"
               >
                 {transitioning ? (
                   <>
-                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-border/20 border-t-white rounded-full animate-spin" />
                     Confirming...
                   </>
                 ) : (

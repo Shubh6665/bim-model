@@ -250,18 +250,18 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
   };
 
   return (
-    <div className="p-3 bg-gray-900 text-gray-100 rounded max-h-[70vh] overflow-auto">
+    <div className="p-3 bg-card text-foreground rounded max-h-[70vh] overflow-auto">
       <h3 className="text-lg font-semibold">Maintenance Report</h3>
 
       {/* 1. General Information */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">1. General Information</div>
           <div>
             {editingSection === 'general' ? (
                 <>
                   <button disabled={savingSection === 'general'} onClick={() => saveSection('general')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'general' ? 'Saving...' : 'Save'}</button>
-                  <button onClick={() => cancelSectionEdit('general')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                  <button onClick={() => cancelSectionEdit('general')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
                 </>
               ) : (
                 <button onClick={() => setEditingSection('general')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -270,20 +270,20 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-300">Work Order ID</label>
-            <input value={form.id} readOnly className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Work Order ID</label>
+            <input value={form.id} readOnly className="mt-1 w-full bg-card text-foreground p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Date & Time of Service</label>
-            <input value={form.updatedAt ? new Date(form.updatedAt).toLocaleString() : new Date().toLocaleString()} readOnly className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Date & Time of Service</label>
+            <input value={form.updatedAt ? new Date(form.updatedAt).toLocaleString() : new Date().toLocaleString()} readOnly className="mt-1 w-full bg-card text-foreground p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Related Request / Ticket</label>
-            <input disabled={editingSection !== 'general'} value={form.requestId || ''} onChange={e => setField('requestId', e.target.value)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Related Request / Ticket</label>
+            <input disabled={editingSection !== 'general'} value={form.requestId || ''} onChange={e => setField('requestId', e.target.value)} className="mt-1 w-full bg-card text-foreground p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Type of Maintenance</label>
-            <select disabled={editingSection !== 'general'} value={form.category || ''} onChange={e => setField('category', e.target.value)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm">
+            <label className="text-xs text-muted-foreground">Type of Maintenance</label>
+            <select disabled={editingSection !== 'general'} value={form.category || ''} onChange={e => setField('category', e.target.value)} className="mt-1 w-full bg-card text-foreground p-2 rounded text-sm">
               <option value="Corrective">Corrective</option>
               <option value="Preventive">Preventive</option>
               <option value="Improvement">Improvement</option>
@@ -292,8 +292,8 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-300">Priority Level</label>
-            <select disabled={editingSection !== 'general'} value={form.priority || 'Medium'} onChange={e => setField('priority', e.target.value as any)} className="mt-1 w-full bg-gray-800 text-white p-2 rounded text-sm">
+            <label className="text-xs text-muted-foreground">Priority Level</label>
+            <select disabled={editingSection !== 'general'} value={form.priority || 'Medium'} onChange={e => setField('priority', e.target.value as any)} className="mt-1 w-full bg-card text-foreground p-2 rounded text-sm">
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
               <option value="High">High</option>
@@ -301,25 +301,25 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-300">Site / Building</label>
-            <input disabled={editingSection !== 'general'} value={form.location || ''} onChange={e => setField('location', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Site / Building</label>
+            <input disabled={editingSection !== 'general'} value={form.location || ''} onChange={e => setField('location', e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Asset / Equipment / Area</label>
-            <input disabled={editingSection !== 'general'} value={form.asset || ''} onChange={e => setField('asset', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Asset / Equipment / Area</label>
+            <input disabled={editingSection !== 'general'} value={form.asset || ''} onChange={e => setField('asset', e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
         </div>
       </div>
 
       {/* 2. Maintenance Team Assignment */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">2. Maintenance Team Assignment</div>
           <div>
             {editingSection === 'requester' ? (
               <>
                 <button disabled={savingSection === 'requester'} onClick={() => saveSection('requester')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'requester' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('requester')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('requester')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('requester')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -328,36 +328,36 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-300">Contractor / Company</label>
-            <input disabled={editingSection !== 'requester'} value={form.company || ''} onChange={e => setField('company', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Contractor / Company</label>
+            <input disabled={editingSection !== 'requester'} value={form.company || ''} onChange={e => setField('company', e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Name of Maintenance Team</label>
-            <input disabled={true} value={(form as any).maintenanceTeamName || ''} className="mt-1 w-full bg-gray-800/50 p-2 rounded text-sm text-gray-400 cursor-not-allowed" placeholder="Auto-filled from Role" />
+            <label className="text-xs text-muted-foreground">Name of Maintenance Team</label>
+            <input disabled={true} value={(form as any).maintenanceTeamName || ''} className="mt-1 w-full bg-card/50 p-2 rounded text-sm text-muted-foreground cursor-not-allowed" placeholder="Auto-filled from Role" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Surname of Maintenance Team</label>
-            <input disabled={true} value={(form as any).maintenanceTeamSurname || ''} className="mt-1 w-full bg-gray-800/50 p-2 rounded text-sm text-gray-400 cursor-not-allowed" placeholder="Auto-filled from Role" />
+            <label className="text-xs text-muted-foreground">Surname of Maintenance Team</label>
+            <input disabled={true} value={(form as any).maintenanceTeamSurname || ''} className="mt-1 w-full bg-card/50 p-2 rounded text-sm text-muted-foreground cursor-not-allowed" placeholder="Auto-filled from Role" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Name of Manutentor (1)</label>
-            <input disabled={editingSection !== 'requester'} value={form.responsibleTechnician || ''} onChange={e => setField('responsibleTechnician', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Name of Manutentor (1)</label>
+            <input disabled={editingSection !== 'requester'} value={form.responsibleTechnician || ''} onChange={e => setField('responsibleTechnician', e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Surname of Manutentor (1)</label>
-            <input disabled={editingSection !== 'requester'} value={(form as any).responsibleTechnicianSurname || ''} onChange={e => setField('responsibleTechnicianSurname' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Surname of Manutentor (1)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).responsibleTechnicianSurname || ''} onChange={e => setField('responsibleTechnicianSurname' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Name of Manutentor (2)</label>
-            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Name || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.name) || ''} onChange={e => setField('manutentor2Name' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Name of Manutentor (2)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Name || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.name) || ''} onChange={e => setField('manutentor2Name' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Surname of Manutentor (2)</label>
-            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Surname || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.surname) || ''} onChange={e => setField('manutentor2Surname' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Surname of Manutentor (2)</label>
+            <input disabled={editingSection !== 'requester'} value={(form as any).manutentor2Surname || (Array.isArray(form.assignedTechnicians) && form.assignedTechnicians[0]?.surname) || ''} onChange={e => setField('manutentor2Surname' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-gray-300">Assigned Technicians</label>
-            <div className="mt-1 text-xs text-gray-300">
+            <label className="text-xs text-muted-foreground">Assigned Technicians</label>
+            <div className="mt-1 text-xs text-muted-foreground">
               {(form.assignedTechnicians || []).length === 0 ? '—' : (form.assignedTechnicians || []).map((t, i) => (<div key={i}>{t.name} {t.email ? `(${t.email})` : ''} {t.company ? `— ${t.company}` : ''}</div>))}
             </div>
           </div>
@@ -365,14 +365,14 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
       </div>
 
       {/* 3. Work Description */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">3. Work Description</div>
           <div>
             {editingSection === 'work' ? (
               <>
                 <button disabled={savingSection === 'work'} onClick={() => saveSection('work')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'work' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('work')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('work')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('work')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -381,37 +381,37 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 space-y-2">
           <div>
-            <label className="text-xs text-gray-300">Reported Issue / Request</label>
-            <input disabled={editingSection !== 'work'} value={form.description || ''} onChange={e => setField('description', e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Reported Issue / Request</label>
+            <input disabled={editingSection !== 'work'} value={form.description || ''} onChange={e => setField('description', e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Diagnosis / Root Cause</label>
-            <textarea disabled={editingSection !== 'work'} value={form.diagnosis || ''} onChange={e => setField('diagnosis' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} />
+            <label className="text-xs text-muted-foreground">Diagnosis / Root Cause</label>
+            <textarea disabled={editingSection !== 'work'} value={form.diagnosis || ''} onChange={e => setField('diagnosis' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" rows={2} />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Work Performed</label>
-            <textarea disabled={editingSection !== 'work'} value={form.workPerformed || ''} onChange={e => setField('workPerformed' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} />
+            <label className="text-xs text-muted-foreground">Work Performed</label>
+            <textarea disabled={editingSection !== 'work'} value={form.workPerformed || ''} onChange={e => setField('workPerformed' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" rows={2} />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Materials / Spare Parts Used</label>
-            <input disabled={editingSection !== 'work'} value={(form as any).materials || ''} onChange={e => setField('materials' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Materials / Spare Parts Used</label>
+            <input disabled={editingSection !== 'work'} value={(form as any).materials || ''} onChange={e => setField('materials' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Total Time Spent</label>
-            <input disabled={editingSection !== 'work'} value={(form as any).timeSpent || ''} onChange={e => setField('timeSpent' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="e.g. 1h 30m" />
+            <label className="text-xs text-muted-foreground">Total Time Spent</label>
+            <input disabled={editingSection !== 'work'} value={(form as any).timeSpent || ''} onChange={e => setField('timeSpent' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" placeholder="e.g. 1h 30m" />
           </div>
         </div>
       </div>
 
       {/* 4. Result & Closure */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">4. Result & Closure</div>
           <div>
             {editingSection === 'result' ? (
               <>
                 <button disabled={savingSection === 'result'} onClick={() => saveSection('result')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'result' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('result')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('result')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('result')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -420,37 +420,37 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-300">Intervention Outcome</label>
-            <select disabled={editingSection !== 'result'} value={(form as any).interventionOutcome || ''} onChange={e => setField('interventionOutcome' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+            <label className="text-xs text-muted-foreground">Intervention Outcome</label>
+            <select disabled={editingSection !== 'result'} value={(form as any).interventionOutcome || ''} onChange={e => setField('interventionOutcome' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm">
               <option value="Resolved">Resolved</option>
               <option value="Partially resolved">Partially resolved</option>
               <option value="Not resolved">Not resolved</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-300">Asset Condition After Work</label>
-            <input disabled={editingSection !== 'result'} value={(form as any).assetCondition || ''} onChange={e => setField('assetCondition' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Asset Condition After Work</label>
+            <input disabled={editingSection !== 'result'} value={(form as any).assetCondition || ''} onChange={e => setField('assetCondition' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-gray-300">Technical Notes / Recommendations</label>
-            <textarea disabled={editingSection !== 'result'} value={form.technicalNotes || ''} onChange={e => setField('technicalNotes' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} />
+            <label className="text-xs text-muted-foreground">Technical Notes / Recommendations</label>
+            <textarea disabled={editingSection !== 'result'} value={form.technicalNotes || ''} onChange={e => setField('technicalNotes' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" rows={2} />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-gray-300">Next Planned Actions</label>
-            <textarea disabled={editingSection !== 'result'} value={(form as any).nextPlannedActions || ''} onChange={e => setField('nextPlannedActions' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" rows={2} placeholder="Planned follow-up or scheduled maintenance" />
+            <label className="text-xs text-muted-foreground">Next Planned Actions</label>
+            <textarea disabled={editingSection !== 'result'} value={(form as any).nextPlannedActions || ''} onChange={e => setField('nextPlannedActions' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" rows={2} placeholder="Planned follow-up or scheduled maintenance" />
           </div>
         </div>
       </div>
 
       {/* 5. Safety & Compliance */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">5. Safety & Compliance</div>
           <div>
             {editingSection === 'safety' ? (
               <>
                 <button disabled={savingSection === 'safety'} onClick={() => saveSection('safety')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'safety' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('safety')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('safety')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('safety')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -459,28 +459,28 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-gray-300">Compliance Check Completed</label>
-            <select disabled={editingSection !== 'safety'} value={(form as any).complianceCompleted ? 'Yes' : 'No'} onChange={e => setField('complianceCompleted' as any, e.target.value === 'Yes')} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+            <label className="text-xs text-muted-foreground">Compliance Check Completed</label>
+            <select disabled={editingSection !== 'safety'} value={(form as any).complianceCompleted ? 'Yes' : 'No'} onChange={e => setField('complianceCompleted' as any, e.target.value === 'Yes')} className="mt-1 w-full bg-card p-2 rounded text-sm">
               <option>Yes</option>
               <option>No</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-300">PPE Used</label>
-            <input disabled={editingSection !== 'safety'} value={(form as any).ppe || ''} onChange={e => setField('ppe' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">PPE Used</label>
+            <input disabled={editingSection !== 'safety'} value={(form as any).ppe || ''} onChange={e => setField('ppe' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
         </div>
       </div>
 
       {/* 6. Signatures & Validation */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">6. Signatures & Validation</div>
           <div>
             {editingSection === 'signatures' ? (
               <>
                 <button disabled={savingSection === 'signatures'} onClick={() => saveSection('signatures')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'signatures' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('signatures')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('signatures')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('signatures')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -489,20 +489,20 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
         <div className="mt-2 space-y-3">
           <div>
-            <label className="text-xs text-gray-300">Technician Signature (Digital or Handwritten)</label>
-            <input disabled={editingSection !== 'signatures'} value={(form as any).techSignature || ''} onChange={e => setField('techSignature' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Type name to sign" />
+            <label className="text-xs text-muted-foreground">Technician Signature (Digital or Handwritten)</label>
+            <input disabled={editingSection !== 'signatures'} value={(form as any).techSignature || ''} onChange={e => setField('techSignature' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" placeholder="Type name to sign" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Client / Site Representative Signature (Digital or Handwritten)</label>
-            <input disabled={editingSection !== 'signatures'} value={(form as any).clientSignature || ''} onChange={e => setField('clientSignature' as any, e.target.value)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" placeholder="Type name" />
+            <label className="text-xs text-muted-foreground">Client / Site Representative Signature (Digital or Handwritten)</label>
+            <input disabled={editingSection !== 'signatures'} value={(form as any).clientSignature || ''} onChange={e => setField('clientSignature' as any, e.target.value)} className="mt-1 w-full bg-card p-2 rounded text-sm" placeholder="Type name" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Closure Date (Today or Past)</label>
-            <input disabled={editingSection !== 'signatures'} type="date" value={(form as any).closureDate || ''} onChange={e => setField('closureDate' as any, e.target.value)} max={new Date().toISOString().split('T')[0]} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm" />
+            <label className="text-xs text-muted-foreground">Closure Date (Today or Past)</label>
+            <input disabled={editingSection !== 'signatures'} type="date" value={(form as any).closureDate || ''} onChange={e => setField('closureDate' as any, e.target.value)} max={new Date().toISOString().split('T')[0]} className="mt-1 w-full bg-card p-2 rounded text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-300">Work Status</label>
-            <select disabled={editingSection !== 'signatures'} value={form.status || 'In Progress'} onChange={e => setField('status', e.target.value as any)} className="mt-1 w-full bg-gray-800 p-2 rounded text-sm">
+            <label className="text-xs text-muted-foreground">Work Status</label>
+            <select disabled={editingSection !== 'signatures'} value={form.status || 'In Progress'} onChange={e => setField('status', e.target.value as any)} className="mt-1 w-full bg-card p-2 rounded text-sm">
               <option value="In Progress">In Progress</option>
               <option value="Completed">Completed</option>
               <option value="Verified">Verified</option>
@@ -513,14 +513,14 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
       </div>
 
       {/* 7. Attachments */}
-      <div className="mt-3 bg-gray-800/40 p-3 rounded">
+      <div className="mt-3 bg-card/40 p-3 rounded">
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">7. Attachments</div>
           <div>
             {editingSection === 'attachments' ? (
               <>
                 <button disabled={savingSection === 'attachments'} onClick={() => saveSection('attachments')} className="text-sm bg-green-600 px-2 py-1 rounded mr-2">{savingSection === 'attachments' ? 'Saving...' : 'Save'}</button>
-                <button onClick={() => cancelSectionEdit('attachments')} className="text-sm bg-gray-700 px-2 py-1 rounded">Cancel</button>
+                <button onClick={() => cancelSectionEdit('attachments')} className="text-sm bg-muted px-2 py-1 rounded">Cancel</button>
               </>
             ) : (
               <button onClick={() => setEditingSection('attachments')} className="text-sm bg-blue-600 px-2 py-1 rounded">Edit</button>
@@ -529,24 +529,24 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
         </div>
 
         <div className="mt-3">
-          <label className="block text-xs text-gray-300">Attachments</label>
-          <div className="mt-2 text-xs text-gray-400">Before images (read-only):</div>
+          <label className="block text-xs text-muted-foreground">Attachments</label>
+          <div className="mt-2 text-xs text-muted-foreground">Before images (read-only):</div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {((form.attachments || []) as any[]).filter(a => a.type === 'before').map((a, idx) => (
-              <div key={idx} className="bg-gray-800 p-1 rounded">
+              <div key={idx} className="bg-card p-1 rounded">
                 <img src={a.url} alt={a.name} className="h-20 w-full object-cover rounded" />
-                <div className="text-xs text-gray-400">{a.name || ''} • {a.uploadedAt ? new Date(a.uploadedAt).toLocaleString() : ''}</div>
+                <div className="text-xs text-muted-foreground">{a.name || ''} • {a.uploadedAt ? new Date(a.uploadedAt).toLocaleString() : ''}</div>
               </div>
             ))}
           </div>
 
-          <div className="mt-3 text-xs text-gray-400">Add After images / Docs:</div>
+          <div className="mt-3 text-xs text-muted-foreground">Add After images / Docs:</div>
           <div className="flex gap-2 mt-2">
-            <label className={`bg-gray-700 px-3 py-2 rounded text-sm cursor-pointer ${editingSection === 'attachments' ? '' : 'opacity-60 pointer-events-none'}`}>
+            <label className={`bg-muted px-3 py-2 rounded text-sm cursor-pointer ${editingSection === 'attachments' ? '' : 'opacity-60 pointer-events-none'}`}>
               Upload After
               <input disabled={editingSection !== 'attachments'} type="file" accept="image/*" onChange={e => onFile(e, 'after')} className="hidden" />
             </label>
-            <label className={`bg-gray-700 px-3 py-2 rounded text-sm cursor-pointer ${editingSection === 'attachments' ? '' : 'opacity-60 pointer-events-none'}`}>
+            <label className={`bg-muted px-3 py-2 rounded text-sm cursor-pointer ${editingSection === 'attachments' ? '' : 'opacity-60 pointer-events-none'}`}>
               Upload Doc
               <input disabled={editingSection !== 'attachments'} type="file" onChange={e => onFile(e, 'doc')} className="hidden" />
             </label>
@@ -554,13 +554,13 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             {(form.attachments || []).map((a: any, idx) => (
-              <div key={idx} className="bg-gray-800 p-1 rounded">
+              <div key={idx} className="bg-card p-1 rounded">
                 {a.type === 'doc' ? (
                   <div className="text-xs">{a.name || 'doc'}</div>
                 ) : (
                   <img src={a.url} alt={a.name} className="h-20 w-full object-cover rounded" />
                 )}
-                <div className="text-xs text-gray-400">{a.type} • {a.uploadedAt ? new Date(a.uploadedAt).toLocaleString() : ''}</div>
+                <div className="text-xs text-muted-foreground">{a.type} • {a.uploadedAt ? new Date(a.uploadedAt).toLocaleString() : ''}</div>
               </div>
             ))}
           </div>
@@ -634,7 +634,7 @@ export default function MaintenanceReport({ projectId, workOrder, onSave, onClos
                 } finally { setSaving(false); }
               }}
               disabled={!canMarkResolved() || saving}
-              className={`${canMarkResolved() ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed'} px-4 py-2 rounded text-sm font-semibold transition-colors ${saving ? 'opacity-50' : ''}`}
+              className={`${canMarkResolved() ? 'bg-green-600 hover:bg-green-700' : 'bg-muted cursor-not-allowed'} px-4 py-2 rounded text-sm font-semibold transition-colors ${saving ? 'opacity-50' : ''}`}
             >
               {saving ? 'Saving...' : 'Mark as Resolved'}
             </button>

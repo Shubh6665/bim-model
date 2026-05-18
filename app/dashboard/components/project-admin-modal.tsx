@@ -812,18 +812,18 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
   if (!isOpen || !project) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 backdrop-blur-sm bg-background/40 flex items-center justify-center z-50">
+      <div className="bg-card rounded-lg shadow-xl w-full max-w-3xl mx-4 max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-700">
+        <div className="flex items-center justify-between p-5 border-b border-border">
           <div className="flex items-center gap-3">
             <Building className="w-6 h-6 text-blue-400" />
             <div>
-              <h2 className="text-xl font-semibold text-white">Project Administration</h2>
-              <p className="text-sm text-gray-400">Your role: {displayRoleLabel}</p>
+              <h2 className="text-xl font-semibold text-foreground">Project Administration</h2>
+              <p className="text-sm text-muted-foreground">Your role: {displayRoleLabel}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -831,15 +831,15 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
         {/* Tabs */}
         <div className="px-5 pt-3">
           <div className="flex gap-2 overflow-x-auto pb-2">
-            <button onClick={() => setActiveTab("info")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "info" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Project Information</button>
+            <button onClick={() => setActiveTab("info")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "info" ? "bg-blue-600 text-foreground" : "text-muted-foreground hover:bg-muted"}`}>Project Information</button>
             {canManage && (
-              <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Manage Access</button>
+              <button onClick={() => setActiveTab("access")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "access" ? "bg-blue-600 text-foreground" : "text-muted-foreground hover:bg-muted"}`}>Manage Access</button>
             )}
             {canUploadOrReplace && (
-              <button onClick={() => setActiveTab("upload")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "upload" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Upload Model</button>
+              <button onClick={() => setActiveTab("upload")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "upload" ? "bg-blue-600 text-foreground" : "text-muted-foreground hover:bg-muted"}`}>Upload Model</button>
             )}
             {canRemoveModel && (
-              <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-gray-700"}`}>Edit/Remove Model</button>
+              <button onClick={() => setActiveTab("remove")} className={`px-3 py-1.5 text-sm rounded-md ${activeTab === "remove" ? "bg-blue-600 text-foreground" : "text-muted-foreground hover:bg-muted"}`}>Edit/Remove Model</button>
             )}
           </div>
         </div>
@@ -865,68 +865,68 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
           {false && (
             <div className="space-y-4">
               {profileLoading ? (
-                <div className="text-sm text-gray-400">Loading profile…</div>
+                <div className="text-sm text-muted-foreground">Loading profile…</div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Name</label>
+                      <label className="block text-sm text-muted-foreground mb-1">Name</label>
                       <input 
                         value={editedProfile.name || ""} 
                         onChange={(e) => handleProfileField("name", e.target.value)} 
                         disabled={!isEditingProfile} 
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                        className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" 
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Surname</label>
+                      <label className="block text-sm text-muted-foreground mb-1">Surname</label>
                       <input 
                         value={editedProfile.surname || ""} 
                         onChange={(e) => handleProfileField("surname", e.target.value)} 
                         disabled={!isEditingProfile} 
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                        className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" 
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-500 mb-1">Email (read-only)</label>
-                      <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{profile.email || user?.email}</div>
+                      <label className="block text-sm text-muted-foreground mb-1">Email (read-only)</label>
+                      <div className="px-3 py-2 bg-muted rounded text-muted-foreground">{profile.email || user?.email}</div>
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-500 mb-1">Role (read-only)</label>
-                      <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{displayRoleLabel}</div>
+                      <label className="block text-sm text-muted-foreground mb-1">Role (read-only)</label>
+                      <div className="px-3 py-2 bg-muted rounded text-muted-foreground">{displayRoleLabel}</div>
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Society</label>
+                      <label className="block text-sm text-muted-foreground mb-1">Society</label>
                       <input 
                         value={editedProfile.society || ""} 
                         onChange={(e) => handleProfileField("society", e.target.value)} 
                         disabled={!isEditingProfile} 
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                        className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" 
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Telephone (+countrycode)</label>
+                      <label className="block text-sm text-muted-foreground mb-1">Telephone (+countrycode)</label>
                       <input 
                         value={editedProfile.telephone || ""} 
                         onChange={(e) => handleProfileField("telephone", e.target.value)} 
                         disabled={!isEditingProfile} 
                         placeholder="+14151234567" 
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                        className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" 
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm text-gray-300 mb-1">Avatar URL</label>
+                      <label className="block text-sm text-muted-foreground mb-1">Avatar URL</label>
                       <input 
                         value={editedProfile.avatarUrl || ""} 
                         onChange={(e) => handleProfileField("avatarUrl", e.target.value)} 
                         disabled={!isEditingProfile} 
                         placeholder="https://.../avatar.png" 
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" 
+                        className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" 
                       />
                       {editedProfile.avatarUrl ? (
                         <div className="mt-2 flex items-center gap-3">
-                          <img src={editedProfile.avatarUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover border border-gray-600" />
-                          <span className="text-xs text-gray-400">Preview</span>
+                          <img src={editedProfile.avatarUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover border border-border" />
+                          <span className="text-xs text-muted-foreground">Preview</span>
                         </div>
                       ) : null}
                     </div>
@@ -937,7 +937,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                     {!isEditingProfile ? (
                       <button 
                         onClick={() => setIsEditingProfile(true)} 
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded-md"
                       >
                         <Edit3 className="w-4 h-4" />
                         <span>Edit Profile</span>
@@ -947,14 +947,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                         <button 
                           onClick={handleCancelProfile} 
                           disabled={saving} 
-                          className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-600 text-white rounded-md"
+                          className="px-4 py-2 bg-muted hover:bg-muted disabled:bg-muted text-foreground rounded-md"
                         >
                           Cancel
                         </button>
                         <button 
                           onClick={handleSaveProfile} 
                           disabled={saving} 
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md"
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground rounded-md"
                         >
                           <Save className="w-4 h-4" />
                           <span>{saving ? 'Saving...' : 'Save Profile'}</span>
@@ -970,40 +970,40 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Project Name</label>
-                  <input value={edited?.name || ""} onChange={(e) => handleProjectField("name", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Project Name</label>
+                  <input value={edited?.name || ""} onChange={(e) => handleProjectField("name", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Project Code</label>
-                  <input value={edited?.code || ""} onChange={(e) => handleProjectField("code", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Project Code</label>
+                  <input value={edited?.code || ""} onChange={(e) => handleProjectField("code", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-300 mb-1">Description</label>
-                  <textarea value={edited?.description || ""} onChange={(e) => handleProjectField("description", e.target.value)} rows={3} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Description</label>
+                  <textarea value={edited?.description || ""} onChange={(e) => handleProjectField("description", e.target.value)} rows={3} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Country</label>
-                  <input value={edited?.country || ""} onChange={(e) => handleProjectField("country", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Country</label>
+                  <input value={edited?.country || ""} onChange={(e) => handleProjectField("country", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Municipality</label>
-                  <input value={edited?.municipality || ""} onChange={(e) => handleProjectField("municipality", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Municipality</label>
+                  <input value={edited?.municipality || ""} onChange={(e) => handleProjectField("municipality", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Address</label>
-                  <input value={edited?.address || ""} onChange={(e) => handleProjectField("address", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Address</label>
+                  <input value={edited?.address || ""} onChange={(e) => handleProjectField("address", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Cadastral</label>
-                  <input value={edited?.cadastral || ""} onChange={(e) => handleProjectField("cadastral", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                  <label className="block text-sm text-muted-foreground mb-1">Cadastral</label>
+                  <input value={edited?.cadastral || ""} onChange={(e) => handleProjectField("cadastral", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">Latitude (read-only)</label>
-                  <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{project.lat}</div>
+                  <label className="block text-sm text-muted-foreground mb-1">Latitude (read-only)</label>
+                  <div className="px-3 py-2 bg-muted rounded text-muted-foreground">{project.lat}</div>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">Longitude (read-only)</label>
-                  <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{project.lng}</div>
+                  <label className="block text-sm text-muted-foreground mb-1">Longitude (read-only)</label>
+                  <div className="px-3 py-2 bg-muted rounded text-muted-foreground">{project.lng}</div>
                 </div>
               </div>
 
@@ -1011,20 +1011,20 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Company</label>
-                    <input value={edited?.company || ""} onChange={(e) => handleProjectField("company", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                    <label className="block text-sm text-muted-foreground mb-1">Company</label>
+                    <input value={edited?.company || ""} onChange={(e) => handleProjectField("company", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Client Name</label>
-                    <input value={edited?.clientName || ""} onChange={(e) => handleProjectField("clientName", e.target.value)} disabled={!isEditingInfo} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-70" />
+                    <label className="block text-sm text-muted-foreground mb-1">Client Name</label>
+                    <input value={edited?.clientName || ""} onChange={(e) => handleProjectField("clientName", e.target.value)} disabled={!isEditingInfo} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-70" />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-500 mb-1">File Type (read-only)</label>
-                    <div className="px-3 py-2 bg-gray-700 rounded text-gray-300">{project.fileType || 'N/A'}</div>
+                    <label className="block text-sm text-muted-foreground mb-1">File Type (read-only)</label>
+                    <div className="px-3 py-2 bg-muted rounded text-muted-foreground">{project.fileType || 'N/A'}</div>
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-500 mb-1">Project ID (read-only)</label>
-                    <div className="px-3 py-2 bg-gray-700 rounded text-gray-300 font-mono text-sm">{project.id}</div>
+                    <label className="block text-sm text-muted-foreground mb-1">Project ID (read-only)</label>
+                    <div className="px-3 py-2 bg-muted rounded text-muted-foreground font-mono text-sm">{project.id}</div>
                   </div>
                 </div>
               </div>
@@ -1032,8 +1032,8 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               {/* Technical Information (URN) */}
               {project.urn && (
                 <div className="space-y-2">
-                  <label className="block text-sm text-gray-500 mb-1">Model URN (read-only)</label>
-                  <div className="px-3 py-2 bg-gray-700 rounded text-gray-300 font-mono text-xs break-all">{project.urn}</div>
+                  <label className="block text-sm text-muted-foreground mb-1">Model URN (read-only)</label>
+                  <div className="px-3 py-2 bg-muted rounded text-muted-foreground font-mono text-xs break-all">{project.urn}</div>
                 </div>
               )}
               {/* Bottom actions: Edit (when not editing), Save + Cancel (when editing) */}
@@ -1041,17 +1041,17 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 {canUpdateProject && (
                   <div className="flex gap-2">
                     {!isEditingInfo ? (
-                      <button onClick={() => setIsEditingInfo(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                      <button onClick={() => setIsEditingInfo(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-foreground rounded-md">
                         <Edit3 className="w-4 h-4" />
                         <span>Edit</span>
                       </button>
                     ) : (
                       <>
-                        <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md">
+                        <button onClick={handleSaveInfo} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground rounded-md">
                           <Save className="w-4 h-4" />
                           <span>{saving ? "Saving..." : "Save"}</span>
                         </button>
-                        <button onClick={() => { setEdited(project ? { ...project } : null); setIsEditingInfo(false); }} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
+                        <button onClick={() => { setEdited(project ? { ...project } : null); setIsEditingInfo(false); }} className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-md">Cancel</button>
                       </>
                     )}
                   </div>
@@ -1059,7 +1059,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 {canDeleteProject && (
                   <button
                     onClick={() => setShowConfirmDeleteProject(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-md"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Delete Project</span>
@@ -1083,20 +1083,20 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Name</label>
-                  <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">Name</label>
+                  <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} disabled={!canManageInvites} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Surname</label>
-                  <input value={invite.surname} onChange={(e) => setInvite({ ...invite, surname: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">Surname</label>
+                  <input value={invite.surname} onChange={(e) => setInvite({ ...invite, surname: e.target.value })} disabled={!canManageInvites} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Email</label>
-                  <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">Email</label>
+                  <input type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} disabled={!canManageInvites} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Role</label>
-                  <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60">
+                  <label className="block text-sm text-muted-foreground mb-1">Role</label>
+                  <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} disabled={!canManageInvites} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60">
                     {roles.map((r) => {
                       const isPA = r === 'Project Admin';
                       return (
@@ -1108,14 +1108,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-300 mb-1">Society</label>
-                  <input value={invite.society} onChange={(e) => setInvite({ ...invite, society: e.target.value })} disabled={!canManageInvites} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">Society</label>
+                  <input value={invite.society} onChange={(e) => setInvite({ ...invite, society: e.target.value })} disabled={!canManageInvites} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-300 mb-2">Packages</label>
+                  <label className="block text-sm text-muted-foreground mb-2">Packages</label>
                   <div className="flex flex-wrap gap-3">
                     {(["BIM", "IoT", "Database", "AI", "FM"] as const).map((pkg) => (
-                      <label key={pkg} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${invite.packages[pkg] ? "bg-blue-600/20 border-blue-500 text-blue-200" : "bg-gray-700/50 border-gray-600 text-gray-300"}`}>
+                      <label key={pkg} className={`flex items-center gap-2 px-3 py-1.5 rounded-md border ${invite.packages[pkg] ? "bg-blue-600/20 border-blue-500 text-blue-200" : "bg-muted/50 border-border text-muted-foreground"}`}>
                         <input type="checkbox" checked={invite.packages[pkg]} onChange={(e) => setInvite({ ...invite, packages: { ...invite.packages, [pkg]: e.target.checked } })} disabled={!canManageInvites} />
                         <CheckSquare className="w-4 h-4" /> {pkg}
                       </label>
@@ -1124,31 +1124,31 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleSendInvite} disabled={saving || !canManageInvites} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleSendInvite} disabled={saving || !canManageInvites} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-md">
                   <Mail className="w-4 h-4" />
                   <span>{saving ? "Sending..." : "Send Invite"}</span>
                 </button>
               </div>
 
               {/* Invites list */}
-              <div className="pt-2 border-t border-gray-700">
+              <div className="pt-2 border-t border-border">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-200">Invitations</h3>
-                  <button onClick={loadInvites} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded">Refresh</button>
+                  <h3 className="text-sm font-semibold text-foreground">Invitations</h3>
+                  <button onClick={loadInvites} className="text-xs px-2 py-1 bg-muted hover:bg-muted rounded">Refresh</button>
                 </div>
                 {invitesLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="text-sm text-gray-400">Loading invites…</div>
+                    <div className="text-sm text-muted-foreground">Loading invites…</div>
                   </div>
                 ) : displayInvites.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="text-sm text-gray-400">No invites yet.</div>
+                    <div className="text-sm text-muted-foreground">No invites yet.</div>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-gray-300 border-b border-gray-700">
+                        <tr className="text-left text-muted-foreground border-b border-border">
                           <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Name</th>
                           <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Email</th>
                           <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Role</th>
@@ -1157,17 +1157,17 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                           <th className="py-2 pr-3 font-semibold text-xs uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-700">
+                      <tbody className="divide-y divide-border">
                         {displayInvites.map((inv) => {
                           const id = getInviteId(inv);
                           const pkgs: string[] = Array.isArray(inv?.invitee?.packages) ? inv.invitee.packages : [];
                           const isAccepted = inv.status === 'accepted';
                           return (
-                            <tr key={id} className="hover:bg-gray-800/30 transition-colors">
-                              <td className="py-2.5 pr-3 text-gray-200 text-sm font-medium">
+                            <tr key={id} className="hover:bg-card/30 transition-colors">
+                              <td className="py-2.5 pr-3 text-foreground text-sm font-medium">
                                 {`${inv?.invitee?.name || ''} ${inv?.invitee?.surname || ''}`.trim() || '—'}
                               </td>
-                              <td className="py-2.5 pr-3 text-gray-300 text-sm">
+                              <td className="py-2.5 pr-3 text-muted-foreground text-sm">
                                 {inv?.invitee?.email}
                               </td>
                               <td className="py-2.5 pr-3">
@@ -1180,7 +1180,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                     )));
                                   }}
                                   disabled={!canManageInvites}
-                                  className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200 text-sm min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                  className="bg-muted border border-border rounded px-2 py-1 text-foreground text-sm min-w-[120px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                   {roles.map((r) => {
                                     const isPA = r === 'Project Admin';
@@ -1211,7 +1211,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                       } ${
                                         pkgs.includes(pkg) 
                                           ? 'bg-blue-600/20 border-blue-500/50 text-blue-200' 
-                                          : 'bg-gray-700/40 border-gray-600/50 text-gray-300'
+                                          : 'bg-muted/40 border-border/50 text-muted-foreground'
                                       }`}
                                     >
                                       <input 
@@ -1219,7 +1219,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                         checked={pkgs.includes(pkg)} 
                                         onChange={() => toggleInvitePackage(id, pkg)} 
                                         disabled={!canManageInvites}
-                                        className="w-3 h-3 text-blue-500 bg-gray-700 border-gray-600 rounded"
+                                        className="w-3 h-3 text-blue-500 bg-muted border-border rounded"
                                       />
                                       {pkg}
                                     </label>
@@ -1230,12 +1230,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                 <div className="flex gap-1.5">
                                   <button
                                     onClick={() => saveInvitePackages(id)}
-                                    className="bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors min-w-[60px] flex items-center justify-center"
+                                    className="bg-blue-500 text-foreground px-3 py-1.5 rounded text-sm hover:bg-blue-600 disabled:bg-muted disabled:cursor-not-allowed transition-colors min-w-[60px] flex items-center justify-center"
                                     disabled={updatingPackageId === id}
                                   >
                                     {updatingPackageId === id ? (
                                       <div className="flex items-center gap-1">
-                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <div className="w-3 h-3 border border-border border-t-transparent rounded-full animate-spin"></div>
                                       </div>
                                     ) : (
                                       'Save'
@@ -1244,7 +1244,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                                   <button 
                                     onClick={() => handleRevokeInvite(id)} 
                                     disabled={!canManageInvites} 
-                                    className="px-2.5 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className="px-2.5 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-foreground rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                   >
                                     Revoke
                                   </button>
@@ -1270,27 +1270,27 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Model Description</label>
-                  <input value={newModel.name} onChange={(e) => setNewModel({ ...newModel, name: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">Model Description</label>
+                  <input value={newModel.name} onChange={(e) => setNewModel({ ...newModel, name: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Discipline</label>
+                  <label className="block text-sm text-muted-foreground mb-1">Discipline</label>
                   <select value={newModel.discipline}
                           onChange={(e) => setNewModel({ ...newModel, discipline: e.target.value.toLowerCase() })}
                           disabled={!canUploadOrReplace}
-                          className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white capitalize disabled:opacity-60">
+                          className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground capitalize disabled:opacity-60">
                     {['architecture','structure','mep','electrical','plumbing','hvac','other'].map(d => (
                       <option key={d} value={d}>{capitalize(d)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Paste URN (optional)</label>
-                  <input value={newModel.urn} onChange={(e) => setNewModel({ ...newModel, urn: e.target.value })} placeholder="urn:adsk.objects:..." disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
-                  <p className="text-xs text-gray-400 mt-1">Option A: Paste URN directly</p>
+                  <label className="block text-sm text-muted-foreground mb-1">Paste URN (optional)</label>
+                  <input value={newModel.urn} onChange={(e) => setNewModel({ ...newModel, urn: e.target.value })} placeholder="urn:adsk.objects:..." disabled={!canUploadOrReplace} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
+                  <p className="text-xs text-muted-foreground mt-1">Option A: Paste URN directly</p>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Or select a file</label>
+                  <label className="block text-sm text-muted-foreground mb-1">Or select a file</label>
                   <input
                     id="modelFile"
                     type="file"
@@ -1314,20 +1314,20 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   />
                   <label
                     htmlFor="modelFile"
-                    className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-md border border-dashed border-gray-600 ${canUploadOrReplace ? 'bg-gray-700 hover:bg-gray-600 cursor-pointer' : 'bg-gray-800 cursor-not-allowed opacity-60'} text-gray-200 transition-colors`}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-md border border-dashed border-border ${canUploadOrReplace ? 'bg-muted hover:bg-muted cursor-pointer' : 'bg-card cursor-not-allowed opacity-60'} text-foreground transition-colors`}
                     title="Click to choose a file"
                   >
                     <span className="truncate">
                       {selectedFile ? selectedFile.name : 'No file selected'}
                     </span>
-                    <span className="shrink-0 inline-flex items-center gap-2 text-sm text-gray-300">
+                    <span className="shrink-0 inline-flex items-center gap-2 text-sm text-muted-foreground">
                       <Upload className="w-4 h-4" /> Choose file
                     </span>
                   </label>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">File Type</label>
-                  <input value={newModel.fileType} onChange={(e) => setNewModel({ ...newModel, fileType: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white disabled:opacity-60" />
+                  <label className="block text-sm text-muted-foreground mb-1">File Type</label>
+                  <input value={newModel.fileType} onChange={(e) => setNewModel({ ...newModel, fileType: e.target.value })} disabled={!canUploadOrReplace} className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground disabled:opacity-60" />
                 </div>
               </div>
               {(uploading || translating) && (
@@ -1336,7 +1336,7 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 </div>
               )}
               <div className="flex justify-end">
-                <button onClick={handleUploadOrReplace} disabled={saving || !canUploadOrReplace || !newModel.name || (!newModel.urn && !selectedFile)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={handleUploadOrReplace} disabled={saving || !canUploadOrReplace || !newModel.name || (!newModel.urn && !selectedFile)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted text-foreground rounded-md">
                   <Upload className="w-4 h-4" />
                   <span>{saving ? "Submitting..." : "Upload / Replace"}</span>
                 </button>
@@ -1349,12 +1349,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
               {/* Model + Discipline in one row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm text-gray-300 mb-2">Select Model</label>
+                  <label className="block text-sm text-muted-foreground mb-2">Select Model</label>
                   <select 
                     value={removeModelId} 
                     onChange={(e) => setRemoveModelId(e.target.value)} 
                     disabled={!canRemoveModel} 
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
+                    className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-card"
                   >
                     <option value="">-- Choose a model --</option>
                     {(project.models || []).map((m) => (
@@ -1363,12 +1363,12 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-2">Discipline</label>
+                  <label className="block text-sm text-muted-foreground mb-2">Discipline</label>
                   <select
                     value={editDiscipline || ''}
                     onChange={(e) => setEditDiscipline(e.target.value)}
                     disabled={!canRemoveModel || !removeModelId}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800"
+                    className="w-full bg-muted border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-card"
                   >
                     <option value="">-- Select discipline --</option>
                     {disciplineOptions.map((opt) => (
@@ -1383,27 +1383,27 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
                 <button
                   onClick={handleUpdateModel}
                   disabled={saving || !removeModelId || !editDiscipline}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-md"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-muted text-foreground rounded-md"
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || !canRemoveModel} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white rounded-md">
+                <button onClick={() => setShowConfirmRemove(true)} disabled={saving || !removeModelId || !canRemoveModel} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-muted text-foreground rounded-md">
                   <Trash2 className="w-4 h-4" />
                   <span>{saving ? "Removing..." : "Remove"}</span>
                 </button>
               </div>
               {showConfirmRemove && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl w-full max-w-md mx-4">
-                    <div className="p-4 border-b border-gray-700">
-                      <h3 className="text-lg font-semibold text-white">Confirm Removal</h3>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/70">
+                  <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4">
+                    <div className="p-4 border-b border-border">
+                      <h3 className="text-lg font-semibold text-foreground">Confirm Removal</h3>
                     </div>
-                    <div className="p-4 text-gray-200">
+                    <div className="p-4 text-foreground">
                       Are you sure you want to remove this model?
                     </div>
-                    <div className="p-4 flex justify-end gap-2 border-t border-gray-700">
-                      <button onClick={() => setShowConfirmRemove(false)} className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md">Cancel</button>
-                      <button onClick={async () => { setShowConfirmRemove(false); await handleRemoveModel(); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">Yes</button>
+                    <div className="p-4 flex justify-end gap-2 border-t border-border">
+                      <button onClick={() => setShowConfirmRemove(false)} className="px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-md">Cancel</button>
+                      <button onClick={async () => { setShowConfirmRemove(false); await handleRemoveModel(); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-md">Yes</button>
                     </div>
                   </div>
                 </div>
@@ -1415,25 +1415,25 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
 
       {/* Delete Project Confirmation Modal */}
       {showConfirmDeleteProject && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-60">
-          <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 backdrop-blur-sm bg-background/80 flex items-center justify-center z-60">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-white" />
+                <Trash2 className="w-5 h-5 text-foreground" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Delete Project</h3>
-                <p className="text-sm text-gray-400">This action cannot be undone</p>
+                <h3 className="text-lg font-semibold text-foreground">Delete Project</h3>
+                <p className="text-sm text-muted-foreground">This action cannot be undone</p>
               </div>
             </div>
             <div className="mb-6">
-              <p className="text-gray-300 mb-2">
+              <p className="text-muted-foreground mb-2">
                 Are you sure you want to delete the project <strong>"{project?.name}"</strong>?
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 This will permanently delete:
               </p>
-              <ul className="text-sm text-gray-400 mt-2 ml-4 list-disc">
+              <ul className="text-sm text-muted-foreground mt-2 ml-4 list-disc">
                 <li>All project data and models</li>
                 <li>All invitations and access permissions</li>
                 <li>All associated IoT sensors and data</li>
@@ -1442,14 +1442,14 @@ export function ProjectAdminModal({ project, isOpen, onClose, onProjectUpdated }
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirmDeleteProject(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                className="flex-1 px-4 py-2 bg-muted hover:bg-muted text-foreground rounded-md transition-colors"
                 disabled={saving}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteProject}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors disabled:opacity-60"
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-foreground rounded-md transition-colors disabled:opacity-60"
                 disabled={saving}
               >
                 {saving ? "Deleting..." : "Delete Project"}

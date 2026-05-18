@@ -68,16 +68,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
   };
   
   return (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[3000] flex items-center justify-center" onClick={onClose}>
-    <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 max-w-md w-full m-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+  <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[3000] flex items-center justify-center" onClick={onClose}>
+    <div className="bg-card border border-border rounded-xl p-4 max-w-md w-full m-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           
-          <h3 className="text-base font-semibold text-white">System Parameters</h3>
+          <h3 className="text-base font-semibold text-foreground">System Parameters</h3>
         </div>
         <button 
           onClick={onClose} 
-          className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center transition text-xl leading-none"
+          className="w-8 h-8 rounded-full bg-card hover:bg-muted border border-border text-muted-foreground hover:text-foreground flex items-center justify-center transition text-xl leading-none"
           aria-label="Close"
         >
           ×
@@ -88,12 +88,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
         {/* Self-consumption slider with controls */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-300">Self-Consumption Rate</label>
+            <label className="text-xs text-muted-foreground">Self-Consumption Rate</label>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: Math.max(0, tempParams.selfConsumptionRate - 5) })}
-                className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold flex items-center justify-center transition text-sm"
+                className="w-7 h-7 rounded bg-muted hover:bg-muted border border-border text-foreground font-bold flex items-center justify-center transition text-sm"
                 title="Decrease by 5%"
               >
                 −
@@ -106,14 +106,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                   const val = parseInt(e.target.value) || 0;
                   setTempParams({ ...tempParams, selfConsumptionRate: Math.min(100, Math.max(0, val)) });
                 }}
-                className="w-16 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-center text-sm font-semibold"
+                className="w-16 bg-card border border-border rounded px-2 py-1 text-foreground text-center text-sm font-semibold"
                 placeholder="70"
               />
-              <span className="text-xs text-gray-400 font-medium">%</span>
+              <span className="text-xs text-muted-foreground font-medium">%</span>
               <button
                 type="button"
                 onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: Math.min(100, tempParams.selfConsumptionRate + 5) })}
-                className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white font-bold flex items-center justify-center transition text-sm"
+                className="w-7 h-7 rounded bg-muted hover:bg-muted border border-border text-foreground font-bold flex items-center justify-center transition text-sm"
                 title="Increase by 5%"
               >
                 +
@@ -127,21 +127,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               max={100}
               value={tempParams.selfConsumptionRate}
               onChange={(e) => setTempParams({ ...tempParams, selfConsumptionRate: Number(e.target.value) })}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
             />
             <div
-              className="absolute -top-1.5 translate-x-[-50%] px-1.5 py-0.5 rounded bg-blue-600 text-white text-[10px] font-semibold pointer-events-none"
+              className="absolute -top-1.5 translate-x-[-50%] px-1.5 py-0.5 rounded bg-blue-600 text-foreground text-[10px] font-semibold pointer-events-none"
               style={{ left: `calc(${tempParams.selfConsumptionRate}%)` }}
             >
               {tempParams.selfConsumptionRate}%
             </div>
-            <div className="flex justify-between text-[10px] text-gray-300 mt-1">
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
               {[0,25,50,75,100].map((v)=> (
                 <button
                   key={v}
                   type="button"
                   onClick={() => setTempParams({ ...tempParams, selfConsumptionRate: v })}
-                  className={`px-1.5 py-0.5 rounded transition ${tempParams.selfConsumptionRate===v ? 'bg-blue-600 text-white' : 'bg-transparent text-gray-300 hover:bg-gray-800'}`}
+                  className={`px-1.5 py-0.5 rounded transition ${tempParams.selfConsumptionRate===v ? 'bg-blue-600 text-foreground' : 'bg-transparent text-muted-foreground hover:bg-card'}`}
                   aria-label={`Set to ${v}%`}
                   title={`${v}%`}
                 >
@@ -150,12 +150,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
               ))}
             </div>
             <div className="relative h-2 mt-1">
-              <div className="absolute inset-x-0 top-0 h-[2px] bg-gray-700" />
-              <div className="absolute left-0 top-0 h-2 w-[2px] bg-gray-500" />
-              <div className="absolute left-1/4 top-0 h-2 w-[2px] bg-gray-500" />
-              <div className="absolute left-1/2 top-0 h-2 w-[2px] bg-gray-500" />
-              <div className="absolute left-3/4 top-0 h-2 w-[2px] bg-gray-500" />
-              <div className="absolute right-0 top-0 h-2 w-[2px] bg-gray-500" />
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-muted" />
+              <div className="absolute left-0 top-0 h-2 w-[2px] bg-muted" />
+              <div className="absolute left-1/4 top-0 h-2 w-[2px] bg-muted" />
+              <div className="absolute left-1/2 top-0 h-2 w-[2px] bg-muted" />
+              <div className="absolute left-3/4 top-0 h-2 w-[2px] bg-muted" />
+              <div className="absolute right-0 top-0 h-2 w-[2px] bg-muted" />
             </div>
           </div>
         </div>
@@ -163,7 +163,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
         {/* 2-column compact inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-300 block mb-1">Average Daily Load (kWh)</label>
+            <label className="text-xs text-muted-foreground block mb-1">Average Daily Load (kWh)</label>
             <input
               type="text"
               inputMode="decimal"
@@ -174,12 +174,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 // Average daily load must be ≥ 0 as per specification
                 setTempParams({ ...tempParams, avgDailyLoad: isNaN(num) ? 0 : Math.max(0, num) });
               }}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
               placeholder="e.g. 15 (min: 0)"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-300 block mb-1">Grid Energy Price (€/kWh)</label>
+            <label className="text-xs text-muted-foreground block mb-1">Grid Energy Price (€/kWh)</label>
             <input
               type="text"
               inputMode="decimal"
@@ -200,12 +200,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 // On blur, sync with actual value
                 setGridPriceText(String(tempParams.gridPrice));
               }}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
               placeholder="e.g. 0.25 (min: 0.01)"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-300 block mb-1">Selling Price (€/kWh)</label>
+            <label className="text-xs text-muted-foreground block mb-1">Selling Price (€/kWh)</label>
             <input
               type="text"
               inputMode="decimal"
@@ -226,12 +226,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 // On blur, sync with actual value
                 setSellingPriceText(String(tempParams.sellingPrice));
               }}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
               placeholder="e.g. 0.10 (min: 0)"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-300 block mb-1">Forecast Trend (% daily)</label>
+            <label className="text-xs text-muted-foreground block mb-1">Forecast Trend (% daily)</label>
             <input
               type="text"
               inputMode="decimal"
@@ -242,24 +242,24 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                 // Clamp trend to -20% → +20% as per specification
                 setTempParams({ ...tempParams, forecastTrend: isNaN(num) ? 0 : Math.min(20, Math.max(-20, num)) });
               }}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+              className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
               placeholder="e.g. 2 (range: -20 to +20)"
             />
           </div>
         </div>
         
         {/* Optional Parameters */}
-        <div className="mt-4 pt-4 border-t border-gray-700">
+        <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Optional Parameters</h4>
-            <span className="text-[10px] text-gray-500">For efficiency calculation</span>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Optional Parameters</h4>
+            <span className="text-[10px] text-muted-foreground">For efficiency calculation</span>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-300 block mb-1">
+              <label className="text-xs text-muted-foreground block mb-1">
                 Panel Surface (m²)
-                <span className="text-gray-500 ml-1">*</span>
+                <span className="text-muted-foreground ml-1">*</span>
               </label>
               <input
                 type="text"
@@ -286,14 +286,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                     setPanelSurfaceText('');
                   }
                 }}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
                 placeholder="e.g. 50"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-300 block mb-1">
+              <label className="text-xs text-muted-foreground block mb-1">
                 Daily Irradiance (kWh/m²)
-                <span className="text-gray-500 ml-1">*</span>
+                <span className="text-muted-foreground ml-1">*</span>
               </label>
               <input
                 type="text"
@@ -320,7 +320,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
                     setIrradianceText('');
                   }
                 }}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
+                className="w-full bg-card border border-border rounded px-3 py-2 text-foreground text-sm"
                 placeholder="e.g. 4.5"
               />
             </div>
@@ -328,16 +328,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ economicParams, setEconom
         </div>
         
         {/* Save and Cancel Buttons */}
-        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white text-sm font-medium transition"
+            className="px-4 py-2 rounded-lg bg-card hover:bg-muted border border-border text-muted-foreground hover:text-foreground text-sm font-medium transition"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-sm font-semibold transition"
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-500 text-foreground text-sm font-semibold transition"
           >
             Save Changes
           </button>
@@ -780,9 +780,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     const isYieldEnergy = unit === 'kWh';
     
     return (
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-2.5 sm:p-3 md:p-4 flex flex-col justify-between h-full hover:border-gray-600 transition-all duration-300 group overflow-hidden">
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-border/50 rounded-xl p-2.5 sm:p-3 md:p-4 flex flex-col justify-between h-full hover:border-border transition-all duration-300 group overflow-hidden">
         <div className="flex items-center justify-between mb-2 sm:mb-2.5 md:mb-3 flex-shrink-0">
-          <div className="text-[9px] sm:text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold truncate pr-1">{label}</div>
+          <div className="text-[9px] sm:text-[10px] md:text-[11px] text-muted-foreground uppercase tracking-wider font-semibold truncate pr-1">{label}</div>
           {trend !== 'neutral' && !isValueUnavailable && (
             <div className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
               trend === 'up' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
@@ -845,7 +845,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           
           {showGauge && !isValueUnavailable && (
             <div className="mt-3 md:mt-4 hidden lg:block">
-              <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-card rounded-full overflow-hidden">
                 <div 
                   className="h-full rounded-full transition-all duration-700 ease-out"
                   style={{ 
@@ -854,7 +854,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   }}
                 />
               </div>
-              <div className="flex justify-between mt-1.5 text-[9px] text-gray-500">
+              <div className="flex justify-between mt-1.5 text-[9px] text-muted-foreground">
                 <span>{gaugeMin}</span>
                 <span>{gaugeMax}{unit}</span>
               </div>
@@ -876,8 +876,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           onClick={() => setScale(k)}
           className={`px-2 py-0.5 rounded border text-[10px] font-semibold transition ${
             currentScale === k
-              ? "bg-blue-600 border-blue-500 text-white"
-              : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+              ? "bg-blue-600 border-blue-500 text-foreground"
+              : "bg-card border-border text-muted-foreground hover:bg-muted"
           }`}
           title={k === "D" ? "Day" : k === "W" ? "Week" : k === "M" ? "Month" : "Year"}
         >
@@ -902,7 +902,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
     const svgRef = useRef<SVGSVGElement>(null);
     
     if (!data?.timestamps?.length || !data.production) {
-      return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-gray-500">No data</div>;
+      return <div className="flex items-center justify-center h-full min-h-[120px] text-sm text-muted-foreground">No data</div>;
     }
     
     const w = 1000; // Fixed viewBox width like energy dashboard
@@ -1208,19 +1208,19 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
   };
 
   return (
-    <div className={standalone ? "h-full w-full bg-gray-950 flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-gray-950/98 z-[2000] flex flex-col"}>
-      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-gray-800 bg-gray-900/70">
+    <div className={standalone ? "h-full w-full bg-background flex flex-col" : "fixed left-0 right-0 bottom-0 top-16 bg-background/98 z-[2000] flex flex-col"}>
+      <div className="px-2 md:px-4 py-1.5 md:py-2 border-b border-border bg-card/70">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-white">Photovoltaic System Dashboard</h3>
-            <div className="text-xs text-gray-300 flex items-center gap-2">
-              <div><span className="text-gray-400">System:</span> <span className="font-semibold text-white">{sensor.name}</span></div>
+            <h3 className="text-lg font-bold text-foreground">Photovoltaic System Dashboard</h3>
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <div><span className="text-muted-foreground">System:</span> <span className="font-semibold text-foreground">{sensor.name}</span></div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button
               onClick={()=>{ const el=dateInputEl.current as any; if(el?.showPicker) el.showPicker(); else el?.click(); }}
-              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-gray-800/70 border border-gray-700 text-xs md:text-sm text-gray-100 hover:bg-gray-700/60 transition flex items-center gap-1 md:gap-2"
+              className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-card/70 border border-border text-xs md:text-sm text-foreground hover:bg-muted/60 transition flex items-center gap-1 md:gap-2"
               title="Pick date"
             >
               {/* Calendar icon (Flaticon style) */}
@@ -1236,7 +1236,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             <input ref={dateInputEl} type="date" max={todayYmd} className="absolute w-0 h-0 opacity-0 pointer-events-none" value={dateInputValue} onChange={e=>{ const d=new Date(e.target.value+ 'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0); if(!isNaN(d.getTime())) setDate(d>today? today : d); }} />
             <button
               onClick={() => setShowSettings(true)}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-800/70 hover:bg-gray-700/60 border border-gray-700 text-gray-100 flex items-center justify-center"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-card/70 hover:bg-muted/60 border border-border text-foreground flex items-center justify-center"
               aria-label="Settings"
               title="Settings"
             >
@@ -1254,7 +1254,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   const url = `/pv-dashboard/${roomName}/${sensorName}?id=${sensor?.id || ''}&projectId=${projectId || ''}`;
                   window.open(url, '_blank', 'width=1600,height=1000,scrollbars=yes,resizable=yes');
                 }}
-                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 hover:bg-blue-500 border border-blue-500 text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
                 aria-label="Open in new window"
                 title="Open in new window"
               >
@@ -1263,7 +1263,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             )}
             <button
               onClick={onClose}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-base md:text-lg flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-muted hover:bg-muted border border-border text-foreground text-base md:text-lg flex items-center justify-center flex-shrink-0"
               aria-label="Close"
               title="Close"
             >
@@ -1350,9 +1350,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         {/* CENTER COLUMN - 4 Main Charts */}
         <div ref={centerColRef} className="col-span-1 md:col-span-6 flex flex-col h-auto md:h-full min-w-0 overflow-visible">
           <div className="flex-1 flex flex-col gap-1.5 md:gap-2 min-h-0">
-            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-card border border-border rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">{prodScale === 'D' ? 'Daily' : prodScale === 'W' ? 'Weekly' : prodScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">{prodScale === 'D' ? 'Daily' : prodScale === 'W' ? 'Weekly' : prodScale === 'M' ? 'Monthly' : 'Annual'} Production</div>
                 <ScaleSwitch currentScale={prodScale} setScale={setProdScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1360,9 +1360,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-card border border-border rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Energy Distribution</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Energy Distribution</div>
                 <ScaleSwitch currentScale={distScale} setScale={setDistScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1370,9 +1370,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-card border border-border rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Grid vs Self-Consumption</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Grid vs Self-Consumption</div>
                 <ScaleSwitch currentScale={gridScale} setScale={setGridScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1380,9 +1380,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col min-h-[140px] bg-gray-900 border border-gray-700 rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-[140px] bg-card border border-border rounded-xl pt-2 px-2 md:pt-3 md:px-3 pb-0 overflow-hidden">
               <div className="flex items-center justify-between mb-1.5 md:mb-2 flex-shrink-0">
-                <div className="text-xs md:text-sm font-semibold text-white">Economic Trend</div>
+                <div className="text-xs md:text-sm font-semibold text-foreground">Economic Trend</div>
                 <ScaleSwitch currentScale={econScale} setScale={setEconScale} />
               </div>
               <div className="flex-1 min-h-0 relative">
@@ -1402,20 +1402,20 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             
             <div className="relative z-10 flex flex-col h-full">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white">Economic Forecast</h3>
+                <h3 className="text-sm font-bold text-foreground">Economic Forecast</h3>
                 <div className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
                   <span className="text-[10px] font-semibold text-blue-400">{calculateForecast?.days || 30} days</span>
                 </div>
               </div>
               
               {/* Period Selector */}
-              <div className="flex gap-1.5 mb-3 p-0.5 bg-gray-800/40 rounded-lg backdrop-blur-sm">
+              <div className="flex gap-1.5 mb-3 p-0.5 bg-card/40 rounded-lg backdrop-blur-sm">
                 <button
                   onClick={() => setForecastPeriod('monthly')}
                   className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
                     forecastPeriod === 'monthly'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-foreground shadow-lg shadow-blue-500/40'
+                      : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/30'
                   }`}
                 >
                   Monthly
@@ -1424,8 +1424,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   onClick={() => setForecastPeriod('annual')}
                   className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
                     forecastPeriod === 'annual'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-foreground shadow-lg shadow-blue-500/40'
+                      : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/30'
                   }`}
                 >
                   Annual
@@ -1434,8 +1434,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   onClick={() => setForecastPeriod('custom')}
                   className={`flex-1 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all duration-300 ${
                     forecastPeriod === 'custom'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/40'
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-foreground shadow-lg shadow-blue-500/40'
+                      : 'text-muted-foreground hover:text-muted-foreground hover:bg-muted/30'
                   }`}
                 >
                   Custom
@@ -1445,7 +1445,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
               {/* Custom Days Input */}
               {forecastPeriod === 'custom' && (
                 <div className="mb-3">
-                  <label className="text-[10px] text-gray-400 block mb-1.5 font-medium">Days to forecast</label>
+                  <label className="text-[10px] text-muted-foreground block mb-1.5 font-medium">Days to forecast</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -1471,7 +1471,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                     }}
                     onFocus={(e) => e.target.select()}
                     placeholder="Enter days (1-730)"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
+                    className="w-full bg-card border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
                   />
                 </div>
               )}
@@ -1525,46 +1525,46 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
           </div>
           
           {/* System Parameters - Compact */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-4 md:shrink-0">
-            <h3 className="text-sm font-bold text-white mb-3 tracking-wide">System Parameters</h3>
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-border/50 rounded-xl p-4 md:shrink-0">
+            <h3 className="text-sm font-bold text-foreground mb-3 tracking-wide">System Parameters</h3>
             <div className="space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Self-Consumption</span>
-                <span className="text-white font-semibold tabular-nums">{economicParams.selfConsumptionRate}%</span>
+                <span className="text-muted-foreground">Self-Consumption</span>
+                <span className="text-foreground font-semibold tabular-nums">{economicParams.selfConsumptionRate}%</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Daily Load</span>
-                <span className="text-white font-semibold tabular-nums">{economicParams.avgDailyLoad} kWh</span>
+                <span className="text-muted-foreground">Daily Load</span>
+                <span className="text-foreground font-semibold tabular-nums">{economicParams.avgDailyLoad} kWh</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Grid Price</span>
-                <span className="text-white font-semibold tabular-nums">€{economicParams.gridPrice.toFixed(2)}/kWh</span>
+                <span className="text-muted-foreground">Grid Price</span>
+                <span className="text-foreground font-semibold tabular-nums">€{economicParams.gridPrice.toFixed(2)}/kWh</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Sell Price</span>
-                <span className="text-white font-semibold tabular-nums">€{economicParams.sellingPrice.toFixed(2)}/kWh</span>
+                <span className="text-muted-foreground">Sell Price</span>
+                <span className="text-foreground font-semibold tabular-nums">€{economicParams.sellingPrice.toFixed(2)}/kWh</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500">Forecast Trend</span>
-                <span className={`font-semibold tabular-nums ${economicParams.forecastTrend > 0 ? 'text-green-400' : economicParams.forecastTrend < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                <span className="text-muted-foreground">Forecast Trend</span>
+                <span className={`font-semibold tabular-nums ${economicParams.forecastTrend > 0 ? 'text-green-400' : economicParams.forecastTrend < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
                   {economicParams.forecastTrend > 0 ? '+' : ''}{economicParams.forecastTrend}%
                 </span>
               </div>
               
               {/* Optional Parameters - Always show with divider */}
-              <div className="border-t border-gray-700 my-2 pt-2">
-                <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Optional</div>
+              <div className="border-t border-border my-2 pt-2">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Optional</div>
                 
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Panel Surface</span>
-                  <span className="text-white font-semibold tabular-nums">
+                  <span className="text-muted-foreground">Panel Surface</span>
+                  <span className="text-foreground font-semibold tabular-nums">
                     {economicParams.panelSurface ? `${economicParams.panelSurface} m²` : '—'}
                   </span>
                 </div>
                 
                 <div className="flex justify-between items-center text-xs mt-2">
-                  <span className="text-gray-500">Irradiance</span>
-                  <span className="text-white font-semibold tabular-nums">
+                  <span className="text-muted-foreground">Irradiance</span>
+                  <span className="text-foreground font-semibold tabular-nums">
                     {economicParams.dailyIrradiance ? `${economicParams.dailyIrradiance} kWh/m²` : '—'}
                   </span>
                 </div>
@@ -1578,20 +1578,20 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
       
       {/* Loading Overlay with Backdrop Blur */}
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-md z-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-md z-50">
           <div className="flex flex-col items-center gap-4">
             {/* Spinner */}
             <div className="relative w-16 h-16">
-              <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-border rounded-full"></div>
               <div className="absolute inset-0 border-4 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
             </div>
             {/* Loading Text */}
-            <div className="text-base text-gray-200 font-medium">Loading sensor data…</div>
+            <div className="text-base text-foreground font-medium">Loading sensor data…</div>
           </div>
         </div>
       )}
       
-      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-white text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
+      {error && (<div className="absolute top-16 left-1/2 -translate-x-1/2 bg-red-600/90 text-foreground text-xs px-3 py-2 rounded-md shadow">{error}</div>)}
     </div>
   );
 }

@@ -111,7 +111,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
         );
       default:
         return (
-          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
         );
@@ -127,9 +127,9 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
       case 'Maintainer':
         return 'bg-green-900/30 text-green-300 border-green-800';
       case 'User':
-        return 'bg-gray-700/30 text-gray-300 border-gray-600';
+        return 'bg-muted/30 text-muted-foreground border-border';
       default:
-        return 'bg-gray-800 text-gray-300 border-gray-700';
+        return 'bg-card text-muted-foreground border-border';
     }
   };
 
@@ -143,21 +143,21 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
 
   if (loading) {
     return (
-      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 animate-pulse">
-        <div className="h-4 bg-gray-700 rounded w-1/3 mb-4"></div>
+      <div className="bg-card/50 border border-border rounded-lg p-6 animate-pulse">
+        <div className="h-4 bg-muted rounded w-1/3 mb-4"></div>
         <div className="space-y-3">
-          <div className="h-12 bg-gray-700/50 rounded"></div>
-          <div className="h-12 bg-gray-700/50 rounded"></div>
+          <div className="h-12 bg-muted/50 rounded"></div>
+          <div className="h-12 bg-muted/50 rounded"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-800/40 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
+    <div className="bg-card/40 border border-border rounded-xl overflow-hidden shadow-lg">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800/60 transition-colors bg-gray-800/60"
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-card/60 transition-colors bg-card/60"
       >
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -166,12 +166,12 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
             </svg>
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white">Activity Timeline</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{activities.length} events recorded</p>
+            <h3 className="text-base font-semibold text-foreground">Activity Timeline</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{activities.length} events recorded</p>
           </div>
         </div>
         <svg
-          className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -181,37 +181,37 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
       </button>
 
       {expanded && (
-        <div className="px-6 py-6 bg-gray-900/20">
+        <div className="px-6 py-6 bg-card/20">
           {activities.length === 0 ? (
             <div className="text-center py-8">
-              <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-12 h-12 bg-card rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <p className="text-gray-500 text-sm">No activities recorded yet</p>
+              <p className="text-muted-foreground text-sm">No activities recorded yet</p>
             </div>
           ) : (
-            <div className="relative pl-4 space-y-8 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-700/50">
+            <div className="relative pl-4 space-y-8 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-0.5 before:bg-muted/50">
               {activities.map((activity, index) => (
                 <div key={activity._id || index} className="relative pl-8 group">
                   {/* Timeline Dot */}
-                  <div className="absolute left-[10px] top-1.5 w-5 h-5 rounded-full bg-gray-800 border-2 border-gray-600 flex items-center justify-center z-10 group-hover:border-blue-500 transition-colors">
-                    <div className="w-2 h-2 rounded-full bg-gray-500 group-hover:bg-blue-400 transition-colors"></div>
+                  <div className="absolute left-[10px] top-1.5 w-5 h-5 rounded-full bg-card border-2 border-border flex items-center justify-center z-10 group-hover:border-blue-500 transition-colors">
+                    <div className="w-2 h-2 rounded-full bg-muted group-hover:bg-blue-400 transition-colors"></div>
                   </div>
 
                   {/* Content Card */}
-                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-4 hover:border-gray-600 transition-colors">
+                  <div className="bg-card/50 border border-border/50 rounded-lg p-4 hover:border-border transition-colors">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-gray-700/50 rounded-md">
+                        <div className="p-1.5 bg-muted/50 rounded-md">
                           {getActionIcon(activity.action)}
                         </div>
-                        <span className="font-medium text-gray-200 text-sm">
+                        <span className="font-medium text-foreground text-sm">
                           {formatText(activity.action)}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500 whitespace-nowrap font-mono">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
                         {new Date(activity.timestamp).toLocaleString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -225,16 +225,16 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
                       <span className={`text-xs px-2 py-0.5 rounded border ${getRoleBadgeColor(activity.authorRole)}`}>
                         {activity.authorRole}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         by {activity.author}
                       </span>
                     </div>
 
                     {/* Field Changes */}
                     {(activity.oldValue || activity.newValue) && (
-                      <div className="mb-3 bg-gray-900/30 rounded p-2 text-xs border border-gray-700/30">
+                      <div className="mb-3 bg-card/30 rounded p-2 text-xs border border-border/30">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
+                          <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">
                             {activity.fieldChanged || 'Change'}:
                           </span>
                           {activity.oldValue && (
@@ -243,7 +243,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
                             </span>
                           )}
                           {activity.oldValue && activity.newValue && (
-                            <span className="text-gray-600">→</span>
+                            <span className="text-muted-foreground">→</span>
                           )}
                           {activity.newValue && (
                             <span className="text-green-400 font-medium">
@@ -259,7 +259,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ projectId, w
                       <div className="relative mt-2">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500/30 rounded-full"></div>
                         <div className="pl-3 py-1">
-                          <p className="text-xs text-gray-400 italic leading-relaxed">
+                          <p className="text-xs text-muted-foreground italic leading-relaxed">
                             "{activity.notes}"
                           </p>
                         </div>

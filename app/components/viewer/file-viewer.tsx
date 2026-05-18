@@ -53,12 +53,12 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
     const header = rows[0] || [];
     const body = rows.slice(1);
     const ths = header
-      .map((h) => `<th class="px-3 py-2 border border-gray-300 bg-gray-100 sticky top-0 z-10 text-left text-gray-800 text-sm">${escape(h)}</th>`)
+      .map((h) => `<th class="px-3 py-2 border border-border bg-muted sticky top-0 z-10 text-left text-foreground text-sm">${escape(h)}</th>`)
       .join('');
     const trs = body
       .map((r) =>
-        `<tr class="odd:bg-white even:bg-gray-50">${r
-          .map((c) => `<td class="px-3 py-2 border border-gray-200 text-sm text-gray-800">${escape(c)}</td>`)
+        `<tr class="odd:bg-card even:bg-muted">${r
+          .map((c) => `<td class="px-3 py-2 border border-border text-sm text-foreground">${escape(c)}</td>`)
           .join('')}</tr>`
       )
       .join('');
@@ -206,7 +206,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
       case 'webp':
       case 'svg':
         return (
-          <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="flex items-center justify-center h-full bg-muted">
             <img
               src={fileUrl}
               alt={file.name}
@@ -223,7 +223,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
         return (
           <iframe
             src={fileUrl}
-            className="w-full h-full border-0 bg-white"
+            className="w-full h-full border-0 bg-card"
             title={file.name}
           />
         );
@@ -256,10 +256,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (forgeLoading) {
           return (
-            <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                <p className="text-gray-600">Preparing DWG preview…</p>
+                <p className="text-muted-foreground">Preparing DWG preview…</p>
               </div>
             </div>
           );
@@ -267,13 +267,13 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (forgeError) {
           return (
-            <div className="flex flex-col items-center justify-center h-full bg-gray-50">
+            <div className="flex flex-col items-center justify-center h-full bg-muted">
               <FileText className="w-16 h-16 text-blue-500 mb-4" />
-              <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
-              <p className="text-sm text-gray-500 mb-4">{forgeError}</p>
+              <p className="text-lg font-medium text-foreground mb-2">{file.name}</p>
+              <p className="text-sm text-muted-foreground mb-4">{forgeError}</p>
               <button
                 onClick={downloadFile}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-500 text-foreground rounded hover:bg-blue-600 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download to View
@@ -296,10 +296,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         // Initial placeholder while fetching
         return (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-card">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading DWG…</p>
+              <p className="text-muted-foreground">Loading DWG…</p>
             </div>
           </div>
         );
@@ -309,10 +309,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
         // Parsing is now handled in `loadFile` to prevent race conditions.
         if (wordLoading) {
           return (
-            <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                <p className="text-gray-600">Converting Word document…</p>
+                <p className="text-muted-foreground">Converting Word document…</p>
               </div>
             </div>
           );
@@ -320,25 +320,25 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (wordError || extension === 'doc') {
           return (
-            <div className="flex flex-col items-center justify-center h-full bg-gray-50">
+            <div className="flex flex-col items-center justify-center h-full bg-muted">
               <FileText className="w-16 h-16 text-blue-600 mb-4" />
-              <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-lg font-medium text-foreground mb-2">{file.name}</p>
+              <p className="text-sm text-muted-foreground mb-4">
                 {extension === 'doc' ? 'Legacy Word Document (.doc)' : 'Microsoft Word Document'}
               </p>
               <div className="text-center mb-6">
-                <p className="text-sm text-gray-600 mb-2">
+                <p className="text-sm text-muted-foreground mb-2">
                   {extension === 'doc'
                     ? 'Legacy .doc files require download to view properly.'
                     : wordError || 'Word document preview not available.'}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Click download to open with your local Word application.
                 </p>
               </div>
               <button
                 onClick={downloadFile}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-500 text-foreground rounded hover:bg-blue-600 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download & Open
@@ -349,7 +349,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (wordHtml) {
           return (
-            <div className="w-full h-full flex flex-col bg-white min-h-0">
+            <div className="w-full h-full flex flex-col bg-card min-h-0">
               <div className="flex-1 overflow-auto min-h-0">
                 <div className="p-6 max-w-4xl mx-auto">
                   <div
@@ -368,10 +368,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
         }
 
         return (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-card">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading Word document…</p>
+              <p className="text-muted-foreground">Loading Word document…</p>
             </div>
           </div>
         );
@@ -381,10 +381,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
         // Local render using SheetJS
         if (excelLoading) {
           return (
-            <div className="absolute inset-0 flex items-center justify-center bg-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2"></div>
-                <p className="text-gray-600">Parsing Excel…</p>
+                <p className="text-muted-foreground">Parsing Excel…</p>
               </div>
             </div>
           );
@@ -392,13 +392,13 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (excelError) {
           return (
-            <div className="flex flex-col items-center justify-center h-full bg-gray-50">
+            <div className="flex flex-col items-center justify-center h-full bg-muted">
               <FileText className="w-16 h-16 text-green-600 mb-4" />
-              <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
-              <p className="text-sm text-gray-500 mb-4">{excelError}</p>
+              <p className="text-lg font-medium text-foreground mb-2">{file.name}</p>
+              <p className="text-sm text-muted-foreground mb-4">{excelError}</p>
               <button
                 onClick={downloadFile}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center gap-2"
+                className="px-4 py-2 bg-green-500 text-foreground rounded hover:bg-green-600 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download
@@ -409,10 +409,10 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
 
         if (excelHtml) {
           return (
-            <div className="w-full h-full flex flex-col bg-white min-h-0">
+            <div className="w-full h-full flex flex-col bg-card min-h-0">
               {/* Sheet tabs */}
               {excelSheets.length > 1 && (
-                <div className="border-b px-3 py-2 bg-gray-50 flex gap-2 text-sm">
+                <div className="border-b px-3 py-2 bg-muted flex gap-2 text-sm">
                   {excelSheets.map((s) => (
                     <button
                       key={s}
@@ -438,7 +438,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
                           setExcelLoading(false);
                         }
                       }}
-                      className={`px-3 py-1 rounded transition-colors ${activeSheet === s ? 'bg-white border border-gray-300 text-gray-900 font-medium' : 'text-gray-600 hover:bg-white/70 border border-transparent'}`}
+                      className={`px-3 py-1 rounded transition-colors ${activeSheet === s ? 'bg-card border border-border text-foreground font-medium' : 'text-muted-foreground hover:bg-card/70 border border-transparent'}`}
                     >
                       {s}
                     </button>
@@ -456,25 +456,25 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
         }
 
         return (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-card">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading Excel…</p>
+              <p className="text-muted-foreground">Loading Excel…</p>
             </div>
           </div>
         );
       
       default:
         return (
-          <div className="flex flex-col items-center justify-center h-full bg-gray-50">
-            <File className="w-16 h-16 text-gray-500 mb-4" />
-            <p className="text-lg font-medium text-gray-700 mb-2">{file.name}</p>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="flex flex-col items-center justify-center h-full bg-muted">
+            <File className="w-16 h-16 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium text-foreground mb-2">{file.name}</p>
+            <p className="text-sm text-muted-foreground mb-4">
               {extension ? extension.toUpperCase() + ' File' : 'Unknown File Type'}
             </p>
             <button
               onClick={downloadFile}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center gap-2"
+              className="px-4 py-2 bg-muted text-foreground rounded hover:bg-muted flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
               Download File
@@ -487,15 +487,15 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
   if (!file) return null;
 
   return (
-    <div className="absolute inset-0 bg-white z-10 flex flex-col min-h-0">
+    <div className="absolute inset-0 bg-card z-10 flex flex-col min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+      <div className="flex items-center justify-between p-4 border-b bg-muted">
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-blue-500" />
           <div>
-            <h3 className="font-medium text-gray-900">{file.name}</h3>
+            <h3 className="font-medium text-foreground">{file.name}</h3>
             {Number.isFinite(file.size as number) && file.size > 0 ? (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 {(file.size / 1024 / 1024).toFixed(2)} MB
               </p>
             ) : null}
@@ -505,14 +505,14 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
           <button
             onClick={downloadFile}
             disabled={!fileUrl}
-            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
             title="Download"
           >
             <Download className="w-4 h-4" />
           </button>
           <button
             onClick={onClose}
-            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+            className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded"
             title="Close"
           >
             <X className="w-4 h-4" />
@@ -523,20 +523,20 @@ const FileViewer: React.FC<FileViewerProps> = ({ file, projectId, onClose }) => 
       {/* Content */}
       <div className="flex-1 relative min-h-0">
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-card">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading file...</p>
+              <p className="text-muted-foreground">Loading file...</p>
             </div>
           </div>
         )}
         
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="absolute inset-0 flex items-center justify-center bg-card">
             <div className="text-center">
               <File className="w-16 h-16 text-red-500 mx-auto mb-4" />
               <p className="text-red-600 mb-2">Failed to load file</p>
-              <p className="text-gray-500 text-sm">{error}</p>
+              <p className="text-muted-foreground text-sm">{error}</p>
             </div>
           </div>
         )}

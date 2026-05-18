@@ -148,60 +148,60 @@ function AuthPanelContent() {
     finally { setLoading(false); }
   };
 
-  const inputCls = "mt-1 mb-3 block w-full rounded-lg border border-gray-200 shadow-sm focus:border-gray-800 focus:ring-2 focus:ring-gray-800/10 h-11 px-3.5 bg-white text-gray-900 placeholder:text-gray-400 caret-black outline-none transition-all";
+  const inputCls = "mt-1 mb-3 block w-full rounded-lg border border-border shadow-sm focus:border-border focus:ring-2 focus:ring-ring/10 h-11 px-3.5 bg-card text-foreground placeholder:text-muted-foreground caret-black outline-none transition-all";
   const btnPrimary = `w-full flex items-center justify-center gap-2 h-11 rounded-lg font-semibold shadow-sm transition-all duration-200`;
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-gray-100 flex flex-col items-center justify-center py-10 px-9 min-h-[540px]">
+    <div className="w-full max-w-md mx-auto bg-card rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-border flex flex-col items-center justify-center py-10 px-9 min-h-[540px]">
       {/* Logo */}
       <div className="mb-7 flex flex-col items-center">
-        <div className="w-11 h-11 bg-gray-900 rounded-xl flex items-center justify-center mb-3 shadow">
-          <span className="text-sm font-bold text-white tracking-wider">AP</span>
+        <div className="w-11 h-11 bg-card rounded-xl flex items-center justify-center mb-3 shadow">
+          <span className="text-sm font-bold text-foreground tracking-wider">AP</span>
         </div>
-        <span className="text-[11px] text-gray-400 font-semibold tracking-[0.18em] uppercase">Adaptivity Platform</span>
+        <span className="text-[11px] text-muted-foreground font-semibold tracking-[0.18em] uppercase">Adaptivity Platform</span>
       </div>
 
       {/* Tab switch */}
       {(mode === 'login' || mode === 'signup') && (
-        <div className="w-full flex gap-1.5 mb-6 bg-gray-100 rounded-lg p-1">
-          <button onClick={() => switchMode('login')} className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all duration-200 ${mode==='login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Sign in</button>
-          <button onClick={() => switchMode('signup')} className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all duration-200 ${mode==='signup' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Sign up</button>
+        <div className="w-full flex gap-1.5 mb-6 bg-muted rounded-lg p-1">
+          <button onClick={() => switchMode('login')} className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all duration-200 ${mode==='login' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Sign in</button>
+          <button onClick={() => switchMode('signup')} className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all duration-200 ${mode==='signup' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Sign up</button>
         </div>
       )}
 
       {mode === 'forgot-password' && (
         <div className="w-full">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Reset your password</h2>
-          <p className="text-sm text-gray-600 mb-6">Enter your email and we&apos;ll send you a reset link.</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Reset your password</h2>
+          <p className="text-sm text-muted-foreground mb-6">Enter your email and we&apos;ll send you a reset link.</p>
           <form onSubmit={onForgotPassword} className="w-full">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
+            <label htmlFor="email" className="block text-sm font-medium text-foreground">Email address</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} required />
-            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-black hover:bg-gray-900 text-white'}`}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : 'bg-background hover:bg-card text-foreground'}`}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
           </form>
           <div className="mt-4 text-center">
-            <button onClick={() => switchMode('login')} className="text-sm font-medium text-gray-500 hover:text-black transition-colors">Back to Sign in</button>
+            <button onClick={() => switchMode('login')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Back to Sign in</button>
           </div>
         </div>
       )}
 
       {mode === 'reset-password' && (
         <div className="w-full">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Set new password</h2>
-          <p className="text-sm text-gray-600 mb-6">Please enter your new password below.</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Set new password</h2>
+          <p className="text-sm text-muted-foreground mb-6">Please enter your new password below.</p>
           <form onSubmit={onResetPassword} className="w-full">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">New Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-foreground">New Password</label>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} required />
-            <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">Confirm Password</label>
+            <label htmlFor="confirm" className="block text-sm font-medium text-foreground">Confirm Password</label>
             <input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" className={inputCls} required />
-            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-black hover:bg-gray-900 text-white'}`}>{loading ? 'Resetting...' : 'Reset Password'}</button>
+            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : 'bg-background hover:bg-card text-foreground'}`}>{loading ? 'Resetting...' : 'Reset Password'}</button>
           </form>
         </div>
       )}
 
       {mode === 'login' && (
         <div className="w-full">
-          <h2 className="text-[18px] font-semibold text-gray-900 mb-1">Welcome back</h2>
-          <p className="text-sm text-gray-500 mb-4">Sign in to your account to continue</p>
+          <h2 className="text-[18px] font-semibold text-foreground mb-1">Welcome back</h2>
+          <p className="text-sm text-muted-foreground mb-4">Sign in to your account to continue</p>
           {isInviteFlow && invitedEmail ? (
             <div className={`mb-4 text-sm rounded-md border p-3 ${wrongSel ? 'bg-yellow-50 border-yellow-300 text-yellow-800' : 'bg-blue-50 border-blue-300 text-blue-800'}`}>
               {wrongSel ? (<>Please sign in with your invited Google account: <strong>{invitedEmail}</strong>. Select this email in the Google picker to continue.</>) : (<>You were invited as <strong>{invitedEmail}</strong>. Use Google sign-in to continue.</>)}
@@ -222,7 +222,7 @@ function AuthPanelContent() {
                 await signIn('google', { callbackUrl, prompt: 'select_account' } as any);
               })();
             }}
-            className="w-full flex items-center justify-center gap-3 h-11 bg-white text-gray-700 rounded-lg border border-gray-200 font-medium text-sm shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all mb-5 mt-1"
+            className="w-full flex items-center justify-center gap-3 h-11 bg-card text-foreground rounded-lg border border-border font-medium text-sm shadow-sm hover:bg-muted hover:border-border transition-all mb-5 mt-1"
           >
             <svg className="h-5 w-5" viewBox="0 0 48 48">
               <g>
@@ -238,19 +238,19 @@ function AuthPanelContent() {
 
           {/* Divider */}
           <div className="relative w-full my-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">or</span></div>
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+            <div className="relative flex justify-center text-sm"><span className="px-2 bg-card text-muted-foreground">or</span></div>
           </div>
 
           <form onSubmit={onCredentialsSignIn} className="w-full">
-            <label htmlFor="email" className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Email address</label>
+            <label htmlFor="email" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email address</label>
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className={inputCls} required />
             <div className="flex justify-between items-center mb-1">
-              <label htmlFor="password" className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Password</label>
-              <button type="button" onClick={() => switchMode('forgot-password')} className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors">Forgot password?</button>
+              <label htmlFor="password" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Password</label>
+              <button type="button" onClick={() => switchMode('forgot-password')} className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">Forgot password?</button>
             </div>
             <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} required />
-            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-gray-200 cursor-not-allowed text-gray-400' : 'bg-gray-900 hover:bg-black text-white'}`}>{loading ? 'Signing in…' : 'Sign in'}</button>
+            <button type="submit" disabled={loading} className={`${btnPrimary} ${loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : 'bg-card hover:bg-background text-foreground'}`}>{loading ? 'Signing in…' : 'Sign in'}</button>
           </form>
 
           {error && (
@@ -262,55 +262,55 @@ function AuthPanelContent() {
             </div>
           )}
 
-          <div className="mt-6 text-xs text-gray-500 text-center">
+          <div className="mt-6 text-xs text-muted-foreground text-center">
             By signing in, you agree to our
-            <a href="/terms" className="text-black underline hover:text-blue-700 mx-1">Terms of Service</a>
+            <a href="/terms" className="text-foreground underline hover:text-blue-700 mx-1">Terms of Service</a>
             and
-            <a href="/privacy" className="text-black underline hover:text-blue-700 mx-1">Privacy Policy</a>.
+            <a href="/privacy" className="text-foreground underline hover:text-blue-700 mx-1">Privacy Policy</a>.
           </div>
         </div>
       )}
 
       {mode === 'signup' && (
         <div className="w-full">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Create your account</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">Create your account</h2>
           {isInviteFlow && (
             <div className="text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded p-2 mb-3">You are accepting an invitation for <b>{invitedEmail}</b>. Email is locked.</div>
           )}
           <form onSubmit={onSignup} className="w-full">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
-            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" disabled={isInviteFlow} className={`${inputCls} ${isInviteFlow ? 'bg-gray-100 text-gray-600' : ''}`} required />
+            <label htmlFor="email" className="block text-sm font-medium text-foreground">Email address</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" disabled={isInviteFlow} className={`${inputCls} ${isInviteFlow ? 'bg-muted text-muted-foreground' : ''}`} required />
             {!isInviteFlow && (
               <div className="mb-3">
                 <div className="flex gap-2 items-center">
-                  <button type="button" onClick={sendOtp} disabled={sendingOtp || !email} className={`px-3 h-9 rounded-md text-sm font-medium border ${sendingOtp ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-black border-gray-300 hover:bg-gray-50'}`}>{sendingOtp ? 'Sending OTP…' : 'Send OTP'}</button>
-                  <span className="text-xs text-gray-500">We&apos;ll email you a 6‑digit code.</span>
+                  <button type="button" onClick={sendOtp} disabled={sendingOtp || !email} className={`px-3 h-9 rounded-md text-sm font-medium border ${sendingOtp ? 'bg-muted text-muted-foreground border-border' : 'bg-card text-foreground border-border hover:bg-muted'}`}>{sendingOtp ? 'Sending OTP…' : 'Send OTP'}</button>
+                  <span className="text-xs text-muted-foreground">We&apos;ll email you a 6‑digit code.</span>
                 </div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mt-3">OTP</label>
+                <label htmlFor="otp" className="block text-sm font-medium text-foreground mt-3">OTP</label>
                 <input id="otp" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" className={inputCls} />
               </div>
             )}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">First name</label>
+                <label htmlFor="firstName" className="block text-sm font-medium text-foreground">First name</label>
                 <input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" className={inputCls} />
               </div>
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Last name</label>
+                <label htmlFor="lastName" className="block text-sm font-medium text-foreground">Last name</label>
                 <input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" className={inputCls} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
                 <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} required />
               </div>
               <div>
-                <label htmlFor="confirm" className="block text-sm font-medium text-gray-700">Confirm password</label>
+                <label htmlFor="confirm" className="block text-sm font-medium text-foreground">Confirm password</label>
                 <input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" className={inputCls} required />
               </div>
             </div>
-            <button type="submit" disabled={loading} className={`${btnPrimary} mt-2 ${loading ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-black hover:bg-gray-900 text-white'}`}>{loading ? 'Creating account…' : 'Create account'}</button>
+            <button type="submit" disabled={loading} className={`${btnPrimary} mt-2 ${loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : 'bg-background hover:bg-card text-foreground'}`}>{loading ? 'Creating account…' : 'Create account'}</button>
           </form>
         </div>
       )}
@@ -324,8 +324,8 @@ function AuthPanelContent() {
 export default function AuthPanel() {
   return (
     <Suspense fallback={
-      <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col items-center justify-center py-10 px-8 min-h-[540px]">
-        <div className="text-gray-400 text-sm">Loading...</div>
+      <div className="w-full max-w-md mx-auto bg-card rounded-2xl shadow-2xl border border-border flex flex-col items-center justify-center py-10 px-8 min-h-[540px]">
+        <div className="text-muted-foreground text-sm">Loading...</div>
       </div>
     }>
       <AuthPanelContent />
