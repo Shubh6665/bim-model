@@ -1082,19 +1082,19 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
   return (
     <div 
-      className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full relative"
+      className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10"
       ref={panelRef}
     >
       {/* Header Commands */}
-      <div className="p-4 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-white mb-2 text-center">Database</h2>
+      <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+        <h2 className="text-lg font-semibold text-white mb-2 text-center tracking-wide">Database</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveCommand('manage')}
-            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'manage'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
             }`}
           >
             <Folder className="w-4 h-4 mr-2" />
@@ -1102,10 +1102,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
           </button>
           <button
             onClick={() => setActiveCommand('new')}
-            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'new'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
             }`}
           >
             <Plus className="w-4 h-4 mr-2" />

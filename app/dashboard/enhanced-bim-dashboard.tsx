@@ -828,8 +828,12 @@ function BIMDashboard() {
               />
             ) : activePanel === "ai" ? (
               // Placeholder for AI panel
-              <div className="w-80 bg-gray-800 border-l border-gray-700 flex items-center justify-center">
-                <p className="text-gray-400">Panel for AI</p>
+              <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center relative z-10">
+                <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+                  <span className="text-2xl">🤖</span>
+                </div>
+                <p className="text-gray-400 text-sm font-medium">AI Panel</p>
+                <p className="text-gray-600 text-xs mt-1">Coming soon</p>
               </div>
             ) : (
               // Show project panel when no active panel

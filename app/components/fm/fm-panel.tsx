@@ -896,19 +896,19 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
 
   // Sidebar menu (shared)
   const Sidebar = (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-800">
-        <h2 className="text-xl font-bold text-white mb-3 text-center">FM</h2>
+    <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10">
+      <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+        <h2 className="text-xl font-semibold text-white mb-3 text-center tracking-wide">FM</h2>
       </div>
 
       {/* Vertical menu (BIM-style) - Top 5 headings only */}
-      <div className="p-3 space-y-1.5 border-b border-gray-800">
+      <div className="p-3 space-y-1.5 border-b border-white/5">
         {/* Assets */}
         <button
           onClick={() => {
             setSection(defaultItemForGroup('assets'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'assets' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'assets' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Package className="h-4 w-4" />
           <span className="font-medium">Assets</span>
@@ -919,7 +919,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('spaces'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'spaces' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'spaces' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Square className="h-4 w-4" />
           <span className="font-medium">Spaces</span>
@@ -930,7 +930,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('maintenance'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'maintenance' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'maintenance' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Wrench className="h-4 w-4" />
           <span className="font-medium">Maintenance</span>
@@ -941,7 +941,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('work-orders'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'work-orders' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'work-orders' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <ClipboardList className="h-4 w-4" />
           <span className="font-medium">Work orders</span>
@@ -952,7 +952,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('upcoming-activities'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${section?.group === 'upcoming-activities' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'upcoming-activities' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <CalendarClock className="h-4 w-4" />
           <span className="font-medium">Maintenance activities</span>
@@ -981,8 +981,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'assets', item: 'asset-list' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'asset-list'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Asset list
@@ -990,8 +990,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'assets', item: 'create-asset' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'create-asset'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Create new asset
@@ -1003,8 +1003,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'spaces', item: 'space-list' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'space-list'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Space list
@@ -1012,8 +1012,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'spaces', item: 'create-space' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'create-space'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Create new space
@@ -1025,8 +1025,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'maintenance', item: 'scheduled' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'scheduled'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Scheduled maintenance
@@ -1034,8 +1034,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'maintenance', item: 'ticket' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'ticket'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Ticket-based maintenance
@@ -1047,8 +1047,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'work-orders', item: 'service-requests' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'service-requests'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Service requests
@@ -1056,8 +1056,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'work-orders', item: 'reports' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'reports'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Maintenance reports
@@ -1069,8 +1069,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'ongoing' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'ongoing'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Ongoing maintenance
@@ -1078,8 +1078,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'planned' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'planned'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Planned maintenance
@@ -1087,8 +1087,8 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'archived' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'archived'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/80 border border-transparent hover:border-gray-700'
+                      ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'
                       }`}
                   >
                     Maintenance Archived
@@ -1119,7 +1119,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
   }
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
+    <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10">
       {Sidebar}
 
       {showModal && !showModalMinimized && (

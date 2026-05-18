@@ -1937,13 +1937,13 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
   };
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full min-h-0">
+    <div className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full min-h-0 relative z-10">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex flex-col items-center">
-        <h2 className="text-xl font-bold text-white mb-3">BIM</h2>
+      <div className="p-4 border-b border-white/5 bg-white/[0.02] flex flex-col items-center">
+        <h2 className="text-xl font-semibold text-white mb-3 tracking-wide">BIM</h2>
         <button
           onClick={onBackToProjects}
-          className="flex items-center gap-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors w-full justify-center"
+          className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300 w-full justify-center"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Project Info
@@ -1951,45 +1951,45 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       </div>
 
       {/* Vertical menu (compact) */}
-      <div className="p-3 space-y-1.5 border-b border-gray-800">
+      <div className="p-3 space-y-1.5 border-b border-white/5">
         <button
           onClick={() => setActiveCommand('models')}
-          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'models' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'models' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <img src="/icon.svg" alt="Models" className="h-5 w-5 invert" />
           <span className="font-medium">Models</span>
         </button>
         <button
           onClick={() => setActiveCommand('2d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '2d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '2d-views' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Layers className="h-4 w-4" />
           <span className="font-medium">2D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('3d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === '3d-views' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '3d-views' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Box className="h-4 w-4" />
           <span className="font-medium">3D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('save-view')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'save-view' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'save-view' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Save className="h-4 w-4" />
           <span className="font-medium">Save View</span>
         </button>
         <button
           onClick={() => setActiveCommand('filter-objects')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'filter-objects' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'filter-objects' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Filter className="h-4 w-4" />
           <span className="font-medium">Filter Objects</span>
         </button>
         <button
           onClick={() => setActiveCommand('view-sensors')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border text-sm ${activeCommand === 'view-sensors' ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-800 text-gray-200 border-gray-700 hover:bg-gray-700'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'view-sensors' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Eye className="h-4 w-4" />
           <span className="font-medium">View Sensors</span>
