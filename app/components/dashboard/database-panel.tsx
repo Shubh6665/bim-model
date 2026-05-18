@@ -1156,7 +1156,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       )}
 
       {/* Properties Modal */}
-      {showPropertiesModal && (
+      {showPropertiesModal && createPortal(
         <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-xl w-[32rem] shadow-2xl border border-gray-700">
             <div className="flex items-start justify-between mb-4">
@@ -1235,7 +1235,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* New Folder Creation */}
       {activeCommand === 'new' && (
@@ -1556,7 +1556,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       , document.body)}
 
       {/* Email Modal */}
-      {showEmailModal && (
+      {showEmailModal && createPortal(
         <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
             <div className="flex items-center gap-3 mb-4">
@@ -1595,10 +1595,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* User Assignment Modal */}
-      {showUserAssignModal && (
+      {showUserAssignModal && createPortal(
         <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg w-96">
             <h3 className="text-lg font-semibold text-white mb-4">
@@ -1686,10 +1686,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Share Link Modal */}
-      {showShareLinkModal && (
+      {showShareLinkModal && createPortal(
         <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
             <div className="flex items-center gap-3 mb-4">
@@ -1734,10 +1734,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Send as ZIP Modal */}
-      {showSendZipModal && (
+      {showSendZipModal && createPortal(
         <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-xl w-96 shadow-2xl border border-gray-700">
             <div className="flex items-center gap-3 mb-4">
@@ -1871,10 +1871,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Notification Toast */}
-      {notification && (
+      {notification && createPortal(
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
           notification.type === 'success' 
             ? 'bg-green-600 text-white' 
@@ -1889,17 +1889,17 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             <span>{notification.message}</span>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Sending Overlay */}
-      {isSending && (
+      {isSending && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3 bg-gray-900/90 border border-gray-700 rounded-xl px-6 py-5 shadow-2xl">
             <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" aria-label="Loading" />
             <div className="text-sm text-gray-200">{sendingMessage || 'Processing...'}</div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       
 
