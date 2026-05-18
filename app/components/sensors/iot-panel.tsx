@@ -167,13 +167,13 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
         <h2 className="text-xl font-semibold text-white mb-3 tracking-wide">IoT</h2>
         <div className="flex gap-3 w-full mb-4">
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
             onClick={() => handleModeChange("all")}
           >
             All sensors
           </button>
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white"}`}
             onClick={() => handleModeChange("insert")}
           >
             Insert new sensor
@@ -192,7 +192,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 wireframeMode 
-                  ? "bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]" 
+                  ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
                   : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5"
               }`}
               onClick={() => {
@@ -201,12 +201,12 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
               }}
               title={"Wireframe mode - Shows model structure for better sensor visibility"}
             >
-              🔲 Wireframe
+              Wireframe
             </button>
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 !wireframeMode 
-                  ? "bg-white/10 text-white border border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.05)]" 
+                  ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
                   : "bg-transparent text-gray-400 border border-transparent hover:bg-white/5"
               }`}
               onClick={() => {
@@ -215,7 +215,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
               }}
               title="Solid mode - Shows complete model appearance"
             >
-              🏗️ Solid
+              Solid
             </button>
           </div>
         </div>

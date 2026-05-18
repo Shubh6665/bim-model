@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Folder, 
   FileText, 
@@ -1082,7 +1083,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
   return (
     <div 
-      className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full relative z-10"
+      className="w-80 bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full z-10"
       ref={panelRef}
     >
       {/* Header Commands */}
@@ -1093,7 +1094,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             onClick={() => setActiveCommand('manage')}
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'manage'
-                ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                 : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -1104,7 +1105,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             onClick={() => setActiveCommand('new')}
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'new'
-                ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                 : 'bg-transparent text-gray-400 border border-transparent hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -1259,11 +1260,11 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
 
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
+          <div className="fixed inset-0 z-[9998]" onClick={closeContextMenu} />
           <div
-            className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
+            className="fixed z-[9999] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
             style={{ 
               left: contextMenu.x, 
               top: contextMenu.y,
@@ -1487,10 +1488,10 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             )}
           </div>
         </>
-      )}
+      , document.body)}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal(
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-xl w-[28rem] shadow-2xl border border-gray-700">
             <div className="flex items-center gap-3 mb-3">
@@ -1526,11 +1527,11 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Rename Modal */}
-      {showRenameModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      {showRenameModal && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-gray-800 p-6 rounded-lg w-96">
             <h3 className="text-lg font-semibold text-white mb-4">Rename {'type' in showRenameModal.item ? 'File' : 'Folder'}</h3>
             <input
@@ -1546,7 +1547,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Email Modal */}
       {showEmailModal && (

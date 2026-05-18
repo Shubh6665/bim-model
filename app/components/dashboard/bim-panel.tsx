@@ -1563,7 +1563,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             ) : (
               <div className="space-y-2">
                 {savedViews.map((view) => (
-                  <div key={view.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                  <div key={view.id} className="bg-white/5 border border-white/10 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-white">{view.name}</h4>
                       <span className="text-xs text-gray-400">
@@ -1627,7 +1627,7 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   value={viewName}
                   onChange={(e) => setViewName(e.target.value)}
                   placeholder="Enter view name..."
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400"
+                  className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-500 outline-none transition-all"
                 />
               </div>
               
@@ -1831,20 +1831,20 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
             
             <div className="space-y-3">
               {/* View Mode Toggle */}
-              <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-medium text-white">View Mode</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className={`px-3 py-2 rounded-md text-sm border ${wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${wireframeMode ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-black/20 text-gray-400 border-white/10 hover:bg-white/5'}`}
                     onClick={() => onWireframeModeChange?.(true)}
                     title="Show wireframe (edges only)"
                   >
                     Wireframe
                   </button>
                   <button
-                    className={`px-3 py-2 rounded-md text-sm border ${!wireframeMode ? 'bg-blue-600 text-white border-transparent' : 'bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700'}`}
+                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${!wireframeMode ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-black/20 text-gray-400 border-white/10 hover:bg-white/5'}`}
                     onClick={() => onWireframeModeChange?.(false)}
                     title="Show solid shading"
                   >
@@ -1853,16 +1853,16 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <div className="font-medium text-white">Sensor Visibility</div>
                 </div>
                 <button
                   onClick={() => onToggleSensors?.(!sensorsVisible)}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-2 rounded-lg transition-all duration-300 ${
                     sensorsVisible 
-                      ? 'bg-green-600 text-white hover:bg-green-700' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      ? 'bg-green-500/15 text-green-300 border border-green-400/20 hover:bg-green-500/20' 
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
                   }`}
                 >
                   {sensorsVisible ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
@@ -1890,12 +1890,12 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                   const order = ['architecture','structure','mep','electrical','plumbing','hvac','other'];
                   const label: Record<string,string> = { architecture:'Architecture', structure:'Structure', mep:'MEP', electrical:'Electrical', plumbing:'Plumbing', hvac:'HVAC', other:'Other' };
                   return order.filter(d => groups[d]?.length).map((d) => (
-                    <div key={d} className="border border-gray-800 rounded-md overflow-hidden">
-                      <div className="px-3 py-2 bg-gray-800 flex items-center justify-between">
+                    <div key={d} className="border border-white/10 rounded-xl overflow-hidden">
+                      <div className="px-3 py-2 bg-white/5 flex items-center justify-between">
                         <span className="text-gray-200 text-sm">{label[d]}</span>
-                        <span className="text-xs bg-gray-700 text-gray-300 rounded px-2 py-0.5">{groups[d].length}</span>
+                        <span className="text-xs bg-blue-500/15 text-blue-300 rounded px-2 py-0.5">{groups[d].length}</span>
                       </div>
-                      <ul className="divide-y divide-gray-800">
+                      <ul className="divide-y divide-white/5">
                         {groups[d].map((m) => {
                           const isOn = enabledModelIds ? enabledModelIds.has(m.id) : true;
                           return (
@@ -1954,42 +1954,42 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       <div className="p-3 space-y-1.5 border-b border-white/5">
         <button
           onClick={() => setActiveCommand('models')}
-          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'models' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'models' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <img src="/icon.svg" alt="Models" className="h-5 w-5 invert" />
           <span className="font-medium">Models</span>
         </button>
         <button
           onClick={() => setActiveCommand('2d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '2d-views' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '2d-views' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Layers className="h-4 w-4" />
           <span className="font-medium">2D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('3d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '3d-views' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '3d-views' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Box className="h-4 w-4" />
           <span className="font-medium">3D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('save-view')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'save-view' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'save-view' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Save className="h-4 w-4" />
           <span className="font-medium">Save View</span>
         </button>
         <button
           onClick={() => setActiveCommand('filter-objects')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'filter-objects' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'filter-objects' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Filter className="h-4 w-4" />
           <span className="font-medium">Filter Objects</span>
         </button>
         <button
           onClick={() => setActiveCommand('view-sensors')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'view-sensors' ? 'bg-white/10 text-white border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-transparent text-gray-300 border-transparent hover:bg-white/5 hover:text-white'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'view-sensors' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5 hover:text-white'}`}
         >
           <Eye className="h-4 w-4" />
           <span className="font-medium">View Sensors</span>
