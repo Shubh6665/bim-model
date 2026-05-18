@@ -132,7 +132,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
     return `px-4 py-1.5 text-sm rounded-full font-medium transition-all duration-300 ${
       activePanel === panel
-        ? "text-white bg-white/10 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/10" // Style for active button
+        ? "text-white bg-gradient-to-r from-blue-500/20 to-purple-500/20 shadow-[0_0_20px_rgba(59,130,246,0.15)] border border-blue-500/30" // Style for active button
         : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
     }`;
   };
@@ -149,8 +149,9 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const isOwnerFlag: boolean = !!selectedProject?.access?.owner;
 
   return (
-    <header className="bg-[#0B0F19]/70 backdrop-blur-xl border-b border-white/[0.05] px-6 py-3 shadow-[0_4px_30px_rgba(0,0,0,0.1)] relative z-50">
-      <div className="flex items-center justify-between">
+    <>
+      <header className="bg-[#0B0F19]/80 backdrop-blur-2xl border-b border-white/10 px-6 py-3 shadow-[0_4px_40px_rgba(0,0,0,0.2)] relative z-50">
+        <div className="flex items-center justify-between">
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
@@ -204,7 +205,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
               className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/10 transition-all duration-300"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
             >
-              <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium shadow-[0_0_10px_rgba(37,99,235,0.4)] border border-blue-400/30">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
@@ -347,8 +348,11 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
           </button>
         </div>
       </div>
+      </header>
+      
       {showProfileMenu && <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)}></div>}
       {showNotifications && <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>}
+      
       {showPendingAdminsModal && (
         <OwnerPendingAdminsModal onClose={() => setShowPendingAdminsModal(false)} />
       )}
@@ -366,6 +370,6 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         roleInfo={{ roleLabel, isOwner: isOwnerFlag }}
         projectId={selectedProject?._id || selectedProject?.id}
       />
-    </header>
+    </>
   );
 }
