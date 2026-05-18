@@ -295,35 +295,35 @@ export function EnhancedProjectPanel({
   const selectedProjectId: string | null = selectedProject ? selectedProject.id : null;
 
   return (
-    <div className="h-full bg-gray-800 text-white flex flex-col w-80 min-w-80 max-w-80">
-      <div className="p-4 border-b border-gray-700">
+    <div className="h-full bg-[#0B0F19]/80 backdrop-blur-xl border-l border-white/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] text-white flex flex-col w-80 min-w-80 max-w-80 relative z-10">
+      <div className="p-4 border-b border-white/5 bg-white/[0.02]">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white text-center">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
+          <h2 className="text-lg font-semibold text-white tracking-wide">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
         </div>
 
         {/* Tabs - hidden when a project is selected */}
         {!selectedProject && (
-          <div className="flex bg-gray-700 rounded-lg p-1">
+          <div className="flex bg-black/20 rounded-lg p-1 border border-white/5">
             <button
               onClick={() => { setActiveTab('projects'); setShowProjectDetail(true); }}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
                 activeTab === 'projects'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-300 hover:text-white'
+                  ? 'bg-white/10 text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Globe className="w-4 h-4 inline mr-1" />
+              <Globe className="w-4 h-4 inline mr-1.5" />
               Projects
             </button>
             <button
               onClick={() => { setActiveTab('models'); setShowProjectDetail(false); }}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+              className={`flex-1 py-1.5 px-3 rounded-md text-sm font-medium transition-all duration-300 ${
                 activeTab === 'models'
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-300 hover:text-white'
+                  ? 'bg-white/10 text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <File className="w-4 h-4 inline mr-1" />
+              <File className="w-4 h-4 inline mr-1.5" />
               Models
             </button>
           </div>
@@ -331,15 +331,15 @@ export function EnhancedProjectPanel({
 
         {/* Search - visible only when no project is selected */}
         {!selectedProject && (
-          <div className="mt-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+          <div className="mt-4">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search projects or models..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-md py-1.5 pl-8 pr-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search projects..."
+                className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner"
               />
             </div>
           </div>
@@ -370,8 +370,8 @@ export function EnhancedProjectPanel({
                 </div>
               </div>
               {/* Project info card - clean minimal */}
-              <div className="text-sm bg-gray-900 border border-gray-700 rounded-lg p-4 shadow-sm">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+              <div className="text-sm bg-black/20 border border-white/10 rounded-xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.2)] backdrop-blur-sm">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                   <div className="text-gray-400">Company</div>
                   <div className="text-gray-100 text-right truncate">{selectedProject.company || <span className="italic text-gray-500">Not specified</span>}</div>
 
@@ -464,10 +464,10 @@ export function EnhancedProjectPanel({
                   onViewModeChange('viewer');
                   setShowProjectDetail(true);
                 }}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-700 flex items-center gap-3 ${
+                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-300 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_-4px_rgba(59,130,246,0.2)] group relative overflow-hidden ${
                     selectedProjectId === project.id
-                    ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-gray-600 hover:border-gray-500'
+                    ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+                    : 'border-white/10 bg-white/5 hover:border-blue-400/30 hover:bg-white/10'
                 }`}
               >
                 {/* File preview (APS thumbnail if URN exists), otherwise fallback icon */}
@@ -500,10 +500,10 @@ export function EnhancedProjectPanel({
                   <span className="mt-1 text-[10px] text-gray-400">{project.code || ''}</span>
                 </div>
                 {/* Project info */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 z-10">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-white truncate">{project.name}</h4>
-                    <span className="text-[10px] bg-gray-700 text-gray-200 rounded px-1.5 py-0.5 ml-2 whitespace-nowrap">{project.country || ''}</span>
+                    <h4 className="text-sm font-semibold text-white truncate group-hover:text-blue-200 transition-colors">{project.name}</h4>
+                    <span className="text-[10px] bg-white/10 border border-white/10 text-gray-300 rounded px-1.5 py-0.5 ml-2 whitespace-nowrap">{project.country || ''}</span>
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-[10px] text-gray-400">{project.municipality || ''}</span>

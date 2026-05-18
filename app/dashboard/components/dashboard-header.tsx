@@ -130,10 +130,10 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
 
   // Helper function for button styles
   const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
-    return `px-2.5 py-1 text-sm rounded transition-colors ${
+    return `px-4 py-1.5 text-sm rounded-full font-medium transition-all duration-300 ${
       activePanel === panel
-        ? "text-white bg-gray-700/50" // Style for active button
-        : "text-gray-300 hover:text-white hover:bg-gray-800"
+        ? "text-white bg-white/10 shadow-[0_0_15px_rgba(255,255,255,0.1)] border border-white/10" // Style for active button
+        : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
     }`;
   };
 
@@ -149,21 +149,21 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const isOwnerFlag: boolean = !!selectedProject?.access?.owner;
 
   return (
-    <header className="bg-gray-900 border-b border-gray-700 px-4 py-2.5">
+    <header className="bg-[#0B0F19]/70 backdrop-blur-xl border-b border-white/[0.05] px-6 py-3 shadow-[0_4px_30px_rgba(0,0,0,0.1)] relative z-50">
       <div className="flex items-center justify-between">
         {/* Left Section */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)]">
               <span className="text-white font-bold text-xs">AP</span>
             </div>
-            <h1 className="text-lg font-bold text-white">Adaptivity Platform</h1>
+            <h1 className="text-lg font-semibold text-white tracking-wide">Adaptivity Platform</h1>
           </div>
         </div>
 
         {/* Center Section - Navigation */}
         <div className="absolute left-[calc((100%-20rem)/2)] transform -translate-x-1/2">
-          <nav className="hidden md:flex items-center gap-0.5">
+          <nav className="hidden md:flex items-center gap-1.5 bg-black/20 p-1 rounded-full border border-white/5">
             <button className={getButtonClass('bim')} onClick={() => onPanelChange('bim')}>BIM</button>
             <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
             <button className={getButtonClass('database')} onClick={() => onPanelChange('database')}>Database</button>
@@ -174,10 +174,10 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="relative">
             <button
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors relative"
+              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300 relative"
               onClick={() => setShowNotifications((v) => !v)}
               aria-label="Notifications"
             >
@@ -193,7 +193,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
             )}
           </div>
           <button 
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300"
             onClick={() => onShowMyProjects && onShowMyProjects()}
             title="My Projects"
           >
@@ -201,7 +201,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
           </button>
           <div className="relative">
             <button
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/10 transition-all duration-300"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
             >
               <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
@@ -210,10 +210,10 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
               <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
             </button>
             {showProfileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
-                <div className="p-3 border-b border-gray-700">
-                  <p className="text-sm font-medium text-white">{user?.name || "User"}</p>
-                  <p className="text-xs text-gray-400">{user?.email || "-"}</p>
+              <div className="absolute right-0 top-full mt-3 w-64 bg-[#0F1523]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+                  <p className="text-sm font-semibold text-white tracking-wide">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{user?.email || "-"}</p>
                   {/* RBAC Role badges (project-scoped or global PlatformOwner) */}
                   {(() => {
                     // If no project selected:

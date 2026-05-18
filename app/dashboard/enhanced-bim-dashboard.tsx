@@ -607,7 +607,11 @@ function BIMDashboard() {
   }, [projects, selectedProject, activePanel]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900">
+    <div className="h-screen flex flex-col bg-[#0B0F19] relative overflow-hidden">
+      {/* Ambient Glows */}
+      <div className="absolute top-0 left-[20%] w-[50rem] h-[50rem] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 z-0"></div>
+      <div className="absolute bottom-0 right-[10%] w-[40rem] h-[40rem] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/3 z-0"></div>
+
       {/* Header */}
       <DashboardHeader
         onSignOut={handleSignOut}
@@ -630,11 +634,12 @@ function BIMDashboard() {
         )}
         {projects.length === 0 ? (
           // Empty state panel
-          <div className="flex flex-1 items-center justify-center bg-gray-900">
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-12 flex flex-col items-center shadow-2xl">
-              <svg
-                className="w-16 h-16 text-blue-500 mb-6"
-                fill="none"
+          <div className="flex flex-1 items-center justify-center bg-transparent z-10 relative">
+            <div className="bg-[#0B0F19]/60 backdrop-blur-xl border border-white/10 rounded-2xl p-12 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+              <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                <svg
+                  className="w-10 h-10 text-blue-400"
+                  fill="none"
                 stroke="currentColor"
                 viewBox="0 0 48 48"
               >
@@ -652,6 +657,7 @@ function BIMDashboard() {
                   strokeLinecap="round"
                 />
               </svg>
+              </div>
               <h2 className="text-2xl font-bold text-white mb-2">
                 No Projects Yet
               </h2>
@@ -661,7 +667,7 @@ function BIMDashboard() {
               </p>
               {session?.user && canCreateProjectPerm && (
                 <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-lg font-semibold shadow-lg transition-colors"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full text-lg font-medium shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-1"
                   onClick={handleRequestCreateProject}
                 >
                   + Create Project
