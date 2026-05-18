@@ -1,6 +1,7 @@
 "use client";
 import { SessionProvider } from "next-auth/react";
 import { AuthProvider } from "@/app/context/auth-context";
+import { ThemeProvider } from "@/app/context/theme-context";
 
 export default function SessionWrapper({
   children,
@@ -9,7 +10,9 @@ export default function SessionWrapper({
 }) {
   return (
     <SessionProvider>
-      <AuthProvider>{children}</AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </ThemeProvider>
     </SessionProvider>
   );
 }
