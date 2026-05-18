@@ -7,6 +7,7 @@ import { OwnerPendingAdminsModal } from "./owner-pending-admins-modal";
 import { ProfileModal } from "./profile-modal";
 import { AdminRequestModal } from "./admin-request-modal";
 import { ManageAdministratorsModal } from "./manage-administrators-modal";
+import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 
 interface DashboardHeaderProps {
   onSignOut: () => void;
@@ -176,6 +177,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <div className="relative">
             <button
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all duration-300 relative"
