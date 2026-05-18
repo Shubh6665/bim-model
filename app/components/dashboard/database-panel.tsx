@@ -496,7 +496,13 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
     const onDocMouseDown = (ev: MouseEvent) => {
       const root = panelRef.current;
       if (!root) return;
-      const target = ev.target as Node | null;
+      const target = ev.target as Element | null;
+      
+      // If clicking inside the context menu portal, do not clear selection/menu
+      if (target && target.closest('.database-context-menu')) {
+        return;
+      }
+      
       if (target && !root.contains(target)) {
         setSelectedFolderId(null);
         setSelectedItem(null);
@@ -1262,9 +1268,9 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
       {/* Context Menu */}
       {contextMenu && createPortal(
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={closeContextMenu} />
+          <div className="fixed inset-0 z-[9998]" onMouseDown={closeContextMenu} />
           <div
-            className="fixed z-[9999] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
+            className="database-context-menu fixed z-[9999] bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-2 min-w-48"
             style={{ 
               left: contextMenu.x, 
               top: contextMenu.y,
