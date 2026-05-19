@@ -1338,17 +1338,17 @@ const MaintenanceReports: React.FC<{ projectId?: string; }> = ({ projectId }) =>
           <div className="text-xs text-muted-foreground">Total Work Orders</div>
           <div className="text-lg text-foreground font-bold">{totalWorkOrders}</div>
         </div>
-        <div className="bg-yellow-900/30 rounded p-2">
-          <div className="text-xs text-yellow-400">Open Orders</div>
-          <div className="text-lg text-yellow-300 font-bold">{openOrders}</div>
+        <div className="bg-yellow-200 dark:bg-yellow-900/30 rounded p-2">
+          <div className="text-xs text-foreground/80 dark:text-yellow-400">Open Orders</div>
+          <div className="text-lg text-foreground dark:text-yellow-300 font-bold">{openOrders}</div>
         </div>
-        <div className="bg-purple-900/30 rounded p-2">
-          <div className="text-xs text-purple-400">In Progress</div>
-          <div className="text-lg text-purple-300 font-bold">{inProgressOrders}</div>
+        <div className="bg-purple-200 dark:bg-purple-900/30 rounded p-2">
+          <div className="text-xs text-foreground/80 dark:text-purple-400">In Progress</div>
+          <div className="text-lg text-foreground dark:text-purple-300 font-bold">{inProgressOrders}</div>
         </div>
-        <div className="col-span-2 bg-green-900/30 rounded p-2">
-          <div className="text-xs text-green-400">Resolved Orders</div>
-          <div className="text-lg text-green-300 font-bold">{resolvedOrders}</div>
+        <div className="col-span-2 bg-green-200 dark:bg-green-900/30 rounded p-2">
+          <div className="text-xs text-foreground/80 dark:text-green-400">Resolved Orders</div>
+          <div className="text-lg text-foreground dark:text-green-300 font-bold">{resolvedOrders}</div>
         </div>
       </div>
 
