@@ -24,65 +24,67 @@
  * -------------------------------------------------------- */
 
 :root {
-  /* Light theme */
-  --background: #ffffff;
-  --foreground: #0f172a;          /* slate-900 */
+  /* Light theme — refined off-white base, elevated white cards, cool brand accents.
+   * Hierarchy: page (#F6F8FB) → card/popover (#FFFFFF, lifted via shadow) → primary (#4D7CFF) */
+  --background: #F6F8FB;          /* Soft cool off-white page */
+  --foreground: #0B1220;          /* Near-Midnight, slightly warmer than pure black */
 
-  --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card: #FFFFFF;                /* Pure white — visually lifts off the bg */
+  --card-foreground: #0B1220;
 
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover: #FFFFFF;             /* Same surface as card, distinguished by shadow */
+  --popover-foreground: #0B1220;
 
-  --primary: #2563eb;             /* blue-600 */
-  --primary-foreground: #ffffff;
+  --primary: #4D7CFF;             /* Laser Blue */
+  --primary-foreground: #FFFFFF;
 
-  --secondary: #f1f5f9;           /* slate-100 */
-  --secondary-foreground: #0f172a;
+  --secondary: #EFF3F8;           /* subtle slate-tinted secondary surface */
+  --secondary-foreground: #0B1220;
 
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;    /* slate-500 */
+  --muted: #EFF3F8;
+  --muted-foreground: #6B7689;    /* Slate Gray — readable but recessive */
 
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --accent: #E6ECF4;              /* slightly cooler hover surface */
+  --accent-foreground: #0B1220;
 
-  --destructive: #ef4444;         /* red-500 */
-  --destructive-foreground: #ffffff;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
 
-  --border: #e2e8f0;              /* slate-200 */
-  --input: #e2e8f0;
-  --ring: #2563eb;
+  --border: #DCE3EC;              /* visible-but-subtle separator */
+  --input: #DCE3EC;
+  --ring: #37D6FF;                /* Electric Cyan — bright focus */
 }
 
 .dark {
-  /* Dark theme — mirrors the existing dashboard aesthetic */
-  --background: #0B0F19;
-  --foreground: #f8fafc;          /* slate-50 */
+  /* Dark theme — Midnight Black base, layered Graphite + Deep Steel elevations.
+   * Each layer ~50% lighter than the one below for clear premium hierarchy. */
+  --background: #06070A;          /* Midnight Black */
+  --foreground: #EAF7FF;          /* Ice White */
 
-  --card: #111827;                /* gray-900 — header / panel chrome */
-  --card-foreground: #f8fafc;
+  --card: #0F141C;                /* Graphite Navy — first elevation (header, panels) */
+  --card-foreground: #EAF7FF;
 
-  --popover: #0F1523;             /* elevated menus & dropdowns */
-  --popover-foreground: #f8fafc;
+  --popover: #1A2233;             /* Deep Steel — menus / dropdowns / modals */
+  --popover-foreground: #EAF7FF;
 
-  --primary: #3b82f6;             /* blue-500 */
-  --primary-foreground: #ffffff;
+  --primary: #4D7CFF;             /* Laser Blue */
+  --primary-foreground: #FFFFFF;
 
-  --secondary: #1f2937;           /* gray-800 */
-  --secondary-foreground: #f8fafc;
+  --secondary: #131923;
+  --secondary-foreground: #EAF7FF;
 
-  --muted: #1f2937;
-  --muted-foreground: #94a3b8;    /* slate-400 */
+  --muted: #131923;
+  --muted-foreground: #8A95A7;    /* Slate Gray — slightly lifted for readability */
 
-  --accent: #1f2937;
-  --accent-foreground: #f8fafc;
+  --accent: #232C3B;              /* visible hover state, one rung above popover */
+  --accent-foreground: #EAF7FF;
 
-  --destructive: #dc2626;         /* red-600 */
-  --destructive-foreground: #ffffff;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
 
-  --border: #1f2937;              /* gray-800 — use /opacity for subtler lines */
-  --input: #1f2937;
-  --ring: #3b82f6;
+  --border: #232C3B;              /* visible separator — use /50 for subtler lines */
+  --input: #232C3B;
+  --ring: #37D6FF;                /* Electric Cyan — focus highlight */
 }
 
 @theme inline {

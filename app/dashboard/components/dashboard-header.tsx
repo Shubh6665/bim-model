@@ -133,7 +133,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
   const getButtonClass = (panel: 'bim' | 'iot' | 'database' | 'ai' | 'fm' | 'vt') => {
     return `px-4 py-1.5 text-sm rounded-full font-medium transition-all duration-300 ${
       activePanel === panel
-        ? "text-foreground bg-gradient-to-r from-blue-500/20 to-purple-500/20 shadow-[0_0_20px_rgba(59,130,246,0.15)] border border-primary/30" // Style for active button
+        ? "text-foreground bg-gradient-to-r from-[#4D7CFF]/25 to-[#37D6FF]/15 shadow-[0_0_20px_rgba(55,214,255,0.18)] border border-[#37D6FF]/30" // Active: Laser Blue → Electric Cyan
         : "text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent"
     }`;
   };
@@ -151,12 +151,12 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
 
   return (
     <>
-      <header className="bg-card/80 backdrop-blur-2xl border-b border-border px-6 py-3 shadow-[0_4px_40px_rgba(0,0,0,0.2)] relative z-50">
+      <header className="bg-card/70 backdrop-blur-2xl backdrop-saturate-150 border-b border-border/60 px-6 py-3 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset,0_8px_30px_-12px_rgba(15,20,28,0.35)] relative z-50">
         <div className="flex items-center justify-between">
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+            <div className="w-8 h-8 bg-gradient-to-br from-[#4D7CFF] to-[#37D6FF] rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(55,214,255,0.45)]">
               <span className="text-primary-foreground font-bold text-xs">AP</span>
             </div>
             <h1 className="text-lg font-semibold text-foreground tracking-wide">Adaptivity Platform</h1>
@@ -165,7 +165,7 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
 
         {/* Center Section - Navigation */}
         <div className="absolute left-1/2 transform -translate-x-1/2">
-          <nav className="hidden md:flex items-center gap-1.5 bg-background/40 p-1 rounded-full border border-border/50">
+          <nav className="hidden md:flex items-center gap-1.5 bg-background/60 p-1 rounded-full border border-border/60 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
             <button className={getButtonClass('bim')} onClick={() => onPanelChange('bim')}>BIM</button>
             <button className={getButtonClass('iot')} onClick={() => onPanelChange('iot')}>IoT</button>
             <button className={getButtonClass('database')} onClick={() => onPanelChange('database')}>Database</button>
@@ -207,13 +207,13 @@ export function DashboardHeader({ onSignOut, user, activePanel, onPanelChange, o
               className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-accent transition-all duration-300"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-primary-foreground text-xs font-medium shadow-[0_0_10px_rgba(37,99,235,0.4)] border border-primary/30">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4D7CFF] to-[#37D6FF] flex items-center justify-center text-primary-foreground text-xs font-medium shadow-[0_0_10px_rgba(77,124,255,0.45)] border border-[#37D6FF]/30">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
             {showProfileMenu && (
-              <div className="absolute right-0 top-full mt-3 w-64 bg-popover/95 backdrop-blur-xl border border-border rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-3 w-64 bg-popover/95 backdrop-blur-xl backdrop-saturate-150 border border-border/70 rounded-2xl shadow-[0_24px_50px_-12px_rgba(15,20,28,0.45),0_0_0_1px_rgba(255,255,255,0.03)_inset] z-50 overflow-hidden">
                 <div className="p-4 border-b border-border/50 bg-gradient-to-b from-foreground/[0.02] to-transparent">
                   <p className="text-sm font-semibold text-popover-foreground tracking-wide">{user?.name || "User"}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{user?.email || "-"}</p>

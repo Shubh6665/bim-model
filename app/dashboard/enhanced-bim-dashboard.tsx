@@ -608,9 +608,9 @@ function BIMDashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-background relative overflow-hidden">
-      {/* Ambient Glows */}
-      <div className="absolute top-0 left-[20%] w-[50rem] h-[50rem] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 z-0"></div>
-      <div className="absolute bottom-0 right-[10%] w-[40rem] h-[40rem] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none translate-y-1/3 z-0"></div>
+      {/* Ambient Glows — Laser Blue & Electric Cyan */}
+      <div className="absolute top-0 left-[20%] w-[50rem] h-[50rem] bg-[#4D7CFF]/10 rounded-full blur-[120px] pointer-events-none -translate-y-1/2 z-0"></div>
+      <div className="absolute bottom-0 right-[10%] w-[40rem] h-[40rem] bg-[#37D6FF]/10 rounded-full blur-[100px] pointer-events-none translate-y-1/3 z-0"></div>
 
       {/* Header */}
       <DashboardHeader
@@ -635,8 +635,8 @@ function BIMDashboard() {
         {projects.length === 0 ? (
           // Empty state panel
           <div className="flex flex-1 items-center justify-center bg-transparent z-10 relative">
-            <div className="bg-card/60 backdrop-blur-xl border border-border rounded-2xl p-12 flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+            <div className="bg-card/80 backdrop-blur-xl backdrop-saturate-150 border border-border/60 rounded-2xl p-12 flex flex-col items-center shadow-[0_24px_60px_-12px_rgba(15,20,28,0.35),0_0_0_1px_rgba(255,255,255,0.03)_inset]">
+              <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(55,214,255,0.3)]">
                 <svg
                   className="w-10 h-10 text-primary"
                   fill="none"
@@ -667,7 +667,7 @@ function BIMDashboard() {
               </p>
               {session?.user && canCreateProjectPerm && (
                 <button
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-full text-lg font-medium shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-1"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-full text-lg font-medium shadow-[0_0_20px_rgba(77,124,255,0.4)] hover:shadow-[0_0_30px_rgba(55,214,255,0.6)] transition-all duration-300 transform hover:-translate-y-1"
                   onClick={handleRequestCreateProject}
                 >
                   + Create Project
@@ -813,7 +813,7 @@ function BIMDashboard() {
                   openFileId={openFile?.id || null}
                 />
               ) : (
-                <div className="w-80 bg-card border-l border-border flex items-center justify-center">
+                <div className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/60 flex items-center justify-center shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)]">
                   <p className="text-muted-foreground">Select a project to view files</p>
                 </div>
               )
@@ -828,8 +828,8 @@ function BIMDashboard() {
               />
             ) : activePanel === "ai" ? (
               // Placeholder for AI panel
-              <div className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/50 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col items-center justify-center relative z-10">
-                <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+              <div className="w-80 bg-card/80 backdrop-blur-xl backdrop-saturate-150 border-l border-border/60 shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)] flex flex-col items-center justify-center relative z-10">
+                <div className="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(77,124,255,0.15)]">
                   <span className="text-2xl">🤖</span>
                 </div>
                 <p className="text-muted-foreground text-sm font-medium">AI Panel</p>

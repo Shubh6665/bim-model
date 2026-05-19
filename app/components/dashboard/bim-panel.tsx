@@ -1937,9 +1937,9 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
   };
 
   return (
-    <div className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full min-h-0 relative z-10">
+    <div className="w-80 bg-card/80 backdrop-blur-xl backdrop-saturate-150 border-l border-border/60 shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)] flex flex-col h-full min-h-0 relative z-10">
       {/* Header */}
-      <div className="p-4 border-b border-border/5 bg-foreground/[0.02] flex flex-col items-center">
+      <div className="p-4 border-b border-border/60 bg-foreground/[0.02] flex flex-col items-center">
         <h2 className="text-xl font-semibold text-foreground mb-3 tracking-wide">BIM</h2>
         <button
           onClick={onBackToProjects}

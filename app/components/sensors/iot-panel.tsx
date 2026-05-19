@@ -408,7 +408,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                             <div className="mt-3 p-4 bg-popover rounded-lg border border-border shadow-lg">
                               <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4D7CFF] to-[#37D6FF] flex items-center justify-center">
                                     <span className="text-foreground text-xs font-bold">i</span>
                                   </div>
                                   <h4 className="text-sm font-semibold text-foreground">Sensor Information</h4>

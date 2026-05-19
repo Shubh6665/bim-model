@@ -20,9 +20,9 @@ export function VTPanel({ onBack }: VTPanelProps) {
   const [activeTab, setActiveTab] = useState<'tours' | 'cameras'>('tours');
 
   return (
-    <div className="flex flex-col h-full bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] text-foreground w-80 relative z-10">
+    <div className="flex flex-col h-full bg-card/80 backdrop-blur-xl backdrop-saturate-150 border-l border-border/60 shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)] text-foreground w-80 relative z-10">
       {/* Header */}
-      <div className="p-4 border-b border-border/5 bg-foreground/[0.02]">
+      <div className="p-4 border-b border-border/60 bg-foreground/[0.02]">
         <div className="flex items-center justify-center relative mb-4">
           <button 
             onClick={onBack}

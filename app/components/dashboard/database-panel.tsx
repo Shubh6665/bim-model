@@ -1089,11 +1089,11 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
 
   return (
     <div 
-      className="w-80 bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] flex flex-col h-full z-10"
+      className="w-80 bg-card/80 backdrop-blur-xl backdrop-saturate-150 border-l border-border/60 shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)] flex flex-col h-full z-10"
       ref={panelRef}
     >
       {/* Header Commands */}
-      <div className="p-4 border-b border-border/5 bg-foreground/[0.02]">
+      <div className="p-4 border-b border-border/60 bg-foreground/[0.02]">
         <h2 className="text-lg font-semibold text-foreground mb-2 text-center tracking-wide">Database</h2>
         <div className="flex items-center gap-2">
           <button

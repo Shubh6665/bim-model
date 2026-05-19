@@ -295,8 +295,8 @@ export function EnhancedProjectPanel({
   const selectedProjectId: string | null = selectedProject ? selectedProject.id : null;
 
   return (
-    <div className="h-full bg-card/80 backdrop-blur-xl border-l border-border/5 shadow-[-10px_0_30px_rgba(0,0,0,0.3)] text-foreground flex flex-col w-80 min-w-80 max-w-80 relative z-10">
-      <div className="p-4 border-b border-border/5 bg-foreground/[0.02]">
+    <div className="h-full bg-card/80 backdrop-blur-xl backdrop-saturate-150 border-l border-border/60 shadow-[-12px_0_30px_-12px_rgba(15,20,28,0.25)] text-foreground flex flex-col w-80 min-w-80 max-w-80 relative z-10">
+      <div className="p-4 border-b border-border/60 bg-foreground/[0.02]">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground tracking-wide">{selectedProject ? 'Project Info' : 'My Projects'}</h2>
         </div>

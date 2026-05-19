@@ -19,8 +19,8 @@ export function NotificationsMenu({ onClose }: { onClose: () => void }) {
   const { notifications, markRead, markAllRead, remove, clear, unreadCount } = useNotifications();
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-card/80 backdrop-blur">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-popover/95 backdrop-blur-xl backdrop-saturate-150 border border-border/70 rounded-2xl shadow-[0_24px_50px_-12px_rgba(15,20,28,0.45),0_0_0_1px_rgba(255,255,255,0.03)_inset] z-50 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/60 bg-foreground/[0.02]">
         <div className="text-sm text-foreground font-medium">Notifications</div>
         <div className="flex items-center gap-2">
           {notifications.length > 0 && (

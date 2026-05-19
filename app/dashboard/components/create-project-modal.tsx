@@ -437,7 +437,7 @@ export function CreateProjectModal({ show, onClose, onProjectCreated, apiKey }: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
-      <div className="relative bg-card border border-border/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.5)] w-full max-w-xl mx-4 flex flex-col" style={{ maxHeight: '90vh' }}>
+      <div className="relative bg-card border border-border/60 rounded-2xl shadow-[0_30px_60px_-15px_rgba(15,20,28,0.45),0_0_0_1px_rgba(255,255,255,0.03)_inset] w-full max-w-xl mx-4 flex flex-col" style={{ maxHeight: '90vh' }}>
         <button className="absolute top-4 right-4 text-muted-foreground hover:text-foreground z-20 transition-colors" onClick={onClose}>&times;</button>
         <h3 className="text-2xl font-semibold text-foreground mb-4 text-center pt-6 tracking-wide">Create New Project</h3>
         {/* Stepper */}
