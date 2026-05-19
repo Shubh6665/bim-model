@@ -1100,7 +1100,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             onClick={() => setActiveCommand('manage')}
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'manage'
-                ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+                ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                 : 'bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground'
             }`}
           >
@@ -1111,7 +1111,7 @@ export function DatabasePanel({ projectId, onFileOpen, openFileId }: DatabasePan
             onClick={() => setActiveCommand('new')}
             className={`flex-1 flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-all duration-300 ${
               activeCommand === 'new'
-                ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+                ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                 : 'bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground'
             }`}
           >

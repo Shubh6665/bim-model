@@ -909,7 +909,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('assets'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'assets' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'assets' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Package className="h-4 w-4" />
           <span className="font-medium">Assets</span>
@@ -920,7 +920,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('spaces'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'spaces' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'spaces' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Square className="h-4 w-4" />
           <span className="font-medium">Spaces</span>
@@ -931,7 +931,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('maintenance'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'maintenance' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'maintenance' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Wrench className="h-4 w-4" />
           <span className="font-medium">Maintenance</span>
@@ -942,7 +942,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('work-orders'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'work-orders' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'work-orders' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <ClipboardList className="h-4 w-4" />
           <span className="font-medium">Work orders</span>
@@ -953,7 +953,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
           onClick={() => {
             setSection(defaultItemForGroup('upcoming-activities'));
           }}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'upcoming-activities' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${section?.group === 'upcoming-activities' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <CalendarClock className="h-4 w-4" />
           <span className="font-medium">Maintenance activities</span>
@@ -982,7 +982,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'assets', item: 'asset-list' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'asset-list'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -991,7 +991,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'assets', item: 'create-asset' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'create-asset'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1004,7 +1004,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'spaces', item: 'space-list' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'space-list'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1013,7 +1013,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'spaces', item: 'create-space' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'create-space'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1026,7 +1026,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'maintenance', item: 'scheduled' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'scheduled'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1035,7 +1035,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'maintenance', item: 'ticket' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'ticket'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1048,7 +1048,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'work-orders', item: 'service-requests' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'service-requests'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1057,7 +1057,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'work-orders', item: 'reports' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'reports'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1070,7 +1070,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'ongoing' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'ongoing'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1079,7 +1079,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'planned' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'planned'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >
@@ -1088,7 +1088,7 @@ export default function FMPanel({ projectId, viewer, standalone, initialSection,
                   <button
                     onClick={() => { setSection({ group: 'upcoming-activities', item: 'archived' }); if (!isStandalone) setShowModal(true); }}
                     className={`w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${(isStandalone || showModal) && section.item === 'archived'
-                      ? 'bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent hover:border-border/10'
                       }`}
                   >

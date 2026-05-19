@@ -1837,14 +1837,14 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${wireframeMode ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-background/40 text-muted-foreground border-border/10 hover:bg-accent'}`}
+                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${wireframeMode ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-background/40 text-muted-foreground border-border/10 hover:bg-accent'}`}
                     onClick={() => onWireframeModeChange?.(true)}
                     title="Show wireframe (edges only)"
                   >
                     Wireframe
                   </button>
                   <button
-                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${!wireframeMode ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-background/40 text-muted-foreground border-border/10 hover:bg-accent'}`}
+                    className={`px-3 py-2 rounded-lg text-sm border transition-all duration-300 ${!wireframeMode ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'bg-background/40 text-muted-foreground border-border/10 hover:bg-accent'}`}
                     onClick={() => onWireframeModeChange?.(false)}
                     title="Show solid shading"
                   >
@@ -1954,42 +1954,42 @@ export const BIMPanel: React.FC<BIMPanelProps> = ({
       <div className="p-3 space-y-1.5 border-b border-border/5">
         <button
           onClick={() => setActiveCommand('models')}
-          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'models' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'models' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <img src="/icon.svg" alt="Models" className="h-5 w-5 invert" />
           <span className="font-medium">Models</span>
         </button>
         <button
           onClick={() => setActiveCommand('2d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '2d-views' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '2d-views' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Layers className="h-4 w-4" />
           <span className="font-medium">2D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('3d-views')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '3d-views' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === '3d-views' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Box className="h-4 w-4" />
           <span className="font-medium">3D Views</span>
         </button>
         <button
           onClick={() => setActiveCommand('save-view')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'save-view' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'save-view' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Save className="h-4 w-4" />
           <span className="font-medium">Save View</span>
         </button>
         <button
           onClick={() => setActiveCommand('filter-objects')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'filter-objects' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'filter-objects' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Filter className="h-4 w-4" />
           <span className="font-medium">Filter Objects</span>
         </button>
         <button
           onClick={() => setActiveCommand('view-sensors')}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'view-sensors' ? 'bg-blue-500/15 text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-sm transition-all duration-300 ${activeCommand === 'view-sensors' ? 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent hover:text-foreground'}`}
         >
           <Eye className="h-4 w-4" />
           <span className="font-medium">View Sensors</span>

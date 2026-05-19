@@ -167,13 +167,13 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
         <h2 className="text-xl font-semibold text-foreground mb-3 tracking-wide">IoT</h2>
         <div className="flex gap-3 w-full mb-4">
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "all" ? "bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
             onClick={() => handleModeChange("all")}
           >
             All sensors
           </button>
           <button
-            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
+            className={`flex-1 py-2 px-3 text-sm rounded-lg font-medium transition-all duration-300 ${mode === "insert" ? "bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent hover:text-foreground"}`}
             onClick={() => handleModeChange("insert")}
           >
             Insert new sensor
@@ -192,7 +192,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 wireframeMode 
-                  ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
+                  ? "bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
                   : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent"
               }`}
               onClick={() => {
@@ -206,7 +206,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
             <button
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${
                 !wireframeMode 
-                  ? "bg-blue-500/15 text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
+                  ? "bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-400/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
                   : "bg-transparent text-muted-foreground border border-transparent hover:bg-accent"
               }`}
               onClick={() => {
