@@ -1072,13 +1072,13 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-        <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+        <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+        <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
         {yTicks.map((v,i)=>{
           const y=t+innerH*(1 - (v-yMin)/span);
           // Display only the number value, units are shown in tooltip
           const displayValue = v.toFixed(1);
-          return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{displayValue}</text></g>;
+          return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="var(--border)"/><text x={l-4} y={y+3} fontSize={9} fill="var(--foreground)" textAnchor="end">{displayValue}</text></g>;
         })}
         {xLabels.map((labelInfo, index) => (
           <line 
@@ -1087,7 +1087,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             x2={labelInfo.position} 
             y1={t} 
             y2={t+innerH} 
-            stroke="#1f2937"
+            stroke="var(--border)"
             strokeWidth={0.5}
           />
         ))}
@@ -1102,7 +1102,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             x={labelInfo.position} 
             y={h-8} 
             fontSize={10} 
-            fill="#ffffff" 
+            fill="var(--foreground)" 
             textAnchor="middle"
           >
             {labelInfo.label}
@@ -1147,8 +1147,8 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                     width={tooltipWidth} 
                     height={tooltipHeight} 
                     rx={8} 
-                    fill="#1f2937" 
-                    stroke="#374151" 
+                    fill="var(--popover)" 
+                    stroke="var(--border)" 
                     strokeWidth={1.5}
                     opacity={0.98}
                   />
@@ -1158,7 +1158,7 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                     x={tooltipX + tooltipWidth / 2} 
                     y={tooltipY + 22} 
                     fontSize={11.5} 
-                    fill="#9ca3af" 
+                    fill="var(--muted-foreground)" 
                     textAnchor="middle"
                     fontWeight="500"
                   >
@@ -1173,10 +1173,10 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                   
                   {/* First series */}
                   <circle cx={tooltipX + 16} cy={tooltipY + 46} r={4.5} fill={color1} />
-                  <text x={tooltipX + 28} y={tooltipY + 50} fontSize={11.5} fill="#d1d5db" fontWeight="500">
+                  <text x={tooltipX + 28} y={tooltipY + 50} fontSize={11.5} fill="var(--muted-foreground)" fontWeight="500">
                     {label1}
                   </text>
-                  <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 50} fontSize={12.5} fill="#f3f4f6" fontWeight="700" textAnchor="end">
+                  <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 50} fontSize={12.5} fill="var(--foreground)" fontWeight="700" textAnchor="end">
                     {val1Str}
                   </text>
                   
@@ -1184,10 +1184,10 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
                     <>
                       {/* Second series */}
                       <circle cx={tooltipX + 16} cy={tooltipY + 74} r={4.5} fill={color2} />
-                      <text x={tooltipX + 28} y={tooltipY + 78} fontSize={11.5} fill="#d1d5db" fontWeight="500">
+                      <text x={tooltipX + 28} y={tooltipY + 78} fontSize={11.5} fill="var(--muted-foreground)" fontWeight="500">
                         {label2}
                       </text>
-                      <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 78} fontSize={12.5} fill="#f3f4f6" fontWeight="700" textAnchor="end">
+                      <text x={tooltipX + tooltipWidth - 16} y={tooltipY + 78} fontSize={12.5} fill="var(--foreground)" fontWeight="700" textAnchor="end">
                         {val2Str}
                       </text>
                     </>
@@ -1197,9 +1197,9 @@ export default function PVSensorDashboard({ sensor, allSensors, onClose, project
             })()}
             
             {/* Data point circles */}
-            <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series1[hoverIndex]).y} r={5} fill={color1} stroke="#1f2937" strokeWidth={2} />
+            <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series1[hoverIndex]).y} r={5} fill={color1} stroke="var(--border)" strokeWidth={2} />
             {series2.length > 0 && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series2[hoverIndex]).y} r={5} fill={color2} stroke="#1f2937" strokeWidth={2} />
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], series2[hoverIndex]).y} r={5} fill={color2} stroke="var(--border)" strokeWidth={2} />
             )}
           </g>
         )}

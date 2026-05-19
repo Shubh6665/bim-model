@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Class-based dark variant so `dark:` Tailwind utilities respond to
+ * next-themes' `.dark` class on <html> instead of prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ----------------------------------------------------------
  * Semantic Design Tokens
  *
@@ -114,89 +118,88 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* color-scheme follows theme so native UA widgets (scrollbars, autofill,
+ * select popup) adopt the correct palette. */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Ensure date input segments (day/month/year) don't appear greyed out in WebKit browsers */
-input[type="date"] {
-  color: #e5e7eb; /* tailwind gray-200 equivalent in dark UI */
-  -webkit-text-fill-color: #e5e7eb; /* enforce in WebKit */
-}
+/* Form chrome lives in @layer base so utility classes (bg-card, text-foreground,
+ * etc.) win over these defaults. Values themselves are themable via vars. */
+@layer base {
+  input[type="date"] {
+    color: var(--foreground);
+    -webkit-text-fill-color: var(--foreground);
+  }
 
-/* WebKit-specific parts */
-input[type="date"]::-webkit-datetime-edit,
-input[type="date"]::-webkit-datetime-edit-text,
-input[type="date"]::-webkit-datetime-edit-month-field,
-input[type="date"]::-webkit-datetime-edit-day-field,
-input[type="date"]::-webkit-datetime-edit-year-field,
-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-  color: #e5e7eb !important;
-  -webkit-text-fill-color: #e5e7eb !important;
-  opacity: 1 !important; /* avoid dimmed segments */
-}
+  input[type="date"]::-webkit-datetime-edit,
+  input[type="date"]::-webkit-datetime-edit-text,
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-day-field,
+  input[type="date"]::-webkit-datetime-edit-year-field,
+  input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    color: var(--foreground);
+    -webkit-text-fill-color: var(--foreground);
+    opacity: 1;
+  }
 
-/* Also cover focus states explicitly */
-input[type="date"]:focus::-webkit-datetime-edit-month-field,
-input[type="date"]:focus::-webkit-datetime-edit-day-field,
-input[type="date"]:focus::-webkit-datetime-edit-year-field,
-input[type="date"]:focus::-webkit-datetime-edit-text {
-  color: #e5e7eb !important;
-  -webkit-text-fill-color: #e5e7eb !important;
-  opacity: 1 !important;
-}
+  input[type="date"]:focus::-webkit-datetime-edit-month-field,
+  input[type="date"]:focus::-webkit-datetime-edit-day-field,
+  input[type="date"]:focus::-webkit-datetime-edit-year-field,
+  input[type="date"]:focus::-webkit-datetime-edit-text {
+    color: var(--foreground);
+    -webkit-text-fill-color: var(--foreground);
+    opacity: 1;
+  }
 
-/* Calendar icon visible on dark bg */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) opacity(0.8);
-}
+  /* Calendar icon: invert only in dark mode so it stays visible on both surfaces */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.7;
+  }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.8;
+  }
 
-/* Simple, minimal form input styling - no fancy effects on focus */
-input,
-textarea,
-select {
-  outline: none !important;
-  box-shadow: none !important;
-  transition: none !important;
-}
+  /* Strip default focus chrome — preserve original UX choice */
+  input,
+  textarea,
+  select {
+    outline: none;
+    box-shadow: none;
+    transition: none;
+  }
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    box-shadow: none;
+  }
 
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none !important;
-  box-shadow: none !important;
-  background-color: inherit;
-  border-color: inherit;
-}
+  select {
+    background-color: var(--card);
+    color: var(--foreground);
+    border-color: var(--border);
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
 
-/* Dark theme defaults for selects */
-select {
-  background-color: #111827; /* gray-900 */
-  color: #e5e7eb; /* gray-200 */
-  border-color: #374151; /* gray-700 */
-  -webkit-text-fill-color: #e5e7eb; /* enforce in WebKit */
-  color-scheme: dark; /* hint UA to render popups in dark */
-  -webkit-appearance: none; /* reduce UA overrides */
-  -moz-appearance: none;
-  appearance: none;
-}
+  select option,
+  select optgroup {
+    color: var(--foreground);
+    background-color: var(--card);
+  }
 
-/* Ensure dropdown options use dark theme */
-select option,
-select optgroup {
-  color: #e5e7eb; /* white/gray text */
-  background-color: #111827; /* black/dark background */
-}
-
-/* Hover/active styling where supported */
-select option:hover {
-  background-color: #1f2937; /* gray-800 */
-}
-
-/* Selected option styling */
-select option:checked {
-  color: #ffffff;
-  background: #1f2937; /* gray-800 */
+  select option:hover,
+  select option:checked {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
 }

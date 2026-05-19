@@ -449,7 +449,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           <path d={outerPath} stroke="#ef4444" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" strokeDashoffset="-75" />
           
           {/* Inner thick ring - background track */}
-          <path d={innerPath} stroke="#1f2937" strokeWidth={innerStroke} fill="none" />
+          <path d={innerPath} stroke="var(--border)" strokeWidth={innerStroke} fill="none" />
           
           {/* Inner thick ring - progress fill */}
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
@@ -792,19 +792,19 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-          <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-          <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+          <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+          <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
           {/* Y-axis grid lines and labels */}
-          {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{v.toFixed(0)}</text></g>;})}
+          {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="var(--border)"/><text x={l-4} y={y+3} fontSize={9} fill="var(--foreground)" textAnchor="end">{v.toFixed(0)}</text></g>;})}
           {/* X-axis grid lines aligned with labels */}
           {xLabels.map((labelInfo, index) => (
-            <line 
+            <line
               key={index}
-              x1={labelInfo.position} 
-              x2={labelInfo.position} 
-              y1={t} 
-              y2={t+innerH} 
-              stroke="#1f2937"
+              x1={labelInfo.position}
+              x2={labelInfo.position}
+              y1={t}
+              y2={t+innerH}
+              stroke="var(--border)"
               strokeWidth={0.5}
             />
           ))}
@@ -815,12 +815,12 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
           
           {/* Render all X-axis labels */}
           {xLabels.map((labelInfo, index) => (
-            <text 
+            <text
               key={index}
-              x={labelInfo.position} 
-              y={h-8} 
-              fontSize={10} 
-              fill="#ffffff" 
+              x={labelInfo.position}
+              y={h-8}
+              fontSize={10}
+              fill="var(--foreground)"
               textAnchor="middle"
             >
               {labelInfo.label}
@@ -849,8 +849,8 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 width={120} 
                 height={compareSeries ? (mode === 'combined' ? 110 : 75) : (mode === 'combined' ? 70 : 50)} 
                 rx={6} 
-                fill="#1f2937" 
-                stroke="#374151" 
+                fill="var(--popover)" 
+                stroke="var(--border)" 
                 strokeWidth={1.5}
                 opacity={0.95}
               />
@@ -860,7 +860,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                 x={hoverX > l + innerW / 2 ? hoverX - 70 : hoverX + 70} 
                 y={t + 26} 
                 fontSize={10} 
-                fill="#9ca3af" 
+                fill="var(--muted-foreground)" 
                 textAnchor="middle"
               >
                 {(() => {
@@ -894,7 +894,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
                     y={t + 45} 
                     fontSize={10} 
-                    fill="#f3f4f6" 
+                    fill="var(--foreground)" 
                     fontWeight="600"
                   >
                     {data.temp?.[hoverIndex]?.toFixed(1) ?? "—"}°C
@@ -914,7 +914,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} 
                     y={mode === 'combined' ? t + 63 : t + 45} 
                     fontSize={10} 
-                    fill="#f3f4f6" 
+                    fill="var(--foreground)" 
                     fontWeight="600"
                   >
                     {data.rh?.[hoverIndex]?.toFixed(1) ?? "—"}%
@@ -931,7 +931,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                     x2={hoverX > l + innerW / 2 ? hoverX - 20 : hoverX + 120} 
                     y1={mode === 'combined' ? t + 72 : t + 54} 
                     y2={mode === 'combined' ? t + 72 : t + 54} 
-                    stroke="#374151" 
+                    stroke="var(--border)" 
                     strokeWidth={1}
                   />
                   
@@ -984,7 +984,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   cy={mapPoint(xs[hoverIndex], data.temp![hoverIndex]).y} 
                   r={4} 
                   fill="#ef4444" 
-                  stroke="#1f2937" 
+                  stroke="var(--border)" 
                   strokeWidth={2}
                 />
               )}
@@ -995,7 +995,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                   cy={mapPoint(xs[hoverIndex], data.rh![hoverIndex]).y} 
                   r={4} 
                   fill="#3b82f6" 
-                  stroke="#1f2937" 
+                  stroke="var(--border)" 
                   strokeWidth={2}
                 />
               )}
@@ -1009,7 +1009,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                       cy={mapPoint(xs[hoverIndex], compareSeries.temp[hoverIndex]).y} 
                       r={4} 
                       fill="#f97316" 
-                      stroke="#1f2937" 
+                      stroke="var(--border)" 
                       strokeWidth={2}
                     />
                   )}
@@ -1020,7 +1020,7 @@ export default function SensorGraphsDashboard({ sensor, allSensors, onClose, pro
                       cy={mapPoint(xs[hoverIndex], compareSeries.rh[hoverIndex]).y} 
                       r={4} 
                       fill="#10b981" 
-                      stroke="#1f2937" 
+                      stroke="var(--border)" 
                       strokeWidth={2}
                     />
                   )}

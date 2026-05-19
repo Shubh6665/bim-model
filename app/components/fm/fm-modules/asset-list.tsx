@@ -2662,7 +2662,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
                     <button
                       onClick={(e) => { e.stopPropagation(); openEditAsset(r); }}
                       title="Edit Asset"
-                      className="inline-flex items-center justify-center h-6 px-2 rounded border text-[11px] bg-amber-800/30 border-amber-700 text-amber-200 hover:bg-amber-800/50"
+                      className="inline-flex items-center justify-center h-6 px-2 rounded border text-[11px] bg-amber-100 border-amber-400 text-amber-900 hover:bg-amber-200 dark:bg-amber-800/30 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-800/50"
                     >Edit</button>
                     {r.source === 'MANUAL' && (
                       <>
@@ -2911,7 +2911,7 @@ const AssetList: React.FC<AssetListProps> = ({ projectId, viewer, onScheduleMain
         <div className="px-2 py-1.5 border-t border-border flex justify-end gap-2">
           <button
             onClick={startSequentialEdit}
-            className="text-[11px] py-1 px-2 rounded border border-amber-500 bg-amber-600/20 hover:bg-amber-600/40 text-amber-200 transition"
+            className="text-[11px] py-1 px-2 rounded border border-amber-400 bg-amber-100 hover:bg-amber-200 text-amber-900 dark:border-amber-500 dark:bg-amber-600/20 dark:hover:bg-amber-600/40 dark:text-amber-200 transition"
             title="Edit selected assets one by one"
           >
             Edit Selected ({selectedIds.size})

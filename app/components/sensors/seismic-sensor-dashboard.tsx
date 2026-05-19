@@ -452,7 +452,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
           <path d={outerPath} stroke="#38bdf8" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" />
           <path d={outerPath} stroke="#22c55e" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="50 100" strokeDashoffset="-25" />
           <path d={outerPath} stroke="#ef4444" strokeWidth={outerStroke} fill="none" strokeLinecap="round" pathLength="100" strokeDasharray="25 100" strokeDashoffset="-75" />
-          <path d={innerPath} stroke="#1f2937" strokeWidth={innerStroke} fill="none" />
+          <path d={innerPath} stroke="var(--border)" strokeWidth={innerStroke} fill="none" />
           <path d={innerPath} stroke={color} strokeWidth={innerStroke} fill="none" pathLength="100" strokeDasharray={`${pct * 100} 100`} />
           <text x={centerX} y={centerY - 15} textAnchor="middle" className="fill-foreground" style={{ fontSize: small ? '16px' : '24px', fontWeight: 800 }}>
             {Number.isFinite(v) ? `${v.toFixed(isPercentUnit ? 0 : unit.includes('m/s') ? 4 : 2)}${unit}` : `—${unit}`}
@@ -778,9 +778,9 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-        <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
-        {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="#1f2937"/><text x={l-4} y={y+3} fontSize={9} fill="#ffffff" textAnchor="end">{v.toFixed(2)}</text></g>;})}
+        <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+        <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
+        {yTicks.map((v,i)=>{const y=t+innerH*(1 - (v-yMin)/span);return <g key={i}><line x1={l} x2={l+innerW} y1={y} y2={y} stroke="var(--border)"/><text x={l-4} y={y+3} fontSize={9} fill="var(--foreground)" textAnchor="end">{v.toFixed(2)}</text></g>;})}
         {xLabels.map((labelInfo, index) => (
           <line 
             key={index}
@@ -788,7 +788,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             x2={labelInfo.position} 
             y1={t} 
             y2={t+innerH} 
-            stroke="#1f2937"
+            stroke="var(--border)"
             strokeWidth={0.5}
           />
         ))}
@@ -805,7 +805,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             x={labelInfo.position} 
             y={h-8} 
             fontSize={10} 
-            fill="#ffffff" 
+            fill="var(--foreground)" 
             textAnchor="middle"
           >
             {labelInfo.label}
@@ -831,8 +831,8 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
               width={120} 
               height={compareSeries ? (mode === 'combined' ? 110 : 75) : (mode === 'combined' ? 70 : 50)} 
               rx={6} 
-              fill="#1f2937" 
-              stroke="#374151" 
+              fill="var(--popover)" 
+              stroke="var(--border)" 
               strokeWidth={1.5}
               opacity={0.95}
             />
@@ -841,7 +841,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
               x={hoverX > l + innerW / 2 ? hoverX - 70 : hoverX + 70} 
               y={t + 26} 
               fontSize={10} 
-              fill="#9ca3af" 
+              fill="var(--muted-foreground)" 
               textAnchor="middle"
             >
               {(() => {
@@ -865,7 +865,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             {(mode === 'combined' || mode === 'magnitude') && data.magnitude && data.magnitude[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill="#ef4444" />
-                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
+                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="var(--foreground)" fontWeight="600">
                   M {data.magnitude[hoverIndex].toFixed(2)}
                 </text>
               </>
@@ -874,7 +874,7 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             {(mode === 'combined' || mode === 'acceleration') && effectiveAccelerationData && effectiveAccelerationData[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={mode === 'combined' ? t + 60 : t + 42} r={3} fill="#3b82f6" />
-                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={mode === 'combined' ? t + 63 : t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
+                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={mode === 'combined' ? t + 63 : t + 45} fontSize={10} fill="var(--foreground)" fontWeight="600">
                   {effectiveAccelerationData[hoverIndex].toFixed(3)} m/s²
                 </text>
               </>
@@ -883,22 +883,22 @@ export default function SeismicSensorDashboard({ sensor, allSensors, onClose, pr
             {mode === 'frequency' && data.frequency && data.frequency[hoverIndex] !== undefined && (
               <>
                 <circle cx={hoverX > l + innerW / 2 ? hoverX - 110 : hoverX + 30} cy={t + 42} r={3} fill="#f97316" />
-                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="#f3f4f6" fontWeight="600">
+                <text x={hoverX > l + innerW / 2 ? hoverX - 100 : hoverX + 40} y={t + 45} fontSize={10} fill="var(--foreground)" fontWeight="600">
                   {data.frequency[hoverIndex].toFixed(2)} Hz
                 </text>
               </>
             )}
             
             {(mode === 'combined' || mode === 'magnitude') && data.magnitude && data.magnitude[hoverIndex] !== undefined && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.magnitude[hoverIndex]).y} r={4} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.magnitude[hoverIndex]).y} r={4} fill="#ef4444" stroke="var(--border)" strokeWidth={2} />
             )}
             
             {(mode === 'combined' || mode === 'acceleration') && effectiveAccelerationData && effectiveAccelerationData[hoverIndex] !== undefined && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], mode === 'combined' ? effectiveAccelerationData[hoverIndex] * 3 : effectiveAccelerationData[hoverIndex]).y} r={4} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], mode === 'combined' ? effectiveAccelerationData[hoverIndex] * 3 : effectiveAccelerationData[hoverIndex]).y} r={4} fill="#3b82f6" stroke="var(--border)" strokeWidth={2} />
             )}
             
             {mode === 'frequency' && data.frequency && data.frequency[hoverIndex] !== undefined && (
-              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.frequency[hoverIndex]).y} r={4} fill="#f97316" stroke="#1f2937" strokeWidth={2} />
+              <circle cx={hoverX} cy={mapPoint(xs[hoverIndex], data.frequency[hoverIndex]).y} r={4} fill="#f97316" stroke="var(--border)" strokeWidth={2} />
             )}
           </g>
         )}

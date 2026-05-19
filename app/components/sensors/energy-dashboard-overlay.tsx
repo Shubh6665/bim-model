@@ -542,15 +542,15 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   
                   return (
                     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL1HoverIdx(null)} style={{cursor:'crosshair'}}>
-                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
                       {/* Y-axis grid and labels */}
                       {[50,40,30,20,10,0].map((val, i) => {
                         const y = t + innerH * (1 - val / max);
                         return (
                           <g key={i}>
-                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
-                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="var(--border)" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="var(--foreground)" textAnchor="end">{val}</text>
                           </g>
                         );
                       })}
@@ -560,8 +560,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         const label = l1Scale === "D" ? `${i}:00` : l1Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l1Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
                         return (
                           <g key={i}>
-                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
-                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="var(--border)" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="var(--foreground)" textAnchor="middle">{label}</text>
                           </g>
                         );
                       })}
@@ -574,10 +574,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         return (
                           <g>
                             <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="var(--popover)" stroke="var(--border)" strokeWidth={1.5} opacity={0.95} />
                             <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#ef4444" />
-                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l1HoverIdx].toFixed(1)} kWh</text>
-                            <circle cx={hoverX} cy={hoverY} r={4} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="var(--foreground)" fontWeight="700">{values[l1HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#ef4444" stroke="var(--border)" strokeWidth={2} />
                           </g>
                         );
                       })()}
@@ -626,15 +626,15 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   
                   return (
                     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL2HoverIdx(null)} style={{cursor:'crosshair'}}>
-                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
                       {/* Y-axis grid and labels */}
                       {[50,40,30,20,10,0].map((val, i) => {
                         const y = t + innerH * (1 - val / max);
                         return (
                           <g key={i}>
-                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
-                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="var(--border)" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="var(--foreground)" textAnchor="end">{val}</text>
                           </g>
                         );
                       })}
@@ -644,8 +644,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         const label = l2Scale === "D" ? `${i}:00` : l2Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l2Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
                         return (
                           <g key={i}>
-                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
-                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="var(--border)" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="var(--foreground)" textAnchor="middle">{label}</text>
                           </g>
                         );
                       })}
@@ -658,10 +658,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         return (
                           <g>
                             <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="var(--popover)" stroke="var(--border)" strokeWidth={1.5} opacity={0.95} />
                             <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#3b82f6" />
-                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l2HoverIdx].toFixed(1)} kWh</text>
-                            <circle cx={hoverX} cy={hoverY} r={4} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="var(--foreground)" fontWeight="700">{values[l2HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#3b82f6" stroke="var(--border)" strokeWidth={2} />
                           </g>
                         );
                       })()}
@@ -710,15 +710,15 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                   
                   return (
                     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full rounded-xl" onMouseMove={handleMove} onMouseLeave={() => setL3HoverIdx(null)} style={{cursor:'crosshair'}}>
-                      <rect x={0} y={0} width={w} height={h} fill="#0a0a0a" />
-                      <rect x={l} y={t} width={innerW} height={innerH} fill="#000000" stroke="#1f2937" />
+                      <rect x={0} y={0} width={w} height={h} fill="var(--card)" />
+                      <rect x={l} y={t} width={innerW} height={innerH} fill="var(--background)" stroke="var(--border)" />
                       {/* Y-axis grid and labels */}
                       {[50,40,30,20,10,0].map((val, i) => {
                         const y = t + innerH * (1 - val / max);
                         return (
                           <g key={i}>
-                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="#1f2937" />
-                            <text x={l - 4} y={y + 3} fontSize={9} fill="#ffffff" textAnchor="end">{val}</text>
+                            <line x1={l} x2={l + innerW} y1={y} y2={y} stroke="var(--border)" />
+                            <text x={l - 4} y={y + 3} fontSize={9} fill="var(--foreground)" textAnchor="end">{val}</text>
                           </g>
                         );
                       })}
@@ -728,8 +728,8 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         const label = l3Scale === "D" ? `${i}:00` : l3Scale === "W" ? ["M","T","W","T","F","S","S"][i] : l3Scale === "Y" ? ["J","F","M","A","M","J","J","A","S","O","N","D"][i] : String(i+1);
                         return (
                           <g key={i}>
-                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="#1f2937" strokeWidth={0.5} />
-                            <text x={x} y={h - 8} fontSize={10} fill="#ffffff" textAnchor="middle">{label}</text>
+                            <line x1={x} x2={x} y1={t} y2={t + innerH} stroke="var(--border)" strokeWidth={0.5} />
+                            <text x={x} y={h - 8} fontSize={10} fill="var(--foreground)" textAnchor="middle">{label}</text>
                           </g>
                         );
                       })}
@@ -742,10 +742,10 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                         return (
                           <g>
                             <line x1={hoverX} x2={hoverX} y1={t} y2={t + innerH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
-                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                            <rect x={hoverX > w / 2 ? hoverX - 125 : hoverX + 10} y={t + 10} width={115} height={42} rx={6} fill="var(--popover)" stroke="var(--border)" strokeWidth={1.5} opacity={0.95} />
                             <circle cx={hoverX > w / 2 ? hoverX - 108 : hoverX + 27} cy={t + 31} r={4} fill="#fbbf24" />
-                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="#f3f4f6" fontWeight="700">{values[l3HoverIdx].toFixed(1)} kWh</text>
-                            <circle cx={hoverX} cy={hoverY} r={4} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
+                            <text x={hoverX > w / 2 ? hoverX - 95 : hoverX + 40} y={t + 35} fontSize={16} fill="var(--foreground)" fontWeight="700">{values[l3HoverIdx].toFixed(1)} kWh</text>
+                            <circle cx={hoverX} cy={hoverY} r={4} fill="#fbbf24" stroke="var(--border)" strokeWidth={2} />
                           </g>
                         );
                       })()}
@@ -819,7 +819,7 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                             style={{ cursor: 'crosshair' }}
                           >
                             {[0,1,2,3,4,5].map(i => (
-                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="#374151" opacity="0.5" strokeWidth={1} />
+                              <line key={i} x1={0} x2={width} y1={(i*(height/5))} y2={(i*(height/5))} stroke="var(--border)" opacity="0.5" strokeWidth={1} />
                             ))}
                             {/* lines */}
                             <path d={d1} fill="none" stroke="#ef4444" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
@@ -838,23 +838,23 @@ export default function EnergyDashboardOverlay({ sensor, onClose, projectLocatio
                                   {/* Crosshair line */}
                                   <line x1={x} x2={x} y1={0} y2={height} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.8} />
                                   {/* Tooltip background - spacious */}
-                                  <rect x={x < width/2 ? x + 10 : x - 170} y={15} width={160} height={105} rx={8} fill="#1f2937" stroke="#374151" strokeWidth={1.5} opacity={0.95} />
+                                  <rect x={x < width/2 ? x + 10 : x - 170} y={15} width={160} height={105} rx={8} fill="var(--popover)" stroke="var(--border)" strokeWidth={1.5} opacity={0.95} />
                                   {/* L1 */}
                                   <circle cx={x < width/2 ? x + 25 : x - 155} cy={40} r={5} fill="#ef4444" />
-                                  <text x={x < width/2 ? x + 38 : x - 142} y={45} fontSize={16} fill="#9ca3af" fontWeight="600">L1:</text>
-                                  <text x={x < width/2 ? x + 160 : x - 20} y={45} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={45} fontSize={16} fill="var(--muted-foreground)" fontWeight="600">L1:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={45} fontSize={18} fill="var(--foreground)" fontWeight="700" textAnchor="end">{l1Values[idx].toFixed(1)} kWh</text>
                                   {/* L2 */}
                                   <circle cx={x < width/2 ? x + 25 : x - 155} cy={70} r={5} fill="#3b82f6" />
-                                  <text x={x < width/2 ? x + 38 : x - 142} y={75} fontSize={16} fill="#9ca3af" fontWeight="600">L2:</text>
-                                  <text x={x < width/2 ? x + 160 : x - 20} y={75} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={75} fontSize={16} fill="var(--muted-foreground)" fontWeight="600">L2:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={75} fontSize={18} fill="var(--foreground)" fontWeight="700" textAnchor="end">{l2Values[idx].toFixed(1)} kWh</text>
                                   {/* L3 */}
                                   <circle cx={x < width/2 ? x + 25 : x - 155} cy={100} r={5} fill="#fbbf24" />
-                                  <text x={x < width/2 ? x + 38 : x - 142} y={105} fontSize={16} fill="#9ca3af" fontWeight="600">L3:</text>
-                                  <text x={x < width/2 ? x + 160 : x - 20} y={105} fontSize={18} fill="#f3f4f6" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
+                                  <text x={x < width/2 ? x + 38 : x - 142} y={105} fontSize={16} fill="var(--muted-foreground)" fontWeight="600">L3:</text>
+                                  <text x={x < width/2 ? x + 160 : x - 20} y={105} fontSize={18} fill="var(--foreground)" fontWeight="700" textAnchor="end">{l3Values[idx].toFixed(1)} kWh</text>
                                   {/* Data point circles */}
-                                  <circle cx={x} cy={y1} r={5} fill="#ef4444" stroke="#1f2937" strokeWidth={2} />
-                                  <circle cx={x} cy={y2} r={5} fill="#3b82f6" stroke="#1f2937" strokeWidth={2} />
-                                  <circle cx={x} cy={y3} r={5} fill="#fbbf24" stroke="#1f2937" strokeWidth={2} />
+                                  <circle cx={x} cy={y1} r={5} fill="#ef4444" stroke="var(--border)" strokeWidth={2} />
+                                  <circle cx={x} cy={y2} r={5} fill="#3b82f6" stroke="var(--border)" strokeWidth={2} />
+                                  <circle cx={x} cy={y3} r={5} fill="#fbbf24" stroke="var(--border)" strokeWidth={2} />
                                 </g>
                               );
                             })()}

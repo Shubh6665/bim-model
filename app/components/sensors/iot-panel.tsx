@@ -357,7 +357,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           
                           {/* More Info Menu */}
                           {showMoreInfo === sensor.id && (
-                            <div className="mt-2 p-2 bg-gradient-to-br from-gray-800 to-gray-900 rounded-md border border-border shadow">
+                            <div className="mt-2 p-2 bg-popover rounded-md border border-border shadow">
                               <div className="space-y-1">
                                 <button
                                   onClick={(e) => {
@@ -405,7 +405,7 @@ export function IoTPanel({ onInsertSensor, insertMode, onSensorClick, wireframeM
                           
                           {/* Detailed Info Panel */}
                           {showInfoDetail === sensor.id && (
-                            <div className="mt-3 p-4 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-border shadow-lg">
+                            <div className="mt-3 p-4 bg-popover rounded-lg border border-border shadow-lg">
                               <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
