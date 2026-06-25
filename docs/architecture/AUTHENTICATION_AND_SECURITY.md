@@ -820,7 +820,7 @@ HTML email templates for all notification types with responsive design and brand
 
 | Document                                                          | Description                                   |
 | ----------------------------------------------------------------- | --------------------------------------------- |
-| [Project Overview](./PROJECT_OVERVIEW.md)                          | High-level project summary                     |
+| [Project Overview](../../README.md)                          | High-level project summary                     |
 | [Backend API Reference](./BACKEND_API_REFERENCE.md)                | All API endpoints including auth routes        |
 | [Database Architecture](./DATABASE_ARCHITECTURE.md)                | Auth-related collections and models            |
 | [Infrastructure & DevOps](./INFRASTRUCTURE_AND_DEVOPS.md)          | Deployment and environment configuration       |

@@ -721,7 +721,7 @@ All API routes follow a consistent error response format:
 
 | Document                                                          | Description                                   |
 | ----------------------------------------------------------------- | --------------------------------------------- |
-| [Project Overview](./PROJECT_OVERVIEW.md)                          | High-level project summary                     |
+| [Project Overview](../../README.md)                          | High-level project summary                     |
 | [Database Architecture](./DATABASE_ARCHITECTURE.md)                | MongoDB collections and data models            |
 | [Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)      | Auth providers, RBAC, security details         |
 | [Frontend Architecture](./FRONTEND_ARCHITECTURE.md)                | Pages, components, and UI                      |

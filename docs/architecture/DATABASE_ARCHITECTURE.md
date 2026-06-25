@@ -698,7 +698,7 @@ Every status change, field update, or action creates:
 
 | Document                                                          | Description                                   |
 | ----------------------------------------------------------------- | --------------------------------------------- |
-| [Project Overview](./PROJECT_OVERVIEW.md)                          | High-level project summary                     |
+| [Project Overview](../../README.md)                          | High-level project summary                     |
 | [Backend API Reference](./BACKEND_API_REFERENCE.md)                | API endpoints that interact with these collections |
 | [Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)      | Auth-related collections and security          |
 

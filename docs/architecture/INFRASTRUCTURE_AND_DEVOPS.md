@@ -630,7 +630,7 @@ Not configured:
 
 | Document                                                          | Description                                   |
 | ----------------------------------------------------------------- | --------------------------------------------- |
-| [Project Overview](./PROJECT_OVERVIEW.md)                          | High-level project summary and tech stack      |
+| [Project Overview](../../README.md)                          | High-level project summary and tech stack      |
 | [Backend API Reference](./BACKEND_API_REFERENCE.md)                | All 126 API endpoints                          |
 | [Database Architecture](./DATABASE_ARCHITECTURE.md)                | MongoDB collections and indexes                |
 | [Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)      | Security configuration and recommendations     |

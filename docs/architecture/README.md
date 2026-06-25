@@ -8,7 +8,7 @@
 
 | # | Document | Description | Key Metrics |
 |---|----------|-------------|-------------|
-| 1 | [Project Overview](./PROJECT_OVERVIEW.md) | High-level summary of the entire platform — what it does, tech stack, architecture diagram, project structure, and getting started guide. | 45+ dependencies, 25 routes, 126 endpoints |
+| 1 | [Project Overview](../../README.md) | High-level summary of the entire platform — what it does, tech stack, architecture diagram, project structure, and getting started guide. | 45+ dependencies, 25 routes, 126 endpoints |
 | 2 | [Backend API Reference](./BACKEND_API_REFERENCE.md) | Every API endpoint documented with methods, paths, auth requirements, request/response formats, and data flow diagrams. | 126 endpoints across 12 modules |
 | 3 | [Database Architecture](./DATABASE_ARCHITECTURE.md) | All 27 MongoDB collections with field-level schemas, entity relationships, indexing strategy, caching, and data flow patterns. | 27 collections, 20 indexes |
 | 4 | [Frontend Architecture](./FRONTEND_ARCHITECTURE.md) | React component tree, page routing, state management, 3D visualization engine, IoT dashboards, FM UI, and design system. | 41+ components, 25 pages, 570+ hooks |
@@ -56,7 +56,7 @@
 
 **For a complete understanding, read in this order:**
 
-1. **[Project Overview](./PROJECT_OVERVIEW.md)** — Start here. Understand what the platform does and how it's structured.
+1. **[Project Overview](../../README.md)** — Start here. Understand what the platform does and how it's structured.
 2. **[Database Architecture](./DATABASE_ARCHITECTURE.md)** — Understand the data models that power everything.
 3. **[Backend API Reference](./BACKEND_API_REFERENCE.md)** — See how the API exposes the data.
 4. **[Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)** — Understand who can access what.

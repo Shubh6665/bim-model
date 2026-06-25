@@ -622,7 +622,7 @@ These services run in the browser and handle complex client-side operations:
 
 | Document                                                          | Description                                   |
 | ----------------------------------------------------------------- | --------------------------------------------- |
-| [Project Overview](./PROJECT_OVERVIEW.md)                          | High-level project summary                     |
+| [Project Overview](../../README.md)                          | High-level project summary                     |
 | [Backend API Reference](./BACKEND_API_REFERENCE.md)                | API endpoints the frontend calls               |
 | [Authentication & Security](./AUTHENTICATION_AND_SECURITY.md)      | Auth flow and RBAC the UI enforces             |
 | [Database Architecture](./DATABASE_ARCHITECTURE.md)                | Data models behind the UI                      |
