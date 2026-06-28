@@ -10,8 +10,8 @@ This document provides detailed pricing information for all API keys used in you
 
 ## 1. GOOGLE AUTHENTICATION (OAuth2)
 **API Keys in Use:**
-- `GOOGLE_CLIENT_ID`: 857098696097-t9cj51r51vr0qbgtefl15omm3j4kuh6l.apps.googleusercontent.com
-- `GOOGLE_CLIENT_SECRET`: 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
+- `GOOGLE_CLIENT_ID`: ...
+- `GOOGLE_CLIENT_SECRET`: ...
 
 ### Pricing Details:
 | Aspect | Details |
@@ -91,9 +91,9 @@ If you use 200,000 Autocomplete requests in one month:
 
 ## 3. AUTODESK FORGE / APS (Autodesk Platform Services)
 **API Keys in Use:**
-- `FORGE_CLIENT_ID`: wlm2ECLrJcUhZp4UiSPmItj1wtPoQGp5aU3btKfQQdz9a2bE
-- `FORGE_CLIENT_SECRET`: 3r30Ij1eM4nCqitXT6ZG8N3OlY72ZC91ADSvEJuW836OKUA6YzSAStsW9biIApC6
-- `FORGE_BUCKET_KEY`: bim-viewer-pro-bucket
+- `FORGE_CLIENT_ID`: ...
+- `FORGE_CLIENT_SECRET`: ...
+- `FORGE_BUCKET_KEY`: ...
 
 ### Pricing Model: **Flex Tokens (Pay-As-You-Go)**
 
@@ -160,8 +160,8 @@ Storage (5GB): FREE under trial, paid tier costs additional
 
 ## 4. MONGODB ATLAS (Database)
 **Connection String in Use:**
-- `MONGODB_URI`: mongodb+srv://weekendsync:FqTnvl6KzUhMwYIU@weekendsync.9hrxv2m.mongodb.net
-- `MONGODB_DB`: bim-client
+- `MONGODB_URI`: ...
+- `MONGODB_DB`: ...
 
 ### Pricing Tiers:
 
@@ -236,10 +236,10 @@ Storage (5GB): FREE under trial, paid tier costs additional
 
 ## 5. SMTP/EMAIL (Gmail)
 **Configuration:**
-- `SMTP_HOST`: smtp.gmail.com
-- `SMTP_PORT`: 465
-- `SMTP_USER`: shubhsingh0607@gmail.com
-- `SMTP_PASS`: ovcp sbrc fhzo idie (App password)
+- `SMTP_HOST`: ...
+- `SMTP_PORT`: ...
+- `SMTP_USER`: ...
+- `SMTP_PASS`: ...
 
 ### Pricing:
 | Aspect | Details |
@@ -337,8 +337,8 @@ TOTAL:                         $920-1,420/month
 5. Set budget alerts (recommended)
 
 ### MongoDB - Current Status:
-- Database: `bim-client`
-- Cluster: `weekendsync.9hrxv2m.mongodb.net`
+- Database: `...`
+- Cluster: `...`
 - Free Tier Status: Verify at https://cloud.mongodb.com/v2/pricing
 
 ### Autodesk Forge - After Trial:
